@@ -49,7 +49,11 @@ in {
     requirementsList =
       pyproject.build-system.requires
       or []
-      ++ pyproject.project.dependencies or [];
+      ++ pyproject.project.dependencies or []
+      ++ pyproject.project.optional-dependencies.dev or []
+      # ++ pyproject.project.optional-dependencies.mpi or []
+      ++ pyproject.project.optional-dependencies.tutorials or []
+      ++ [ "cython>=3.0.0" ];
     flattenDependencies = true;
 
   };
