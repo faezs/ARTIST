@@ -15,7 +15,7 @@ from artist.util import set_logger_config
 # If you have already generated the tutorial scenario yourself, you can leave this boolean as False. If not, set it to
 # true and a pre-generated scenario file will be downloaded for this tutorial!
 DOWNLOAD_DATA = False
-scenario_file = pathlib.Path("please/insert/the/path/to/the/scenario/here/name.h5")
+scenario_file = pathlib.Path("./tutorials/data/scenarios/test_scenario_paint_single_heliostat_more_rays.h5")
 
 if DOWNLOAD_DATA:
     url = "https://drive.google.com/uc?export=download&id=1X0bMmzwdlnk88bCaYM_sNUGaMxnMaRG8"

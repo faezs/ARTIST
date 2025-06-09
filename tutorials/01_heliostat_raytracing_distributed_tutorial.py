@@ -18,7 +18,7 @@ set_logger_config()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Specify the path to your scenario.h5 file.
-scenario_path = pathlib.Path("please/insert/the/path/to/the/scenario/here/name.h5")
+scenario_path = pathlib.Path("./tutorials/data/scenarios/test_scenario_paint_single_heliostat_more_rays.h5")
 
 # The distributed environment is setup and destroyed using a Generator object.
 environment_generator = utils.setup_distributed_environment(device=device)
