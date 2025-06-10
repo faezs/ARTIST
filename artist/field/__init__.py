@@ -1,29 +1,27 @@
 """Bundle all classes that represent physical objects in ARTIST."""
 
-from artist.field.actuator import Actuator
-from artist.field.actuator_array import ActuatorArray
-from artist.field.actuator_ideal import IdealActuator
-from artist.field.actuator_linear import LinearActuator
+from artist.field.actuators import Actuators
+from artist.field.actuators_ideal import IdealActuators
+from artist.field.actuators_linear import LinearActuators
 from artist.field.facets_nurbs import NurbsFacet
-from artist.field.heliostat import Heliostat
 from artist.field.heliostat_field import HeliostatField
+from artist.field.heliostat_group import HeliostatGroup
+from artist.field.heliostat_group_rigid_body import HeliostatGroupRigidBody
 from artist.field.kinematic import Kinematic
 from artist.field.kinematic_rigid_body import RigidBody
 from artist.field.surface import Surface
-from artist.field.tower_target_area import TargetArea
-from artist.field.tower_target_area_array import TargetAreaArray
+from artist.field.tower_target_areas import TowerTargetAreas
 
 __all__ = [
-    "Actuator",
-    "IdealActuator",
-    "LinearActuator",
-    "ActuatorArray",
+    "Actuators",
+    "IdealActuators",
+    "LinearActuators",
     "Surface",
     "NurbsFacet",
-    "Heliostat",
     "HeliostatField",
-    "TargetArea",
-    "TargetAreaArray",
+    "HeliostatGroup",
+    "HeliostatGroupRigidBody",
+    "TowerTargetAreas",
     "Kinematic",
     "RigidBody",
 ]

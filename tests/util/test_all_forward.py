@@ -4,18 +4,17 @@ import pytest
 import torch
 from pytest_mock import MockerFixture
 
-from artist.field.actuator import Actuator
-from artist.field.actuator_array import ActuatorArray
-from artist.field.actuator_ideal import IdealActuator
-from artist.field.actuator_linear import LinearActuator
+from artist.field.actuators import Actuators
+from artist.field.actuators_ideal import IdealActuators
+from artist.field.actuators_linear import LinearActuators
 from artist.field.facets_nurbs import NurbsFacet
-from artist.field.heliostat import Heliostat
 from artist.field.heliostat_field import HeliostatField
+from artist.field.heliostat_group import HeliostatGroup
+from artist.field.heliostat_group_rigid_body import HeliostatGroupRigidBody
 from artist.field.kinematic import Kinematic
 from artist.field.kinematic_rigid_body import RigidBody
 from artist.field.surface import Surface
-from artist.field.tower_target_area import TargetArea
-from artist.field.tower_target_area_array import TargetAreaArray
+from artist.field.tower_target_areas import TowerTargetAreas
 from artist.scene.light_source import LightSource
 from artist.scene.light_source_array import LightSourceArray
 from artist.scene.sun import Sun
@@ -25,15 +24,13 @@ from artist.util.nurbs import NURBSSurface
 @pytest.mark.parametrize(
     "module",
     [
-        ActuatorArray,
-        LinearActuator,
-        IdealActuator,
+        LinearActuators,
+        IdealActuators,
         NurbsFacet,
         HeliostatField,
-        Heliostat,
+        HeliostatGroupRigidBody,
         RigidBody,
-        TargetAreaArray,
-        TargetArea,
+        TowerTargetAreas,
         Surface,
         LightSourceArray,
         Sun,
@@ -78,9 +75,10 @@ def test_forward_errors_of_subclasses(
 @pytest.mark.parametrize(
     "module",
     [
-        Actuator,
+        Actuators,
         Kinematic,
         LightSource,
+        HeliostatGroup,
     ],
 )
 def test_forward_errors_of_base_classes(

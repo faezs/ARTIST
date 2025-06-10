@@ -41,11 +41,15 @@ class LightSource(torch.nn.Module):
             The number of sent-out rays sampled from the sun distribution.
         """
         super().__init__()
+
         self.number_of_rays = number_of_rays
 
     @classmethod
     def from_hdf5(
-        cls, config_file: h5py.File, light_source_name: Optional[str] = None
+        cls,
+        config_file: h5py.File,
+        light_source_name: Optional[str] = None,
+        device: Optional[torch.device] = None,
     ) -> Self:
         """
         Load the light source from an HDF5 file.
@@ -53,9 +57,13 @@ class LightSource(torch.nn.Module):
         Parameters
         ----------
         config_file : h5py.File
-            The HDF5 file containing the information about the light source.
+            The HDF5 file containing the information about the light sources.
         light_source_name : str, optional
             The name of the light source - used for logging.
+        device : Optional[torch.device]
+            The device on which to perform computations or load tensors and models (default is None).
+            If None, ARTIST will automatically select the most appropriate
+            device (CUDA, MPS, or CPU) based on availability and OS.
 
         Raises
         ------
@@ -67,8 +75,7 @@ class LightSource(torch.nn.Module):
     def get_distortions(
         self,
         number_of_points: int,
-        number_of_facets: int = 4,
-        number_of_heliostats: int = 1,
+        number_of_heliostats: int,
         random_seed: int = 7,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -80,10 +87,10 @@ class LightSource(torch.nn.Module):
         Parameters
         ----------
         number_of_points : int
-            The number of points on the heliostat.
-        number_of_facets : int, optional
-            The number of facets per heliostat (default: 4).
-        number_of_heliostats : int, optional
+            The number of points on the heliostat from which rays are reflected.
+        number_of_facets : int
+            The number of facets for each heliostat (default: 4).
+        number_of_heliostats : int
             The number of heliostats in the scenario (default: 1).
         random_seed : int
             The random seed to enable result replication (default: 7).

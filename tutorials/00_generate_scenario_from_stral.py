@@ -20,6 +20,7 @@ from artist.util.configuration_classes import (
     TargetAreaConfig,
     TargetAreaListConfig,
 )
+from artist.util.environment_setup import get_device
 from artist.util.scenario_generator import ScenarioGenerator
 from artist.util.surface_converter import SurfaceConverter
 
@@ -30,14 +31,14 @@ torch.manual_seed(7)
 torch.cuda.manual_seed(7)
 
 # Set the device.
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = get_device()
 
 # Specify the path to your scenario file.
 scenario_path = pathlib.Path("./tutorials/data/scenarios/test_scenario_paint_single_heliostat.h5")
 
 # Specify the path to your stral_data.binp file.
 stral_file_path = pathlib.Path(
-    "./tutorials/data/stral/test_stral_data.binp"
+    "please/insert/the/path/to/the/stral/data/here/stral_data.binp"
 )
 
 # This checks to make sure the path you defined is valid and a scenario HDF5 can be saved there.
