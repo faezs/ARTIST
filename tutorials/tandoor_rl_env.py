@@ -532,7 +532,11 @@ class TandoorEnv(pufferlib.PufferEnv):
                 self.p_cmd[agent] + self.p_drift[agent], dtype=torch.float32
             )[None].to(self.device)
             P = self.pr.shape[0]
-            idx = torch.linspace(0, P - 1, n_rays, device=self.device).long()
+            if n_rays >= P:
+                idx = torch.arange(P, device=self.device)
+            else:  # rotating random fan so the beam visibly shimmers
+                idx = torch.sort(torch.randint(
+                    0, P, (n_rays,), device=self.device)).values
             sp = (self.sp0 + dp @ self.mode_sp)[0, idx]
             px, py, pr_ = self.px[idx], self.py[idx], self.pr[idx]
             n3 = torch.stack(
@@ -557,6 +561,46 @@ class TandoorEnv(pufferlib.PufferEnv):
         return [t.cpu().numpy() for t in
                 (org3, hit[:, :3], ppit[:, :3], strike, ok)]
 
+    def _flux_maps(self, agent=0, n_az=48, n_ct=28, n_pit=36):
+        """Full-ray flux fields for one agent (the live analogue of the
+        design study's raymaps): unrolled wall first-strike flux and the
+        pit-plane waist bitmap, EMA-smoothed across frames."""
+        with torch.no_grad():
+            org, hit, ppit, strike, ok = self._ray_geometry(
+                agent, n_rays=self.pr.shape[0])
+        cfg = self.cfg
+        zc = self.zc_oven
+        pw = (self._ray_pw.cpu().numpy() * self.dni[agent]
+              * ok.astype(np.float32))
+        rho_p = np.sqrt(ppit[:, 0] ** 2 + ppit[:, 1] ** 2)
+        pw = pw * (rho_p <= cfg.r_pit)
+        ct = np.clip((strike[:, 2] - zc) / cfg.R_oven, -1, 1)
+        phi = np.arctan2(strike[:, 1], strike[:, 0])
+        wall, _, _ = np.histogram2d(
+            ct, phi, bins=[n_ct, n_az],
+            range=[[-1, self.ct_cut], [-np.pi, np.pi]], weights=pw)
+        cell = cfg.R_oven**2 * (2 * np.pi / n_az) * ((1 + self.ct_cut) / n_ct)
+        wall /= cell * 1000.0  # kW/m^2
+        pit, _, _ = np.histogram2d(
+            ppit[:, 0], ppit[:, 1], bins=n_pit,
+            range=[[-0.3, 0.3], [-0.3, 0.3]], weights=pw)
+        pit /= (0.6 / n_pit) ** 2 * 1000.0
+        if not hasattr(self, "_wall_ema"):
+            self._wall_ema, self._pit_ema = wall, pit
+        self._wall_ema = 0.85 * self._wall_ema + 0.15 * wall
+        self._pit_ema = 0.85 * self._pit_ema + 0.15 * pit
+        return self._wall_ema, self._pit_ema
+
+    @staticmethod
+    def _flux_color(v, vmax):
+        f = float(np.clip(v / max(vmax, 1e-6), 0, 1))
+        # inferno-ish: black -> purple -> orange -> yellow
+        r = int(np.clip(3.0 * f, 0, 1) * 255)
+        g = int(np.clip(2.0 * f - 0.55, 0, 1) * 255)
+        b_ = int((np.clip(1.2 * f, 0, 0.5) if f < 0.45
+                  else np.clip(2.2 * f - 1.35, 0, 1)) * 255)
+        return (r, g, b_, 255)
+
     @staticmethod
     def _heat_color(t_kelvin):
         f = float(np.clip((t_kelvin - 350.0) / 550.0, 0, 1))
@@ -577,21 +621,45 @@ class TandoorEnv(pufferlib.PufferEnv):
         if self.render_mode != "human":
             return None
         import pyray as pr
-        W, H = 1150, 720
+        W, H = 1400, 800
         if not self._window:
             pr.init_window(W, H, "Solar Tandoor - ARTIST raytrace")
-            pr.set_target_fps(30)
+            pr.set_target_fps(24)
             self._window = True
 
         def sx(x):
-            return int(280 + x * 46)
+            return int(300 + x * 56)
 
         def sy(z):
-            return int(90 + (6.9 - z) * 46)
+            return int(50 + (7.3 - z) * 56)
 
+        dim = float(np.clip(self.dni[0] / 950.0, 0.04, 1.0))
         pr.begin_drawing()
-        pr.clear_background((16, 18, 26, 255))
+        # sky darkens with cloud/DNI so the day visibly breathes
+        pr.clear_background((int(14 + 30 * dim), int(16 + 38 * dim),
+                             int(26 + 62 * dim), 255))
+        pr.draw_rectangle(660, 0, W - 660, H, (13, 15, 22, 255))
         cfg = self.cfg
+        # --- sun arc / day progress (left panel top) ---
+        frac = float(np.clip((self.t_solar[0] - 8.0) / 8.0, 0, 1))
+        el_now, _, _ = _sim.solar_position(self.lat, self.day,
+                                           float(self.t_solar[0]))
+        pr.draw_line(60, 46, 560, 46, (70, 70, 85, 255))
+        for k in range(30):
+            a0 = np.pi * (1 - k / 30.0)
+            a1 = np.pi * (1 - (k + 1) / 30.0)
+            pr.draw_line(int(310 + 250 * np.cos(a0)),
+                         int(46 - 40 * np.sin(a0)),
+                         int(310 + 250 * np.cos(a1)),
+                         int(46 - 40 * np.sin(a1)), (60, 60, 75, 255))
+        sun_a = np.pi * (1 - frac)
+        pr.draw_circle(int(310 + 250 * np.cos(sun_a)),
+                       int(46 - 40 * np.sin(sun_a)), 9,
+                       (min(int(255 * dim + 60), 255),
+                        min(int(210 * dim + 45), 255),
+                        min(int(70 * dim + 30), 255), 255))
+        pr.draw_text(f"day {frac * 100:3.0f}%  el {el_now:.0f} deg",
+                     60, 56, 16, (150, 150, 165, 255))
         # grade / crater / collar
         for sgn in (-1, 1):
             pts = [(-8, 0), (-2.4, 0), (-2.0, -0.75), (-0.41, -0.75),
@@ -643,9 +711,8 @@ class TandoorEnv(pufferlib.PufferEnv):
                             4, (210, 70, 70, 255))
         pr.draw_line_ex(pr.Vector2(sx(0), sy(-1.6)), pr.Vector2(sx(0), sy(0)),
                         5, (95, 95, 100, 255))
-        # the ARTIST raytrace, live
+        # the ARTIST raytrace, live (fresh random fan each frame)
         org, hit, ppit, strike, ok = self._ray_geometry()
-        dim = max(self.dni[0] / 950.0, 0.06)
         ray_col = (245, 180, 60, int(60 + 170 * dim))
         for i in range(len(org)):
             if not ok[i]:
@@ -658,35 +725,109 @@ class TandoorEnv(pufferlib.PufferEnv):
                          sx(ppit[i, 0]), sy(ppit[i, 2]), ray_col)
             pr.draw_line(sx(ppit[i, 0]), sy(ppit[i, 2]),
                          sx(strike[i, 0]), sy(strike[i, 2]), ray_col)
-        # HUD: unrolled belt, pressures, counters
-        pr.draw_text("belt (unrolled)", 700, 60, 18, (200, 200, 210, 255))
+        # --- zoomed oven inset (left panel, bottom right) ---
+        ix, iy, ir = 495, 620, 130
+        pr.draw_text("oven (zoom)", ix - 40, iy - ir - 24, 16,
+                     (170, 170, 185, 255))
+        zc = self.zc_oven
+        for k in range(60):
+            a0 = 2 * np.pi * k / 60
+            a1 = 2 * np.pi * (k + 1) / 60
+            zw = zc + cfg.R_oven * np.sin(a0)
+            if zw > -cfg.pivot_drop:
+                continue
+            band = abs(zw - zc) < cfg.belt_half
+            if band:
+                node = 0 if np.cos(a0) < 0 else self.n_belt // 2
+                col, w_ = self._heat_color(self.T[0, node]), 10
+            elif zw < zc - 0.45:
+                col, w_ = self._heat_color(self.T[0, 8]), 8
+            else:
+                col, w_ = self._heat_color(self.T[0, 9]), 6
+            r_at = ir / cfg.R_oven
+            pr.draw_line_ex(
+                pr.Vector2(ix + r_at * cfg.R_oven * np.cos(a0),
+                           iy - r_at * (zw - zc)),
+                pr.Vector2(ix + r_at * cfg.R_oven * np.cos(a1),
+                           iy - r_at * (zc + cfg.R_oven * np.sin(a1) - zc)),
+                w_, col)
+        for k in range(self.n_belt):
+            side = -1 if k < self.n_belt // 2 else 1
+            off = (k % (self.n_belt // 2)) - 1.5
+            bx = ix + side * (ir + 16)
+            by = iy + int(off * 34)
+            pr.draw_rectangle(bx - 8, by - 8, 16, 16,
+                              self._heat_color(self.T[0, k]))
+            if self.has_bread[0, k]:
+                fr_ = min(self.bread_E[0, k] / ROTI_ENERGY, 1)
+                pr.draw_circle(bx, by, 7, (240, 225, 190, 255))
+                pr.draw_circle(bx, by, int(7 * fr_), (150, 95, 45, 255))
+
+        # --- right panel: the live flux fields ---
+        wall, pit = self._flux_maps()
+        vmax_w = max(wall.max(), 5.0)
+        pr.draw_text(f"oven wall first-strike flux  (peak "
+                     f"{wall.max():.0f} kW/m2)", 680, 40, 17,
+                     (200, 200, 210, 255))
+        cw, ch = 14, 7
+        for i in range(wall.shape[0]):
+            for j in range(wall.shape[1]):
+                pr.draw_rectangle(680 + j * cw, 70 + (wall.shape[0] - 1 - i)
+                                  * ch, cw, ch,
+                                  self._flux_color(wall[i, j], vmax_w))
+        for ct_b in (-cfg.belt_half, cfg.belt_half):
+            yy = 70 + int((1 - (ct_b / cfg.R_oven + 1) / (1 + self.ct_cut))
+                          * wall.shape[0]) * ch
+            pr.draw_line(680, yy, 680 + wall.shape[1] * cw, yy,
+                         (90, 200, 110, 200))
+        pr.draw_text("azimuth ->   (green = roti belt)", 680,
+                     70 + wall.shape[0] * ch + 4, 14, (140, 140, 155, 255))
+
+        vmax_p = max(pit.max(), 5.0)
+        pr.draw_text(f"pit waist flux  (peak {pit.max():.0f} kW/m2)",
+                     680, 320, 17, (200, 200, 210, 255))
+        pp = 6
+        for i in range(pit.shape[0]):
+            for j in range(pit.shape[1]):
+                pr.draw_rectangle(680 + i * pp, 348 + j * pp, pp, pp,
+                                  self._flux_color(pit[i, j], vmax_p))
+        rp = int(cfg.r_pit / 0.3 * pit.shape[0] / 2 * pp)
+        pr.draw_circle_lines(680 + pit.shape[0] * pp // 2,
+                             348 + pit.shape[1] * pp // 2, rp,
+                             (90, 200, 230, 220))
+
+        # belt strip + pumps + HUD text
+        pr.draw_text("belt segments [C]", 960, 320, 16, (200, 200, 210, 255))
         for k in range(self.n_belt):
             col = self._heat_color(self.T[0, k])
-            pr.draw_rectangle(700 + 52 * k, 90, 48, 60, col)
+            pr.draw_rectangle(960 + 52 * k, 344, 48, 44, col)
+            pr.draw_text(f"{self.T[0, k] - 273:.0f}", 968 + 52 * k, 356, 15,
+                         (235, 235, 235, 255))
             if self.has_bread[0, k]:
-                frac = self.bread_E[0, k] / ROTI_ENERGY
-                pr.draw_circle(724 + 52 * k, 120, 12, (240, 225, 190, 255))
-                pr.draw_circle(724 + 52 * k, 120, int(12 * min(frac, 1)),
-                               (170, 110, 50, 255))
-        pr.draw_text("zone pumps [Pa vs nominal]", 700, 180, 18,
+                fr_ = min(self.bread_E[0, k] / ROTI_ENERGY, 1)
+                pr.draw_circle(984 + 52 * k, 400, 9, (240, 225, 190, 255))
+                pr.draw_circle(984 + 52 * k, 400, int(9 * fr_),
+                               (150, 95, 45, 255))
+        pr.draw_text("zone pump setpoints [Pa vs nominal]", 960, 430, 16,
                      (200, 200, 210, 255))
         for k in range(self.n_zones):
             v = float(self.p_cmd[0, k] + self.p_drift[0, k])
-            h_ = int(v)
-            pr.draw_rectangle(700 + 60 * k, 260 - max(h_, 0), 40, abs(h_) + 2,
-                              (120, 190, 240, 255))
-            pr.draw_text(f"{v:+.0f}", 700 + 60 * k, 270, 16,
+            pr.draw_rectangle(960 + 62 * k, 500 - max(int(v), 0), 44,
+                              abs(int(v)) + 2, (120, 190, 240, 255))
+            pr.draw_line(960 + 62 * k, 500, 1004 + 62 * k, 500,
+                         (110, 110, 125, 255))
+            pr.draw_text(f"{v:+.0f}", 960 + 62 * k, 566, 15,
                          (150, 150, 160, 255))
         hud = [
             f"solar time {self.t_solar[0]:5.2f} h",
             f"DNI {self.dni[0]:4.0f} W/m2",
             f"into oven {self.p_in[0]:5.0f} W",
-            f"hearth {self.T[0, 8] - 273:4.0f} C",
+            f"hearth {self.T[0, 8] - 273:4.0f} C   "
             f"belt avg {self.T[0, :8].mean() - 273:4.0f} C",
             f"rotis {self.ep_rotis[0]:.0f}   scorched {self.ep_scorch[0]:.0f}",
         ]
         for j, line in enumerate(hud):
-            pr.draw_text(line, 700, 330 + 26 * j, 20, (220, 220, 200, 255))
+            pr.draw_text(line, 960, 620 + 28 * j, 20, (225, 225, 205, 255))
         pr.end_drawing()
         return None
 
