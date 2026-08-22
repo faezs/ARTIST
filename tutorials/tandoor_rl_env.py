@@ -66,7 +66,8 @@ class TandoorEnv(pufferlib.PufferEnv):
 
     def __init__(self, num_agents=32, n_zones=5, dt=15.0, lat=28.6,
                  day_of_year=80, seed=0, device=None, render_mode=None,
-                 buf=None):
+                 nurbs=0, buf=None):
+        self.use_nurbs = bool(nurbs)
         if device is None:
             device = "mps" if torch.backends.mps.is_available() else "cpu"
         self.device = torch.device(device)
@@ -115,13 +116,15 @@ class TandoorEnv(pufferlib.PufferEnv):
         mem0 = _sim.solve_membrane(cfg, np.full(self.n_zones, self.p0),
                                    n=500, zone_edges=edges)
         r64 = mem0["r"]
-        modes = []
+        modes, mem_ks = [], []
         for k in range(self.n_zones):
             pz = np.full(self.n_zones, self.p0)
             pz[k] += 5.0
             mk = _sim.solve_membrane(cfg, pz, n=500, zone_edges=edges)
+            mem_ks.append(mk)
             modes.append(((mk["sp"] - mem0["sp"]) / 5.0).numpy())
         self.zone_edges = edges
+        self._mem0, self._mem_ks = mem0, mem_ks
 
         # fixed membrane point set (annulus), slope via baseline + modes
         z_f1 = mem0["z0"] + mem0["f_fit"]
@@ -132,10 +135,11 @@ class TandoorEnv(pufferlib.PufferEnv):
                         / (z_vertex + cfg.pivot_drop) + 0.03)
         n = 44
         dev = self.device
+        self._r_keep_in = max(r_sec, cfg.r_window)
         xy = torch.linspace(-cfg.a, cfg.a, n)
         X, Y = torch.meshgrid(xy, xy, indexing="ij")
         rr = torch.sqrt(X**2 + Y**2).reshape(-1)
-        keep = (rr > max(r_sec, cfg.r_window)) & (rr < cfg.a * 0.985)
+        keep = (rr > self._r_keep_in) & (rr < cfg.a * 0.985)
         self.px = X.reshape(-1)[keep].float().to(dev)
         self.py = Y.reshape(-1)[keep].float().to(dev)
         self.pr = rr[keep].float().to(dev)
@@ -148,7 +152,11 @@ class TandoorEnv(pufferlib.PufferEnv):
             for m in modes
         ])  # [K, P]
         cell = float(xy[1] - xy[0]) ** 2
-        self.ray_power0 = cell * cfg.rho_mem * cfg.rho_sec * cfg.T_window
+        self._loss_chain = cfg.rho_mem * cfg.rho_sec * cfg.T_window
+        self._ray_pw = torch.full_like(self.pr, cell * self._loss_chain)
+
+        if self.use_nurbs:
+            self._build_nurbs_basis(cfg)
 
         self.sec = _sim.Secondary(z_f1, -cfg.pivot_drop, z_vertex, r_sec)
         self.sec.coeffs = self.sec.coeffs.to(dev)
@@ -157,10 +165,13 @@ class TandoorEnv(pufferlib.PufferEnv):
         )
         self.ct_cut = float(np.sqrt(cfg.R_oven**2 - cfg.r_pit**2) / cfg.R_oven)
 
+        # ARTIST Sun: one distortion sample per ray per step gives an
+        # unbiased stochastic sunshape at no extra ray count
+        self._sun = _sim.Sun(number_of_rays=1, device=dev)
+
         # per-step constants, precomputed once (B and the point set are fixed)
         B, P = self.num_agents, self.pr.shape[0]
         self._inv_r = (1.0 / self.pr).expand(B, P)
-        self._i3 = torch.tensor([0.0, 0.0, -1.0], device=dev).expand(B, P, 3)
         org = torch.stack(
             [self.px.expand(B, P), self.py.expand(B, P),
              self.pz_sag.expand(B, P)], dim=-1)
@@ -171,21 +182,125 @@ class TandoorEnv(pufferlib.PufferEnv):
         self._oc = torch.tensor([0.0, 0.0, self.zc_oven], device=dev)
         self._ones_bp1 = torch.zeros(B, P, 1, device=dev)
 
+    def _build_nurbs_basis(self, cfg, eps=1e-4, delta=5.0):
+        """Exact per-step ARTIST-NURBS geometry at RL speed.
+
+        For fixed degree, knots, and evaluation points, the NURBS map is
+        LINEAR in the control points. We therefore fit control-point z-modes
+        per pump zone (through _sim.fit_nurbs, i.e. ARTIST's NURBSSurface),
+        extract the point and FD-derivative basis matrices once by pushing
+        unit z-control-vectors through ARTIST's evaluator, and per step the
+        surface points and analytic-derivative normals reduce to matmuls in
+        the z control points. No linearization of the surface itself: this
+        IS the NURBS, evaluated exactly, for whatever ctrl-z the pressures
+        imply."""
+        cpu = torch.device("cpu")
+        print("  [nurbs] fitting control-point modes (one-time)...")
+        ctrl0, _ = _sim.fit_nurbs(cfg, self._mem0, epochs=1500,
+                                  log_name="rl-base")
+        zmodes = []
+        for k, mk in enumerate(self._mem_ks):
+            ck, _ = _sim.fit_nurbs(cfg, mk, ctrl_init=ctrl0, epochs=350,
+                                   log_name=f"rl-zone{k}")
+            zmodes.append(
+                ((ck[..., 2] - ctrl0[..., 2]) / delta).reshape(-1))
+        ncp = cfg.n_cp * cfg.n_cp
+        n = 44
+        uu = torch.linspace(1e-5, 1 - 1e-5 - eps, n)
+        uv = torch.cartesian_prod(uu, uu)
+        print("  [nurbs] extracting basis matrices (one-time)...")
+        Bs, xyz = [], []
+        for ee, nn_ in ((uv[:, 0], uv[:, 1]),
+                        (uv[:, 0] + eps, uv[:, 1]),
+                        (uv[:, 0], uv[:, 1] + eps)):
+            surf = _sim.NURBSSurface(3, 3, ee, nn_, ctrl0.clone(), device=cpu)
+            pts, _ = surf.calculate_surface_points_and_normals(device=cpu)
+            xyz.append(pts[:, :3].clone())
+            B = torch.zeros(len(ee), ncp)
+            unit = ctrl0.clone().reshape(-1, 3)
+            for i in range(ncp):
+                u_i = unit.clone()
+                u_i[:, 2] = 0.0
+                u_i[i, 2] = 1.0
+                surf.control_points = u_i.reshape(cfg.n_cp, cfg.n_cp, 3)
+                p_i, _ = surf.calculate_surface_points_and_normals(device=cpu)
+                B[:, i] = p_i[:, 2]
+            Bs.append(B)
+        x, y = xyz[0][:, 0], xyz[0][:, 1]
+        xu, yu = (xyz[1][:, 0] - x) / eps, (xyz[1][:, 1] - y) / eps
+        xv, yv = (xyz[2][:, 0] - x) / eps, (xyz[2][:, 1] - y) / eps
+        du = float(uu[1] - uu[0])
+        area = (xu * yv - xv * yu).abs() * du * du
+        rr = torch.sqrt(x**2 + y**2)
+        keep = (rr > self._r_keep_in) & (rr < cfg.a * 0.985)
+
+        dev = self.device
+        self.px, self.py, self.pr = (t[keep].to(dev) for t in (x, y, rr))
+        self._ray_pw = (area[keep] * self._loss_chain).to(dev)
+        cz0 = ctrl0[..., 2].reshape(-1)
+        self.pz_sag = (Bs[0][keep] @ cz0).to(dev)
+        self._cz0 = cz0.to(dev)
+        self._zmodeM = torch.stack(zmodes).to(dev)          # [K, ncp]
+        self._BzT = Bs[0][keep].T.contiguous().to(dev)      # [ncp, P]
+        self._BuzT = ((Bs[1] - Bs[0])[keep] / eps).T.contiguous().to(dev)
+        self._BvzT = ((Bs[2] - Bs[0])[keep] / eps).T.contiguous().to(dev)
+        self._xu, self._yu = xu[keep].to(dev), yu[keep].to(dev)
+        self._xv, self._yv = xv[keep].to(dev), yv[keep].to(dev)
+        # keep slope arrays consistent for the render fan
+        r32 = self._mem0["r"].float().to(dev)
+        self.sp0 = _sim.interp1d(self.pr, r32, self._mem0["sp"].float().to(dev))
+        self.mode_sp = torch.stack([
+            _sim.interp1d(self.pr, r32,
+                          ((mk["sp"] - self._mem0["sp"]) / delta)
+                          .float().to(dev))
+            for mk in self._mem_ks
+        ])
+        print(f"  [nurbs] per-step NURBS active: {int(keep.sum())} points, "
+              f"{ncp} control points")
+
     def _trace_power(self, dp_zones):
         """dp_zones [B, K] (actual pressures - p0) -> node powers [B, N] in
         watts per unit DNI (multiply by DNI outside). Runs on self.device."""
         B = dp_zones.shape[0]
         P = self.pr.shape[0]
-        sp = self.sp0 + dp_zones.float().to(self.device) @ self.mode_sp
-        n3 = torch.stack([
-            -sp * self.px * self._inv_r[0], -sp * self.py * self._inv_r[0],
-            torch.ones_like(sp)
-        ], dim=-1)
+        dp32 = dp_zones.float().to(self.device)
+        if self.use_nurbs:
+            # exact ARTIST-NURBS surface for each agent's pressures:
+            # points and derivative tangents are linear in ctrl-z
+            ctrl_z = self._cz0 + dp32 @ self._zmodeM        # [B, ncp]
+            z = ctrl_z @ self._BzT                          # [B, P]
+            zu = ctrl_z @ self._BuzT
+            zv = ctrl_z @ self._BvzT
+            tu = torch.stack([self._xu.expand(B, P),
+                              self._yu.expand(B, P), zu], dim=-1)
+            tv = torch.stack([self._xv.expand(B, P),
+                              self._yv.expand(B, P), zv], dim=-1)
+            n3 = torch.linalg.cross(tu, tv)
+            org = torch.stack([self.px.expand(B, P),
+                               self.py.expand(B, P), z], dim=-1)
+            o4 = torch.cat(
+                [org, torch.ones(B, P, 1, device=self.device)], -1
+            ).reshape(-1, 4)
+        else:
+            sp = self.sp0 + dp32 @ self.mode_sp
+            n3 = torch.stack([
+                -sp * self.px * self._inv_r[0],
+                -sp * self.py * self._inv_r[0],
+                torch.ones_like(sp)
+            ], dim=-1)
+            o4 = self._o4
         n3 = n3 * torch.rsqrt((n3 * n3).sum(-1, keepdim=True))
-        i3 = self._i3
-        d1 = i3 - 2 * (i3 * n3).sum(-1, keepdim=True) * n3
-        o4 = self._o4
-        d4 = torch.cat([d1, self._ones_bp1], -1).reshape(-1, 4)
+        n4 = torch.cat([n3, self._ones_bp1], -1)
+        # incident rays from ARTIST's Sun distribution (sunshape cone about
+        # nadir), reflected with ARTIST's reflect() at both bounces
+        ds = self._sun.distribution.sample((B, P))
+        i4 = torch.cat([
+            ds, -torch.ones_like(self._ones_bp1), self._ones_bp1 * 0.0
+        ], dim=-1)
+        i4 = i4 * torch.rsqrt(
+            (i4[..., :3] ** 2).sum(-1, keepdim=True)
+        )
+        d4 = _sim.reflect(i4, n4).reshape(-1, 4)
         hit, n2, ok = self.sec.intersect(o4, d4)
         d2 = _sim.reflect(d4, n2)
         cfg = self.cfg
@@ -219,7 +334,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                             torch.full_like(seg, self.n_belt + 2), seg),
             ),
         )
-        w = self.ray_power0 * through.float()
+        w = self._ray_pw.expand(B, P).reshape(-1) * through.float()
         out = torch.zeros(B * self.n_nodes, device=self.device)
         out.index_put_((self._env_off + node,), w, accumulate=True)
         return out.reshape(B, self.n_nodes).cpu()
@@ -511,8 +626,10 @@ class TandoorEnv(pufferlib.PufferEnv):
                        self._heat_color(self.T[0, 8]))
         # membrane + secondary + pedestal
         xs = np.linspace(-cfg.a, cfg.a, 60)
-        sag = np.interp(np.abs(xs), self.pr.cpu().numpy(),
-                        self.pz_sag.cpu().numpy())
+        pr_np = self.pr.cpu().numpy()
+        order = np.argsort(pr_np)
+        sag = np.interp(np.abs(xs), pr_np[order],
+                        self.pz_sag.cpu().numpy()[order])
         for k in range(len(xs) - 1):
             pr.draw_line_ex(pr.Vector2(sx(xs[k]), sy(sag[k])),
                             pr.Vector2(sx(xs[k + 1]), sy(sag[k + 1])),

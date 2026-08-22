@@ -23,26 +23,17 @@ differentiable raytracing primitives (NURBS surfaces, `Sun`, `reflect`,
 - this package - stock `puffer` CLI registration.
 - `../data/tandoor/` - trained LSTM checkpoint + key figures.
 
-## Setup (pufferlib 3.0)
+## Run (self-contained, pufferlib 3.0)
 
 ```bash
-python -m venv venv && venv/bin/pip install torch matplotlib h5py \
-    typing_extensions colorlog pufferlib raylib
-V=venv/lib/python3.11/site-packages/pufferlib
-ln -sfn "$(pwd)/tutorials/puffer_tandoor" $V/environments/tandoor
-ln -sf  "$(pwd)/tutorials/puffer_tandoor/tandoor.ini" $V/config/tandoor.ini
+./run.sh eval          # watch the pretrained controller (raylib window)
+./run.sh train         # train from scratch
 ```
 
-## Run
-
-```bash
-puffer train puffer_tandoor
-puffer eval puffer_tandoor --load-model-path latest --env.num-agents 8
-```
-
-(`--env.render-mode ansi` for a terminal stream instead of the raylib
-window. A pretrained checkpoint is at `../data/tandoor/tandoor_lstm.pt`,
-usable via `--load-model-path`.)
+`run.sh` builds a local `.venv` on first use (`setup.sh`) and registers the
+env inside it, so the stock `puffer` CLI resolves `puffer_tandoor`. Extra
+puffer args pass through, e.g. `./run.sh eval --env.render-mode ansi` for a
+terminal stream. The pretrained LSTM lives at `../data/tandoor/tandoor_lstm.pt`.
 
 ## Results (one cooking day, 350 K cold start, clouds + drift)
 

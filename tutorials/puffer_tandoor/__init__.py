@@ -29,7 +29,9 @@ _spec.loader.exec_module(_mod)
 
 TandoorEnv = _mod.TandoorEnv
 
-from . import torch  # noqa: E402,F401  (load_policy reads env_module.torch)
+# load_policy reads env_module.torch; alias our policy module to avoid a
+# torch.py file shadowing the real torch package when cwd is this directory
+from . import policy as torch  # noqa: E402,F401
 
 
 def env_creator(name="puffer_tandoor"):
