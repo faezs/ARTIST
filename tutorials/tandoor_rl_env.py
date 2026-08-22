@@ -180,6 +180,9 @@ class TandoorEnv(pufferlib.PufferEnv):
         self._env_off = (torch.arange(B, device=dev) * self.n_nodes
                          ).repeat_interleave(P)
         self._oc = torch.tensor([0.0, 0.0, self.zc_oven], device=dev)
+        self._zc_w = -float(np.sqrt(cfg.R_oven**2 - cfg.r_pit**2))
+        self._oc_w = torch.tensor([0.0, 0.0, self._zc_w], device=dev)
+        self._sun_R = torch.eye(3, device=dev)
         self._ones_bp1 = torch.zeros(B, P, 1, device=dev)
 
     def _build_nurbs_basis(self, cfg, eps=1e-4, delta=5.0):
@@ -304,21 +307,31 @@ class TandoorEnv(pufferlib.PufferEnv):
         hit, n2, ok = self.sec.intersect(o4, d4)
         d2 = _sim.reflect(d4, n2)
         cfg = self.cfg
+        # window crossing in the ASSEMBLY frame (the clear disc rides the
+        # tracked optic, which keeps the sun on-axis)
         tw = -hit[:, 2] / d2[:, 2].clamp(max=-1e-9)
         wpt = hit + tw[:, None] * d2
-        tp = (-cfg.pivot_drop - hit[:, 2]) / d2[:, 2].clamp(max=-1e-9)
-        ppit = hit + tp[:, None] * d2
+        rho_w = torch.sqrt(wpt[:, 0] ** 2 + wpt[:, 1] ** 2)
+        okw = ok & (d2[:, 2] < 0) & (rho_w <= cfg.r_window)
+        # pivot into the WORLD frame (the oven is earth-fixed): rotate about
+        # F2 by the current sun position, then clip at the fixed pit mouth -
+        # the beam sweeps the oven wall azimuthally through the day
+        R3 = self._sun_R
+        piv = torch.tensor([0.0, 0.0, -cfg.pivot_drop], device=self.device)
+        wpt_w = (wpt[:, :3] - piv) @ R3.T
+        d2_w = d2[:, :3] @ R3.T
+        tp = -wpt_w[:, 2] / d2_w[:, 2].clamp(max=-1e-9)
+        ppit = wpt_w + tp[:, None] * d2_w
         through = (
-            ok & (d2[:, 2] < 0)
-            & (wpt[:, 0] ** 2 + wpt[:, 1] ** 2 <= cfg.r_window**2)
+            okw & (d2_w[:, 2] < 0)
             & (ppit[:, 0] ** 2 + ppit[:, 1] ** 2 <= cfg.r_pit**2)
         )
-        q = ppit[:, :3] - self._oc
+        q = ppit - self._oc_w
         b = (q * d2[:, :3]).sum(-1)
         c = (q * q).sum(-1) - cfg.R_oven**2
         ts = -b + torch.sqrt((b**2 - c).clamp(min=0))
-        strike = ppit[:, :3] + ts[:, None] * d2[:, :3]
-        ct = ((strike[:, 2] - self.zc_oven) / cfg.R_oven).clamp(-1, 1)
+        strike = ppit + ts[:, None] * d2_w
+        ct = ((strike[:, 2] - self._zc_w) / cfg.R_oven).clamp(-1, 1)
         phi = torch.atan2(strike[:, 1], strike[:, 0])
         rho_h = torch.sqrt(strike[:, 0] ** 2 + strike[:, 1] ** 2)
         # node index: hearth spot (bottom, within beam footprint radius),
@@ -335,6 +348,28 @@ class TandoorEnv(pufferlib.PufferEnv):
             ),
         )
         w = self._ray_pw.expand(B, P).reshape(-1) * through.float()
+        if self.render_mode == "human":
+            # stash agent 0's COMPLETE ray state from this exact trace so
+            # the renderer shows the same rays that heat the oven. World-
+            # frame points also come back to the assembly frame (inverse
+            # pivot) for the cross-section polylines.
+            sl = slice(0, P)
+            ppit_asm = ppit[sl] @ R3 + piv
+            strike_asm = strike[sl] @ R3 + piv
+            self._last_rays = dict(
+                org=o4[sl, :3].cpu().numpy(),
+                inc=i4.reshape(-1, 4)[sl, :3].cpu().numpy(),
+                hit=hit[sl, :3].cpu().numpy(),
+                wpt=wpt[sl, :3].cpu().numpy(),
+                ppit=ppit[sl].cpu().numpy(),
+                ppit_asm=ppit_asm.cpu().numpy(),
+                strike=strike[sl].cpu().numpy(),
+                strike_asm=strike_asm.cpu().numpy(),
+                ok=ok[sl].cpu().numpy(),
+                okw=okw[sl].cpu().numpy(),
+                through=through[sl].cpu().numpy(),
+                w=w[sl].cpu().numpy(),
+            )
         out = torch.zeros(B * self.n_nodes, device=self.device)
         out.index_put_((self._env_off + node,), w, accumulate=True)
         return out.reshape(B, self.n_nodes).cpu()
@@ -424,6 +459,15 @@ class TandoorEnv(pufferlib.PufferEnv):
         el = np.degrees(np.arcsin(np.clip(sin_el, -1, 1)))
         am = 1.0 / np.clip(sin_el, 0.035, None)
         clear = np.where(el > 2.0, 1353.0 * 0.7 ** (am**0.678), 0.0)
+        # the oven is world-fixed while the optic tracks: the beam enters
+        # the pit rotated about the F2 pivot by the CURRENT sun position,
+        # sweeping the wall through the day (envs are time-synchronized)
+        el0, _, s_np = _sim.solar_position(self.lat, self.day,
+                                           float(self.t_solar[0]))
+        if el0 > 27.0:
+            self._sun_R = _sim.rotation_z_to(s_np).to(self.device)
+        else:
+            self._sun_R = torch.eye(3, device=self.device)
         # OU cloud factor: stationary std 0.25 about clear sky, tau 900 s,
         # plus rare deep cloud events
         tau_c = 900.0
@@ -562,18 +606,16 @@ class TandoorEnv(pufferlib.PufferEnv):
                 (org3, hit[:, :3], ppit[:, :3], strike, ok)]
 
     def _flux_maps(self, agent=0, n_az=48, n_ct=28, n_pit=36):
-        """Full-ray flux fields for one agent (the live analogue of the
-        design study's raymaps): unrolled wall first-strike flux and the
-        pit-plane waist bitmap, EMA-smoothed across frames."""
-        with torch.no_grad():
-            org, hit, ppit, strike, ok = self._ray_geometry(
-                agent, n_rays=self.pr.shape[0])
+        """Flux fields accumulated from the step's ACTUAL ray tensors
+        (sunshape samples included) - the live analogue of the design
+        study's raymaps, EMA-smoothed across frames."""
+        lr = getattr(self, "_last_rays", None)
+        if lr is None:
+            return np.zeros((n_ct, n_az)), np.zeros((n_pit, n_pit))
         cfg = self.cfg
-        zc = self.zc_oven
-        pw = (self._ray_pw.cpu().numpy() * self.dni[agent]
-              * ok.astype(np.float32))
-        rho_p = np.sqrt(ppit[:, 0] ** 2 + ppit[:, 1] ** 2)
-        pw = pw * (rho_p <= cfg.r_pit)
+        zc = self._zc_w
+        ppit, strike = lr["ppit"], lr["strike"]
+        pw = lr["w"] * self.dni[agent]  # rays that reach the oven wall
         ct = np.clip((strike[:, 2] - zc) / cfg.R_oven, -1, 1)
         phi = np.arctan2(strike[:, 1], strike[:, 0])
         wall, _, _ = np.histogram2d(
@@ -711,20 +753,43 @@ class TandoorEnv(pufferlib.PufferEnv):
                             4, (210, 70, 70, 255))
         pr.draw_line_ex(pr.Vector2(sx(0), sy(-1.6)), pr.Vector2(sx(0), sy(0)),
                         5, (95, 95, 100, 255))
-        # the ARTIST raytrace, live (fresh random fan each frame)
-        org, hit, ppit, strike, ok = self._ray_geometry()
-        ray_col = (245, 180, 60, int(60 + 170 * dim))
-        for i in range(len(org)):
-            if not ok[i]:
-                continue
-            pr.draw_line(sx(org[i, 0]), sy(org[i, 2] + 3.2),
-                         sx(org[i, 0]), sy(org[i, 2]), ray_col)
-            pr.draw_line(sx(org[i, 0]), sy(org[i, 2]),
-                         sx(hit[i, 0]), sy(hit[i, 2]), ray_col)
-            pr.draw_line(sx(hit[i, 0]), sy(hit[i, 2]),
-                         sx(ppit[i, 0]), sy(ppit[i, 2]), ray_col)
-            pr.draw_line(sx(ppit[i, 0]), sy(ppit[i, 2]),
-                         sx(strike[i, 0]), sy(strike[i, 2]), ray_col)
+        # EVERY ray tensor from the step's actual ARTIST trace, drawn with
+        # additive blending: overlapping rays sum to brightness, so what
+        # you see at the waist IS the flux concentration
+        lr = getattr(self, "_last_rays", None)
+        if lr is not None:
+            pr.begin_blend_mode(pr.BlendMode.BLEND_ADDITIVE)
+            a_hi = int(4 + 26 * dim)
+            col_beam = (120, 88, 30, a_hi)
+            col_in = (70, 60, 32, max(a_hi // 2, 2))
+            col_blk = (110, 30, 22, 60)
+            for i in range(len(lr["org"])):
+                if not lr["ok"][i]:
+                    continue
+                o, h_ = lr["org"][i], lr["hit"][i]
+                pr.draw_line(sx(o[0] - 3.2 * lr["inc"][i, 0]),
+                             sy(o[2] + 3.2), sx(o[0]), sy(o[2]), col_in)
+                pr.draw_line(sx(o[0]), sy(o[2]), sx(h_[0]), sy(h_[2]),
+                             col_beam)
+                if lr["okw"][i]:
+                    pa = lr["ppit_asm"][i]
+                    pr.draw_line(sx(h_[0]), sy(h_[2]), sx(pa[0]), sy(pa[2]),
+                                 col_beam)
+                    if lr["through"][i]:
+                        sa = lr["strike_asm"][i]
+                        pr.draw_line(sx(pa[0]), sy(pa[2]),
+                                     sx(sa[0]), sy(sa[2]), col_beam)
+                    else:
+                        pr.draw_circle(sx(pa[0]), sy(pa[2]), 2, col_blk)
+                else:
+                    wp = lr["wpt"][i]
+                    pr.draw_line(sx(h_[0]), sy(h_[2]), sx(wp[0]), sy(wp[2]),
+                                 col_beam)
+                    pr.draw_circle(sx(wp[0]), sy(wp[2]), 2, col_blk)
+            pr.end_blend_mode()
+        pr.draw_text("tracked assembly frame: sun held on-axis by the F2 "
+                     "gimbal; oven flux is world-frame", 60, 84, 14,
+                     (140, 140, 158, 255))
         # --- zoomed oven inset (left panel, bottom right) ---
         ix, iy, ir = 495, 620, 130
         pr.draw_text("oven (zoom)", ix - 40, iy - ir - 24, 16,
