@@ -80,7 +80,7 @@ def run_trial(overrides, steps, log_path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--trials", type=int, default=6)
+    ap.add_argument("--trials", type=int, default=8)
     ap.add_argument("--trial-steps", type=int, default=3_500_000)
     ap.add_argument("--final-steps", type=int, default=24_000_000)
     ap.add_argument("--out", default="sweep_results.jsonl")
@@ -88,12 +88,21 @@ def main():
     rng = np.random.default_rng(0)
 
     def sample_config():
+        # optimizer is a dimension: pufferlib's stack is tuned around muon
+        # (Shampoo-family) at lr ~1e-2; adam wants ~1e-3. Ranges mirror
+        # their default.ini [sweep.*] sections where applicable.
+        opt = str(rng.choice(["muon", "adam"], p=[0.6, 0.4]))
+        lr = float(10 ** rng.uniform(-2.1, -1.3) if opt == "muon"
+                   else 10 ** rng.uniform(-3.3, -2.4))
         return {
-            "train.learning-rate": float(10 ** rng.uniform(-3.3, -2.4)),
-            "train.ent-coef": float(10 ** rng.uniform(-3.3, -1.8)),
+            "train.optimizer": opt,
+            "train.learning-rate": lr,
+            "train.ent-coef": float(10 ** rng.uniform(-3.0, -1.2)),
             "train.gamma": float(rng.choice([0.999, 0.9995, 0.9997])),
             "train.gae-lambda": float(rng.choice([0.90, 0.95])),
             "train.vf-coef": float(rng.choice([1.0, 2.0])),
+            "train.clip-coef": float(rng.uniform(0.1, 0.3)),
+            "train.prio-alpha": float(rng.uniform(0.5, 1.0)),
             "env.warm-frac": float(rng.choice([0.3, 0.5, 0.7])),
         }
 
