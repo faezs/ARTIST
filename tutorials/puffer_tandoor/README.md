@@ -39,9 +39,13 @@ terminal stream. The pretrained LSTM lives at `../data/tandoor/tandoor_lstm.pt`.
 
 | policy | rotis/day |
 |---|---|
-| random setpoints | 95.6 |
-| hold-nominal (flat 404 Pa) | 351.6 |
-| trained LSTM | 376-380 |
+| hold-nominal (flat 404 Pa) | 275 |
+| trained LSTM (12M steps, gamma 0.9995, bptt 256) | 294 (peaks 321) |
+
+Under the full physics: world-frame azimuthal beam sweep, oblique pit
+clipping, flared throat, ARTIST Sun sunshape per step. Short-horizon
+training (gamma 0.999, bptt 64) fails on this env (~102): the sweeping
+heat needs day-scale credit assignment.
 
 ## Hard-won notes
 
