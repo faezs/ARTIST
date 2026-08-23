@@ -81,7 +81,8 @@ class TandoorEnv(pufferlib.PufferEnv):
                  day_of_year=80, seed=0, device=None, render_mode=None,
                  nurbs=0, flare_ratio=1.4, flare_reflect=0.6,
                  sigma_surf=2.0e-3, sigma_fab=1.5e-3, csr_frac=0.08,
-                 wind_limit=9.0, buf=None):
+                 wind_limit=9.0, wide_shutter=0, buf=None):
+        self.wide_shutter = bool(wide_shutter)
         self.flare_ratio = float(flare_ratio)
         self.flare_reflect = float(flare_reflect)
         self.sigma_surf = float(sigma_surf)
@@ -110,8 +111,10 @@ class TandoorEnv(pufferlib.PufferEnv):
         )
         # [pressure level 0-6 (defocus-dump .. over-focus), shutter 0/1].
         # MultiDiscrete: pufferlib 3.0's continuous head anti-trains.
+        # wide_shutter=1 makes both heads width-7 (shutter = a1 > 3):
+        # probe for pufferlib 3.0's unequal-nvec -inf padding pathology
         self.single_action_space = gymnasium.spaces.MultiDiscrete(
-            [self.N_LEVELS, 2]
+            [self.N_LEVELS, 7 if self.wide_shutter else 2]
         )
         self.num_agents = num_agents
         super().__init__(buf)
@@ -428,7 +431,8 @@ class TandoorEnv(pufferlib.PufferEnv):
         # (a NaN policy once fed 0-6 here and tripled the sun)
         self.p_set = self.p0 * self.level_frac[
             np.clip(a[:, 0], 0, self.N_LEVELS - 1)]
-        self.shutter = (a[:, 1] > 0.5).astype(np.float64)
+        thr = 3.5 if self.wide_shutter else 0.5
+        self.shutter = (a[:, 1] > thr).astype(np.float64)
         # pump servo chases setpoint against plenum thermodynamics
         # (sealed-gas ~300 Pa/K; insolation-correlated bias + noise)
         bias = 0.05 * (self.dni - 400.0) / 10.0
