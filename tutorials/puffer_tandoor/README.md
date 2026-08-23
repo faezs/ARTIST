@@ -35,17 +35,23 @@ env inside it, so the stock `puffer` CLI resolves `puffer_tandoor`. Extra
 puffer args pass through, e.g. `./run.sh eval --env.render-mode ansi` for a
 terminal stream. The pretrained LSTM lives at `../data/tandoor/tandoor_lstm.pt`.
 
-## Results (one cooking day, 350 K cold start, clouds + drift)
+## Results
 
-| policy | rotis/day |
-|---|---|
-| hold-nominal (flat 404 Pa) | 275 |
-| trained LSTM (12M steps, gamma 0.9995, bptt 256) | 294 (peaks 321) |
+Two environments live here. The IDEAL-PHYSICS env (v1 history): trained
+LSTM 294-321 rotis/day vs 275 hold-nominal. The FIELD-REAL env (v2,
+expert-panel redesign: wind, slope error, soiling, boresight, shutter
+interlock, spall, honest chain) is much harder and is currently an OPEN
+BENCHMARK - the scripted heuristic still leads:
 
-Under the full physics: world-frame azimuthal beam sweep, oblique pit
-clipping, flared throat, ARTIST Sun sunshape per step. Short-horizon
-training (gamma 0.999, bptt 64) fails on this env (~102): the sweeping
-heat needs day-scale credit assignment.
+| controller (field-real env)   | cold start | warm start |
+|---|---|---|
+| scripted heuristic            | 7-13       | 61         |
+| trained LSTM (latest)         | 1.3        | 48         |
+
+Policy trajectory across iterations: 0/21 -> 1.3/48 (cold/warm) via a
+warm-start curriculum, a +0.3 load bonus, and potential-based preheat
+shaping. The shipped checkpoint is the latest policy; beating the
+heuristic on cold mornings is the open problem.
 
 ## Hard-won notes
 
