@@ -409,7 +409,7 @@ class TandoorEnv(pufferlib.PufferEnv):
             self.bread_E / ROTI_ENERGY,
             self.p_in[:, None] / 6000.0,
         ], axis=1).astype(np.float32)
-        return obs
+        return np.clip(obs, -4.0, 4.0)
 
     # ---------------------------------------------------------------- api #
     def reset(self, seed=None):
@@ -424,9 +424,11 @@ class TandoorEnv(pufferlib.PufferEnv):
     def step(self, actions):
         B = self.num_agents
         a = np.asarray(actions).reshape(B, 2)
+        # hard-validate both heads: shutter is a gate, never a multiplier
+        # (a NaN policy once fed 0-6 here and tripled the sun)
         self.p_set = self.p0 * self.level_frac[
             np.clip(a[:, 0], 0, self.N_LEVELS - 1)]
-        self.shutter = a[:, 1].astype(np.float64)
+        self.shutter = (a[:, 1] > 0.5).astype(np.float64)
         # pump servo chases setpoint against plenum thermodynamics
         # (sealed-gas ~300 Pa/K; insolation-correlated bias + noise)
         bias = 0.05 * (self.dni - 400.0) / 10.0
