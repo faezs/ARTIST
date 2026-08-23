@@ -155,6 +155,40 @@ loss_band = (CAVITY_LOSS_K * CAVITY_AREA * (640 - 300)
 print(f"cavity losses at 640 K: {loss_band:.0f} W vs peak delivery "
       f"{results['equinox'][1].max():.0f} W")
 
+# ------------------------------------------- heliostat pointing budget #
+# The flat IS a robot: 2-axis, ~11 m^2, outdoors. Its burden, quantified:
+# a pointing error delta tilts the beam 2*delta; at the port that walks
+# the focal spot 2*delta*f (f = 3 m), and at the membrane it walks the
+# illumination patch 2*delta*L_h (L_h ~ 6 m) causing edge vignetting.
+print("== heliostat pointing budget (the 'robot' question) ==")
+for dmr in (2.0, 5.0, 10.0, 15.0):
+    d = dmr * 1e-3
+    spot_walk = 2 * d * THROW * 1000
+    vign = min(2 * d * 6.0 / (2 * A_MEM), 1.0)
+    pp = port_pass_fraction(sig_extra=0.0, n=20000)
+    # port pass with a static decenter: approximate via extra sigma? do
+    # exact: shift the spot and recount
+    rng = np.random.default_rng(1)
+    r = np.sqrt(rng.uniform(0.05**2, (0.985 * A_MEM) ** 2, 20000))
+    th = rng.uniform(0, 2 * np.pi, 20000)
+    x, y = r * np.cos(th), r * np.sin(th)
+    rt = torch.tensor(r, dtype=torch.float64)
+    s, sp = _sim.sag_interp(mem, rt)
+    s, sp = s.numpy(), sp.numpy()
+    sig_ang = np.sqrt((2 * SIG_MEM) ** 2 + (2 * SIG_FLAT) ** 2 + SIG_SUN**2)
+    n3 = np.stack([-sp * x / r, -sp * y / r, np.ones(20000)], 1)
+    n3 /= np.linalg.norm(n3, axis=1, keepdims=True)
+    d0 = np.array([np.sin(2 * d), 0.0, -np.cos(2 * d)])  # mispointed feed
+    dd = d0 - 2 * (n3 @ d0)[:, None] * n3
+    dd[:, :2] += rng.normal(0, sig_ang, (20000, 2))
+    tz = (mem["z0"] + mem["f_fit"] - s) / dd[:, 2]
+    px, py = x + tz * dd[:, 0], y + tz * dd[:, 1]
+    pass_dec = float(np.mean(px**2 + py**2 <= R_PORT**2))
+    print(f"  pointing err {dmr:4.1f} mrad: spot walk {spot_walk:4.0f} mm, "
+          f"membrane vignette ~{vign * 100:2.0f}%, port pass {pass_dec:.3f}")
+print("  (beam-down needed <2 mrad on a 6 m tilting gimbal; this needs "
+      "<~10 mrad = 0.6 deg on a ground-level frame - garden-tracker class)")
+
 # ------------------------------------------------------------------ fig #
 fig, axs = plt.subplots(1, 2, figsize=(13, 5))
 for n, (h, p, pc, kwh) in results.items():
