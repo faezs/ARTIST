@@ -66,8 +66,10 @@ class TandoorEnv(pufferlib.PufferEnv):
 
     def __init__(self, num_agents=32, n_zones=5, dt=15.0, lat=28.6,
                  day_of_year=80, seed=0, device=None, render_mode=None,
-                 nurbs=0, buf=None):
+                 nurbs=0, flare_ratio=1.4, flare_reflect=0.9, buf=None):
         self.use_nurbs = bool(nurbs)
+        self.flare_ratio = float(flare_ratio)
+        self.flare_reflect = float(flare_reflect)
         if device is None:
             device = "mps" if torch.backends.mps.is_available() else "cpu"
         self.device = torch.device(device)
@@ -322,10 +324,48 @@ class TandoorEnv(pufferlib.PufferEnv):
         d2_w = d2[:, :3] @ R3.T
         tp = -wpt_w[:, 2] / d2_w[:, 2].clamp(max=-1e-9)
         ppit = wpt_w + tp[:, None] * d2_w
-        through = (
-            okw & (d2_w[:, 2] < 0)
-            & (ppit[:, 0] ** 2 + ppit[:, 1] ** 2 <= cfg.r_pit**2)
-        )
+        down = okw & (d2_w[:, 2] < 0)
+        direct = down & (ppit[:, 0] ** 2 + ppit[:, 1] ** 2 <= cfg.r_pit**2)
+        # flared reflective throat (tandoor-mouth chamfer): a 45-deg
+        # polished cone from r_pit up to flare_ratio*r_pit catches rays
+        # that would clip the rim at oblique entry and folds them down
+        # through the throat with one extra reflection
+        flare_w = torch.zeros(direct.shape, device=self.device)
+        if self.flare_ratio > 1.0:
+            h_f = (self.flare_ratio - 1.0) * cfg.r_pit
+            xw, yw, zw = wpt_w[:, 0], wpt_w[:, 1], wpt_w[:, 2]
+            dxw, dyw, dzw = d2_w[:, 0], d2_w[:, 1], d2_w[:, 2]
+            a_c = dxw**2 + dyw**2 - dzw**2
+            b_c = 2 * (xw * dxw + yw * dyw - (zw + cfg.r_pit) * dzw)
+            c_c = xw**2 + yw**2 - (zw + cfg.r_pit) ** 2
+            disc = (b_c**2 - 4 * a_c * c_c).clamp(min=0)
+            sq = torch.sqrt(disc)
+            t1 = (-b_c - sq) / (2 * a_c + 1e-12)
+            t2 = (-b_c + sq) / (2 * a_c + 1e-12)
+            zh1 = zw + t1 * dzw
+            zh2 = zw + t2 * dzw
+            v1 = (t1 > 1e-6) & (zh1 >= 0) & (zh1 <= h_f)
+            v2 = (t2 > 1e-6) & (zh2 >= 0) & (zh2 <= h_f)
+            tc = torch.where(v1, t1, t2)
+            hitc = wpt_w + tc[:, None] * d2_w
+            rho_c = torch.sqrt(
+                hitc[:, 0] ** 2 + hitc[:, 1] ** 2
+            ).clamp(min=1e-9)
+            n_c = torch.stack([hitc[:, 0] / rho_c, hitc[:, 1] / rho_c,
+                               -torch.ones_like(rho_c)], dim=-1)
+            n_c = n_c / np.sqrt(2.0)
+            d_r = d2_w - 2 * (d2_w * n_c).sum(-1, keepdim=True) * n_c
+            tpit2 = -hitc[:, 2] / d_r[:, 2].clamp(max=-1e-9)
+            p2 = hitc + tpit2[:, None] * d_r
+            recovered = (
+                down & ~direct & (v1 | v2) & (d_r[:, 2] < -1e-6)
+                & (p2[:, 0] ** 2 + p2[:, 1] ** 2 <= cfg.r_pit**2)
+            )
+            ppit = torch.where(recovered[:, None], p2, ppit)
+            d2_w = torch.where(recovered[:, None], d_r, d2_w)
+            flare_w = recovered.float() * self.flare_reflect
+        through = direct | (flare_w > 0)
+        through_f = direct.float() + flare_w
         q = ppit - self._oc_w
         b = (q * d2[:, :3]).sum(-1)
         c = (q * q).sum(-1) - cfg.R_oven**2
@@ -347,7 +387,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                             torch.full_like(seg, self.n_belt + 2), seg),
             ),
         )
-        w = self._ray_pw.expand(B, P).reshape(-1) * through.float()
+        w = self._ray_pw.expand(B, P).reshape(-1) * through_f
         if self.render_mode == "human":
             # stash agent 0's COMPLETE ray state from this exact trace so
             # the renderer shows the same rays that heat the oven. World-
