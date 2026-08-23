@@ -45,9 +45,16 @@ def baseline(policy, num_agents=64, seed=1):
     steps = int(8 * 3600 / env.dt) + 2
     for _ in range(steps):
         if policy == "random":
-            acts = env.rng.integers(0, 7, (num_agents, env.n_zones))
+            acts = np.stack([env.rng.integers(0, 7, num_agents),
+                             env.rng.integers(0, 2, num_agents)], axis=1)
         else:
-            acts = np.full((num_agents, env.n_zones), 3)  # nominal setpoint
+            # heuristic: nominal focus, close the shutter only when a load
+            # opportunity is ready (timer elapsed and a belt slot in band)
+            belt = env.T[:, : env.n_belt]
+            ready = (env.load_timer >= 45.0) & (
+                ((~env.has_bread) & (belt >= 580.0) & (belt <= 700.0)).any(1))
+            acts = np.stack([np.full(num_agents, 4),
+                             (~ready).astype(int)], axis=1)
         *_, infos = env.step(acts)
         for inf in infos:
             rotis += inf["rotis_per_day"]
