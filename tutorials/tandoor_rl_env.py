@@ -712,14 +712,29 @@ class TandoorEnv(pufferlib.PufferEnv):
             self._cam_th, self._cam_ph, self._cam_r = 0.9, 0.38, 10.0
 
         # three.js-style orbit controls: left-drag rotates, wheel zooms
+        if not hasattr(self, "_cam_tgt"):
+            self._cam_tgt = np.array([0.0, 0.0, 1.2])
         if pr.is_mouse_button_down(0):
             d = pr.get_mouse_delta()
             self._cam_th -= d.x * 0.006
             self._cam_ph = float(np.clip(self._cam_ph + d.y * 0.006,
                                          -0.2, 1.45))
+        if pr.is_mouse_button_down(1):  # right-drag pans the orbit target
+            d = pr.get_mouse_delta()
+            fwd = np.array([np.cos(self._cam_th), np.sin(self._cam_th)])
+            right = np.array([fwd[1], -fwd[0]])
+            self._cam_tgt[:2] += (right * d.x - fwd * d.y * np.sin(
+                self._cam_ph)) * 0.004 * self._cam_r
+            self._cam_tgt[2] += d.y * 0.004 * self._cam_r * np.cos(
+                self._cam_ph)
+            self._cam_tgt = np.clip(self._cam_tgt,
+                                    [-6, -6, -3.2], [6, 6, 8])
+        if pr.is_key_pressed(pr.KeyboardKey.KEY_R):
+            self._cam_tgt = np.array([0.0, 0.0, 1.2])
+            self._cam_th, self._cam_ph, self._cam_r = 0.9, 0.38, 10.0
         self._cam_r = float(np.clip(
-            self._cam_r - pr.get_mouse_wheel_move() * 0.9, 2.5, 25.0))
-        tgt = pr.Vector3(0.0, 0.0, 1.2)
+            self._cam_r - pr.get_mouse_wheel_move() * 0.9, 1.2, 25.0))
+        tgt = pr.Vector3(*[float(v) for v in self._cam_tgt])
         cp = pr.Vector3(
             tgt.x + self._cam_r * np.cos(self._cam_ph) * np.cos(self._cam_th),
             tgt.y + self._cam_r * np.cos(self._cam_ph) * np.sin(self._cam_th),
@@ -763,6 +778,27 @@ class TandoorEnv(pufferlib.PufferEnv):
             zw = zc + zoff * cfg.R_oven / 0.6
             rw = np.sqrt(max(cfg.R_oven**2 - (zw - zc) ** 2, 1e-4))
             ring(np.array([0, 0, zw]), rw, (95, 70, 58, 255), 32)
+        # meridians so the cavity reads as a closed sphere
+        th_m = np.linspace(np.arccos(self.ct_cut), np.pi, 14)
+        for am in np.linspace(0, 2 * np.pi, 8, endpoint=False):
+            pts_m = np.stack([
+                cfg.R_oven * np.sin(th_m) * np.cos(am),
+                cfg.R_oven * np.sin(th_m) * np.sin(am),
+                zc + cfg.R_oven * np.cos(th_m)], 1)
+            for j in range(len(pts_m) - 1):
+                pr.draw_line_3d(v3(pts_m[j]), v3(pts_m[j + 1]),
+                                (85, 62, 52, 255))
+        # mouth throat + flare funnel (world-fixed at grade)
+        h_fl = (self.flare_ratio - 1.0) * cfg.r_pit
+        ring(np.array([0, 0, h_fl]), self.flare_ratio * cfg.r_pit,
+             (170, 125, 90, 255), 24)
+        for am in np.linspace(0, 2 * np.pi, 8, endpoint=False):
+            ca, sa = np.cos(am), np.sin(am)
+            pr.draw_line_3d(
+                v3([cfg.r_pit * ca, cfg.r_pit * sa, 0]),
+                v3([self.flare_ratio * cfg.r_pit * ca,
+                    self.flare_ratio * cfg.r_pit * sa, h_fl]),
+                (170, 125, 90, 255))
         for k in range(self.n_belt):
             a0 = -np.pi + 2 * np.pi * k / self.n_belt
             th_ = np.linspace(a0, a0 + 2 * np.pi / self.n_belt, 8)
@@ -802,6 +838,21 @@ class TandoorEnv(pufferlib.PufferEnv):
             zz = float(self.sec.sag(torch.tensor(
                 [rr_**2], dtype=torch.float32, device=self.device)).cpu()[0])
             ring(np.array([0, 0, zz]), rr_, (225, 80, 80, 255), 28, Rm)
+        z_edge = float(self.sec.sag(torch.tensor(
+            [self.sec.rho_max**2], dtype=torch.float32,
+            device=self.device)).cpu()[0])
+        z_v0 = float(self.sec.sag(torch.tensor(
+            [0.0], dtype=torch.float32, device=self.device)).cpu()[0])
+        for aa in np.linspace(0, 2 * np.pi, 8, endpoint=False):
+            pw_ = w3(np.array([
+                [0.0, 0.0, z_v0],
+                [self.sec.rho_max * np.cos(aa),
+                 self.sec.rho_max * np.sin(aa), z_edge]]))
+            pr.draw_line_3d(v3(pw_[0]), v3(pw_[1]), (225, 80, 80, 255))
+        # clear window marked on the membrane (the oven "lid")
+        zw_ = float(np.interp(cfg.r_window, rs_, zs_))
+        ring(np.array([0, 0, zw_]), cfg.r_window, (120, 220, 235, 255),
+             36, Rm)
         pr.draw_line_3d(v3(w3(np.array([0, 0, -cfg.pivot_drop]))),
                         v3(w3(np.array([0, 0, 0.0]))), (120, 120, 130, 255))
         # EVERY ray from the step's actual trace, additive so density = flux
@@ -828,9 +879,12 @@ class TandoorEnv(pufferlib.PufferEnv):
                         pr.draw_line_3d(v3(pp), v3(pp + [0, 0, 0.04]),
                                         col_blk)
                 else:
-                    wp = wpt_w[i]
-                    pr.draw_line_3d(v3(h_), v3(wp), col_beam)
-                    pr.draw_line_3d(v3(wp), v3(wp + 0.04 * sun_dir), col_blk)
+                    wa = lr["wpt"][i]
+                    if wa[0] ** 2 + wa[1] ** 2 <= cfg.a**2:
+                        wp = wpt_w[i]  # dies on the aluminized membrane back
+                        pr.draw_line_3d(v3(h_), v3(wp), col_beam)
+                        pr.draw_line_3d(v3(wp), v3(wp + 0.03 * sun_dir),
+                                        col_blk)
             pr.end_blend_mode()
         pr.end_mode_3d()
 
@@ -877,9 +931,9 @@ class TandoorEnv(pufferlib.PufferEnv):
         ]
         for j, line in enumerate(hud):
             pr.draw_text(line, 1020, 500 + 26 * j, 18, (225, 225, 205, 255))
-        pr.draw_text("drag: orbit   wheel: zoom   world frame, oven fixed, "
-                     "assembly tracks the sun", 20, H - 28, 16,
-                     (150, 150, 165, 255))
+        pr.draw_text("left-drag: orbit   right-drag: pan   wheel: zoom   "
+                     "R: reset   world frame, oven fixed, assembly tracks "
+                     "the sun", 20, H - 28, 16, (150, 150, 165, 255))
         pr.end_drawing()
         return None
 
