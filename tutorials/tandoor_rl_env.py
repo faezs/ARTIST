@@ -374,7 +374,13 @@ class TandoorEnv(pufferlib.PufferEnv):
     def _reset_state(self):
         B = self.num_agents
         self.t_solar = np.full(B, 8.0)
-        self.T = np.full((B, self.n_nodes), 350.0)
+        # curriculum: half the tandoors wake up still warm from yesterday
+        # (belt in or near the loading band) so the shutter/loading skill
+        # is discoverable; cold starts remain the other half
+        warm = self.rng.random(B) < 0.5
+        base_T = np.where(warm, self.rng.uniform(540, 620, B),
+                          350.0 + self.rng.uniform(-15, 15, B))
+        self.T = np.repeat(base_T[:, None], self.n_nodes, axis=1)
         self.T += self.rng.uniform(-15, 15, (B, self.n_nodes))
         self.p_set = np.full(B, self.p0)
         self.p_act = np.full(B, self.p0)
@@ -543,6 +549,8 @@ class TandoorEnv(pufferlib.PufferEnv):
         j = np.argmax(np.where(ok_, belt_T, -np.inf), axis=1)
         self.has_bread[can, j[can]] = True
         self.load_timer[can] = 0.0
+        # small load bonus (< doughy penalty, so load-farming loses)
+        rew[can] += 0.3
         belt_mean = belt_T.mean(1)
         rew -= 0.05 * np.clip(belt_mean - 690.0, 0, None) / 10.0
         rew -= 0.02 * ((belt_mean - 640.0) / 100.0) ** 2
@@ -565,7 +573,11 @@ class TandoorEnv(pufferlib.PufferEnv):
             })
             for i in np.nonzero(day_over)[0]:
                 self.t_solar[i] = 8.0
-                self.T[i] = 350.0 + self.rng.uniform(-15, 15, self.n_nodes)
+                if self.rng.random() < 0.5:
+                    self.T[i] = self.rng.uniform(540, 620)
+                else:
+                    self.T[i] = 350.0
+                self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
                 self.p_set[i] = self.p_act[i] = self.p0
                 self.p_dist[i] = 0.0
                 self.shutter[i] = 1.0
