@@ -81,7 +81,9 @@ class TandoorEnv(pufferlib.PufferEnv):
                  day_of_year=80, seed=0, device=None, render_mode=None,
                  nurbs=0, flare_ratio=1.4, flare_reflect=0.6,
                  sigma_surf=2.0e-3, sigma_fab=1.5e-3, csr_frac=0.08,
-                 wind_limit=9.0, wide_shutter=0, buf=None):
+                 wind_limit=9.0, wide_shutter=0, warm_frac=0.5,
+                 buf=None):
+        self.warm_frac = float(warm_frac)
         self.wide_shutter = bool(wide_shutter)
         self.flare_ratio = float(flare_ratio)
         self.flare_reflect = float(flare_reflect)
@@ -377,7 +379,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         # curriculum: half the tandoors wake up still warm from yesterday
         # (belt in or near the loading band) so the shutter/loading skill
         # is discoverable; cold starts remain the other half
-        warm = self.rng.random(B) < 0.5
+        warm = self.rng.random(B) < self.warm_frac
         base_T = np.where(warm, self.rng.uniform(540, 620, B),
                           350.0 + self.rng.uniform(-15, 15, B))
         self.T = np.repeat(base_T[:, None], self.n_nodes, axis=1)
@@ -581,7 +583,7 @@ class TandoorEnv(pufferlib.PufferEnv):
             })
             for i in np.nonzero(day_over)[0]:
                 self.t_solar[i] = 8.0
-                if self.rng.random() < 0.5:
+                if self.rng.random() < self.warm_frac:
                     self.T[i] = self.rng.uniform(540, 620)
                 else:
                     self.T[i] = 350.0
