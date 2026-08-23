@@ -34,5 +34,15 @@ TandoorEnv = _mod.TandoorEnv
 from . import policy as torch  # noqa: E402,F401
 
 
+_spec2 = importlib.util.spec_from_file_location(
+    "tandoor_shed_env", _tutorials / "tandoor_shed_env.py")
+_mod2 = importlib.util.module_from_spec(_spec2)
+sys.modules.setdefault("tandoor_shed_env", _mod2)
+_spec2.loader.exec_module(_mod2)
+TandoorShedEnv = _mod2.TandoorShedEnv
+
+
 def env_creator(name="puffer_tandoor"):
+    if "shed" in name:
+        return functools.partial(TandoorShedEnv)
     return functools.partial(TandoorEnv)
