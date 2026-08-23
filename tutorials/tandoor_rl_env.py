@@ -396,6 +396,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.bread_t = np.zeros((B, self.n_belt))
         self.has_bread = np.zeros((B, self.n_belt), dtype=bool)
         self.load_timer = np.zeros(B)
+        self._belt_prev = self.T[:, : self.n_belt].mean(1).copy()
         self.ep_rotis = np.zeros(B)
         self.ep_scorch = np.zeros(B)
         self.ep_spall = np.zeros(B)
@@ -552,6 +553,13 @@ class TandoorEnv(pufferlib.PufferEnv):
         # small load bonus (< doughy penalty, so load-farming loses)
         rew[can] += 0.3
         belt_mean = belt_T.mean(1)
+        # potential-based preheat shaping: reward belt temperature RISE
+        # while below the band (policy-invariant, telescopes to zero over
+        # any closed loop - cannot be farmed). This is what teaches the
+        # cold-morning charge phase; the load bonus teaches discharge.
+        below = belt_mean < T_COOK_LO
+        rew += 0.05 * np.clip(belt_mean - self._belt_prev, -5, 5) * below
+        self._belt_prev = belt_mean.copy()
         rew -= 0.05 * np.clip(belt_mean - 690.0, 0, None) / 10.0
         rew -= 0.02 * ((belt_mean - 640.0) / 100.0) ** 2
 
@@ -592,6 +600,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                 self.load_timer[i] = 0.0
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
                 self.ep_spall[i] = 0.0
+                self._belt_prev[i] = self.T[i, : self.n_belt].mean()
                 self.ep_return[i] = self.ep_len[i] = 0.0
         self.observations[:] = self._obs()
         return (self.observations, self.rewards, self.terminals,
