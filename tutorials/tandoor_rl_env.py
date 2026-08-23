@@ -409,6 +409,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                 okw=okw[sl].cpu().numpy(),
                 through=through[sl].cpu().numpy(),
                 w=w[sl].cpu().numpy(),
+                R=R3.cpu().numpy(),
             )
         out = torch.zeros(B * self.n_nodes, device=self.device)
         out.index_put_((self._env_off + node,), w, accumulate=True)
@@ -703,236 +704,182 @@ class TandoorEnv(pufferlib.PufferEnv):
         if self.render_mode != "human":
             return None
         import pyray as pr
-        W, H = 1400, 800
+        W, H = 1400, 850
         if not self._window:
-            pr.init_window(W, H, "Solar Tandoor - ARTIST raytrace")
+            pr.init_window(W, H, "Solar Tandoor - ARTIST raytrace (3D)")
             pr.set_target_fps(24)
             self._window = True
+            self._cam_th, self._cam_ph, self._cam_r = 0.9, 0.38, 10.0
 
-        def sx(x):
-            return int(300 + x * 56)
-
-        def sy(z):
-            return int(50 + (7.3 - z) * 56)
+        # three.js-style orbit controls: left-drag rotates, wheel zooms
+        if pr.is_mouse_button_down(0):
+            d = pr.get_mouse_delta()
+            self._cam_th -= d.x * 0.006
+            self._cam_ph = float(np.clip(self._cam_ph + d.y * 0.006,
+                                         -0.2, 1.45))
+        self._cam_r = float(np.clip(
+            self._cam_r - pr.get_mouse_wheel_move() * 0.9, 2.5, 25.0))
+        tgt = pr.Vector3(0.0, 0.0, 1.2)
+        cp = pr.Vector3(
+            tgt.x + self._cam_r * np.cos(self._cam_ph) * np.cos(self._cam_th),
+            tgt.y + self._cam_r * np.cos(self._cam_ph) * np.sin(self._cam_th),
+            tgt.z + self._cam_r * np.sin(self._cam_ph))
+        cam = pr.Camera3D(cp, tgt, pr.Vector3(0.0, 0.0, 1.0), 45.0,
+                          pr.CameraProjection.CAMERA_PERSPECTIVE)
 
         dim = float(np.clip(self.dni[0] / 950.0, 0.04, 1.0))
-        pr.begin_drawing()
-        # sky darkens with cloud/DNI so the day visibly breathes
-        pr.clear_background((int(14 + 30 * dim), int(16 + 38 * dim),
-                             int(26 + 62 * dim), 255))
-        pr.draw_rectangle(660, 0, W - 660, H, (13, 15, 22, 255))
+        lr = getattr(self, "_last_rays", None)
         cfg = self.cfg
-        # --- sun arc / day progress (left panel top) ---
-        frac = float(np.clip((self.t_solar[0] - 8.0) / 8.0, 0, 1))
-        el_now, _, _ = _sim.solar_position(self.lat, self.day,
-                                           float(self.t_solar[0]))
-        pr.draw_line(60, 46, 560, 46, (70, 70, 85, 255))
-        for k in range(30):
-            a0 = np.pi * (1 - k / 30.0)
-            a1 = np.pi * (1 - (k + 1) / 30.0)
-            pr.draw_line(int(310 + 250 * np.cos(a0)),
-                         int(46 - 40 * np.sin(a0)),
-                         int(310 + 250 * np.cos(a1)),
-                         int(46 - 40 * np.sin(a1)), (60, 60, 75, 255))
-        sun_a = np.pi * (1 - frac)
-        pr.draw_circle(int(310 + 250 * np.cos(sun_a)),
-                       int(46 - 40 * np.sin(sun_a)), 9,
-                       (min(int(255 * dim + 60), 255),
-                        min(int(210 * dim + 45), 255),
-                        min(int(70 * dim + 30), 255), 255))
-        pr.draw_text(f"day {frac * 100:3.0f}%  el {el_now:.0f} deg",
-                     60, 56, 16, (150, 150, 165, 255))
-        # grade / crater / collar
-        for sgn in (-1, 1):
-            pts = [(-8, 0), (-2.4, 0), (-2.0, -0.75), (-0.41, -0.75),
-                   (-0.41, 0), (-0.26, 0)]
-            for (x0, z0), (x1, z1) in zip(pts, pts[1:]):
-                pr.draw_line(sx(sgn * x0), sy(z0 - 1.6),
-                             sx(sgn * x1), sy(z1 - 1.6), (90, 85, 78, 255))
-        # oven wall arcs colored by node temps (west nodes left, east right)
-        th = np.linspace(0, 2 * np.pi, 80)
-        zc = self.zc_oven
-        for k in range(len(th) - 1):
-            zw = zc + cfg.R_oven * np.sin(th[k])
-            if zw > -cfg.pivot_drop:
-                continue
-            xw = cfg.R_oven * np.cos(th[k])
-            band = abs(zw - zc) < cfg.belt_half
-            if band:
-                node = 0 if xw < 0 else self.n_belt // 2
-                col = self._heat_color(self.T[0, node])
-                w = 6
-            else:
-                col = self._heat_color(self.T[0, 9]) if zw < zc else (
-                    120, 90, 70, 255)
-                w = 3
-            x2 = cfg.R_oven * np.cos(th[k + 1])
-            z2 = zc + cfg.R_oven * np.sin(th[k + 1])
-            pr.draw_line_ex(pr.Vector2(sx(xw), sy(zw)),
-                            pr.Vector2(sx(x2), sy(min(z2, -cfg.pivot_drop))),
-                            w, col)
-        # hearth glow
-        pr.draw_circle(sx(0), sy(zc - cfg.R_oven + 0.06), 9,
+        Rm = lr["R"] if lr is not None else np.eye(3)
+        piv = np.array([0.0, 0.0, -cfg.pivot_drop])
+
+        def w3(p_asm):
+            return (p_asm - piv) @ Rm.T
+
+        def v3(p):
+            return pr.Vector3(float(p[0]), float(p[1]), float(p[2]))
+
+        def ring(c, r, col, n=40, frame=None):
+            th_ = np.linspace(0, 2 * np.pi, n + 1)
+            pts = np.stack([c[0] + r * np.cos(th_), c[1] + r * np.sin(th_),
+                            np.full(n + 1, c[2])], 1)
+            if frame is not None:
+                pts = (pts - piv) @ frame.T
+            for k in range(n):
+                pr.draw_line_3d(v3(pts[k]), v3(pts[k + 1]), col)
+
+        pr.begin_drawing()
+        pr.clear_background((int(10 + 26 * dim), int(12 + 32 * dim),
+                             int(20 + 52 * dim), 255))
+        pr.begin_mode_3d(cam)
+        # ground, crater, pit mouth (world-fixed)
+        for r_, col in ((3.2, (60, 62, 74, 255)), (2.5, (70, 66, 60, 255)),
+                        (cfg.r_pit, (150, 110, 80, 255)),
+                        (self.flare_ratio * cfg.r_pit, (110, 85, 65, 255))):
+            ring(np.array([0, 0, 0.0]), r_, col)
+        # oven sphere wireframe + belt nodes colored by temperature
+        zc = self._zc_w
+        for zoff in (-0.45, -0.25, 0.25, 0.45):
+            zw = zc + zoff * cfg.R_oven / 0.6
+            rw = np.sqrt(max(cfg.R_oven**2 - (zw - zc) ** 2, 1e-4))
+            ring(np.array([0, 0, zw]), rw, (95, 70, 58, 255), 32)
+        for k in range(self.n_belt):
+            a0 = -np.pi + 2 * np.pi * k / self.n_belt
+            th_ = np.linspace(a0, a0 + 2 * np.pi / self.n_belt, 8)
+            col = self._heat_color(self.T[0, k])
+            for zoff in (-0.6 * cfg.belt_half, 0.0, 0.6 * cfg.belt_half):
+                zw = zc + zoff
+                rw = np.sqrt(cfg.R_oven**2 - (zw - zc) ** 2)
+                for j in range(7):
+                    pr.draw_line_3d(
+                        v3([rw * np.cos(th_[j]), rw * np.sin(th_[j]), zw]),
+                        v3([rw * np.cos(th_[j + 1]),
+                            rw * np.sin(th_[j + 1]), zw]), col)
+            if self.has_bread[0, k]:
+                am = a0 + np.pi / self.n_belt
+                fr_ = min(self.bread_E[0, k] / ROTI_ENERGY, 1)
+                rw = np.sqrt(cfg.R_oven**2 - 0.0) * 0.97
+                pr.draw_sphere(v3([rw * np.cos(am), rw * np.sin(am), zc]),
+                               0.05 + 0.02 * fr_, (200, 165, 110, 255))
+        pr.draw_sphere(v3([0, 0, zc - cfg.R_oven * 0.95]), 0.09,
                        self._heat_color(self.T[0, 8]))
-        # membrane + secondary + pedestal
-        xs = np.linspace(-cfg.a, cfg.a, 60)
+        # tracked assembly wireframe (membrane, secondary, pedestal) in world
         pr_np = self.pr.cpu().numpy()
         order = np.argsort(pr_np)
-        sag = np.interp(np.abs(xs), pr_np[order],
-                        self.pz_sag.cpu().numpy()[order])
-        for k in range(len(xs) - 1):
-            pr.draw_line_ex(pr.Vector2(sx(xs[k]), sy(sag[k])),
-                            pr.Vector2(sx(xs[k + 1]), sy(sag[k + 1])),
-                            4, (70, 130, 220, 255))
-        rs = np.linspace(-self.sec.rho_max, self.sec.rho_max, 30)
-        zsec = self.sec.sag(torch.tensor(
-            rs**2, dtype=torch.float32, device=self.device)).cpu().numpy()
-        for k in range(len(rs) - 1):
-            pr.draw_line_ex(pr.Vector2(sx(rs[k]), sy(zsec[k])),
-                            pr.Vector2(sx(rs[k + 1]), sy(zsec[k + 1])),
-                            4, (210, 70, 70, 255))
-        pr.draw_line_ex(pr.Vector2(sx(0), sy(-1.6)), pr.Vector2(sx(0), sy(0)),
-                        5, (95, 95, 100, 255))
-        # EVERY ray tensor from the step's actual ARTIST trace, drawn with
-        # additive blending: overlapping rays sum to brightness, so what
-        # you see at the waist IS the flux concentration
-        lr = getattr(self, "_last_rays", None)
+        rs_, zs_ = pr_np[order], self.pz_sag.cpu().numpy()[order]
+        for rr_ in np.linspace(rs_[0], rs_[-1], 5):
+            zz = float(np.interp(rr_, rs_, zs_))
+            ring(np.array([0, 0, zz]), rr_, (90, 150, 235, 255), 36, Rm)
+        for aa in np.linspace(0, 2 * np.pi, 12, endpoint=False):
+            pts = np.stack([np.cos(aa) * rs_[::90], np.sin(aa) * rs_[::90],
+                            zs_[::90]], 1)
+            pw_ = w3(pts)
+            for j in range(len(pw_) - 1):
+                pr.draw_line_3d(v3(pw_[j]), v3(pw_[j + 1]),
+                                (90, 150, 235, 255))
+        sec_r = np.linspace(0, self.sec.rho_max, 4)[1:]
+        for rr_ in sec_r:
+            zz = float(self.sec.sag(torch.tensor(
+                [rr_**2], dtype=torch.float32, device=self.device)).cpu()[0])
+            ring(np.array([0, 0, zz]), rr_, (225, 80, 80, 255), 28, Rm)
+        pr.draw_line_3d(v3(w3(np.array([0, 0, -cfg.pivot_drop]))),
+                        v3(w3(np.array([0, 0, 0.0]))), (120, 120, 130, 255))
+        # EVERY ray from the step's actual trace, additive so density = flux
         if lr is not None:
             pr.begin_blend_mode(pr.BlendMode.BLEND_ADDITIVE)
-            a_hi = int(4 + 26 * dim)
+            a_hi = int(3 + 22 * dim)
             col_beam = (120, 88, 30, a_hi)
-            col_in = (70, 60, 32, max(a_hi // 2, 2))
-            col_blk = (110, 30, 22, 60)
-            for i in range(len(lr["org"])):
+            col_in = (60, 52, 30, max(a_hi // 2, 2))
+            col_blk = (140, 40, 28, 90)
+            org_w, hit_w, wpt_w = (w3(lr[k]) for k in ("org", "hit", "wpt"))
+            sun_dir = Rm @ np.array([0, 0, 1.0])
+            for i in range(len(org_w)):
                 if not lr["ok"][i]:
                     continue
-                o, h_ = lr["org"][i], lr["hit"][i]
-                pr.draw_line(sx(o[0] - 3.2 * lr["inc"][i, 0]),
-                             sy(o[2] + 3.2), sx(o[0]), sy(o[2]), col_in)
-                pr.draw_line(sx(o[0]), sy(o[2]), sx(h_[0]), sy(h_[2]),
-                             col_beam)
+                o, h_ = org_w[i], hit_w[i]
+                pr.draw_line_3d(v3(o + 3.5 * sun_dir), v3(o), col_in)
+                pr.draw_line_3d(v3(o), v3(h_), col_beam)
                 if lr["okw"][i]:
-                    pa = lr["ppit_asm"][i]
-                    pr.draw_line(sx(h_[0]), sy(h_[2]), sx(pa[0]), sy(pa[2]),
-                                 col_beam)
+                    pp = lr["ppit"][i]
+                    pr.draw_line_3d(v3(h_), v3(pp), col_beam)
                     if lr["through"][i]:
-                        sa = lr["strike_asm"][i]
-                        pr.draw_line(sx(pa[0]), sy(pa[2]),
-                                     sx(sa[0]), sy(sa[2]), col_beam)
+                        pr.draw_line_3d(v3(pp), v3(lr["strike"][i]), col_beam)
                     else:
-                        pr.draw_circle(sx(pa[0]), sy(pa[2]), 2, col_blk)
+                        pr.draw_line_3d(v3(pp), v3(pp + [0, 0, 0.04]),
+                                        col_blk)
                 else:
-                    wp = lr["wpt"][i]
-                    pr.draw_line(sx(h_[0]), sy(h_[2]), sx(wp[0]), sy(wp[2]),
-                                 col_beam)
-                    pr.draw_circle(sx(wp[0]), sy(wp[2]), 2, col_blk)
+                    wp = wpt_w[i]
+                    pr.draw_line_3d(v3(h_), v3(wp), col_beam)
+                    pr.draw_line_3d(v3(wp), v3(wp + 0.04 * sun_dir), col_blk)
             pr.end_blend_mode()
-        pr.draw_text("tracked assembly frame: sun held on-axis by the F2 "
-                     "gimbal; oven flux is world-frame", 60, 84, 14,
-                     (140, 140, 158, 255))
-        # --- zoomed oven inset (left panel, bottom right) ---
-        ix, iy, ir = 495, 620, 130
-        pr.draw_text("oven (zoom)", ix - 40, iy - ir - 24, 16,
-                     (170, 170, 185, 255))
-        zc = self.zc_oven
-        for k in range(60):
-            a0 = 2 * np.pi * k / 60
-            a1 = 2 * np.pi * (k + 1) / 60
-            zw = zc + cfg.R_oven * np.sin(a0)
-            if zw > -cfg.pivot_drop:
-                continue
-            band = abs(zw - zc) < cfg.belt_half
-            if band:
-                node = 0 if np.cos(a0) < 0 else self.n_belt // 2
-                col, w_ = self._heat_color(self.T[0, node]), 10
-            elif zw < zc - 0.45:
-                col, w_ = self._heat_color(self.T[0, 8]), 8
-            else:
-                col, w_ = self._heat_color(self.T[0, 9]), 6
-            r_at = ir / cfg.R_oven
-            pr.draw_line_ex(
-                pr.Vector2(ix + r_at * cfg.R_oven * np.cos(a0),
-                           iy - r_at * (zw - zc)),
-                pr.Vector2(ix + r_at * cfg.R_oven * np.cos(a1),
-                           iy - r_at * (zc + cfg.R_oven * np.sin(a1) - zc)),
-                w_, col)
-        for k in range(self.n_belt):
-            side = -1 if k < self.n_belt // 2 else 1
-            off = (k % (self.n_belt // 2)) - 1.5
-            bx = ix + side * (ir + 16)
-            by = iy + int(off * 34)
-            pr.draw_rectangle(bx - 8, by - 8, 16, 16,
-                              self._heat_color(self.T[0, k]))
-            if self.has_bread[0, k]:
-                fr_ = min(self.bread_E[0, k] / ROTI_ENERGY, 1)
-                pr.draw_circle(bx, by, 7, (240, 225, 190, 255))
-                pr.draw_circle(bx, by, int(7 * fr_), (150, 95, 45, 255))
+        pr.end_mode_3d()
 
-        # --- right panel: the live flux fields ---
+        # 2D HUD overlays: live flux fields + state
         wall, pit = self._flux_maps()
         vmax_w = max(wall.max(), 5.0)
-        pr.draw_text(f"oven wall first-strike flux  (peak "
-                     f"{wall.max():.0f} kW/m2)", 680, 40, 17,
-                     (200, 200, 210, 255))
-        cw, ch = 14, 7
+        pr.draw_text(f"wall flux (peak {wall.max():.0f} kW/m2)", 1020, 14,
+                     16, (200, 200, 210, 255))
         for i in range(wall.shape[0]):
             for j in range(wall.shape[1]):
-                pr.draw_rectangle(680 + j * cw, 70 + (wall.shape[0] - 1 - i)
-                                  * ch, cw, ch,
-                                  self._flux_color(wall[i, j], vmax_w))
+                pr.draw_rectangle(1020 + j * 7, 36 + (wall.shape[0] - 1 - i)
+                                  * 5, 7, 5, self._flux_color(wall[i, j],
+                                                              vmax_w))
         for ct_b in (-cfg.belt_half, cfg.belt_half):
-            yy = 70 + int((1 - (ct_b / cfg.R_oven + 1) / (1 + self.ct_cut))
-                          * wall.shape[0]) * ch
-            pr.draw_line(680, yy, 680 + wall.shape[1] * cw, yy,
+            yy = 36 + int((1 - (ct_b / cfg.R_oven + 1) / (1 + self.ct_cut))
+                          * wall.shape[0]) * 5
+            pr.draw_line(1020, yy, 1020 + wall.shape[1] * 7, yy,
                          (90, 200, 110, 200))
-        pr.draw_text("azimuth ->   (green = roti belt)", 680,
-                     70 + wall.shape[0] * ch + 4, 14, (140, 140, 155, 255))
-
         vmax_p = max(pit.max(), 5.0)
-        pr.draw_text(f"pit waist flux  (peak {pit.max():.0f} kW/m2)",
-                     680, 320, 17, (200, 200, 210, 255))
-        pp = 6
+        pr.draw_text(f"pit waist (peak {pit.max():.0f} kW/m2)", 1020, 190,
+                     16, (200, 200, 210, 255))
         for i in range(pit.shape[0]):
             for j in range(pit.shape[1]):
-                pr.draw_rectangle(680 + i * pp, 348 + j * pp, pp, pp,
+                pr.draw_rectangle(1020 + i * 4, 212 + j * 4, 4, 4,
                                   self._flux_color(pit[i, j], vmax_p))
-        rp = int(cfg.r_pit / 0.3 * pit.shape[0] / 2 * pp)
-        pr.draw_circle_lines(680 + pit.shape[0] * pp // 2,
-                             348 + pit.shape[1] * pp // 2, rp,
-                             (90, 200, 230, 220))
-
-        # belt strip + pumps + HUD text
-        pr.draw_text("belt segments [C]", 960, 320, 16, (200, 200, 210, 255))
         for k in range(self.n_belt):
-            col = self._heat_color(self.T[0, k])
-            pr.draw_rectangle(960 + 52 * k, 344, 48, 44, col)
-            pr.draw_text(f"{self.T[0, k] - 273:.0f}", 968 + 52 * k, 356, 15,
+            pr.draw_rectangle(1020 + 40 * k, 370, 37, 26,
+                              self._heat_color(self.T[0, k]))
+            pr.draw_text(f"{self.T[0, k] - 273:.0f}", 1024 + 40 * k, 376, 13,
                          (235, 235, 235, 255))
-            if self.has_bread[0, k]:
-                fr_ = min(self.bread_E[0, k] / ROTI_ENERGY, 1)
-                pr.draw_circle(984 + 52 * k, 400, 9, (240, 225, 190, 255))
-                pr.draw_circle(984 + 52 * k, 400, int(9 * fr_),
-                               (150, 95, 45, 255))
-        pr.draw_text("zone pump setpoints [Pa vs nominal]", 960, 430, 16,
-                     (200, 200, 210, 255))
         for k in range(self.n_zones):
             v = float(self.p_cmd[0, k] + self.p_drift[0, k])
-            pr.draw_rectangle(960 + 62 * k, 500 - max(int(v), 0), 44,
-                              abs(int(v)) + 2, (120, 190, 240, 255))
-            pr.draw_line(960 + 62 * k, 500, 1004 + 62 * k, 500,
-                         (110, 110, 125, 255))
-            pr.draw_text(f"{v:+.0f}", 960 + 62 * k, 566, 15,
-                         (150, 150, 160, 255))
+            pr.draw_rectangle(1020 + 44 * k, 450 - max(int(v // 2), 0), 30,
+                              abs(int(v // 2)) + 2, (120, 190, 240, 255))
+        el_now, _, _ = _sim.solar_position(self.lat, self.day,
+                                           float(self.t_solar[0]))
         hud = [
-            f"solar time {self.t_solar[0]:5.2f} h",
-            f"DNI {self.dni[0]:4.0f} W/m2",
-            f"into oven {self.p_in[0]:5.0f} W",
-            f"hearth {self.T[0, 8] - 273:4.0f} C   "
-            f"belt avg {self.T[0, :8].mean() - 273:4.0f} C",
+            f"solar {self.t_solar[0]:5.2f} h   el {el_now:.0f} deg   "
+            f"day {np.clip((self.t_solar[0] - 8) / 8, 0, 1) * 100:.0f}%",
+            f"DNI {self.dni[0]:4.0f} W/m2   into oven {self.p_in[0]:5.0f} W",
+            f"hearth {self.T[0, 8] - 273:4.0f} C   belt avg "
+            f"{self.T[0, :8].mean() - 273:4.0f} C",
             f"rotis {self.ep_rotis[0]:.0f}   scorched {self.ep_scorch[0]:.0f}",
         ]
         for j, line in enumerate(hud):
-            pr.draw_text(line, 960, 620 + 28 * j, 20, (225, 225, 205, 255))
+            pr.draw_text(line, 1020, 500 + 26 * j, 18, (225, 225, 205, 255))
+        pr.draw_text("drag: orbit   wheel: zoom   world frame, oven fixed, "
+                     "assembly tracks the sun", 20, H - 28, 16,
+                     (150, 150, 165, 255))
         pr.end_drawing()
         return None
 
