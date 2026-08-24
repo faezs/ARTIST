@@ -76,6 +76,8 @@ class TandoorEnv(pufferlib.PufferEnv):
     """Natively vectorized: one instance simulates ``num_agents`` tandoors."""
 
     N_LEVELS = 7  # pressure setpoints, exact FvK shapes precomputed
+    N_HEADS = 2   # subclasses may add heads (polar adds jam/release)
+    N_EXTRA_OBS = 0
 
     def __init__(self, num_agents=32, n_zones=5, dt=15.0, lat=28.6,
                  day_of_year=80, seed=0, device=None, render_mode=None,
@@ -107,7 +109,8 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.n_nodes = self.n_belt + 3
         # obs: [sin t, cos t, dni] + node temps + [pressure lvl, shutter,
         # wind, boresight qx, boresight qy] + bread progress + [p_in]
-        obs_dim = 3 + self.n_nodes + 5 + self.n_belt + 1
+        obs_dim = (3 + self.n_nodes + 6 + self.n_belt + 1
+                   + self.N_EXTRA_OBS)
         self.single_observation_space = gymnasium.spaces.Box(
             low=-4, high=4, shape=(obs_dim,), dtype=np.float32
         )
@@ -115,8 +118,10 @@ class TandoorEnv(pufferlib.PufferEnv):
         # MultiDiscrete: pufferlib 3.0's continuous head anti-trains.
         # wide_shutter=1 makes both heads width-7 (shutter = a1 > 3):
         # probe for pufferlib 3.0's unequal-nvec -inf padding pathology
+        # equal head widths always: pufferlib 3.0 NaNs on unequal nvec
         self.single_action_space = gymnasium.spaces.MultiDiscrete(
-            [self.N_LEVELS, 7 if self.wide_shutter else 2]
+            [self.N_LEVELS] * self.N_HEADS if self.wide_shutter
+            else [self.N_LEVELS] + [2] * (self.N_HEADS - 1)
         )
         self.num_agents = num_agents
         super().__init__(buf)
@@ -417,11 +422,17 @@ class TandoorEnv(pufferlib.PufferEnv):
                 self.wind / 10.0,
                 np.clip(self.bore[:, 0] / 0.1, -2, 2),
                 np.clip(self.bore[:, 1] / 0.1, -2, 2),
+                # cook readiness: the next pera is rolled (bell signal)
+                np.clip(self.load_timer / 45.0, 0, 2),
             ], axis=1),
             self.bread_E / ROTI_ENERGY,
             self.p_in[:, None] / 6000.0,
-        ], axis=1).astype(np.float32)
+        ] + ([self._extra_obs()] if self.N_EXTRA_OBS else []),
+            axis=1).astype(np.float32)
         return np.clip(obs, -4.0, 4.0)
+
+    def _extra_obs(self):
+        return np.zeros((self.num_agents, self.N_EXTRA_OBS))
 
     # ---------------------------------------------------------------- api #
     def reset(self, seed=None):

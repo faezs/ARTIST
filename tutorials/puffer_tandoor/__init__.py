@@ -42,7 +42,17 @@ _spec2.loader.exec_module(_mod2)
 TandoorShedEnv = _mod2.TandoorShedEnv
 
 
+_spec3 = importlib.util.spec_from_file_location(
+    "tandoor_polar_env", _tutorials / "tandoor_polar_env.py")
+_mod3 = importlib.util.module_from_spec(_spec3)
+sys.modules.setdefault("tandoor_polar_env", _mod3)
+_spec3.loader.exec_module(_mod3)
+TandoorPolarEnv = _mod3.TandoorPolarEnv
+
+
 def env_creator(name="puffer_tandoor"):
+    if "polar" in name:
+        return functools.partial(TandoorPolarEnv)
     if "shed" in name:
         return functools.partial(TandoorShedEnv)
     return functools.partial(TandoorEnv)
