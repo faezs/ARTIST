@@ -313,7 +313,8 @@ class TandoorPolarEnv(TandoorEnv):
         gain = np.where(self.jammed, self.jam_gain, 1.0)
         p_eff = np.where(self.jammed, self.f_locked, self.p_act) \
             + gain * q_w * np.sign(self.rng.normal(0, 1, B))
-        sig_wind = gain * q_w * self.cfg.a / (2.0 * self.cfg.T_pre)
+        # 2-D-FvK-measured law (see fvk2d_cassegrain.py), not q*a/2T
+        sig_wind = gain * 0.88e-3 * (np.maximum(q_w, 1e-9) / 15.0) ** 0.6
         # seasonal drift since the last re-forming shows up as astigmatism
         drift = np.abs(self._decl() - self.decl_formed)
         sig_drift = np.radians(drift) * 0.04

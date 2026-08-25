@@ -75,6 +75,12 @@ def solve_fvk(phi, dx, p, T_pre, E_mod, h_film, nu=0.34, linear=False,
 
     inside = phi < 0
     cw = cell_weights(phi, dx)
+    if torch.is_tensor(T_pre):
+        T_pre = T_pre.to(device=device, dtype=torch.float64)
+        T_cell = _cell_avg(T_pre)
+        T_ref = float(T_pre.mean())
+    else:
+        T_cell, T_ref = float(T_pre), float(T_pre)
     K = 0.0 if linear else E_mod * h_film / (1 - nu**2)
 
     # gravity: normal component adds to p, in-plane component drives u,v
@@ -90,7 +96,7 @@ def solve_fvk(phi, dx, p, T_pre, E_mod, h_film, nu=0.34, linear=False,
         # distance phi = r-a this is -p*phi*(2a+phi)/(4T)
         a_eq = float((-phi).max())
         d = torch.clamp(-phi, min=0.0)
-        w_init = float(p_eff.mean()) * d * (2 * a_eq - d) / (4.0 * T_pre)
+        w_init = float(p_eff.mean()) * d * (2 * a_eq - d) / (4.0 * T_ref)
     w = (w_init.clone().to(device=device, dtype=torch.float64)
          * inside).requires_grad_(True)
     u = torch.zeros_like(phi, requires_grad=True)
@@ -110,7 +116,7 @@ def solve_fvk(phi, dx, p, T_pre, E_mod, h_film, nu=0.34, linear=False,
         # in-plane BCs (divergence theorem) but is NOT numerically zero
         # under cell weighting - keeping it lets the optimiser manufacture
         # spurious in-plane strain and a far too floppy membrane. Dropped.
-        dens = (0.5 * T_pre * (wx * wx + wy * wy)
+        dens = (0.5 * T_cell * (wx * wx + wy * wy)
                 + 0.5 * K * (e_xx**2 + 2 * nu * e_xx * e_yy + e_yy**2
                              + 2 * (1 - nu) * e_xy**2)
                 - _cell_avg(p_eff) * _cell_avg(wm)
@@ -118,7 +124,7 @@ def solve_fvk(phi, dx, p, T_pre, E_mod, h_film, nu=0.34, linear=False,
         return (dens * cw).sum() * dx * dx
 
     n_adam, n_lbfgs = iters
-    lr = lr or max(float(np.sqrt(abs(float(p_eff.mean())) / T_pre)) * dx, 1e-6)
+    lr = lr or max(float(np.sqrt(abs(float(p_eff.mean())) / T_ref)) * dx, 1e-6)
     opt = torch.optim.Adam([w, u, v], lr=lr)
     for it in range(n_adam):
         opt.zero_grad()

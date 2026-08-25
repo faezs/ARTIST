@@ -19,8 +19,12 @@ THE REDESIGNED PLANT (panel-driven):
   - Auto-stow above the wind limit (9 m/s, hysteresis to 7).
 
 THE FORMERLY-HAZED-OVER PHYSICS, NOW IN THE LOOP:
-  - Wind: diurnal + OU gust process. Slope ripple sigma ~ q*a/2T (6 mrad
-    at 5 m/s - dominant blur), boresight buffet, stow events.
+  - Wind: diurnal + OU gust process driving slope ripple, boresight
+    buffet and stow events. The slope law is now MEASURED by the generic
+    2-D FvK solver (membrane_fvk2d.py / fvk2d_cassegrain.py): 0.88 mrad
+    at 5 m/s, sublinear in q. The q*a/2T hand estimate this file used to
+    carry overstated it ~2.5x and was largely responsible for how badly
+    the beam-down scored.
   - Surface figure: 2.5 mrad RMS membrane slope error (orange peel, clamp
     scalloping, seam) + 1.5 mrad secondary fabrication error, doubled on
     reflection; circumsolar tail (8% of rays at sigma 15 mrad, Buie-ish).
@@ -494,10 +498,13 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.dni = clear * np.exp(self.cloud) * (el > 27.0) * ~self.stowed
         # slope-error budget -> per-env angular sigma (doubled on reflect)
         q_w = 0.6 * self.wind**2
-        sig_wind = q_w * self.cfg.a / (2.0 * self.cfg.T_pre)
+        # measured by the 2-D FvK solver (fvk2d_cassegrain.py), NOT the
+        # q*a/2T hand estimate that overstated this ~2.5x: the nonlinear
+        # membrane resists asymmetric load far better, and sublinearly
+        sig_wind = 0.88e-3 * (q_w / 15.0) ** 0.6
         sigma_b = np.sqrt(self.sigma_sun**2 + (2 * self.sigma_surf) ** 2
                           + (2 * self.sigma_fab) ** 2
-                          + (2 * 0.35 * sig_wind) ** 2)
+                          + (2 * sig_wind) ** 2)
         # boresight: OU wander + tilt-dependent mast flexure + wind buffet
         self.bore += (-self.bore / 300.0 * self.dt
                       + self.rng.normal(0, 0.030 * np.sqrt(2 * self.dt / 300.0),

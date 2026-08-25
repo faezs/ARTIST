@@ -219,8 +219,11 @@ class TandoorShedEnv(TandoorEnv):
         self._cos_now = cosf
         self.dni = clear * np.exp(self.cloud) * (el0 > 8.0) * ~self.stowed
         # blur: NO wind-on-membrane term; small flat-flex term with wind
+        # sheltered membrane: only the outdoor flat flexes, and the
+        # 2-D-solver-calibrated law makes even that negligible
         sigma_b = np.sqrt(self.sigma_sun**2 + self.sig_static**2
-                          + (2 * 0.0002 * self.wind) ** 2)
+                          + (2 * 0.14e-3 * (0.6 * self.wind**2 / 15.0)
+                             ** 0.6) ** 2)
         self.bore += (-self.bore / 300.0 * self.dt
                       + self.rng.normal(
                           0, 0.012 * np.sqrt(2 * self.dt / 300.0), (B, 2)))
