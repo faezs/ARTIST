@@ -30,11 +30,21 @@ THE JAMMABLE POUCH (stiffness as a control input):
   choosing calm moments - a genuine scheduling problem that the
   continuously-pumped designs never posed.
 
-SPECULATIVE ELEMENT (flagged, not hidden): the elliptical-rim membrane is
-modelled as an on-axis FvK solve plus an explicit off-axis figure-error
-term (sigma_offaxis). A true 2-D FvK solve on an elliptical rim is the
-validation this design still owes; grain print-through is likewise an
-explicit slope term rather than a derived one.
+VALIDATED (membrane_fvk2d.py, generic 2-D FvK energy minimisation on
+arbitrary domains, checked against the 1-D axisymmetric solver to 1% in
+focal length): a pressurised ELLIPTICAL rim really does give a
+two-curvature paraboloid, with fy/fx tracking the linear-theory value
+1/ratio^2 to within 2-4% even deep in the Hencky regime, and adding only
+~1.5-2.5 mrad of residual figure error over a circular rim. So the rim
+aspect ratio is a BUILD-TIME design parameter that sets the astigmatism
+of the off-axis section, and the pump trims focus on top of it -
+sigma_offaxis below is now that measured increment, not a guess.
+Grain print-through remains an assumed slope term.
+
+OPERATIONAL CONSTRAINT the 2-D solve exposed: a 20 mm jammed bed weighs
+~6 kg/m2 = 59 Pa, a THIRD of the ~170 Pa forming pressure, so the
+gravity component normal to the membrane shifts the formed focus by up
+to 13%. FORM AT THE OPERATING TILT (or the figure bakes in that error).
 """
 
 import numpy as np
@@ -61,12 +71,13 @@ class TandoorPolarEnv(TandoorEnv):
                     0, 3),
         ], axis=1)
 
-    def __init__(self, *args, wall_shelter=0.4, sigma_offaxis=1.2e-3,
+    def __init__(self, *args, wall_shelter=0.4, sigma_offaxis=1.8e-3,
                  sigma_print=0.8e-3, jam_gain=0.02, lid_leak=0.18,
                  **kwargs):
         self.lid_leak = float(lid_leak)   # lidded mouth loss factor
         self.wall_shelter = float(wall_shelter)   # courtyard wall: v -> 0.4v
-        self.sigma_offaxis = float(sigma_offaxis)  # elliptical-rim mismatch
+        # measured by the 2-D FvK solve (fvk2d_answers.py), not guessed
+        self.sigma_offaxis = float(sigma_offaxis)
         self.sigma_print = float(sigma_print)      # grain print-through
         self.jam_gain = float(jam_gain)            # wind->focus gain jammed
         super().__init__(*args, **kwargs)
