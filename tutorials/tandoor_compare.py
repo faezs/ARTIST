@@ -32,13 +32,19 @@ ENVS = {"beamdown": TandoorEnv, "shed": TandoorShedEnv,
 
 
 def heuristic(env, B):
-    """Fair equivalent policy per architecture: hold nominal focus; close
-    the interlock shutter only when a load is ready (beamdown/shed); hold
-    the pouch jammed all day (polar - re-forming is a seasonal task)."""
+    """Same policy class for every architecture, so the comparison stays
+    about architecture: (a) THROTTLE - full focus while cold, progressive
+    defocus near the band ceiling, since overshoot wastes band time;
+    (b) ANTICIPATE - close the interlock shutter one step early so it is
+    already satisfied when the cook's timer expires (reacting late
+    stretches the load cycle 45 -> 60 s, -25% throughput);
+    (c) polar holds the pouch jammed all day (re-forming is seasonal)."""
     belt = env.T[:, : env.n_belt]
-    ready = (env.load_timer >= 45.0) & (
+    bm = belt.mean(1)
+    lvl = np.where(bm < 540, 4, np.where(bm < 630, 3,
+            np.where(bm < 665, 2, np.where(bm < 690, 1, 0))))
+    ready = (env.load_timer >= 30.0) & (
         ((~env.has_bread) & (belt >= 560.0) & (belt <= 700.0)).any(1))
-    lvl = np.full(B, 4)
     if env.N_HEADS == 3:                       # polar: no shutter interlock
         return np.stack([lvl, np.full(B, 6), np.full(B, 6)], axis=1)
     return np.stack([lvl, np.where(ready, 0, 6)], axis=1)

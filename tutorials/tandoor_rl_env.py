@@ -88,7 +88,10 @@ class TandoorEnv(pufferlib.PufferEnv):
                  nurbs=0, flare_ratio=1.4, flare_reflect=0.6,
                  sigma_surf=2.0e-3, sigma_fab=1.5e-3, csr_frac=0.08,
                  wind_limit=9.0, wide_shutter=0, warm_frac=0.5,
+                 z_gap=2.6, r_pit=0.42, pivot_drop=1.6, a_mem=2.45,
                  buf=None):
+        self.g_zgap, self.g_rpit = float(z_gap), float(r_pit)
+        self.g_pivot, self.g_a = float(pivot_drop), float(a_mem)
         self.warm_frac = float(warm_frac)
         self.wide_shutter = bool(wide_shutter)
         self.flare_ratio = float(flare_ratio)
@@ -138,12 +141,15 @@ class TandoorEnv(pufferlib.PufferEnv):
     # ------------------------------------------------------------- optics #
     def _build_optics(self):
         cfg = _sim.CFG
-        # r_pit resized for the HONEST beam: with ~7 ray-mrad of
-        # surface+fabrication+wind slope error at EFL ~27 m the spot
-        # is ~0.3 m RMS; the 0.26 m mouth of the ideal-optics design
-        # passes ~20% and cannot cook. Bigger mouth costs ~2.6x
-        # aperture re-radiation (~1 kW) - the honest trade.
-        cfg.a, cfg.dp, cfg.z_gap, cfg.r_pit = 1.65, 404.0, 1.23, 0.42
+        # GEOMETRY REDESIGN (beamdown_sweep*.py): blur lever is
+        # EFL = f1*(z_vertex+pivot)/z_gap while secondary shadow is
+        # (z_gap/f1)^2. The original z_gap=1.23 minimised shadow (4%) at
+        # a ~39 m lever and NEVER reached the cooking band from cold.
+        # Paying 14% shadow for a 3x shorter lever returns 13x the rotis;
+        # a 4.9 m dish then clears 500/day cold (5.6 m gives ~541).
+        cfg.a, cfg.dp = self.g_a, 404.0
+        cfg.z_gap, cfg.r_pit = self.g_zgap, self.g_rpit
+        cfg.pivot_drop = self.g_pivot
         cfg.r_window = None
         self.cfg = cfg
         self.p0 = float(cfg.dp)
@@ -209,6 +215,14 @@ class TandoorEnv(pufferlib.PufferEnv):
             np.sqrt(cfg.R_oven**2 - cfg.r_pit**2))
         self.ct_cut = float(np.sqrt(cfg.R_oven**2 - cfg.r_pit**2)
                             / cfg.R_oven)
+        H_cl = cfg.pivot_drop + mem0["w0"] - cfg.rim_drop
+        theta_max = float(np.degrees(
+            np.arctan2(H_cl, cfg.a)
+            + np.arcsin(np.clip(cfg.crater_depth / np.hypot(cfg.a, H_cl),
+                                -1, 1))))
+        self.el_min = max(90.0 - theta_max, 8.0)
+        print(f"  [mount] rim-clearance tilt limit {theta_max:.0f} deg "
+              f"-> tracks only above el {self.el_min:.0f} deg")
         self.sigma_sun = float(np.sqrt(4.3681e-06))  # ARTIST Sun default
 
         # per-step constants
@@ -483,7 +497,11 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.cloud = np.clip(self.cloud, -3, 0.25)
         el0, _, s_np = _sim.solar_position(self.lat, self.day,
                                            float(self.t_solar[0]))
-        if el0 > 27.0:
+        # HONEST GATE: the assembly cannot tilt past its own rim-clearance
+        # limit, which tightens as the dish grows. Previously hardcoded at
+        # 27 deg, which silently credited big dishes with tracking their
+        # mounts could not reach.
+        if el0 > self.el_min:
             self._sun_R = _sim.rotation_z_to(s_np).to(self.device)
         else:
             self._sun_R = torch.eye(3, device=self.device)
