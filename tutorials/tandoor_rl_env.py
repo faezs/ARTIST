@@ -644,6 +644,64 @@ class TandoorEnv(pufferlib.PufferEnv):
         return (self.observations, self.rewards, self.terminals,
                 self.truncations, infos)
 
+
+    # ------------------------------------------------- shared HUD pieces #
+    def _draw_disturbances(self, pr, x, y):
+        """Every simulated disturbance, drawn once on the base class so the
+        three renderers cannot drift out of sync with the physics again.
+        These terms all move the beam or scale its power with no visible
+        cause otherwise - exactly the category where a bug can hide."""
+        def txt(dy, s, col=(200, 200, 212, 255)):
+            pr.draw_text(s, x, y + dy, 16, col)
+        cmd = float(self.p_set[0]) if hasattr(self, "p_set") else self.p0
+        act = float(self.p_act[0])
+        drift = float(self.p_dist[0])
+        txt(0, "disturbances", (150, 190, 230, 255))
+        txt(22, f"plenum cmd {cmd - self.p0:+5.0f}  act {act - self.p0:+5.0f}"
+                f"  drift {drift:+5.0f} Pa",
+            (230, 160, 110, 255) if abs(drift) > 12 else (200, 200, 212, 255))
+        bx, by = float(self.bore[0, 0]), float(self.bore[0, 1])
+        txt(44, f"boresight  {bx*1000:+4.0f}, {by*1000:+4.0f} mm",
+            (230, 160, 110, 255) if np.hypot(bx, by) > 0.05
+            else (200, 200, 212, 255))
+        txt(66, f"soiling {self.soil[0]:.2f}   cloud "
+                f"{np.exp(self.cloud[0]):.2f}x",
+            (230, 160, 110, 255) if self.soil[0] < 0.9
+            else (200, 200, 212, 255))
+        el0, _, _ = _sim.solar_position(self.lat, self.day,
+                                        float(self.t_solar[0]))
+        emin = getattr(self, "el_min", None)   # only the gimballed
+        gated = emin is not None and el0 <= emin   # beam-down has one
+        txt(88, f"sun el {el0:4.0f}" + (
+                f"  mount limit {emin:.0f}{'  GATED' if gated else ''}"
+                if emin is not None else "  (no mount tilt limit)"),
+            (235, 110, 90, 255) if gated else (200, 200, 212, 255))
+        frac = float(np.clip(self.load_timer[0] / 45.0, 0, 1))
+        txt(110, f"cook ready in {max(45.0-float(self.load_timer[0]),0):4.0f}s")
+        pr.draw_rectangle(x, y + 132, 180, 10, (45, 48, 58, 255))
+        pr.draw_rectangle(x, y + 132, int(180 * frac), 10,
+                          (120, 220, 140, 255) if frac >= 1
+                          else (120, 160, 220, 255))
+        if hasattr(self, "ep_spall"):
+            txt(148, f"spall events {self.ep_spall[0]:.0f}",
+                (235, 110, 90, 255) if self.ep_spall[0] > 0
+                else (200, 200, 212, 255))
+
+    def _draw_bread_strip(self, pr, x, y):
+        """Belt temperatures + bread cook progress (was missing entirely
+        from the shed renderer, so cooking was invisible there)."""
+        for k in range(self.n_belt):
+            pr.draw_rectangle(x + 44 * k, y, 40, 30,
+                              self._heat_color(self.T[0, k]))
+            pr.draw_text(f"{self.T[0, k] - 273:.0f}", x + 4 + 44 * k, y + 8,
+                         13, (235, 235, 235, 255))
+            if self.has_bread[0, k]:
+                fr = float(min(self.bread_E[0, k] / ROTI_ENERGY, 1.0))
+                pr.draw_circle(x + 20 + 44 * k, y + 46, 9,
+                               (240, 225, 190, 255))
+                pr.draw_circle(x + 20 + 44 * k, y + 46, int(9 * fr),
+                               (150, 95, 45, 255))
+
     # ------------------------------------------------------------- render #
     def _flux_maps(self, agent=0, n_az=48, n_ct=28, n_pit=36):
         """Flux fields accumulated from the step's ACTUAL ray tensors
@@ -909,11 +967,15 @@ class TandoorEnv(pufferlib.PufferEnv):
             for j in range(pit.shape[1]):
                 pr.draw_rectangle(1020 + i * 4, 212 + j * 4, 4, 4,
                                   self._flux_color(pit[i, j], vmax_p))
-        for k in range(self.n_belt):
-            pr.draw_rectangle(1020 + 40 * k, 370, 37, 26,
-                              self._heat_color(self.T[0, k]))
-            pr.draw_text(f"{self.T[0, k] - 273:.0f}", 1024 + 40 * k, 376, 13,
-                         (235, 235, 235, 255))
+        # boresight crosshair on the pit map: the beam really is being
+        # walked around by wander + tilt flexure, previously invisible
+        if lr is not None:
+            cx = 1020 + int((self.bore[0, 0] / 0.3 + 1) * 0.5 * 30 * 4)
+            cy = 212 + int((self.bore[0, 1] / 0.3 + 1) * 0.5 * 30 * 4)
+            pr.draw_line(cx - 7, cy, cx + 7, cy, (120, 230, 235, 200))
+            pr.draw_line(cx, cy - 7, cx, cy + 7, (120, 230, 235, 200))
+        self._draw_bread_strip(pr, 1020, 360)
+        self._draw_disturbances(pr, 1020, 440)
         v = float(self.p_act[0] - self.p0)
         pr.draw_text("plenum [Pa vs nominal]", 1020, 414, 15,
                      (170, 170, 185, 255))

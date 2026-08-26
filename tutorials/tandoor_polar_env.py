@@ -583,11 +583,7 @@ class TandoorPolarEnv(TandoorEnv):
             pr.end_blend_mode()
         pr.end_mode_3d()
         # HUD
-        for k in range(self.n_belt):
-            pr.draw_rectangle(1025 + 44 * k, 30, 40, 30,
-                              self._heat_color(self.T[0, k]))
-            pr.draw_text(f"{self.T[0, k] - 273:.0f}", 1030 + 44 * k, 38, 13,
-                         (235, 235, 235, 255))
+        self._draw_bread_strip(pr, 1025, 26)
         jam = self.jammed[0]
         drift = abs(self._decl() - self.decl_formed[0])
         hud = [
@@ -600,10 +596,13 @@ class TandoorPolarEnv(TandoorEnv):
             f"mouth {'LIDDED' if lidded else 'OPEN (loading)'}",
             f"rotis {self.ep_rotis[0]:.0f}   scorch {self.ep_scorch[0]:.0f}",
         ]
+        hud.append(f"soft so far {self.form_time[0]*self.dt/60:4.0f} min"
+                   f"   spall {self.ep_spall[0]:.0f}")
         for j, line in enumerate(hud):
-            pr.draw_text(line, 1025, 90 + 28 * j, 18,
+            pr.draw_text(line, 1025, 120 + 26 * j, 17,
                          (120, 230, 140, 255) if (j == 2 and jam)
                          else (225, 225, 205, 255))
+        self._draw_disturbances(pr, 1025, 320)
         pr.draw_text("POLAR RETROFIT: existing pot, native air-inlet, one "
                      "jammable mirror", 20, H - 50, 17, (170, 170, 185, 255))
         pr.draw_text("left-drag orbit   right-drag pan   wheel zoom   R reset",

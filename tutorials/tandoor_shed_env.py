@@ -419,6 +419,12 @@ class TandoorShedEnv(TandoorEnv):
              (170, 125, 90, 255), 20)          # crown mouth (cook side)
         ring(np.array([0, 0, 0]), self.cfg.r_pit, (120, 220, 235, 255),
              24, axis="y")                     # side port
+        # charge window: unconcentrated preheat glazing, a real power
+        # path in the physics that was drawn nowhere
+        cwr = float(np.sqrt(self.a_charge / np.pi))
+        ring(np.array([0, yc, self.cfg.R_oven * 0.97]), cwr,
+             (150, 220, 160, 255) if self.dni[0] > 1 else (80, 100, 85, 255),
+             18)
         # berm outline around the tandoor
         ring(np.array([0, yc, GRADE]), 1.6, (70, 66, 60, 255), 30)
         # shed: box wireframe y in [1.4, 4.6]
@@ -503,11 +509,10 @@ class TandoorShedEnv(TandoorEnv):
             pr.draw_text(f"cosine {self._cos_now:.2f}   "
                          f"P {self.p_in[0]:.0f} W", 1020, 232, 17,
                          (220, 220, 205, 255))
-        for k in range(self.n_belt):
-            pr.draw_rectangle(1020 + 44 * k, 270, 40, 30,
-                              self._heat_color(self.T[0, k]))
-            pr.draw_text(f"{self.T[0, k] - 273:.0f}", 1026 + 44 * k, 278,
-                         13, (235, 235, 235, 255))
+        # bread lifecycle - was absent entirely, so cooking
+        # (the point of the env) was invisible in this renderer
+        self._draw_bread_strip(pr, 1020, 265)
+        self._draw_disturbances(pr, 1020, 430)
         sh = self.shutter[0] > 0.5
         hud = [
             f"solar {self.t_solar[0]:5.2f} h  el {el0:.0f}  "
