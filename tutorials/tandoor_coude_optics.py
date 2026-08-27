@@ -40,6 +40,8 @@ R_DUCT_C = 0.20                 # widened air-inlet (native
 Z_ROOF = 3.60                   # roof deck above the pot floor
 Z_M4 = Z_ROOF + 0.55            # azimuth/elevation axis crossing
 D_EL = 0.95                     # M3 offset from the az axis along el axis
+R_M3 = 0.60                     # M3 clear aperture (p99 footprint was
+                                # 0.548 against a 0.52 cap)
 
 
 def rot(axis, ang):
@@ -53,16 +55,17 @@ def reflect_np(d, n):
     return d - 2 * (d * n).sum(-1, keepdims=True) * n
 
 
-def unfolded_path(z_vertex, z_m3=-0.45):
+def unfolded_path(z_vertex, z_m3=-0.45, z_m4=None):
     """Secondary -> M3 -> M4 -> down the chase -> M5 -> pot. The
     Cassegrain's F2 must land at the END of this, not at the primary's
     own focal distance - and the length forces the magnification."""
-    return ((z_vertex - z_m3) + D_EL + (Z_M4 - Z_DUCT)
+    z_m4 = Z_M4 if z_m4 is None else z_m4
+    return ((z_vertex - z_m3) + D_EL + (z_m4 - Z_DUCT)
             + (X_CHASE - R_POT))
 
 
 def trace_coude(px, py, sag, slope, sec, el_deg, az_deg, f_nom, sigma,
-                rng=None):
+                rng=None, z_m4=None):
     """Full path. Returns a dict of world-frame vertices per ray plus the
     masks, so the renderer and the physics use the SAME numbers."""
     n = len(px)
@@ -75,27 +78,34 @@ def trace_coude(px, py, sag, slope, sec, el_deg, az_deg, f_nom, sigma,
     inc /= np.linalg.norm(inc, axis=1, keepdims=True)
     d1 = reflect_np(inc, nrm)
     o1 = np.stack([px, py, sag], 1)
+    # The secondary blocks the sun BEFORE the light reaches the primary.
+    # Without this, growing r_sec looks free when it is a direct tax on
+    # aperture. Walk back up the incident ray to the secondary's plane.
+    t_sh = ((sec.zc + sec.A) - sag) / np.where(-inc[:, 2] > 1e-9, -inc[:, 2], 1e-9)
+    sh = o1 - inc * t_sh[:, None]
+    lit = np.hypot(sh[:, 0], sh[:, 1]) > sec.rho_max
     # 2. secondary (convex hyperboloid, ARTIST Secondary class)
     hit2, n2, ok = sec.intersect(
         torch.tensor(np.c_[o1, np.ones(n)], dtype=torch.float32),
         torch.tensor(np.c_[d1, np.zeros(n)], dtype=torch.float32))
     d2 = _sim.reflect(torch.tensor(np.c_[d1, np.zeros(n)],
                                    dtype=torch.float32), n2).numpy()[:, :3]
-    hit2 = hit2.numpy()[:, :3]; ok = ok.numpy()
+    hit2 = hit2.numpy()[:, :3]; ok = ok.numpy() & lit
     # 3. M3 on the elevation axis, behind the primary, 45 deg: -z -> +x
     z_m3 = -0.45
     t3 = (z_m3 - hit2[:, 2]) / np.where(d2[:, 2] < -1e-9, d2[:, 2], -1e-9)
     h3 = hit2 + t3[:, None] * d2
     n3 = np.array([1.0, 0.0, 1.0]) / np.sqrt(2)      # sends -z into +x
     d3 = reflect_np(d2, np.broadcast_to(n3, d2.shape))
-    ok3 = ok & (t3 > 0) & (np.hypot(h3[:, 0], h3[:, 1]) < 0.52)
+    ok3 = ok & (t3 > 0) & (np.hypot(h3[:, 0], h3[:, 1]) < R_M3)
     # ---- dish frame -> world: tip by elevation about the el axis (x),
     #      then swing by azimuth about vertical (z)
     Rel = rot([1, 0, 0], np.radians(90.0 - el_deg))
     Raz = rot([0, 0, 1], np.radians(az_deg))
     M = Raz @ Rel
     axis_w = M @ np.array([1.0, 0.0, 0.0])           # elevation-axis dir
-    p_m4 = np.array([X_CHASE, 0.0, Z_M4])            # el axis meets az axis
+    z_m4 = Z_M4 if z_m4 is None else z_m4
+    p_m4 = np.array([X_CHASE, 0.0, z_m4])            # el axis meets az axis
     # M3 lies ON the elevation axis, offset D_EL from the crossing - so it
     # swings with azimuth. Place the dish so M3 lands exactly there.
     p_m3 = p_m4 - D_EL * axis_w
@@ -125,5 +135,6 @@ def trace_coude(px, py, sag, slope, sec, el_deg, az_deg, f_nom, sigma,
     strike = h6 + np.minimum(t7, 2.0)[:, None] * d5
     return dict(o1=o1w, h2=h2w, h3=h3w, h4=h4, h5=h5, h6=h6,
                 strike=strike, ok=ok3, ok4=ok4, through=through,
+                ok2=ok, in_chase=in_chase, r_m3=np.hypot(h3[:, 0], h3[:, 1]),
                 m4=p_m4, m3=p_m3, pivot=pivot, z_m3=z_m3,
                 axis_w=axis_w, M=M)

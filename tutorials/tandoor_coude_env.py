@@ -84,20 +84,6 @@ class TandoorCoudeEnv(TandoorPolarEnv):
               f"glass folds @{self.fold_rho}: chain {chain:.3f} "
               f"(in-room was 0.713); beam never enters the workroom")
 
-    def render(self):
-        out = super().render()
-        if self.render_mode == "human":
-            import pyray as pr
-            pr.begin_drawing()
-            pr.draw_text("NOTE: 3-D scene inherited from the polar env - it "
-                         "draws a polar-axis mirror,", 20, 26, 16,
-                         (235, 160, 90, 255))
-            pr.draw_text("NOT the roof Cassegrain + coude folds + wall "
-                         "chase this env actually models.", 20, 48, 16,
-                         (235, 160, 90, 255))
-            pr.end_drawing()
-        return out
-
     def _build_coude_table(self, cfg):
         """Tabulate the EXACT coude trace (primary -> secondary -> M3 ->
         M4 -> chase -> M5 -> pot) over pressure level x elevation. The
@@ -113,7 +99,15 @@ class TandoorCoudeEnv(TandoorPolarEnv):
         f1 = m0["z0"] + m0["f_fit"]
         z_gap = self.z_gap
         zv = f1 - z_gap
-        L = CO.unfolded_path(zv)
+        # The elevation axis must sit high enough that the tipping dish
+        # never sweeps its own roof.  Z_ROOF+0.55 drove the rim 1.2 m
+        # THROUGH the deck at low sun; this is the true minimum, and it
+        # is the largest single term in the unfolded path.
+        from coude_clearance import min_z_m4
+        sag_rim = float(_sim.sag_interp(
+            m0, torch.tensor([self.a_mem], dtype=torch.float64))[0][0])
+        self.z_m4 = float(min_z_m4(self.a_mem, sag_rim))
+        L = CO.unfolded_path(zv, z_m4=self.z_m4)
         F2 = zv - L                      # focus lands IN THE POT
         self.M_cass = (zv - F2) / z_gap
         self.efl = f1 * self.M_cass
@@ -136,14 +130,15 @@ class TandoorCoudeEnv(TandoorPolarEnv):
             for ei, el in enumerate(self._el_grid):
                 R = CO.trace_coude(self._cx, self._cy, sg.numpy(),
                                    sp.numpy(), self.sec, float(el), 0.0,
-                                   f1, sig, rng)
+                                   f1, sig, rng, z_m4=self.z_m4)
                 thr = R["through"]
                 self._pass[li, ei] = thr.mean()
                 if thr.sum():
                     self._nodefrac[li, ei] = self._pot_nodes(R["strike"][thr])
         area = np.pi * (cfg.a ** 2) * (1 - 0.16 ** 2)
         self._coude_area = area
-        print(f"  [coude exact] {area:.1f} m2, z_gap={z_gap:.1f}, "
+        print(f"  [coude exact] {area:.1f} m2, Z_M4={self.z_m4:.2f}, "
+              f"z_gap={z_gap:.1f}, "
               f"M={self.M_cass:.1f}, EFL={self.efl:.1f} m, unfolded "
               f"{L:.2f} m, peak pass {self._pass.max():.2f}")
 
@@ -280,7 +275,7 @@ class TandoorCoudeEnv(TandoorPolarEnv):
                             (120,104,86,255))
         # --- the masonry chase: the invariant vertical line.  Below the
         # workfloor it is buried alongside the pot; above it, cored wall.
-        for zz in _np.linspace(CO.Z_DUCT,CO.Z_M4,11):
+        for zz in _np.linspace(CO.Z_DUCT,self.z_m4,11):
             ring([CO.X_CHASE,0,zz],CO.R_CHASE,
                  (140,120,96,255) if zz>Z_FL else (104,92,74,255),20)
         # --- existing pot, SUNK: floor at z=0, rim flush with workfloor
@@ -292,7 +287,7 @@ class TandoorCoudeEnv(TandoorPolarEnv):
         ring([R_POT,0,CO.Z_DUCT],CO.R_DUCT_C,(120,220,235,255),16,ax="x")
         # --- mount axes: azimuth (vertical, FIXED) and elevation
         pr.draw_line_3d(v3([CO.X_CHASE,0,CO.Z_DUCT]),
-                        v3([CO.X_CHASE,0,CO.Z_M4+0.6]),(90,150,220,255))
+                        v3([CO.X_CHASE,0,self.z_m4+0.6]),(90,150,220,255))
         aw = R["axis_w"]
         pr.draw_line_3d(v3(R["m4"]-aw*1.6),v3(R["m4"]+aw*0.4),
                         (90,150,220,255))
