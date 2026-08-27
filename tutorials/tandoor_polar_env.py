@@ -63,6 +63,10 @@ THROW = 3.5           # mirror -> duct mouth [m]
 class TandoorPolarEnv(TandoorEnv):
     N_HEADS = 3        # pressure level, shutter, JAM/RELEASE
     N_EXTRA_OBS = 2    # jam state, seasonal figure drift
+    # narrow focus trim: the retrofit is power-limited, so it never needs
+    # to dump. Subclasses with surplus power MUST widen this or they
+    # overshoot the band and cook less despite delivering more.
+    LEVEL_FRAC = [0.86, 0.93, 0.97, 0.99, 1.00, 1.01, 1.06]
 
     def _extra_obs(self):
         return np.stack([
@@ -108,8 +112,7 @@ class TandoorPolarEnv(TandoorEnv):
         cfg.dp = self.p0
         dev = self.device
 
-        self.level_frac = np.array([0.86, 0.93, 0.97, 0.99, 1.00, 1.01,
-                                    1.06])
+        self.level_frac = np.array(self.LEVEL_FRAC)
         mems = [_sim.solve_membrane(cfg, self.p0 * f, n=500)
                 for f in self.level_frac]
         self._mem0 = mems[4]
