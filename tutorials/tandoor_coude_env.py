@@ -64,6 +64,7 @@ class TandoorCoudeEnv(TandoorPolarEnv):
         self.z_gap = float(z_gap)
         self.r_sec = float(r_sec)
         self._el_now = 55.0
+        self._az_now = 0.0
         self.a_mem = float(a_mem)
         self.fold_rho = float(fold_rho)
         self.n_folds = int(n_folds)
@@ -85,10 +86,11 @@ class TandoorCoudeEnv(TandoorPolarEnv):
               f"(in-room was 0.713); beam never enters the workroom")
 
     def _build_coude_table(self, cfg):
-        """Tabulate the EXACT coude trace (primary -> secondary -> M3 ->
-        M4 -> chase -> M5 -> pot) over pressure level x elevation. The
-        runtime then interpolates instead of re-tracing, but every entry
-        is a real traced pass fraction, not a model."""
+        """Build the geometry and the LIVE ARTIST tracer.
+
+        This used to tabulate the pass fraction over level x elevation
+        at az=0 and interpolate it. See _trace_power for why that had to
+        go: it silently dropped sigma_b and froze the strike pattern."""
         import tandoor_coude_optics as CO
         self.CO = CO
         cfg.a = self.a_mem
@@ -119,78 +121,51 @@ class TandoorCoudeEnv(TandoorPolarEnv):
         rr = np.sqrt(rng.uniform((0.16 * cfg.a) ** 2,
                                  (0.98 * cfg.a) ** 2, NR))
         self._cx, self._cy, self._cr = rr * np.cos(th), rr * np.sin(th), rr
-        self._el_grid = np.array([25., 35., 45., 55., 65., 75., 88.])
-        self._pass = np.zeros((len(self.level_frac), len(self._el_grid)))
-        self._nodefrac = np.zeros((len(self.level_frac),
-                                   len(self._el_grid), self.n_nodes))
-        sig = float(np.sqrt(self.sigma_sun ** 2 + self.sig_static ** 2))
-        for li, m in enumerate(mems):
-            sg, sp = _sim.sag_interp(m, torch.tensor(self._cr,
-                                                     dtype=torch.float64))
-            for ei, el in enumerate(self._el_grid):
-                R = CO.trace_coude(self._cx, self._cy, sg.numpy(),
-                                   sp.numpy(), self.sec, float(el), 0.0,
-                                   f1, sig, rng, z_m4=self.z_m4)
-                thr = R["through"]
-                self._pass[li, ei] = thr.mean()
-                if thr.sum():
-                    self._nodefrac[li, ei] = self._pot_nodes(R["strike"][thr])
+        from tandoor_coude_artist import CoudeTracer
+        self.tracer = CoudeTracer(_sim, cfg, mems, self._cx, self._cy,
+                                  self.sec, self.z_m4, self.device,
+                                  tag=f"coude{self.a_mem:.2f}")
         area = np.pi * (cfg.a ** 2) * (1 - 0.16 ** 2)
         self._coude_area = area
-        print(f"  [coude exact] {area:.1f} m2, Z_M4={self.z_m4:.2f}, "
-              f"z_gap={z_gap:.1f}, "
-              f"M={self.M_cass:.1f}, EFL={self.efl:.1f} m, unfolded "
-              f"{L:.2f} m, peak pass {self._pass.max():.2f}")
-
-    def _pot_nodes(self, strike):
-        """Bin traced strikes onto the pot's belt / hearth / crown nodes."""
-        CO = self.CO
-        out = np.zeros(self.n_nodes)
-        z = strike[:, 2]
-        phi = np.arctan2(strike[:, 1], strike[:, 0])
-        seg = np.clip(((phi + np.pi) / (2 * np.pi)
-                       * self.n_belt).astype(int), 0, self.n_belt - 1)
-        hearth = z < 0.10
-        crown = z > 0.80
-        for k in range(len(strike)):
-            if hearth[k]:
-                out[self.n_belt] += 1
-            elif crown[k]:
-                out[self.n_belt + 2] += 1
-            else:
-                out[seg[k]] += 1
-        return out / max(len(strike), 1)
+        print(f"  [coude ARTIST live] {area:.1f} m2, Z_M4={self.z_m4:.2f}, "
+              f"z_gap={z_gap:.1f}, M={self.M_cass:.1f}, EFL={self.efl:.1f} m,"
+              f" unfolded {L:.2f} m")
 
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
-        """Interpolate the exact-trace table on (pressure level, sun
-        elevation); boresight enters as an extra spill term."""
+        """LIVE ARTIST trace, every step. No table.
+
+        The table this replaced interpolated a pass fraction over
+        (level x elevation) built at az=0, which dropped sigma_b entirely
+        - wind had zero effect on delivered power - and froze which belt
+        segments the beam lit. Both are live here.
+        """
         B = p_eff.shape[0]
-        el = float(np.clip(self._el_now, self._el_grid[0],
-                           self._el_grid[-1]))
-        ei = np.interp(el, self._el_grid, np.arange(len(self._el_grid)))
-        i0, fr = int(np.floor(ei)), ei - np.floor(ei)
-        i1 = min(i0 + 1, len(self._el_grid) - 1)
         lv = np.clip((np.asarray(p_eff) / self.p0 - self.level_frac[0])
                      / (self.level_frac[-1] - self.level_frac[0])
                      * (self.N_LEVELS - 1), 0, self.N_LEVELS - 1)
-        l0 = np.clip(lv.astype(int), 0, self.N_LEVELS - 2)
-        lf = lv - l0
-        def blend(tab):
-            a = (1 - lf) * tab[l0, i0] + lf * tab[l0 + 1, i0]
-            b = (1 - lf) * tab[l0, i1] + lf * tab[l0 + 1, i1]
-            return (1 - fr) * a + fr * b
-        pf = blend(self._pass)
-        nf = np.stack([blend(self._nodefrac[:, :, k])
-                       for k in range(self.n_nodes)], 1)
-        bore = np.hypot(offset_w[:, 0], offset_w[:, 1])
-        pf = pf * np.exp(-(bore / 0.09) ** 2)       # boresight spill
-        pw = (self._coude_area * self._loss_chain * np.asarray(soil) * pf)
-        return torch.tensor(nf * pw[:, None], dtype=torch.float32)
+        lv = torch.as_tensor(lv, dtype=torch.float32, device=self.device)
+        # sigma_b is ALREADY the total per-axis blur (sun + static figure
+        # + wind + drift), assembled in the polar step(). Adding
+        # sig_static here would double-count it.
+        sig = np.asarray(sigma_b, dtype=np.float64)
+        through, h6, d5 = self.tracer.trace(
+            lv, sig, float(self._el_now), float(self._az_now),
+            np.asarray(offset_w)[:, :2], self.tick)
+        nf = self.tracer.strike_nodes(h6, d5, through, self.n_belt,
+                                      self.n_nodes)
+        pw = (self._coude_area * self._loss_chain
+              * torch.as_tensor(np.asarray(soil), dtype=torch.float32,
+                                device=self.device))
+        return (nf * pw[:, None]).float().cpu()
 
     def _cosine(self, decl_deg):
-        el, _, _ = _sim.solar_position(self.lat, self.day,
-                                       float(self.t_solar[0]))
+        el, az, _ = _sim.solar_position(self.lat, self.day,
+                                        float(self.t_solar[0]))
         self._el_now = el
+        # azimuth is now live too: the coude's PASS fraction really is
+        # azimuth-invariant, but the strike PATTERN rotates about the
+        # chase axis with the sun, so which belt segments get lit moves.
+        self._az_now = float(np.degrees(az))
         """2-axis tracking: no cosine loss at all. This is the whole
         reason to keep the beam-down over the polar retrofit (0.70)."""
         return 1.0
