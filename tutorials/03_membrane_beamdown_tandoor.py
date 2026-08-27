@@ -310,11 +310,21 @@ class Secondary:
         self.rho_max = rho_max
         self.coeffs = torch.zeros(6, device=DEVICE)  # asphere, mm units
 
+    def _c(self, like):
+        """The asphere coefficients on the ray tensors' own device.
+
+        DEVICE is pinned to cpu for the small 1-D solves, but the envs
+        trace on mps, so a Secondary built here and used there tripped
+        `Expected mat.is_mps() to be true`. .to() is a no-op when they
+        already match, and coeffs is 6 numbers, so this is free.
+        """
+        return self.coeffs.to(like.device)
+
     def sag(self, rho2):
         z = self.zc + self.A * torch.sqrt(1 + rho2 / self.B2)
         t = rho2 / self.rho_max**2
         pows = torch.stack([t, t**2, t**3, t**4, t**5, t**6], dim=-1)
-        return z + 1e-3 * (pows @ self.coeffs)
+        return z + 1e-3 * (pows @ self._c(pows))
 
     def dsag_drho2(self, rho2):
         d = self.A / (2 * self.B2 * torch.sqrt(1 + rho2 / self.B2))
@@ -323,7 +333,7 @@ class Secondary:
             [torch.ones_like(t), 2 * t, 3 * t**2, 4 * t**3, 5 * t**4,
              6 * t**5], dim=-1
         ) / self.rho_max**2
-        return d + 1e-3 * (dp_ @ self.coeffs)
+        return d + 1e-3 * (dp_ @ self._c(dp_))
 
     def intersect(self, p, d):
         """Ray p + t d (last dim 4). Closed-form hyperboloid root, then Newton

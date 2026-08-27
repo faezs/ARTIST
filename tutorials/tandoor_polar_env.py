@@ -61,6 +61,10 @@ THROW = 3.5           # mirror -> duct mouth [m]
 
 
 class TandoorPolarEnv(TandoorEnv):
+    # puffer's eval loop calls render() BEFORE the first step(),
+    # and step() is where _cos_now is assigned. Class default so
+    # the HUD has something to draw on frame 0.
+    _cos_now = 0.0
     N_HEADS = 3        # pressure level, shutter, JAM/RELEASE
     N_EXTRA_OBS = 2    # jam state, seasonal figure drift
     # narrow focus trim: the retrofit is power-limited, so it never needs

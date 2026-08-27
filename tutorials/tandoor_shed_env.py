@@ -25,6 +25,10 @@ from tandoor_rl_env import TandoorEnv, _sim, SIGMA, T_AMB
 
 
 class TandoorShedEnv(TandoorEnv):
+    # puffer's eval loop calls render() BEFORE the first step(),
+    # and step() is where _cos_now is assigned. Class default so
+    # the HUD has something to draw on frame 0.
+    _cos_now = 0.0
     def _build_optics(self):
         cfg = _sim.CFG
         cfg.a = 1.6

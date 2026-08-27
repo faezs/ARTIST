@@ -49,10 +49,6 @@ class CoudeTracer:
     def __init__(self, sim, cfg, mems, cx, cy, sec, z_m4, device,
                  tag="", z_m3=-0.45):
         self.device = device
-        # _sim pins its DEVICE to cpu for the small 1-D solves, so the
-        # secondary's asphere coefficients land there. Move them or every
-        # matmul in intersect() trips the mps/cpu boundary.
-        sec.coeffs = sec.coeffs.to(device)
         self.sec = sec
         self.z_m4 = float(z_m4)
         self.z_m3 = float(z_m3)
