@@ -190,6 +190,24 @@ class SunCone:
         return (self._align(canon[:3], nominal) @ v[..., :3, None]
                 ).squeeze(-1)
 
+    def scatter_csr(self, nominal, sigma, csr_frac, csr_sigma, B, P, seed):
+        """Two-component sunshape: gaussian core + circumsolar tail.
+
+        ARTIST's Sun accepts only a normal distribution (it raises on
+        anything else), so the tail is a second ARTIST sample mixed in
+        rather than a different distribution type. Same mixture the envs
+        already used, but now both components come from ARTIST.
+        """
+        core = self.scatter(nominal, sigma, B, P, seed)
+        if not csr_frac:
+            return core
+        tail = self.scatter(nominal, np.full(B, csr_sigma), B, P,
+                            seed + 977)
+        g = torch.Generator(device="cpu").manual_seed(int(seed) % (2 ** 31))
+        pick = (torch.rand(B, P, 1, generator=g) < float(csr_frac)).to(
+            self.device)
+        return torch.where(pick, tail, core)
+
     def _align(self, a, b):
         """Rotation carrying unit a onto unit b (Rodrigues, 3x3)."""
         b = torch.as_tensor(b, dtype=torch.float32,
@@ -204,3 +222,39 @@ class SunCone:
         K[1, 0], K[1, 2] = v[2], -v[0]
         K[2, 0], K[2, 1] = -v[1], v[0]
         return torch.eye(3, device=self.device) + K + K @ K / (1 + c)
+
+
+# ------------------------------------------------------- primary bounce #
+class MembranePrimary:
+    """The bit every tandoor env shares: sun -> membrane -> reflected ray.
+
+    Each env used to do this by hand and identically: interpolate a 1-D
+    sag table, synthesise the normal as [-slope*x/r, -slope*y/r, 1],
+    draw randn(B,P,2)*sigma for the cone, and reflect. Now one ARTIST
+    path - NURBSSurface for points AND normals, Sun for the cone,
+    reflect() for the bounce - so the three envs cannot drift apart.
+    """
+
+    def __init__(self, sim, cfg, mems, cx, cy, device, tag="",
+                 csr_frac=0.0, csr_sigma=15e-3):
+        self.device = device
+        cx = torch.as_tensor(cx, dtype=torch.float32).cpu().numpy()
+        cy = torch.as_tensor(cy, dtype=torch.float32).cpu().numpy()
+        self.membrane = MembraneNURBS(sim, cfg, mems, cx, cy, device, tag=tag)
+        self.sun = SunCone(device)
+        self.csr_frac = float(csr_frac)
+        self.csr_sigma = float(csr_sigma)
+        self.P = len(cx)
+
+    def bounce(self, lv, sigma, seed, nominal=(0.0, 0.0, -1.0)):
+        """-> (origins, reflected dirs, incident dirs), each (B,P,4).
+
+        The incident ray comes back too because the renderers draw it.
+        """
+        B = lv.shape[0]
+        pts, nrm = self.membrane.sample(lv)
+        nom = torch.tensor(nominal, dtype=torch.float32, device=self.device)
+        inc = self.sun.scatter_csr(nom, sigma, self.csr_frac,
+                                   self.csr_sigma, B, self.P, seed)
+        inc4 = torch.cat([inc, torch.zeros_like(inc[..., :1])], dim=-1)
+        return pts, reflect(inc4, nrm), inc4

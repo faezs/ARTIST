@@ -138,6 +138,16 @@ class TandoorPolarEnv(TandoorEnv):
             for m in mems])
         self.pz_sag = self.z_levels[4]
         self.f_nom = float(self._mem0["z0"] + self._mem0["f_fit"])
+        # ARTIST: NURBS membrane + Sun cone + reflect, replacing the
+        # sag-table interpolation and randn cone this env used to do by
+        # hand. sp_levels/z_levels stay for the renderer and diagnostics.
+        import tandoor_artist_optics as AO
+        self.AO = AO
+        self.primary = AO.MembranePrimary(
+            _sim, cfg, mems, self.px, self.py, dev, tag=f"polar{cfg.a:.2f}",
+            csr_frac=self.csr_frac, csr_sigma=15e-3)
+        self.pl_duct = AO.make_plane("duct", [0.0, 0.0, self.f_nom],
+                                     [0.0, 0.0, 1.0], 4.0, 4.0, dev)
 
         # ONE reflection: soiled outdoor film only, then the duct lip
         cell = float(xy[1] - xy[0]) ** 2
@@ -178,28 +188,16 @@ class TandoorPolarEnv(TandoorEnv):
             self.level_frac[-1] - self.level_frac[0]) * (self.N_LEVELS - 1)
         lv = torch.as_tensor(lv, dtype=torch.float32,
                              device=self.device).clamp(0, self.N_LEVELS - 1)
-        i0 = lv.long().clamp(max=self.N_LEVELS - 2)
-        fr = (lv - i0.float())[:, None]
-        sp = (1 - fr) * self.sp_levels[i0] + fr * self.sp_levels[i0 + 1]
-        z = (1 - fr) * self.z_levels[i0] + fr * self.z_levels[i0 + 1]
-        n3 = torch.stack([
-            -sp * self.px * self._inv_r[0], -sp * self.py * self._inv_r[0],
-            torch.ones_like(sp)], dim=-1)
-        n3 = n3 * torch.rsqrt((n3 * n3).sum(-1, keepdim=True))
-        sb = torch.as_tensor(sigma_b, dtype=torch.float32,
-                             device=self.device)[:, None, None]
-        ds = torch.randn(B, P, 2, device=self.device) * sb
-        tail = torch.rand(B, P, 1, device=self.device) < self.csr_frac
-        ds = torch.where(
-            tail, torch.randn(B, P, 2, device=self.device) * 15e-3, ds)
-        i3 = torch.cat([ds, -torch.ones_like(self._ones_bp1)], dim=-1)
-        i3 = i3 * torch.rsqrt((i3 * i3).sum(-1, keepdim=True))
-        d1 = i3 - 2 * (i3 * n3).sum(-1, keepdim=True) * n3
+        # ARTIST: NURBS surface points+normals, Sun cone, reflect, and
+        # TowerTargetAreas/line_plane_intersections for the duct plane.
+        org, d4, _inc = self.primary.bounce(lv, sigma_b, self.tick)
+        d1 = d4[..., :3]
+        hit = self.AO.hit_plane(org.reshape(-1, 4), d4.reshape(-1, 4),
+                                self.pl_duct, self.device).reshape(B, P, 4)
         off = torch.as_tensor(offset_w, dtype=torch.float32,
                               device=self.device)
-        tz = (self.f_nom - z) / d1[..., 2].clamp(min=1e-6)
-        pxp = self.px + tz * d1[..., 0] + off[:, 0:1]
-        pyp = self.py + tz * d1[..., 1] + off[:, 1:2]
+        pxp = hit[..., 0] + off[:, 0:1]
+        pyp = hit[..., 1] + off[:, 1:2]
         through = (pxp**2 + pyp**2) <= R_DUCT**2
 
         # through the duct: beam runs +y (into the pot) angled down onto
@@ -238,7 +236,7 @@ class TandoorPolarEnv(TandoorEnv):
              * through.reshape(-1).float())
         if self.render_mode == "human":
             self._last_rays = dict(
-                org=torch.stack([self.px, self.py, z[0]], -1).cpu().numpy(),
+                org=org[0, :, :3].cpu().numpy(),   # ARTIST NURBS points
                 pduct=torch.stack([pxp[0], torch.zeros(P, device=self.device),
                                    pyp[0]], -1).cpu().numpy(),
                 strike=torch.stack([sx[0], sy[0], sz[0]], -1).cpu().numpy(),

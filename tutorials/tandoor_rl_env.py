@@ -191,6 +191,18 @@ class TandoorEnv(pufferlib.PufferEnv):
             for m in mems
         ])
         self.pz_sag = self.z_levels[4]
+        # ARTIST: NURBS membrane (points AND normals from the spline) +
+        # Sun cone + reflect, replacing the sag-table interpolation and
+        # the synthesised [-slope*x/r, -slope*y/r, 1] normal.
+        # sp_levels/z_levels stay for the renderer and diagnostics.
+        import tandoor_artist_optics as AO
+        self.AO = AO
+        self.primary = AO.MembranePrimary(
+            _sim, cfg, mems, self.px, self.py, dev,
+            tag=f"beamdown{cfg.a:.2f}g{cfg.z_gap:.2f}",
+            csr_frac=self.csr_frac, csr_sigma=15e-3)
+        self.pl_z0 = AO.make_plane("z0", [0.0, 0.0, 0.0], [0.0, 0.0, 1.0],
+                                   8.0, 8.0, dev)
 
         # honest reflectance chain: fresh Al 0.90 with rim-thinning from
         # the deposition physics, secondary 0.88, rigid glass window 0.90;
@@ -248,36 +260,16 @@ class TandoorEnv(pufferlib.PufferEnv):
             self.level_frac[-1] - self.level_frac[0]) * (self.N_LEVELS - 1)
         lv = torch.as_tensor(lv, dtype=torch.float32,
                              device=self.device).clamp(0, self.N_LEVELS - 1)
-        i0 = lv.long().clamp(max=self.N_LEVELS - 2)
-        fr = (lv - i0.float())[:, None]
-        sp = (1 - fr) * self.sp_levels[i0] + fr * self.sp_levels[i0 + 1]
-        z = (1 - fr) * self.z_levels[i0] + fr * self.z_levels[i0 + 1]
-        n3 = torch.stack([
-            -sp * self.px * self._inv_r[0], -sp * self.py * self._inv_r[0],
-            torch.ones_like(sp)
-        ], dim=-1)
-        n3 = n3 * torch.rsqrt((n3 * n3).sum(-1, keepdim=True))
-        n4 = torch.cat([n3, self._ones_bp1], -1)
-        # incident cone: per-env gaussian core + circumsolar tail
-        sb = torch.as_tensor(sigma_b, dtype=torch.float32,
-                             device=self.device)[:, None, None]
-        ds = torch.randn(B, P, 2, device=self.device) * sb
-        tail = torch.rand(B, P, 1, device=self.device) < self.csr_frac
-        ds = torch.where(
-            tail, torch.randn(B, P, 2, device=self.device) * 15e-3, ds)
-        i4 = torch.cat([ds, -torch.ones_like(self._ones_bp1),
-                        0.0 * self._ones_bp1], dim=-1)
-        i4 = i4 * torch.rsqrt((i4[..., :3] ** 2).sum(-1, keepdim=True))
-        d4 = _sim.reflect(i4, n4).reshape(-1, 4)
-        org = torch.stack([self.px.expand(B, P), self.py.expand(B, P), z],
-                          dim=-1)
-        o4 = torch.cat([org, torch.ones(B, P, 1, device=self.device)],
-                       -1).reshape(-1, 4)
+        # ARTIST: NURBS surface points+normals, Sun cone (gaussian core +
+        # circumsolar tail, both ARTIST samples), ARTIST reflect.
+        org_b, d_b, i4 = self.primary.bounce(lv, sigma_b, self.tick)
+        z = org_b[..., 2]
+        o4 = org_b.reshape(-1, 4)
+        d4 = d_b.reshape(-1, 4)
         hit, n2, ok = self.sec.intersect(o4, d4)
         d2 = _sim.reflect(d4, n2)
         cfg = self.cfg
-        tw = -hit[:, 2] / d2[:, 2].clamp(max=-1e-9)
-        wpt = hit + tw[:, None] * d2
+        wpt = self.AO.hit_plane(hit, d2, self.pl_z0, self.device)
         rho_w = torch.sqrt(wpt[:, 0] ** 2 + wpt[:, 1] ** 2)
         okw = ok & (d2[:, 2] < 0) & (rho_w <= cfg.r_window)
         R3 = self._sun_R
@@ -289,8 +281,10 @@ class TandoorEnv(pufferlib.PufferEnv):
                               device=self.device)
         wpt_w = wpt_w.clone()
         wpt_w[:, :2] += off.repeat_interleave(P, dim=0)
-        tp = -wpt_w[:, 2] / d2_w[:, 2].clamp(max=-1e-9)
-        ppit = wpt_w + tp[:, None] * d2_w
+        _p = lambda t: torch.cat([t, torch.ones_like(t[..., :1])], -1)
+        _d = lambda t: torch.cat([t, torch.zeros_like(t[..., :1])], -1)
+        ppit = self.AO.hit_plane(_p(wpt_w), _d(d2_w), self.pl_z0,
+                                 self.device)[..., :3]
         down = okw & (d2_w[:, 2] < 0)
         direct = down & (ppit[:, 0] ** 2 + ppit[:, 1] ** 2 <= cfg.r_pit**2)
         flare_w = torch.zeros(direct.shape, device=self.device)
