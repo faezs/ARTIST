@@ -19,6 +19,11 @@ _here = pathlib.Path(__file__).resolve().parent  # -> ARTIST/tutorials/puffer_ta
 _tutorials = _here.parent
 if str(_tutorials.parent) not in sys.path:
     sys.path.insert(0, str(_tutorials.parent))
+# tutorials/ itself must be importable too: the env modules do plain
+# `import tandoor_coude_optics` / `coude_clearance`, which only resolved
+# while cwd happened to be tutorials/.
+if str(_tutorials) not in sys.path:
+    sys.path.insert(0, str(_tutorials))
 
 _spec = importlib.util.spec_from_file_location(
     "tandoor_rl_env", _tutorials / "tandoor_rl_env.py"
