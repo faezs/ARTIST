@@ -364,10 +364,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         sq = torch.sqrt(disc.clamp(min=0))
         t2 = (-qb + sq) / (2 * qa)
         h2 = h1 + t2[..., None] * d2
-        rad2 = torch.stack([h2[..., 0] - X_TOWER, h2[..., 1]], -1
-                           ).norm(dim=-1)
-        ok = ok & oke & (t2 > 0) & (h2[..., 2] < self.z_waist - 0.2) \
-            & (rad2 < self.r_m5)
+        # THE MIRROR IS A PATCH, NOT THE WHOLE ELLIPSOID. The far root
+        # can land on the surface's side lobes (measured: x 0.15-2.11,
+        # z to +1.07); rays reflecting there went wherever, some drawn
+        # straight through the foundations. Bound the patch to a disc
+        # around its vertex V0 at the core base.
+        V0t = torch.tensor([X_TOWER, 0.0, self.z_m5], dtype=torch.float32,
+                           device=dev)
+        ok = ok & oke & (t2 > 0) \
+            & ((h2 - V0t).norm(dim=-1) < 1.25 * self.r_m5)
         hl = (h2 - self.ell_ctr_t) @ self.ell_M.T
         nl = hl * self.ell_S
         nl = nl / nl.norm(dim=-1, keepdim=True)
@@ -375,8 +380,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         d3 = reflect(torch.cat([d2, torch.zeros_like(d2[..., :1])], -1),
                      torch.cat([ne, torch.zeros_like(ne[..., :1])], -1)
                      )[..., :3]
-        # the duct plane x = R_POT, with boresight decenter
+        # the duct plane x = R_POT, with boresight decenter. A ray must
+        # make real progress toward the pot: near-grazing directions
+        # (d3x ~ 0) produced kilometre-long bogus segments - they hit
+        # the chamber masonry within a metre in reality.
         t3 = (R_POT - h2[..., 0]) / d3[..., 0].clamp(max=-1e-9)
+        ok = ok & (d3[..., 0] < -0.05) & (t3 < 4.0)
+        t3 = t3.clamp(max=4.0)
         h3 = h2 + t3[..., None] * d3
         off = torch.as_tensor(offset_w, dtype=torch.float32, device=dev)
         dy = h3[..., 1] + off[:, 0:1]
