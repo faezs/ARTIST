@@ -64,8 +64,8 @@ from artist.raytracing.raytracing_utils import reflect
 import tandoor_artist_optics as AO
 import tandoor_coude_optics as CO
 from tandoor_coude_env import TandoorCoudeEnv
-from tandoor_polar_env import TandoorPolarEnv
-from tandoor_rl_env import _sim
+from tandoor_polar_env import TandoorPolarEnv, R_MOUTH
+from tandoor_rl_env import _sim, ROTI_ENERGY
 
 R_POT, H_POT, Z_DUCT = CO.R_POT, CO.H_POT, CO.Z_DUCT
 X_TOWER = CO.X_CHASE
@@ -362,11 +362,51 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         for gy in np.linspace(-2.2, 2.2, 6):
             pr.draw_line_3d(v3([-2.2, gy, Z_ROOF]),
                             v3([X_TOWER, gy, Z_ROOF]), (88, 84, 76, 255))
-        # the sunk pot, mouth flush with the workfloor
-        for zz in np.linspace(0.0, H_POT, 7):
-            ring([0, 0, zz], R_POT if zz < 0.78*H_POT else 0.26,
-                 self._heat_color(self.T[0, 0]) if 0.2 < zz < 0.78*H_POT
-                 else (150, 120, 94, 255), 26)
+        # the wall the tower stands on, workfloor -> roof (coude scene)
+        for wx in (X_TOWER - 0.55, X_TOWER + 0.55):
+            for wy in (-2.2, 2.2):
+                pr.draw_line_3d(v3([wx, wy, H_POT]), v3([wx, wy, Z_ROOF]),
+                                (118, 102, 84, 255))
+            pr.draw_line_3d(v3([wx, -2.2, Z_ROOF]), v3([wx, 2.2, Z_ROOF]),
+                            (118, 102, 84, 255))
+        # THE EXISTING POT, drawn for real (ported from the beam-down):
+        # clay barrel sunk under the workfloor, neck to the mouth
+        for zz in np.linspace(0.0, H_POT, 8):
+            rr_ = R_POT if zz < H_POT - 0.25 else \
+                R_MOUTH + (R_POT - R_MOUTH) * (H_POT - zz) / 0.25
+            ring([0, 0, zz], rr_, (150, 118, 92, 255), 28)
+        ring([0, 0, H_POT], R_MOUTH, (190, 160, 120, 255), 24)
+        if self.load_timer[0] >= 4.0:          # lid on between loads
+            ring([0, 0, H_POT + 0.03], R_MOUTH * 0.92,
+                 (120, 120, 128, 255), 20)
+        # belt WALL SEGMENTS, each at its own node temperature. The bin
+        # frame maps theirs->ours as (x,y) = (-y_t, x_t), so segment k's
+        # arc is drawn through that map - the hot side faces the duct.
+        z_lo, z_hi = 0.12, H_POT - 0.22
+        for k in range(self.n_belt):
+            a0 = -np.pi + 2 * np.pi * k / self.n_belt
+            th_ = np.linspace(a0, a0 + 2 * np.pi / self.n_belt, 8)
+            col = self._heat_color(self.T[0, k])
+            for zz in (z_lo + 0.15, 0.5 * (z_lo + z_hi), z_hi - 0.10):
+                for j in range(7):
+                    pr.draw_line_3d(
+                        v3([-R_POT*np.sin(th_[j]), R_POT*np.cos(th_[j]),
+                            zz]),
+                        v3([-R_POT*np.sin(th_[j+1]),
+                            R_POT*np.cos(th_[j+1]), zz]), col)
+            # the ROTI stuck on this wall segment, growing as it cooks
+            if self.has_bread[0, k]:
+                am = a0 + np.pi / self.n_belt
+                fr_ = min(float(self.bread_E[0, k]) / ROTI_ENERGY, 1.0)
+                pr.draw_sphere(
+                    v3([-0.965*R_POT*np.sin(am), 0.965*R_POT*np.cos(am),
+                        0.5*(z_lo+z_hi)]),
+                    0.05 + 0.02 * fr_, (205, 170, 112, 255))
+        # hearth (coal-bed spot the beam lands on) and crown
+        ring([0, 0, 0.03], R_POT * 0.5,
+             self._heat_color(self.T[0, self.n_belt]), 18)
+        ring([0, 0, H_POT - 0.12], R_POT * 0.93,
+             self._heat_color(self.T[0, self.n_belt + 2]), 22)
         ring([R_POT, 0, Z_DUCT], R_DUCT_H, (120, 220, 235, 255), 18,
              ax="x")
         # the tower: sealed bore, tapering fold -> M5 pit; FIXED forever
