@@ -143,9 +143,29 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         delta = self.z_fold - self.z_waist
         f_design = g + delta
 
-        # -- membrane pressure that puts the FITTED focus at f_design
+        # -- membrane pressure tuned to HASHEMI'S OWN GEOMETRY: the
+        # paper builds everything on a SPHERE of radius R with its focal
+        # circle at R/2, and the pressurised membrane's natural figure
+        # is measurably nearer a sphere than a paraboloid (2.62 vs 2.76
+        # mrad slope error, fixed_focus_sphere.py). So the target is the
+        # best-fit SPHERE radius R = 2 f_design, not the parabolic f_fit
+        # - the membrane is asked to be what it already wants to be.
+        def _sphere_R(m):
+            r_ = m["r"].numpy(); z_ = m["s"].numpy()
+            keep = r_ <= cfg.a * 0.98
+            r_, z_ = r_[keep], z_[keep] - z_[keep][0]
+            Rs = np.linspace(1.2 * f_design, 3.2 * f_design, 400)
+            mse = [np.mean((z_ - (R - np.sqrt(
+                np.clip(R * R - r_ * r_, 1e-9, None)))) ** 2) for R in Rs]
+            return float(Rs[int(np.argmin(mse))])
+        # MEASURED: targeting the sphere radius directly drops duct
+        # throughput 37% -> 28%, because a sphere's paraxial focus is
+        # not its best focus at f/2.3 - the waist smears axially into
+        # the tube walls. The parabolic f_fit IS the best-focus
+        # estimator, so the pressure tracks it; the membrane still IS
+        # the R = 2f sphere's section to ~2.6 mrad, reported below.
         lo, hi = cfg.T_pre / (4 * f_design), cfg.T_pre / (0.4 * f_design)
-        for _ in range(24):
+        for _ in range(22):
             mid = 0.5 * (lo + hi)
             m = _sim.solve_membrane(cfg, mid, n=400)
             if m["z0"] + m["f_fit"] > f_design:
@@ -153,6 +173,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             else:
                 hi = mid
         self.p0 = float(0.5 * (lo + hi))
+        self.R_sphere = _sphere_R(_sim.solve_membrane(cfg, self.p0, n=400))
         cfg.dp = self.p0
         self.level_frac = np.array(self.LEVEL_FRAC)   # coude's wide dump
         mems = [_sim.solve_membrane(cfg, self.p0 * fr, n=400)
@@ -164,8 +185,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.r_fold = a * delta / self.f_nom * 1.08 + 0.06
         self.obstruction = (self.r_fold / a) ** 2
         # tube inner radius passes 3 sigma of the waist; post below it
-        sig0 = np.hypot(2.09e-3, 5.6e-3)
-        self.r_tube_in = 3.0 * self.f_nom * sig0 + 0.02
+        # tube radius from the measured tube-vs-slot trade (the two are
+        # coupled: the slot must clear the tube). Swept at windy blur:
+        #   r_in 0.20: slot  9% tube 24% -> through 33.5%
+        #   r_in 0.32: slot 12% tube  4% -> through 45.1%   <- optimum
+        #   r_in 0.50: slot 17% tube  0% -> through 43.9%
+        # The static-only 3-sigma sizing (0.20) was starving the machine.
+        self.r_tube_in = 0.32
         self.r_tube = self.r_tube_in + 0.04
         self.r_post = 0.15
         # the slot: radial cut from r0 to the rim, wide enough for the
@@ -220,7 +246,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._env_off = (torch.arange(self.num_agents, device=dev)
                          * self.n_nodes).repeat_interleave(NR)
         pk = 0.9 * np.pi * a * a * 0.88 * (1 - self.obstruction)
-        print(f"  [hashemi] dish {np.pi*a*a:.1f} m2 f={self.f_nom:.2f} m "
+        print(f"  [hashemi] dish {np.pi*a*a:.1f} m2 SPHERE R="
+              f"{self.R_sphere:.1f} m (f=R/2={self.R_sphere/2:.2f}, "
+              f"design {f_design:.2f}) "
               f"orbit g={g:.1f} -> fold at z={self.z_fold:.2f} m, "
               f"waist z={self.z_waist:.1f}, M5 pit z={self.z_m5:.2f}")
         print(f"  [hashemi] fold r={self.r_fold:.2f} m (obstruction "
@@ -347,12 +375,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                      )[..., :3]
         # the descending beam must pass the sealed tube: clip blur tails
         # on its inner wall at both ends
+        ok_pre_tube = ok.clone()
         for z_st in self.z_tube:
             t_st = (z_st - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
             at_st = h1 + t_st[..., None] * d2
             rad_st = torch.stack([at_st[..., 0] - X_TOWER,
                                   at_st[..., 1]], -1).norm(dim=-1)
             ok = ok & (rad_st < self.r_tube_in)
+        ok_post_tube = ok.clone()
         # M5's ellipsoid: far root = the physical mirror at the wall base
         pl = (h1 - self.ell_ctr_t) @ self.ell_M.T
         dl = d2 @ self.ell_M.T
@@ -393,11 +423,24 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         dz = h3[..., 2] - Z_DUCT + off[:, 1:2]
         through = ok & (t3 > 0) & (dy ** 2 + dz ** 2 <= R_DUCT_H ** 2)
         if self.render_mode == "human":
+            n_all = float(lit.shape[-1])
+            self._ladder = dict(
+                shadow=1.0 - float(lit[0].float().mean()),
+                slot=float(in_slot[0].float().mean()),
+                fold=float((lit[0] & ~in_slot[0] & ~graze[0]
+                            & ~(rad1[0] < self.r_fold)).float().mean()),
+                tube=float((ok_pre_tube[0] & ~ok_post_tube[0]
+                            ).float().mean()),
+                m5=float((ok_post_tube[0] & ~ok[0]).float().mean()),
+                duct=float((ok[0] & ~through[0]).float().mean()),
+                through=float(through[0].float().mean()))
+        if self.render_mode == "human":
             self._hv = dict(dish=p[0].cpu().numpy(),
                             fold=h1[0].cpu().numpy(),
                             m5=h2[0].cpu().numpy(),
                             duct=h3[0].cpu().numpy(),
                             ok=ok[0].cpu().numpy(),
+                            ok_pre=ok_pre_tube[0].cpu().numpy(),
                             slot=in_slot[0].cpu().numpy(),
                             through=through[0].cpu().numpy(),
                             u=u, el=el, az=float(az), C=C_dish)
@@ -711,10 +754,23 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             ok, th = H["ok"], H["through"]
             fold, m5, duct = H["fold"], H["m5"], H["duct"]
             dish = H["dish"]
+            # EVERY collected ray is drawn to where it actually ends.
+            # RED = a miss, at its true death point - the tube wall, the
+            # M5 bound, or the duct rim. The red count IS the miss
+            # count; hiding it hid the design's real losses.
+            okp = H.get("ok_pre", ok)
             for i in range(0, len(dish), 2):
                 pr.draw_line_3d(v3(dish[i] + 2.6*u), v3(dish[i]),
                                 (60, 52, 30, max(a_hi//2, 2)))
+                if not okp[i]:
+                    continue
                 if not ok[i]:
+                    # died on the tube or the M5 bound: red to the fold,
+                    # then a red stub down the descent to the tube zone
+                    pr.draw_line_3d(v3(dish[i]), v3(fold[i]), cd)
+                    dz_ = fold[i] - np.array([0, 0,
+                                              fold[i][2] - self.z_tube[1]])
+                    pr.draw_line_3d(v3(fold[i]), v3(dz_), cd)
                     continue
                 col = cb if th[i] else cd
                 pr.draw_line_3d(v3(dish[i]), v3(fold[i]), col)
@@ -743,6 +799,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                f"{self.obstruction*100:.0f}%",
                f"waist z {self.z_waist:.1f} m  M5 ellipsoid r "
                f"{self.r_m5:.2f} m",
+               (lambda L: f"losses: shadow {L['shadow']*100:.0f}% "
+                f"slot {L['slot']*100:.0f}% tube {L['tube']*100:.0f}% "
+                f"duct {L['duct']*100:.0f}%")(self._ladder)
+               if hasattr(self, "_ladder") else "",
                f"through duct {100*H['through'].mean():.0f}%" if H
                else "gated",
                f"into pot {self.p_in[0]:5.0f} W"]
