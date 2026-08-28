@@ -320,8 +320,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         t1 = ((Pf - p) * nf).sum(-1) / torch.where(
             den.abs() > 1e-9, den, torch.full_like(den, 1e-9))
         h1 = p + t1[..., None] * d
-        rad1 = (h1 - Pf - ((h1 - Pf) * nf).sum(-1, keepdim=True) * nf
-                ).norm(dim=-1)
+        # the plate is trimmed to the beam's true footprint: an ELLIPSE,
+        # semi-major r_fold/cos(i) along the in-plane beam direction. A
+        # circle both clipped the tails at low sun (largest i) and
+        # oversized the cross axis for nothing.
+        inc_i = np.radians(45.0 - 0.5 * el)
+        e_par = ut - (ut * nf).sum() * nf
+        e_par = e_par / e_par.norm()
+        e_prp = torch.linalg.cross(nf, e_par)
+        rel1 = h1 - Pf
+        c_par = (rel1 * e_par).sum(-1) * np.cos(inc_i)
+        c_prp = (rel1 * e_prp).sum(-1)
+        rad1 = torch.stack([c_par, c_prp], -1).norm(dim=-1)
         # (b) the dish->fold leg against the post and tube (the dish
         # never dips below the deck, so the core cannot graze it)
         wb = Tw[None, None] - p[..., None, :]
@@ -618,34 +628,79 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             pr.draw_sphere(v3(arc(e_lo) - 0.15*zh_), 0.14,
                            (110, 110, 120, 255))
 
-            # the FIXED fold at its true two-axis tilt
+            # the FIXED fold: the true ELLIPTICAL plate (semi-major
+            # r_fold/cos i along the beam) on a visible two-axis yoke.
+            # It stays FLAT because only a flat images perfectly under a
+            # deviation that sweeps 90+el; a rigidly tracked powered
+            # conic measured 1.3-3.5 m rms off-design.
             nf = u + np.array([0., 0., 1.]); nf /= np.linalg.norm(nf)
-            e1 = np.cross(nf, [0, 0, 1.]); e1 /= max(np.linalg.norm(e1),
-                                                     1e-9)
-            e2 = np.cross(nf, e1)
             Pf = np.array([X_TOWER, 0., self.z_fold])
-            t = np.linspace(0, 2*np.pi, 37)
-            fr = [Pf + self.r_fold*(np.cos(x)*e1 + np.sin(x)*e2)
-                  for x in t]
-            for k in range(36):
-                pr.draw_line_3d(v3(fr[k]), v3(fr[k+1]),
-                                (235, 110, 110, 255))
+            inc_ = np.radians(45.0 - 0.5*H["el"])
+            e_pa = u - (u @ nf)*nf
+            e_pa /= max(np.linalg.norm(e_pa), 1e-9)
+            e_pr = np.cross(nf, e_pa)
+            t = np.linspace(0, 2*np.pi, 41)
+            for sc_ in (1.0, 0.55):
+                fr = [Pf + sc_*self.r_fold*(np.cos(x)/np.cos(inc_)*e_pa
+                                            + np.sin(x)*e_pr) for x in t]
+                for k in range(40):
+                    pr.draw_line_3d(v3(fr[k]), v3(fr[k+1]),
+                                    (235, 110, 110, 255))
+            pr.draw_line_3d(v3(Pf), v3(Pf + 0.7*nf), (235, 110, 110, 255))
+            # yoke: yaw collar on the post, pitch trunnions to the rim
+            ring(Pf - np.array([0, 0, 0.35]), 0.30,
+                 (200, 180, 140, 255), 14)
+            for sgn_ in (1.0, -1.0):
+                tr = Pf + sgn_*1.05*self.r_fold*e_pr
+                pr.draw_line_3d(v3(tr), v3(Pf - np.array([0, 0, 0.35])
+                                           + sgn_*0.30*e_pr),
+                                (200, 180, 140, 255))
             # waist marker: the fixed point the whole design pivots on
             ring([X_TOWER, 0, self.z_waist], 0.12, (235, 200, 90, 255), 14)
-            # dish surface quills; the fig-12 SLOT shows as the gap
-            dish = H["dish"]
-            slot = H.get("slot")
-            for k in range(0, len(dish), 6):
-                if slot is not None and slot[k]:
-                    continue
-                pr.draw_line_3d(v3(dish[k]), v3(dish[k] + 0.12*u),
-                                (90, 150, 235, 255))
+            # THE PRIMARY, drawn as built: rim, sagged rings and
+            # meridians of the actual membrane, slot as a real notch.
+            el_r0 = np.radians(H["el"])
+            p_upw = hdir*np.sin(el_r0) + zh_*np.cos(el_r0)
+            s_dirw = -p_upw
+            e_ppw = np.cross(u, s_dirw)
+            Cd_ = np.asarray(H["C"])
+            Ml = _align_np([0., 0., 1.], u)
+            r32 = self._mem0["r"].numpy()
+            s32 = self._mem0["s"].numpy()
+            def _slotted(qw):
+                qq = qw - Cd_
+                return (qq @ s_dirw) > self.slot_r0 and \
+                    abs(qq @ e_ppw) < self.slot_w2
+            colm = (90, 150, 235, 255)
+            for rr_ in (0.35*a, 0.65*a, 0.86*a, 0.995*a):
+                zz_ = float(np.interp(rr_, r32, s32))
+                th_ = np.linspace(0, 2*np.pi, 49)
+                pts_ = [Ml @ np.array([rr_*np.cos(x), rr_*np.sin(x), zz_])
+                        + Cd_ for x in th_]
+                for k in range(48):
+                    if _slotted(pts_[k]) or _slotted(pts_[k+1]):
+                        continue
+                    pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]), colm)
+            for am_ in np.linspace(0, 2*np.pi, 12, endpoint=False):
+                rs_ = np.linspace(0.3*a, a, 7)
+                pts_ = [Ml @ np.array(
+                    [r_*np.cos(am_), r_*np.sin(am_),
+                     float(np.interp(r_, r32, s32))]) + Cd_ for r_ in rs_]
+                for k in range(6):
+                    if _slotted(pts_[k]) or _slotted(pts_[k+1]):
+                        continue
+                    pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]), colm)
+            for sgn_ in (1.0, -1.0):
+                q0 = Cd_ + self.slot_r0*s_dirw + sgn_*self.slot_w2*e_ppw
+                q1 = Cd_ + a*s_dirw + sgn_*self.slot_w2*e_ppw
+                pr.draw_line_3d(v3(q0), v3(q1), (235, 190, 90, 255))
             # every traced ray, additive; spill in red
             pr.begin_blend_mode(pr.BlendMode.BLEND_ADDITIVE)
             a_hi = int(4 + 20*dim)
             cb, cd = (120, 88, 30, a_hi), (150, 40, 30, 55)
             ok, th = H["ok"], H["through"]
             fold, m5, duct = H["fold"], H["m5"], H["duct"]
+            dish = H["dish"]
             for i in range(0, len(dish), 2):
                 pr.draw_line_3d(v3(dish[i] + 2.6*u), v3(dish[i]),
                                 (60, 52, 30, max(a_hi//2, 2)))
