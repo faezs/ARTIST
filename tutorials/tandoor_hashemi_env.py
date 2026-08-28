@@ -202,7 +202,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
               f"chain {self._loss_chain:.3f}, cosine 1.00, "
               f"~{pk/(np.pi*self.r_fold**2):.1f} kW/m2 on the fold")
         print(f"  [hashemi] swept ring r={g+a:.1f} m around the tower is "
-              f"a fenced no-build zone; beam sealed below the fold")
+              f"a fenced no-build zone; beam sealed below the roof deck")
 
     # ------------------------------------------------------------ trace #
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
@@ -505,6 +505,70 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              (150, 130, 190, 255), 72)
         if H is not None:
             u = H["u"]
+            # ---- THE CARRIAGE, from Hashemi's construction photos
+            # (figs 9-18): a FIXED ring rail + the central post; the only
+            # moving part is one beam rotating about the post, carrying
+            # two A-frames and the focus-centred arc rail the dish slides
+            # on. Elevation = the dish's position along the arc; azimuth
+            # = the beam's rotation. Scaled from his 2 m yard unit.
+            g, a = self.g_orbit, self.cfg.a
+            R_rail, R_ring = g + 0.35, 4.6
+            zh_ = np.array([0., 0., 1.])
+            hdir = -(u - u[2]*zh_)
+            hdir = hdir / max(np.linalg.norm(hdir), 1e-9)
+            e_s = np.cross(zh_, hdir)
+            Pf_ = np.array([X_TOWER, 0., self.z_fold])
+            z_beam = Z_ROOF + 0.10
+            colc = (150, 140, 120, 255)
+            arc = lambda e_: Pf_ + R_rail*(np.cos(e_)*hdir
+                                           - np.sin(e_)*zh_)
+            # fixed ring rail on posts (roof stubs south, courtyard north)
+            ring([X_TOWER, 0, z_beam - 0.05], R_ring, (120, 104, 88, 255),
+                 48)
+            for aa in np.linspace(0, 2*np.pi, 8, endpoint=False):
+                fx = X_TOWER + R_ring*np.cos(aa); fy = R_ring*np.sin(aa)
+                foot = Z_ROOF if fx < X_TOWER else H_POT
+                pr.draw_line_3d(v3([fx, fy, z_beam-0.05]),
+                                v3([fx, fy, foot]), (104, 92, 76, 255))
+            # rotating beam through the collar on the mast, wheels at rim
+            for sgn in (1.0, -1.0):
+                pr.draw_line_3d(v3(Pf_*[1,1,0] + [0,0,z_beam]),
+                                v3(Pf_*[1,1,0] + [0,0,z_beam]
+                                   + sgn*R_ring*hdir), colc)
+                wp = Pf_*[1,1,0] + [0,0,z_beam] + sgn*R_ring*hdir
+                ring(wp - [0,0,0.06], 0.10, (200,180,140,255), 10)
+            ring([X_TOWER, 0, z_beam], 0.22, colc, 12)     # the collar
+            # two A-frames on the beam holding the arc rail
+            for rA in (2.9, 4.4):
+                eA = np.arccos(np.clip(rA / R_rail, -1, 1))
+                apex = arc(eA)
+                for sgn in (1.0, -1.0):
+                    foot = (Pf_*[1,1,0] + [0,0,z_beam]
+                            + rA*hdir + sgn*0.55*e_s)
+                    pr.draw_line_3d(v3(foot), v3(apex), colc)
+            # the arc rail (circle D, centred on the FOLD), two tubes
+            e_lo = np.radians(self.el_min_h - 2)
+            e_hi = np.radians(self.el_max_h + 2)
+            ee = np.linspace(e_lo, e_hi, 22)
+            for off in (0.12, -0.12):
+                pts_ = [arc(x) + off*e_s for x in ee]
+                for k in range(21):
+                    pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]),
+                                    (168, 150, 122, 255))
+            # strap bearings + threaded-rod ties: dish back to the rail
+            el_r = np.radians(H["el"])
+            dstrap = np.arcsin(np.clip(0.8*a / R_rail, -1, 1))
+            Cd_ = np.asarray(H["C"])
+            p_up = (hdir*np.sin(el_r) + zh_*np.cos(el_r))
+            for sg_ in (1.0, -1.0):
+                strap = arc(el_r + sg_*dstrap)
+                rim = Cd_ + sg_*0.8*a*p_up
+                pr.draw_line_3d(v3(strap), v3(rim), (200, 180, 140, 255))
+                ring(strap, 0.08, (200, 180, 140, 255), 8)
+            # counterweight at the arc's upper end (fig 18)
+            pr.draw_sphere(v3(arc(e_lo) - 0.15*zh_), 0.14,
+                           (110, 110, 120, 255))
+
             # the FIXED fold at its true two-axis tilt
             nf = u + np.array([0., 0., 1.]); nf /= np.linalg.norm(nf)
             e1 = np.cross(nf, [0, 0, 1.]); e1 /= max(np.linalg.norm(e1),
