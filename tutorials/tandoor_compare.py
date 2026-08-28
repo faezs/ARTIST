@@ -45,6 +45,13 @@ def heuristic(env, B):
             np.where(bm < 665, 2, np.where(bm < 690, 1, 0))))
     ready = (env.load_timer >= 30.0) & (
         ((~env.has_bread) & (belt >= 560.0) & (belt <= 700.0)).any(1))
+    if env.N_HEADS == 5:                       # hashemi: 2 motor heads
+        # P-controller on the pointing-error encoders: cmd 3 = hold,
+        # each step of command = a third of full slew
+        c_az = np.clip(np.round(3 - env._e_az / 0.08), 0, 6).astype(int)
+        c_el = np.clip(np.round(3 - env._e_el / 0.08), 0, 6).astype(int)
+        return np.stack([lvl, np.full(B, 6), np.full(B, 6),
+                         c_az, c_el], axis=1)
     if env.N_HEADS == 3:                       # polar: no shutter interlock
         return np.stack([lvl, np.full(B, 6), np.full(B, 6)], axis=1)
     return np.stack([lvl, np.where(ready, 0, 6)], axis=1)

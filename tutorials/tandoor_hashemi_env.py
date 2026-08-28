@@ -91,6 +91,18 @@ def _align_np(a, b):
 
 
 class TandoorHashemiEnv(TandoorCoudeEnv):
+    #: level, shutter, jam - plus Hashemi's TWO DC MOTORS (fig 14/17):
+    #: the azimuth roller on the ring rail and the elevation tow-wire.
+    #: Tracking is no longer assumed: the policy drives the carriage.
+    N_HEADS = 5
+    #: jam, seasonal drift, and the two pointing-error encoders
+    N_EXTRA_OBS = 4
+    # Slew at full command. The sun moves ~0.004 deg/s; these are ~8x
+    # that - enough to acquire and hold, geared like a real tow-wire.
+    # (First cut used 0.45 deg/s: one step of the smallest command was
+    # 2.3 deg at this dt, and the tracker limit-cycled at +-2.4 deg.)
+    RATE_AZ = 0.035    # roller slew [deg/s] at full command
+    RATE_EL = 0.025    # tow-wire slew [deg/s] at full command
 
     def __init__(self, *args, a_mem=2.10, g_orbit=5.0, z_waist=1.5,
                  z_m5=-0.10, el_min=12.0, r_mast=0.25, **kwargs):
@@ -100,6 +112,59 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.el_min_h = float(el_min)
         self.r_mast = float(r_mast)
         super().__init__(*args, a_mem=a_mem, **kwargs)
+
+    def _reset_state(self):
+        super()._reset_state()
+        B = self.num_agents
+        el0, az0, _ = _sim.solar_position(self.lat, self.day,
+                                          float(self.t_solar[0]))
+        self.el_m = np.clip(el0 + self.rng.normal(0, 0.3, B),
+                            self.el_min_h, self.el_max_h)
+        self.az_m = np.degrees(az0) + self.rng.normal(0, 0.3, B)
+        self._e_el = np.zeros(B)
+        self._e_az = np.zeros(B)
+
+    def _extra_obs(self):
+        base = super()._extra_obs()
+        # encoder readings of the pointing error, with sensor noise
+        enc = np.stack([
+            np.clip((self._e_el + self.rng.normal(0, 0.03,
+                                                  self.num_agents)) / 0.5,
+                    -3, 3),
+            np.clip((self._e_az + self.rng.normal(0, 0.03,
+                                                  self.num_agents)) / 0.5,
+                    -3, 3)], axis=1)
+        return np.concatenate([base, enc], axis=1)
+
+    def step(self, actions):
+        B = self.num_agents
+        a = np.asarray(actions).reshape(B, self.N_HEADS)
+        # -- the two motors, BEFORE the optics see the sun this step.
+        # cmd 0..6 -> rate -1..+1 of full slew; backlash as rate noise.
+        el0, az0, _ = _sim.solar_position(self.lat, self.day,
+                                          float(self.t_solar[0]))
+        az0 = np.degrees(az0)
+        r_az = (np.clip(a[:, 3], 0, 6) - 3) / 3.0 * self.RATE_AZ
+        r_el = (np.clip(a[:, 4], 0, 6) - 3) / 3.0 * self.RATE_EL
+        self.az_m = self.az_m + r_az * self.dt \
+            + self.rng.normal(0, 0.02, B)
+        self.el_m = np.clip(self.el_m + r_el * self.dt
+                            + self.rng.normal(0, 0.02, B),
+                            self.el_min_h - 2.0, self.el_max_h + 1.0)
+        # pointing error the optics will feel (az foreshortened)
+        self._e_el = self.el_m - el0
+        self._e_az = (self.az_m - az0) * np.cos(np.radians(el0))
+        t_before = float(self.t_solar[0])
+        out = super().step(a[:, :3])
+        if float(self.t_solar[0]) < t_before - 1.0:
+            # the episode wrapped to the next morning: the crew reparks
+            # the carriage overnight (hours of slack at full slew)
+            el1, az1, _ = _sim.solar_position(self.lat, self.day,
+                                              float(self.t_solar[0]))
+            self.el_m = np.clip(el1 + self.rng.normal(0, 0.3, B),
+                                self.el_min_h, self.el_max_h)
+            self.az_m = np.degrees(az1) + self.rng.normal(0, 0.3, B)
+        return out
 
     # ------------------------------------------------------------ mount #
     def _cosine(self, decl_deg):
@@ -376,11 +441,63 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # the descending beam must pass the sealed tube: clip blur tails
         # on its inner wall at both ends
         ok_pre_tube = ok.clone()
-        for z_st in self.z_tube:
+        # POINTING ERROR from the two motors: a mistrack of e tilts the
+        # reflected beam 2e, decentering it 2 e f at the waist. Applied
+        # as a per-agent transverse shift in the funnel frame (the
+        # geometry itself is traced at the true sun; first-order model,
+        # same approach as the bore channel every env uses).
+        dvec = torch.tensor(
+            np.stack([2.0 * self.f_nom * np.radians(self._e_el),
+                      2.0 * self.f_nom * np.radians(self._e_az)], 1),
+            dtype=torch.float32, device=dev)[:, None, :]
+        # THE FUNNEL, shaped where the CPC logic actually wants it: the
+        # slot pins the pipe to r_tube_in only over the dish-crossing
+        # band, so the pipe is straight there (the measured optimum,
+        # 0.32) and FLARES above the band into a mirrored collecting
+        # lip - wide where nothing constrains it, reflecting tail rays
+        # inward-and-down. One bounce traced at rho 0.95. (First cut
+        # put the cone INSIDE the band and narrowed the throat to 0.19:
+        # tighter than the pipe it replaced, and it cost 20 percent.)
+        z1_t, z0_t = self.z_tube[1], self.z_tube[0]
+        z_lip = z1_t + 0.60
+        r_lip = 0.55
+        m_c = (r_lip - self.r_tube_in) / (z_lip - z1_t)
+        Xo = h1[..., 0] - X_TOWER + dvec[..., 0]
+        Yo = h1[..., 1] + dvec[..., 1]
+        dz2 = d2[..., 2]
+        rz0 = self.r_tube_in + m_c * (h1[..., 2] - z1_t)
+        qa_c = d2[..., 0] ** 2 + d2[..., 1] ** 2 - (m_c * dz2) ** 2
+        qb_c = 2 * (Xo * d2[..., 0] + Yo * d2[..., 1] - m_c * rz0 * dz2)
+        qc_c = Xo ** 2 + Yo ** 2 - rz0 ** 2
+        disc_c = qb_c ** 2 - 4 * qa_c * qc_c
+        sq_c = torch.sqrt(disc_c.clamp(min=0))
+        tc = torch.where(qa_c.abs() > 1e-9, (-qb_c - sq_c) / (2 * qa_c),
+                         -qc_c / qb_c.clamp(min=1e-9))
+        tc2 = torch.where(qa_c.abs() > 1e-9, (-qb_c + sq_c) / (2 * qa_c),
+                          tc)
+        tc = torch.where(tc > 1e-4, tc, tc2)
+        zc_h = h1[..., 2] + tc * dz2
+        hits_wall = (disc_c > 0) & (tc > 1e-4) & (zc_h > z1_t) \
+            & (zc_h < z_lip)
+        hx = Xo + tc * d2[..., 0]
+        hy = Yo + tc * d2[..., 1]
+        rc = (self.r_tube_in + m_c * (zc_h - z1_t)).clamp(min=1e-6)
+        n_c = torch.stack([hx, hy, -m_c * rc], -1)
+        n_c = n_c / n_c.norm(dim=-1, keepdim=True)
+        d2r = d2 - 2 * (d2 * n_c).sum(-1, keepdim=True) * n_c
+        h1r = torch.stack([hx + X_TOWER - dvec[..., 0],
+                           hy - dvec[..., 1], zc_h], -1)
+        d2 = torch.where(hits_wall[..., None], d2r, d2)
+        h1 = torch.where(hits_wall[..., None], h1r, h1)
+        w_ray = torch.where(hits_wall, torch.full_like(tc, 0.95),
+                            torch.ones_like(tc))
+        # the straight section's two gates, pointing decenter included
+        for z_st in (z1_t, z0_t):
             t_st = (z_st - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
             at_st = h1 + t_st[..., None] * d2
-            rad_st = torch.stack([at_st[..., 0] - X_TOWER,
-                                  at_st[..., 1]], -1).norm(dim=-1)
+            rad_st = torch.stack([at_st[..., 0] - X_TOWER + dvec[..., 0],
+                                  at_st[..., 1] + dvec[..., 1]], -1
+                                 ).norm(dim=-1)
             ok = ok & (rad_st < self.r_tube_in)
         ok_post_tube = ok.clone()
         # M5's ellipsoid: far root = the physical mirror at the wall base
@@ -421,7 +538,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         off = torch.as_tensor(offset_w, dtype=torch.float32, device=dev)
         dy = h3[..., 1] + off[:, 0:1]
         dz = h3[..., 2] - Z_DUCT + off[:, 1:2]
-        through = ok & (t3 > 0) & (dy ** 2 + dz ** 2 <= R_DUCT_H ** 2)
+        through_b = ok & (t3 > 0) & (dy ** 2 + dz ** 2 <= R_DUCT_H ** 2)
+        through = through_b.float() * w_ray
         if self.render_mode == "human":
             n_all = float(lit.shape[-1])
             self._ladder = dict(
@@ -432,7 +550,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 tube=float((ok_pre_tube[0] & ~ok_post_tube[0]
                             ).float().mean()),
                 m5=float((ok_post_tube[0] & ~ok[0]).float().mean()),
-                duct=float((ok[0] & ~through[0]).float().mean()),
+                duct=float((ok[0] & ~through_b[0]).float().mean()),
                 through=float(through[0].float().mean()))
         if self.render_mode == "human":
             self._hv = dict(dish=p[0].cpu().numpy(),
@@ -442,7 +560,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                             ok=ok[0].cpu().numpy(),
                             ok_pre=ok_pre_tube[0].cpu().numpy(),
                             slot=in_slot[0].cpu().numpy(),
-                            through=through[0].cpu().numpy(),
+                            through=through_b[0].cpu().numpy(),
                             u=u, el=el, az=float(az), C=C_dish)
         # into the pot via the SHARED polar binning; rigid map between the
         # frames: theirs (x,y,z) = (y_ours, -x_ours, z_ours - H_POT)
