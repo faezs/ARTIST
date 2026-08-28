@@ -115,14 +115,31 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         a, g = float(cfg.a), self.g_orbit
 
         # -- the mount solve, all of it geometric:
-        # tracking ceiling: dish must not cross the mast / beam column
-        self.el_max_h = float(np.degrees(np.arccos(
-            np.clip((a + self.r_mast) / g, 0.0, 0.999))))
-        # fold height: the dish's under-swing (g sin el + a cos el below
-        # the fold) must clear the courtyard floor at every tracked el
+        # NO tracking ceiling: Hashemi's fig-12 SLOT. The dish carries a
+        # radial cut so the focal post passes through it at high sun -
+        # the paper's own mechanism (his g ~ a, the post crosses daily).
+        # The slot must also pass the DESCENDING beam, so the waist is
+        # placed inside the dish-crossing height band and sheathed in a
+        # short sealed tube on the post: the slot then only clears the
+        # tube, not the open beam.
+        self.el_max_h = 88.0
+        # fold height: the ENTIRE machine stands on the roof (Hashemi's
+        # fig 18 - ring rail, beam, A-frames, dish sweep, all on the
+        # deck, parapet as the fence; nothing ground-standing). So the
+        # dish's under-swing (g sin el + a cos el below the fold) must
+        # clear the ROOF DECK at every tracked el, not the courtyard -
+        # which raises the fold by the storey height and is the real
+        # price of the rooftop siting.
         els = np.radians(np.linspace(self.el_min_h, self.el_max_h, 300))
         under = float((g * np.sin(els) + a * np.cos(els)).max())
-        self.z_fold = H_POT + 0.35 + under
+        self.z_fold = Z_ROOF + 0.35 + under
+        # dish-crossing band: the dish plane crosses the post axis for
+        # el > acos(a/g); the waist sits at its centre, tube around it
+        el_x = np.degrees(np.arccos(np.clip(a / g, 0, 1)))
+        z_x = [self.z_fold - g * np.sin(np.radians(e))
+               for e in (el_x, self.el_max_h)]
+        self.z_waist = 0.5 * (z_x[0] + z_x[1])
+        self.z_tube = (min(z_x) - 0.20, max(z_x) + 0.20)
         delta = self.z_fold - self.z_waist
         f_design = g + delta
 
@@ -146,8 +163,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # -- apertures, from the beam itself
         self.r_fold = a * delta / self.f_nom * 1.08 + 0.06
         self.obstruction = (self.r_fold / a) ** 2
-        self.r_m5 = (a / self.f_nom) * (self.z_waist - self.z_m5) * 1.25 \
-            + 0.08
+        # tube inner radius passes 3 sigma of the waist; post below it
+        sig0 = np.hypot(2.09e-3, 5.6e-3)
+        self.r_tube_in = 3.0 * self.f_nom * sig0 + 0.02
+        self.r_tube = self.r_tube_in + 0.04
+        self.r_post = 0.15
+        # the slot: radial cut from r0 to the rim, wide enough for the
+        # tube; loss printed, enforced ray-exactly in the trace
+        self.slot_r0 = 0.28
+        self.slot_w2 = self.r_tube + 0.06
+        self.slot_loss = 2 * self.slot_w2 * (a - self.slot_r0) \
+            / (np.pi * a * a)
+        self.r_m5 = (a / self.f_nom) * (self.z_waist - self.z_m5) + 0.10
 
         # -- M5's ellipsoid: foci at the waist and the duct centre; sized
         # so its lower surface passes through the wall base at z_m5
@@ -197,12 +224,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
               f"orbit g={g:.1f} -> fold at z={self.z_fold:.2f} m, "
               f"waist z={self.z_waist:.1f}, M5 pit z={self.z_m5:.2f}")
         print(f"  [hashemi] fold r={self.r_fold:.2f} m (obstruction "
-              f"{self.obstruction*100:.0f}%), M5 r={self.r_m5:.2f} m, "
-              f"track el {self.el_min_h:.0f}-{self.el_max_h:.0f} deg, "
-              f"chain {self._loss_chain:.3f}, cosine 1.00, "
-              f"~{pk/(np.pi*self.r_fold**2):.1f} kW/m2 on the fold")
-        print(f"  [hashemi] swept ring r={g+a:.1f} m around the tower is "
-              f"a fenced no-build zone; beam sealed below the roof deck")
+              f"{self.obstruction*100:.0f}%), slot {2*self.slot_w2:.2f} m "
+              f"({self.slot_loss*100:.0f}%), waist z={self.z_waist:.2f} in "
+              f"tube [{self.z_tube[0]:.1f},{self.z_tube[1]:.1f}], M5 "
+              f"r={self.r_m5:.2f} at core base, track el "
+              f"{self.el_min_h:.0f}-{self.el_max_h:.0f} (NO gate), "
+              f"chain {self._loss_chain:.3f}")
+        print(f"  [hashemi] machine wholly on the roof: ring rail R 4.6, "
+              f"dish sweep r={g+a:.1f} m inside the parapet; beam sealed "
+              f"below the roof deck")
 
     # ------------------------------------------------------------ trace #
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
@@ -249,16 +279,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # class as the dish->fold leg beside it, inside the same fence),
         # entering a sealed masonry hopper at the roof deck. Below the
         # roof, sealed all the way to the pot as before.
-        K = 10
+        # single focal post (fig 14: the bearing wraps its base), with
+        # the thicker sealed tube section around the waist
+        K = 18
         zs = torch.linspace(Z_ROOF, self.z_fold - 0.10, K, device=dev)
-        leg_off = 0.75 * self.r_fold
-        legs = []
-        for sx, sy in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
-            legs.append(torch.stack(
-                [torch.full((K,), X_TOWER + sx * leg_off, device=dev),
-                 torch.full((K,), sy * leg_off, device=dev), zs], 1))
-        Tw = torch.cat(legs, 0)                            # (4K,3)
-        r_tw = torch.full((4 * K,), 0.07, device=dev)
+        in_tube = (zs > self.z_tube[0]) & (zs < self.z_tube[1])
+        r_tw = torch.where(in_tube,
+                           torch.full((K,), self.r_tube, device=dev),
+                           torch.full((K,), self.r_post, device=dev))
+        Tw = torch.stack([torch.full((K,), X_TOWER, device=dev),
+                          torch.zeros(K, device=dev), zs], 1)
         # (a) incoming sun: ray p + t*u, t>0 toward the sun
         w = Tw[None, None] - p[..., None, :]               # (B,P,4K,3)
         tproj = (w * ut).sum(-1)
@@ -268,6 +298,20 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         vf = Pf - p
         perpf = vf - (vf * ut).sum(-1, keepdim=True) * ut
         lit = lit & (perpf.norm(dim=-1) > self.r_fold)
+        # THE SLOT (fig 12): a radial cut in the dish, always facing the
+        # post. The membrane is axisymmetric, so rotating the mask with
+        # azimuth is exactly the physical dish rotating on its carriage.
+        el_r = np.radians(el)
+        h_np = -(u - u[2] * np.array([0., 0., 1.]))
+        h_np = h_np / max(np.linalg.norm(h_np), 1e-9)
+        p_up = h_np * np.sin(el_r) + np.array([0., 0., 1.]) * np.cos(el_r)
+        s_dir = torch.tensor(-p_up, dtype=torch.float32, device=dev)
+        e_pp = torch.linalg.cross(ut, s_dir)
+        Cd_t = Cd
+        q = p - Cd_t
+        in_slot = ((q * s_dir).sum(-1) > self.slot_r0) \
+            & ((q * e_pp).sum(-1).abs() < self.slot_w2)
+        lit = lit & ~in_slot
         # the fold: fixed point, two axes of tilt; output exactly -z
         zh = torch.tensor([0.0, 0.0, 1.0], device=dev)
         nf = ut + zh
@@ -278,27 +322,27 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         h1 = p + t1[..., None] * d
         rad1 = (h1 - Pf - ((h1 - Pf) * nf).sum(-1, keepdim=True) * nf
                 ).norm(dim=-1)
-        # (b) the dish->fold leg against the legs and the sealed hopper
-        # below the roof (rays from a low dish rim can clip its shoulder)
-        Kh = 8
-        zh = torch.linspace(self.z_m5 + 0.2, Z_ROOF, Kh, device=dev)
-        frh = (zh - self.z_m5) / (self.z_fold - self.z_m5)
-        rh = self.r_m5 + frh * (self.r_fold - self.r_m5) + 0.05
-        Hp = torch.stack([torch.full((Kh,), X_TOWER, device=dev),
-                          torch.zeros(Kh, device=dev), zh], 1)
-        occ = torch.cat([Tw, Hp], 0)
-        r_occ = torch.cat([r_tw, rh], 0)
-        wb = occ[None, None] - p[..., None, :]
+        # (b) the dish->fold leg against the post and tube (the dish
+        # never dips below the deck, so the core cannot graze it)
+        wb = Tw[None, None] - p[..., None, :]
         tb = (wb * d[..., None, :]).sum(-1)
         perp_b = (wb - tb[..., None] * d[..., None, :]).norm(dim=-1)
         graze = ((tb > 0) & (tb < t1[..., None] - 0.10)
-                 & (perp_b < r_occ)).any(-1)
+                 & (perp_b < r_tw)).any(-1)
         ok = lit & ~graze & (t1 > 0) & (rad1 < self.r_fold)
         d2 = reflect(torch.cat([d, torch.zeros_like(d[..., :1])], -1),
                      torch.cat([nf, torch.zeros(1, device=dev)]
                                ).expand_as(
                          torch.cat([d, torch.zeros_like(d[..., :1])], -1))
                      )[..., :3]
+        # the descending beam must pass the sealed tube: clip blur tails
+        # on its inner wall at both ends
+        for z_st in self.z_tube:
+            t_st = (z_st - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
+            at_st = h1 + t_st[..., None] * d2
+            rad_st = torch.stack([at_st[..., 0] - X_TOWER,
+                                  at_st[..., 1]], -1).norm(dim=-1)
+            ok = ok & (rad_st < self.r_tube_in)
         # M5's ellipsoid: far root = the physical mirror at the wall base
         pl = (h1 - self.ell_ctr_t) @ self.ell_M.T
         dl = d2 @ self.ell_M.T
@@ -334,6 +378,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                             m5=h2[0].cpu().numpy(),
                             duct=h3[0].cpu().numpy(),
                             ok=ok[0].cpu().numpy(),
+                            slot=in_slot[0].cpu().numpy(),
                             through=through[0].cpu().numpy(),
                             u=u, el=el, az=float(az), C=C_dish)
         # into the pot via the SHARED polar binning; rigid map between the
@@ -401,9 +446,27 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                              int(21+46*dim), 255))
         pr.draw_rectangle(1000, 0, W_-1000, HT, (13, 15, 22, 255))
         pr.begin_mode_3d(cam)
-        # THE ROOM, drawn as a building: pot room south of the wall
-        # (x < X_TOWER), courtyard north. Corner posts, plates, wall
-        # lines, a door gap in the south wall, roof joists over the room.
+        # THE BUILDING, machine wholly on its roof (fig 18): the deck
+        # spans the dish sweep, parapet at the edge, the tandoor room a
+        # bay under the southern part, the masonry core in its north wall.
+        BX0, BX1, BYy = X_TOWER - 5.7, X_TOWER + 5.7, 5.7
+        wallb = (100, 88, 74, 255)
+        for cx, cy in ((BX0, -BYy), (BX0, BYy), (BX1, -BYy), (BX1, BYy)):
+            pr.draw_line_3d(v3([cx, cy, H_POT]), v3([cx, cy, Z_ROOF]),
+                            wallb)
+        for zz in (H_POT, Z_ROOF, Z_ROOF + 0.35):        # plates + parapet
+            for q0, q1 in (((BX0, -BYy), (BX0, BYy)),
+                           ((BX1, -BYy), (BX1, BYy)),
+                           ((BX0, -BYy), (BX1, -BYy)),
+                           ((BX0, BYy), (BX1, BYy))):
+                pr.draw_line_3d(v3([q0[0], q0[1], zz]),
+                                v3([q1[0], q1[1], zz]), wallb)
+        for gx in np.linspace(BX0, BX1, 12):             # roof deck
+            pr.draw_line_3d(v3([gx, -BYy, Z_ROOF]), v3([gx, BYy, Z_ROOF]),
+                            (80, 78, 70, 255))
+        for gy in np.linspace(-BYy, BYy, 12):
+            pr.draw_line_3d(v3([BX0, gy, Z_ROOF]), v3([BX1, gy, Z_ROOF]),
+                            (80, 78, 70, 255))
         RX0, RX1, RY = -2.4, X_TOWER, 2.3
         wallc = (118, 102, 84, 255)
         for cx, cy in ((RX0, -RY), (RX0, RY), (RX1, -RY), (RX1, RY)):
@@ -425,16 +488,6 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             for gy in (-RY, RY):
                 pr.draw_line_3d(v3([gx, gy, H_POT]), v3([gx, gy, Z_ROOF]),
                                 (96, 84, 70, 255))
-        for gy in np.linspace(-RY, RY, 8):                # roof joists
-            pr.draw_line_3d(v3([RX0, gy, Z_ROOF]), v3([RX1, gy, Z_ROOF]),
-                            (92, 88, 78, 255))
-        # courtyard paving, north of the wall only; workfloor inside
-        for gx in np.linspace(RX1, 8, 8):
-            pr.draw_line_3d(v3([gx, -8, H_POT]), v3([gx, 8, H_POT]),
-                            (64, 68, 82, 255))
-        for gy in np.linspace(-8, 8, 17):
-            pr.draw_line_3d(v3([RX1, gy, H_POT]), v3([8, gy, H_POT]),
-                            (64, 68, 82, 255))
         for gx in np.linspace(RX0, RX1, 5):               # room floor
             pr.draw_line_3d(v3([gx, -RY, H_POT]), v3([gx, RY, H_POT]),
                             (58, 60, 72, 255))
@@ -485,21 +538,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              self._heat_color(self.T[0, self.n_belt + 2]), 22)
         ring([R_POT, 0, Z_DUCT], R_DUCT_H, (120, 220, 235, 255), 18,
              ax="x")
-        # sealed masonry hopper: roof deck down to the M5 pit
-        for zz in np.linspace(self.z_m5, Z_ROOF, 8):
-            fr_ = (zz - self.z_m5) / (self.z_fold - self.z_m5)
-            ring([X_TOWER, 0, zz], self.r_m5 + fr_*(self.r_fold-self.r_m5),
-                 (140, 120, 96, 255), 22)
-        # skeletal mast above the roof: four legs to the fold, beam in
-        # open air (this is what the occlusion model traces against)
-        lo = 0.75 * self.r_fold
-        for sx, sy in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
-            pr.draw_line_3d(v3([X_TOWER + sx*lo, sy*lo, Z_ROOF]),
-                            v3([X_TOWER + sx*lo*0.35, sy*lo*0.35,
-                                self.z_fold - 0.05]), (150, 140, 120, 255))
-        ring([X_TOWER, 0, Z_ROOF], self.r_m5 + (Z_ROOF - self.z_m5)
-             / (self.z_fold - self.z_m5) * (self.r_fold - self.r_m5) + 0.05,
-             (170, 145, 110, 255), 24)
+        # SINGLE focal post (fig 14: the azimuth bearing wraps its
+        # base) with the sealed tube section around the waist
+        pr.draw_line_3d(v3([X_TOWER, 0, Z_ROOF]),
+                        v3([X_TOWER, 0, self.z_fold]), (160, 148, 126, 255))
+        for zz in np.linspace(Z_ROOF, self.z_fold, 9):
+            ring([X_TOWER, 0, zz], self.r_post, (150, 140, 120, 255), 10)
+        for zz in np.linspace(self.z_tube[0], self.z_tube[1], 5):
+            ring([X_TOWER, 0, zz], self.r_tube, (205, 175, 120, 255), 14)
+        # the buried masonry core: deck penetration widening to M5
+        for zz in np.linspace(self.z_m5, Z_ROOF, 7):
+            rr_ = (self.cfg.a / self.f_nom) * (self.z_waist - zz) + 0.10
+            ring([X_TOWER, 0, zz], rr_, (140, 120, 96, 255), 20)
         # fenced no-build ring the dish sweeps over
         ring([X_TOWER, 0, H_POT + 0.02], self.g_orbit + self.cfg.a,
              (150, 130, 190, 255), 72)
@@ -525,11 +575,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # fixed ring rail on posts (roof stubs south, courtyard north)
             ring([X_TOWER, 0, z_beam - 0.05], R_ring, (120, 104, 88, 255),
                  48)
-            for aa in np.linspace(0, 2*np.pi, 8, endpoint=False):
+            for aa in np.linspace(0, 2*np.pi, 12, endpoint=False):
                 fx = X_TOWER + R_ring*np.cos(aa); fy = R_ring*np.sin(aa)
-                foot = Z_ROOF if fx < X_TOWER else H_POT
                 pr.draw_line_3d(v3([fx, fy, z_beam-0.05]),
-                                v3([fx, fy, foot]), (104, 92, 76, 255))
+                                v3([fx, fy, Z_ROOF]), (104, 92, 76, 255))
             # rotating beam through the collar on the mast, wheels at rim
             for sgn in (1.0, -1.0):
                 pr.draw_line_3d(v3(Pf_*[1,1,0] + [0,0,z_beam]),
@@ -550,7 +599,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             e_lo = np.radians(self.el_min_h - 2)
             e_hi = np.radians(self.el_max_h + 2)
             ee = np.linspace(e_lo, e_hi, 22)
-            for off in (0.12, -0.12):
+            for off in (0.45, -0.45):
                 pts_ = [arc(x) + off*e_s for x in ee]
                 for k in range(21):
                     pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]),
@@ -583,9 +632,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                 (235, 110, 110, 255))
             # waist marker: the fixed point the whole design pivots on
             ring([X_TOWER, 0, self.z_waist], 0.12, (235, 200, 90, 255), 14)
-            # dish surface quills from its own traced points
+            # dish surface quills; the fig-12 SLOT shows as the gap
             dish = H["dish"]
+            slot = H.get("slot")
             for k in range(0, len(dish), 6):
+                if slot is not None and slot[k]:
+                    continue
                 pr.draw_line_3d(v3(dish[k]), v3(dish[k] + 0.12*u),
                                 (90, 150, 235, 255))
             # every traced ray, additive; spill in red
