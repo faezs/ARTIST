@@ -40,7 +40,12 @@ middays gate off - hours when the plant is power-rich and dumping
 anyway. Hashemi's own Figure-12 radial slot is the alternative and is
 deliberately not modelled.
 
-SAFETY: the descending beam is sealed from the fold to the pot. The
+SAFETY: below the roof deck the beam exists only inside masonry. Above
+it, occlusion physics forced a redesign: a solid tower to the fold
+shadows its own dish (measured 60% -> 7% at noon), so the above-roof
+section is a skeletal four-leg mast and the converging beam runs in
+open air from the fold to a sealed hopper at the roof deck - the same
+exposure class, height and fence as the dish->fold leg beside it. The
 only open-air light is the dish->fold leg, which lives inside the
 fenced no-build ring (radius g + a around the tower, dish rim never
 below 0.35 m over the courtyard) - the same exposure class as any
@@ -216,7 +221,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         org, d4, _ = self.primary.bounce(
             torch.as_tensor(lv, dtype=torch.float32, device=dev),
             sigma_b, int(self.tick))
-        u = np.asarray(u_np, float).ravel()[:3]
+        # SITE ORIENTATION, pinned: world +x is NORTH. The pot room is
+        # south of the wall (x<X_TOWER), the courtyard north (x>X_TOWER).
+        # The dish sits down-sun of the fold, and at lat 28.6 the sun
+        # rides the southern sky, so the dish stays over the northern
+        # courtyard through the tracked day. solar_position returns
+        # s=(east,north,up); remap to (north,east,up).
+        u = np.array([u_np[1], u_np[0], u_np[2]], dtype=float)
         u /= np.linalg.norm(u)
         P_fold = np.array([X_TOWER, 0.0, self.z_fold])
         C_dish = P_fold - self.g_orbit * u          # down-sun of the fold
@@ -228,10 +239,35 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         d = d / d.norm(dim=-1, keepdim=True)
         ut = torch.tensor(u, dtype=torch.float32, device=dev)
         Pf = torch.tensor(P_fold, dtype=torch.float32, device=dev)
-        # the fold shadows the incoming sun (it sits up-sun of the dish)
-        v = Pf - p
-        perp = v - (v * (-ut)).sum(-1, keepdim=True) * (-ut)
-        lit = perp.norm(dim=-1) > self.r_fold
+        # EVERYTHING IS OPAQUE, and modelling that redesigned the tower.
+        # A solid masonry column to the fold shadows the dish brutally -
+        # the dish hangs directly down-sun of it, and measured throughput
+        # collapsed 60% -> 7% at noon. But the dish always rides above
+        # the roofline, so only the ABOVE-ROOF structure can shadow it:
+        # that section is therefore SKELETAL - four slender legs carrying
+        # the fold, the converging beam in open air (the same exposure
+        # class as the dish->fold leg beside it, inside the same fence),
+        # entering a sealed masonry hopper at the roof deck. Below the
+        # roof, sealed all the way to the pot as before.
+        K = 10
+        zs = torch.linspace(Z_ROOF, self.z_fold - 0.10, K, device=dev)
+        leg_off = 0.75 * self.r_fold
+        legs = []
+        for sx, sy in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+            legs.append(torch.stack(
+                [torch.full((K,), X_TOWER + sx * leg_off, device=dev),
+                 torch.full((K,), sy * leg_off, device=dev), zs], 1))
+        Tw = torch.cat(legs, 0)                            # (4K,3)
+        r_tw = torch.full((4 * K,), 0.07, device=dev)
+        # (a) incoming sun: ray p + t*u, t>0 toward the sun
+        w = Tw[None, None] - p[..., None, :]               # (B,P,4K,3)
+        tproj = (w * ut).sum(-1)
+        perp = (w - tproj[..., None] * ut).norm(dim=-1)
+        lit = ~((tproj > 0) & (perp < r_tw)).any(-1)
+        # the fold disc itself still shadows the dish centre
+        vf = Pf - p
+        perpf = vf - (vf * ut).sum(-1, keepdim=True) * ut
+        lit = lit & (perpf.norm(dim=-1) > self.r_fold)
         # the fold: fixed point, two axes of tilt; output exactly -z
         zh = torch.tensor([0.0, 0.0, 1.0], device=dev)
         nf = ut + zh
@@ -242,7 +278,22 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         h1 = p + t1[..., None] * d
         rad1 = (h1 - Pf - ((h1 - Pf) * nf).sum(-1, keepdim=True) * nf
                 ).norm(dim=-1)
-        ok = lit & (t1 > 0) & (rad1 < self.r_fold)
+        # (b) the dish->fold leg against the legs and the sealed hopper
+        # below the roof (rays from a low dish rim can clip its shoulder)
+        Kh = 8
+        zh = torch.linspace(self.z_m5 + 0.2, Z_ROOF, Kh, device=dev)
+        frh = (zh - self.z_m5) / (self.z_fold - self.z_m5)
+        rh = self.r_m5 + frh * (self.r_fold - self.r_m5) + 0.05
+        Hp = torch.stack([torch.full((Kh,), X_TOWER, device=dev),
+                          torch.zeros(Kh, device=dev), zh], 1)
+        occ = torch.cat([Tw, Hp], 0)
+        r_occ = torch.cat([r_tw, rh], 0)
+        wb = occ[None, None] - p[..., None, :]
+        tb = (wb * d[..., None, :]).sum(-1)
+        perp_b = (wb - tb[..., None] * d[..., None, :]).norm(dim=-1)
+        graze = ((tb > 0) & (tb < t1[..., None] - 0.10)
+                 & (perp_b < r_occ)).any(-1)
+        ok = lit & ~graze & (t1 > 0) & (rad1 < self.r_fold)
         d2 = reflect(torch.cat([d, torch.zeros_like(d[..., :1])], -1),
                      torch.cat([nf, torch.zeros(1, device=dev)]
                                ).expand_as(
@@ -350,18 +401,43 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                              int(21+46*dim), 255))
         pr.draw_rectangle(1000, 0, W_-1000, HT, (13, 15, 22, 255))
         pr.begin_mode_3d(cam)
-        # workfloor / courtyard at z = H_POT; roof over the pot room
-        for gx in np.linspace(-8, 8, 17):
+        # THE ROOM, drawn as a building: pot room south of the wall
+        # (x < X_TOWER), courtyard north. Corner posts, plates, wall
+        # lines, a door gap in the south wall, roof joists over the room.
+        RX0, RX1, RY = -2.4, X_TOWER, 2.3
+        wallc = (118, 102, 84, 255)
+        for cx, cy in ((RX0, -RY), (RX0, RY), (RX1, -RY), (RX1, RY)):
+            pr.draw_line_3d(v3([cx, cy, H_POT]), v3([cx, cy, Z_ROOF]),
+                            wallc)
+        for zz in (H_POT, Z_ROOF):
+            for q0, q1 in (((RX0, -RY), (RX0, RY)), ((RX1, -RY), (RX1, RY)),
+                           ((RX0, -RY), (RX1, -RY)), ((RX0, RY), (RX1, RY))):
+                pr.draw_line_3d(v3([q0[0], q0[1], zz]),
+                                v3([q1[0], q1[1], zz]), wallc)
+        # wall studs; the south wall keeps a door gap the cook uses
+        for gy in np.linspace(-RY, RY, 9):
+            pr.draw_line_3d(v3([RX1, gy, H_POT]), v3([RX1, gy, Z_ROOF]),
+                            wallc)                       # north wall: solid
+            if abs(gy) > 0.65:                            # door in south
+                pr.draw_line_3d(v3([RX0, gy, H_POT]),
+                                v3([RX0, gy, Z_ROOF]), wallc)
+        for gx in np.linspace(RX0, RX1, 6):
+            for gy in (-RY, RY):
+                pr.draw_line_3d(v3([gx, gy, H_POT]), v3([gx, gy, Z_ROOF]),
+                                (96, 84, 70, 255))
+        for gy in np.linspace(-RY, RY, 8):                # roof joists
+            pr.draw_line_3d(v3([RX0, gy, Z_ROOF]), v3([RX1, gy, Z_ROOF]),
+                            (92, 88, 78, 255))
+        # courtyard paving, north of the wall only; workfloor inside
+        for gx in np.linspace(RX1, 8, 8):
             pr.draw_line_3d(v3([gx, -8, H_POT]), v3([gx, 8, H_POT]),
                             (64, 68, 82, 255))
-            pr.draw_line_3d(v3([-8, gx, H_POT]), v3([8, gx, H_POT]),
+        for gy in np.linspace(-8, 8, 17):
+            pr.draw_line_3d(v3([RX1, gy, H_POT]), v3([8, gy, H_POT]),
                             (64, 68, 82, 255))
-        for gx in np.linspace(-2.2, X_TOWER, 6):
-            pr.draw_line_3d(v3([gx, -2.2, Z_ROOF]), v3([gx, 2.2, Z_ROOF]),
-                            (88, 84, 76, 255))
-        for gy in np.linspace(-2.2, 2.2, 6):
-            pr.draw_line_3d(v3([-2.2, gy, Z_ROOF]),
-                            v3([X_TOWER, gy, Z_ROOF]), (88, 84, 76, 255))
+        for gx in np.linspace(RX0, RX1, 5):               # room floor
+            pr.draw_line_3d(v3([gx, -RY, H_POT]), v3([gx, RY, H_POT]),
+                            (58, 60, 72, 255))
         # the wall the tower stands on, workfloor -> roof (coude scene)
         for wx in (X_TOWER - 0.55, X_TOWER + 0.55):
             for wy in (-2.2, 2.2):
@@ -409,11 +485,21 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              self._heat_color(self.T[0, self.n_belt + 2]), 22)
         ring([R_POT, 0, Z_DUCT], R_DUCT_H, (120, 220, 235, 255), 18,
              ax="x")
-        # the tower: sealed bore, tapering fold -> M5 pit; FIXED forever
-        for k, zz in enumerate(np.linspace(self.z_m5, self.z_fold, 14)):
+        # sealed masonry hopper: roof deck down to the M5 pit
+        for zz in np.linspace(self.z_m5, Z_ROOF, 8):
             fr_ = (zz - self.z_m5) / (self.z_fold - self.z_m5)
             ring([X_TOWER, 0, zz], self.r_m5 + fr_*(self.r_fold-self.r_m5),
                  (140, 120, 96, 255), 22)
+        # skeletal mast above the roof: four legs to the fold, beam in
+        # open air (this is what the occlusion model traces against)
+        lo = 0.75 * self.r_fold
+        for sx, sy in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+            pr.draw_line_3d(v3([X_TOWER + sx*lo, sy*lo, Z_ROOF]),
+                            v3([X_TOWER + sx*lo*0.35, sy*lo*0.35,
+                                self.z_fold - 0.05]), (150, 140, 120, 255))
+        ring([X_TOWER, 0, Z_ROOF], self.r_m5 + (Z_ROOF - self.z_m5)
+             / (self.z_fold - self.z_m5) * (self.r_fold - self.r_m5) + 0.05,
+             (170, 145, 110, 255), 24)
         # fenced no-build ring the dish sweeps over
         ring([X_TOWER, 0, H_POT + 0.02], self.g_orbit + self.cfg.a,
              (150, 130, 190, 255), 72)
@@ -484,9 +570,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         pr.draw_text("EXACT: dish -> FIXED 2-axis fold -> waist -> FIXED "
                      "ellipsoid M5 -> native air inlet -> pot.",
                      20, HT-72, 16, (150, 200, 160, 255))
-        pr.draw_text("Nothing below the fold ever moves. Beam sealed from "
-                     "the fold down; open-air leg stays inside the "
-                     "fenced ring.",
+        pr.draw_text("Nothing below the fold ever moves. Sealed below the "
+                     "roof deck; open air above it, inside the fence.",
                      20, HT-50, 16, (150, 200, 160, 255))
         pr.draw_text("left-drag orbit  right-drag pan  wheel zoom  R reset",
                      20, HT-26, 16, (140, 140, 155, 255))
