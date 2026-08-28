@@ -63,7 +63,17 @@ _spec4.loader.exec_module(_mod4)
 TandoorCoudeEnv = _mod4.TandoorCoudeEnv
 
 
+_spec5 = importlib.util.spec_from_file_location(
+    "tandoor_hashemi_env", _tutorials / "tandoor_hashemi_env.py")
+_mod5 = importlib.util.module_from_spec(_spec5)
+sys.modules.setdefault("tandoor_hashemi_env", _mod5)
+_spec5.loader.exec_module(_mod5)
+TandoorHashemiEnv = _mod5.TandoorHashemiEnv
+
+
 def env_creator(name="puffer_tandoor"):
+    if "hashemi" in name:
+        return functools.partial(TandoorHashemiEnv)
     if "coude" in name:
         return functools.partial(TandoorCoudeEnv)
     if "polar" in name:

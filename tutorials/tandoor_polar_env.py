@@ -65,6 +65,7 @@ class TandoorPolarEnv(TandoorEnv):
     # and step() is where _cos_now is assigned. Class default so
     # the HUD has something to draw on frame 0.
     _cos_now = 0.0
+    _last_org = None
     N_HEADS = 3        # pressure level, shutter, JAM/RELEASE
     N_EXTRA_OBS = 2    # jam state, seasonal figure drift
     # narrow focus trim: the retrofit is power-limited, so it never needs
@@ -202,9 +203,19 @@ class TandoorPolarEnv(TandoorEnv):
 
         # through the duct: beam runs +y (into the pot) angled down onto
         # the pot floor where the coal bed lives
-        dxw = d1[..., 0]
-        dyw = -d1[..., 2]
-        dzw = d1[..., 1] - 0.16          # aim the cone at the floor
+        if self.render_mode == "human":
+            self._last_org = org[0, :, :3].cpu().numpy()
+        return self._bin_pot(pxp, pyp, d1[..., 0], -d1[..., 2],
+                             d1[..., 1] - 0.16, through, soil, B, P)
+
+
+    def _bin_pot(self, pxp, pyp, dxw, dyw, dzw, through, soil,
+                 B, P):
+        """Duct-plane arrival -> pot floor / belt / crown node
+        powers. Shared so the polar and Hashemi retrofits, which
+        enter through the SAME native air-inlet, cannot drift
+        apart downstream of the optics."""
+        # the pot floor where the coal bed lives
         ox = pxp
         oy = torch.full_like(pxp, -R_POT)
         oz = pyp + Z_DUCT
@@ -234,12 +245,15 @@ class TandoorPolarEnv(TandoorEnv):
                                  device=self.device)
         w = ((self._ray_pw[None, :] * soil_t[:, None]).reshape(-1)
              * through.reshape(-1).float())
-        if self.render_mode == "human":
+        if self.render_mode == "human" and self._last_org is not None:
+            # populated by the caller, which is where the ray
+            # origins live; _bin_pot only knows the duct plane on.
             self._last_rays = dict(
-                org=org[0, :, :3].cpu().numpy(),   # ARTIST NURBS points
-                pduct=torch.stack([pxp[0], torch.zeros(P, device=self.device),
+                org=self._last_org,
+                pduct=torch.stack([pxp[0], torch.zeros_like(pxp[0]),
                                    pyp[0]], -1).cpu().numpy(),
-                strike=torch.stack([sx[0], sy[0], sz[0]], -1).cpu().numpy(),
+                strike=torch.stack([sx[0], sy[0], sz[0]],
+                                   -1).cpu().numpy(),
                 through=through[0].cpu().numpy())
         out = torch.zeros(B * self.n_nodes, device=self.device)
         out.index_put_((self._env_off + node.reshape(-1),), w,

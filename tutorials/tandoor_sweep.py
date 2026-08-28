@@ -41,7 +41,7 @@ def score_checkpoint(ck, warm_frac):
     sd = {k.replace("module.", ""): v for k, v in sd.items()}
     if any(torch.isnan(v).any() for v in sd.values() if torch.is_tensor(v)):
         return dict(cold=-1.0, warm=-1.0, nan=True)
-    env = TandoorEnv(num_agents=32, seed=11, device="cpu", wide_shutter=1,
+    env = TandoorEnv(num_agents=32, seed=11, device=None, wide_shutter=1,
                      warm_frac=warm_frac)
     pol = pufferlib.models.Default(env, hidden_size=128)
     pol = pufferlib.models.LSTMWrapper(env, pol, input_size=128,
@@ -106,9 +106,21 @@ def main():
             "env.warm-frac": float(rng.choice([0.3, 0.5, 0.7])),
         }
 
+    done = {}
+    out_path = HERE / args.out
+    if out_path.exists():
+        for line in open(out_path):
+            r = json.loads(line)
+            if r.get("trial") != "final" and not r.get("nan"):
+                done[r["trial"]] = r
     results = []
     for i in range(args.trials):
-        cfg = sample_config()
+        cfg = sample_config()  # rng advances identically for resume
+        if i in done:
+            print(f"[trial {i}] resumed from log: "
+                  f"score={done[i]['score']:.1f}", flush=True)
+            results.append(done[i])
+            continue
         t0 = time.time()
         print(f"[trial {i}] {cfg}", flush=True)
         run_trial(cfg, args.trial_steps, HERE / f"sweep_trial_{i}.log")
