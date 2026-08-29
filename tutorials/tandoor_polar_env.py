@@ -401,8 +401,12 @@ class TandoorPolarEnv(TandoorEnv):
         below = belt_mean < 560.0
         rew += 0.05 * np.clip(belt_mean - self._belt_prev, -5, 5) * below
         self._belt_prev = belt_mean.copy()
-        rew -= 0.05 * np.clip(belt_mean - 690.0, 0, None) / 10.0
-        rew -= 0.02 * ((belt_mean - 640.0) / 100.0) ** 2
+        # structure-limit only (950 K), matching the base env: the
+        # comfort-band pair made never-scorch the optimum. NOTE this
+        # method is a full override - the base-class reward edit did NOT
+        # apply here, which nearly shipped the Hashemi run on the old
+        # reward.
+        rew -= 0.10 * np.clip(belt_mean - 950.0, 0, None) / 10.0
         rew -= 0.02 * (~self.jammed)        # soft = exposed and not cooking
 
         self.ep_return += rew
