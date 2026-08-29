@@ -49,6 +49,15 @@ try:
 except Exception:
     pass
 
+# Item 1: the on-device collect loop - pufferl.evaluate round-trips
+# every step through numpy; this keeps policy<->env exchange on MPS
+# via env.step_torch. Activates only for envs that expose it.
+try:
+    import tandoor_fast_collect
+    tandoor_fast_collect.install()
+except Exception:
+    pass
+
 _here = pathlib.Path(__file__).resolve().parent  # -> ARTIST/tutorials/puffer_tandoor
 _tutorials = _here.parent
 if str(_tutorials.parent) not in sys.path:

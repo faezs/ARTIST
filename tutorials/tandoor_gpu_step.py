@@ -75,8 +75,11 @@ def gpu_step(env, actions):
     from tandoor_rl_env import _sim
     S, dev = env._gpu, env.device
     B = env.num_agents
-    a = torch.as_tensor(np.asarray(actions).reshape(B, env.N_HEADS),
-                        device=dev)
+    if isinstance(actions, torch.Tensor):
+        a = actions.to(dev).reshape(B, env.N_HEADS)
+    else:
+        a = torch.as_tensor(np.asarray(actions).reshape(B, env.N_HEADS),
+                            device=dev)
     dt = env.dt
 
     # ---- Hashemi motors (BEFORE the optics see the sun this step)

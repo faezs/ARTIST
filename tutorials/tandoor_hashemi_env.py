@@ -361,7 +361,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     def step(self, actions):
         if self.gpu and self._metal is not None \
                 and self.render_mode != "human":
-            return self._gpu_full_step(actions)
+            obs, rew, infos = self._gpu_full_step(actions)
+            self.observations[:] = obs.cpu().numpy()
+            self.rewards[:] = rew.cpu().numpy()
+            # the numpy wrapper is the eval/bench path: keep the host
+            # mirrors its consumers read (the P-controller heuristic
+            # reads _e_az/_e_el; probes read p_in). The trainer's
+            # step_torch path skips these syncs.
+            self._e_el = self._e_el_t.cpu().numpy()
+            self._e_az = self._e_az_t.cpu().numpy()
+            self.p_in = self._p_in_t.cpu().numpy()
+            return (self.observations, self.rewards, self.terminals,
+                    self.truncations, infos)
         B = self.num_agents
         a = np.asarray(actions).reshape(B, self.N_HEADS)
         # -- the two motors, BEFORE the optics see the sun this step.
@@ -689,6 +700,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._gpu = GpuState(self)
         S, dev, B = self._gpu, self.device, self.num_agents
         rew, cut, p_in, e_el, e_az = gpu_step(self, actions)
+        self._p_in_t = p_in
+        self._e_el_t, self._e_az_t = e_el, e_az
         self.truncations[:] = False
         if bool(cut.any()):
             el1, az1, _ = _sim.solar_position(self.lat, self.day,
@@ -757,6 +770,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.belt_prev = S.T[:, :self.n_belt].mean(1)
         else:
             self.terminals[:] = False
+        return self._gpu_obs(S, dev, B, rew, p_in, e_el, e_az, infos)
+
+    def _gpu_obs(self, S, dev, B, rew, p_in, e_el, e_az, infos):
         # ---- obs, one assembly + one copy
         ts = torch.full((B,), float(self.t_solar[0]), device=dev)
         h = (ts - 8.0) / 8.0
@@ -778,13 +794,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                           / 10.0).clamp(0, 3),
                          enc_el, enc_az], 1),
         ], 1)
-        self.observations[:] = obs.cpu().numpy()
-        self.rewards[:] = rew.cpu().numpy()
-        self.p_in = p_in.cpu().numpy()
-        self._e_el = e_el.cpu().numpy()
-        self._e_az = e_az.cpu().numpy()
-        return (self.observations, self.rewards, self.terminals,
-                self.truncations, infos)
+        return obs, rew, infos
+
+    def step_torch(self, actions):
+        """Device-native step: MPS actions in, MPS obs/rewards out. No
+        numpy anywhere - the fast-collect loop's contract. Identical
+        trajectory to the numpy wrapper (same core, same draws)."""
+        obs, rew, infos = self._gpu_full_step(actions)
+        term = torch.full((self.num_agents,), bool(self.terminals[0]),
+                          dtype=torch.float32, device=self.device)
+        trunc = torch.as_tensor(self.truncations, dtype=torch.float32,
+                                device=self.device)
+        return obs, rew, term, trunc, infos
 
     def _metal_trace(self, p_eff, sigma_b, off, soil, e_el, e_az, el):
         """Megakernel call with all-torch inputs (the gpu_step path).
