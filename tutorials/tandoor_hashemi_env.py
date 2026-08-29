@@ -169,6 +169,46 @@ def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, cosi,
                              ).norm(dim=-1)
         ok = ok & (rad_st < r_tube_in)
     ok_post_tube = ok
+    # BELOW THE THROAT: the core's inner surface is REFLECTIVE - the
+    # compound parabolic concentrator's job, modelled as the cone that
+    # hugs the diverging envelope (a CPC's parabolic profile differs
+    # from this cone by a few percent at our numerical aperture). Tail
+    # rays that would have died at the M5 patch bound get one traced
+    # bounce inward instead, rho 0.95. Outer masonry is constant width;
+    # this is the inner wall.
+    # the wall flares to 1.3 r_m5, OUTSIDE the bundle the M5 patch
+    # accepts: hugging the point-waist envelope clipped real marginal
+    # rays (the waist has size) and pushed the m5 loss UP to 10.5%
+    m_c2 = -(1.12 * r_m5 - r_tube_in) / (z0_t - z_m5)
+    Xo = h1[..., 0] - x_tower + dvec[..., 0]
+    Yo = h1[..., 1] + dvec[..., 1]
+    rz0b = r_tube_in + m_c2 * (h1[..., 2] - z0_t)
+    qa_b = d2[..., 0] ** 2 + d2[..., 1] ** 2 - (m_c2 * d2[..., 2]) ** 2
+    qb_b = 2 * (Xo * d2[..., 0] + Yo * d2[..., 1]
+                - m_c2 * rz0b * d2[..., 2])
+    qc_b = Xo ** 2 + Yo ** 2 - rz0b ** 2
+    disc_b = qb_b ** 2 - 4 * qa_b * qc_b
+    sq_b = torch.sqrt(disc_b.clamp(min=0))
+    tcb = torch.where(qa_b.abs() > 1e-9, (-qb_b - sq_b) / (2 * qa_b),
+                      -qc_b / qb_b.clamp(min=1e-9))
+    tcb2 = torch.where(qa_b.abs() > 1e-9, (-qb_b + sq_b) / (2 * qa_b),
+                       tcb)
+    tcb = torch.where(tcb > 1e-4, tcb, tcb2)
+    zc_b = h1[..., 2] + tcb * d2[..., 2]
+    hits_b = (disc_b > 0) & (tcb > 1e-4) & (zc_b > z_m5 + 0.35) \
+        & (zc_b < z0_t)
+    hxb = Xo + tcb * d2[..., 0]
+    hyb = Yo + tcb * d2[..., 1]
+    rcb = (r_tube_in + m_c2 * (zc_b - z0_t)).clamp(min=1e-6)
+    n_b = torch.stack([hxb, hyb, -m_c2 * rcb], -1)
+    n_b = n_b / n_b.norm(dim=-1, keepdim=True)
+    d2b = d2 - 2 * (d2 * n_b).sum(-1, keepdim=True) * n_b
+    h1b = torch.stack([hxb + x_tower - dvec[..., 0],
+                       hyb - dvec[..., 1], zc_b], -1)
+    d2 = torch.where(hits_b[..., None], d2b, d2)
+    h1 = torch.where(hits_b[..., None], h1b, h1)
+    w_ray = w_ray * torch.where(hits_b, torch.full_like(tcb, 0.95),
+                                torch.ones_like(tcb))
     pl = (h1 - ellC) @ ellM.T
     dl = d2 @ ellM.T
     qa = (dl * dl * ellS).sum(-1)
@@ -179,7 +219,7 @@ def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, cosi,
     sq = torch.sqrt(disc.clamp(min=0))
     t2 = (-qb + sq) / (2 * qa)
     h2 = h1 + t2[..., None] * d2
-    ok = ok & oke & (t2 > 0) & ((h2 - V0t).norm(dim=-1) < 1.25 * r_m5)
+    ok = ok & oke & (t2 > 0) & ((h2 - V0t).norm(dim=-1) < 1.50 * r_m5)
     hl = (h2 - ellC) @ ellM.T
     nl = hl * ellS
     nl = nl / nl.norm(dim=-1, keepdim=True)
@@ -739,18 +779,38 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              self._heat_color(self.T[0, self.n_belt + 2]), 22)
         ring([R_POT, 0, Z_DUCT], R_DUCT_H, (120, 220, 235, 255), 18,
              ax="x")
-        # SINGLE focal post (fig 14: the azimuth bearing wraps its
-        # base) with the sealed tube section around the waist
-        pr.draw_line_3d(v3([X_TOWER, 0, Z_ROOF]),
+        # THE PIPE, drawn as built: constant outer width everywhere
+        # (the visible object), with the reflective CPC inner profile
+        # drawn inside it - flared lip at the mouth, straight through
+        # the slot band, expanding cone below the throat to M5.
+        pr.draw_line_3d(v3([X_TOWER, 0, self.z_tube[1] + 0.6]),
                         v3([X_TOWER, 0, self.z_fold]), (160, 148, 126, 255))
-        for zz in np.linspace(Z_ROOF, self.z_fold, 9):
-            ring([X_TOWER, 0, zz], self.r_post, (150, 140, 120, 255), 10)
-        for zz in np.linspace(self.z_tube[0], self.z_tube[1], 5):
-            ring([X_TOWER, 0, zz], self.r_tube, (205, 175, 120, 255), 14)
-        # the buried masonry core: deck penetration widening to M5
-        for zz in np.linspace(self.z_m5, Z_ROOF, 7):
-            rr_ = (self.cfg.a / self.f_nom) * (self.z_waist - zz) + 0.10
-            ring([X_TOWER, 0, zz], rr_, (140, 120, 96, 255), 20)
+        r_out = self.r_tube + 0.05
+        for zz in np.linspace(Z_ROOF, self.z_tube[1] + 0.6, 10):
+            ring([X_TOWER, 0, zz], r_out, (150, 140, 120, 255), 14)
+        for zz in np.linspace(self.z_m5, Z_ROOF, 6):    # buried outer
+            ring([X_TOWER, 0, zz], self.r_m5 + 0.20, (120, 104, 88, 255),
+                 20)
+        # inner CPC profile (gold): lip -> straight -> expanding cone
+        prof = []
+        for zz in np.linspace(self.z_tube[1] + 0.6, self.z_tube[1], 4):
+            prof.append((zz, self.r_tube_in + (0.55 - self.r_tube_in)
+                         * (zz - self.z_tube[1]) / 0.6))
+        for zz in np.linspace(self.z_tube[1], self.z_tube[0], 3):
+            prof.append((zz, self.r_tube_in))
+        for zz in np.linspace(self.z_tube[0], self.z_m5 + 0.35, 6):
+            prof.append((zz, self.r_tube_in
+                         + (self.r_m5 - self.r_tube_in)
+                         * (self.z_tube[0] - zz)
+                         / (self.z_tube[0] - self.z_m5)))
+        for zz, rr_ in prof:
+            ring([X_TOWER, 0, zz], rr_, (205, 175, 120, 255), 16)
+        for aa in (0, np.pi/2, np.pi, 3*np.pi/2):
+            pts_ = [np.array([X_TOWER + r_*np.cos(aa), r_*np.sin(aa), zz])
+                    for zz, r_ in prof]
+            for k in range(len(pts_) - 1):
+                pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]),
+                                (205, 175, 120, 255))
         # fenced no-build ring the dish sweeps over
         ring([X_TOWER, 0, H_POT + 0.02], self.g_orbit + self.cfg.a,
              (150, 130, 190, 255), 72)
