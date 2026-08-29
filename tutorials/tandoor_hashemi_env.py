@@ -65,6 +65,7 @@ import numpy as np
 import torch
 
 from artist.raytracing.raytracing_utils import reflect
+from artist.util import utils as artist_utils
 
 import tandoor_artist_optics as AO
 import tandoor_coude_optics as CO
@@ -90,7 +91,8 @@ def _align_np(a, b):
     return np.eye(3) + K + K @ K / (1 + c)
 
 
-def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, sc,
+def _geo_core(pts_l, nrm_l, lv, du, de, upick, sigb, Acan,
+              Mt, Cd, dvec, off, vp, sc,
               ellM, ellS, ellC, V0t):
     """The whole ray geometry as ONE pure-tensor function, so
     torch.compile can fuse its ~150 elementwise kernels. The math is a
@@ -103,6 +105,33 @@ def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, sc,
     constants, and inductor's MPS codegen has no float64 entry
     (KeyError: torch.float64, seen in a live training run). With the
     graph all-float32-tensor, the same compile serves CPU and MPS."""
+    # ---- THE BOUNCE, now inside the graph. The eager ARTIST sun
+    # sampler was 35% of the trace and its torch.manual_seed stalled
+    # the MPS pipeline every step. Here: membrane level-lerp, ARTIST's
+    # rotate_distortions applied to raw standard-normal draws (the
+    # identical distribution, sampled outside without a reseed), the
+    # canonical-ray trick, and ARTIST reflect - all fused.
+    csr_frac_c, csr_sig_c = sc[20], sc[21]
+    i0 = lv.long().clamp(0, pts_l.shape[0] - 2)
+    fr = (lv - i0.float())[:, None, None]
+    p_loc = (1 - fr) * pts_l[i0] + fr * pts_l[i0 + 1]
+    n_loc = (1 - fr) * nrm_l[i0] + fr * nrm_l[i0 + 1]
+    n_loc = n_loc / n_loc.norm(dim=-1, keepdim=True)
+    sig_eff = torch.where(upick < csr_frac_c,
+                          csr_sig_c.expand_as(du),
+                          sigb[:, None].expand_as(du))
+    R = artist_utils.rotate_distortions(
+        e=(de * sig_eff)[:, None, :], u=(du * sig_eff)[:, None, :],
+        device=du.device)
+    canon = torch.zeros(4, device=du.device, dtype=du.dtype)
+    canon[1] = 1.0
+    v = (R @ canon.expand(du.shape[0], 1, du.shape[1], 4)
+         .unsqueeze(-1)).squeeze(-1)[:, 0]
+    inc3 = (Acan @ v[..., :3, None]).squeeze(-1)
+    inc4 = torch.cat([inc3, torch.zeros_like(inc3[..., :1])], -1)
+    n4l = torch.cat([n_loc, torch.zeros_like(n_loc[..., :1])], -1)
+    d43 = reflect(inc4, n4l)
+    org3 = p_loc
     r_fold, slot_r0, slot_w2 = sc[0], sc[1], sc[2]
     z1_t, z0_t, z_lip, m_c = sc[3], sc[4], sc[5], sc[6]
     r_tube_in, r_m5, z_m5 = sc[7], sc[8], sc[9]
@@ -114,7 +143,7 @@ def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, sc,
     z_roof_c, z_top_c = sc[16], sc[17]
     r_post_c, r_tube_c = sc[18], sc[19]
     p = org3 @ Mt + Cd
-    d = d43 @ Mt
+    d = d43[..., :3] @ Mt
     d = d / d.norm(dim=-1, keepdim=True)
 
     # OCCLUSION IN CLOSED FORM. The post and its tube section are
@@ -556,6 +585,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # static geometry tensors, built ONCE (they were rebuilt every
         # step); and the fused trace core - the same _geo_core function
         # either eager or torch.compile'd, so the fallback is exact
+        # membrane surfaces as (L,P,3) buffers for the fused bounce;
+        # the constant rotation taking ARTIST's canonical ray onto the
+        # local nominal (0,0,-1); a persistent device generator so no
+        # step ever reseeds (the manual_seed stall)
+        self._pts_l = self.primary.membrane.points[..., :3].contiguous()
+        self._nrm_l = self.primary.membrane.normals[..., :3].contiguous()
+        self._Acan = torch.tensor(
+            _align_np([0.0, 1.0, 0.0], [0.0, 0.0, -1.0]),
+            dtype=torch.float32, device=dev)
+        self._gen = torch.Generator(device=dev.type)
+        self._gen.manual_seed(int(self.rng.integers(2 ** 31)))
         self._V0t = torch.tensor([X_TOWER, 0.0, self.z_m5],
                                  dtype=torch.float32, device=dev)
         z1_t, z0_t = self.z_tube[1], self.z_tube[0]
@@ -566,7 +606,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              X_TOWER, Z_DUCT, R_POT, R_DUCT_H,
              0.0,                                   # cosi, set per step
              -(1.12 * self.r_m5 - self.r_tube_in) / (z0_t - self.z_m5),
-             Z_ROOF, self.z_fold - 0.10, self.r_post, self.r_tube],
+             Z_ROOF, self.z_fold - 0.10, self.r_post, self.r_tube,
+             self.csr_frac, 15e-3],
             dtype=torch.float32, device=dev)
         self._geo = _geo_core
         self._geo_is_fused = False
@@ -610,9 +651,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         lv = np.clip((np.asarray(p_eff) / self.p0 - self.level_frac[0])
                      / (self.level_frac[-1] - self.level_frac[0])
                      * (self.N_LEVELS - 1), 0, self.N_LEVELS - 1)
-        org, d4, _ = self.primary.bounce(
-            torch.as_tensor(lv, dtype=torch.float32, device=dev),
-            sigma_b, int(self.tick))
+        P_ = len(self._hx)
+        du = torch.randn(B, P_, generator=self._gen, device=dev)
+        de = torch.randn(B, P_, generator=self._gen, device=dev)
+        upick = torch.rand(B, P_, generator=self._gen, device=dev)
+        sigb_t = torch.as_tensor(np.asarray(sigma_b), dtype=torch.float32,
+                                 device=dev)
+        lv_t = torch.as_tensor(lv, dtype=torch.float32, device=dev)
         # SITE ORIENTATION, pinned: world +x is NORTH (see git history
         # for the full siting note). All per-step frame vectors are
         # assembled here in numpy - they are 7 tiny vectors - and packed
@@ -647,7 +692,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                       2.0 * self.f_nom * np.radians(self._e_az)], 1),
             dtype=torch.float32, device=dev)[:, None, :]
         off = torch.as_tensor(offset_w, dtype=torch.float32, device=dev)
-        args = (org[..., :3], d4[..., :3], Mt, Cd, dvec, off, vp,
+        args = (self._pts_l, self._nrm_l, lv_t, du, de, upick, sigb_t,
+                self._Acan, Mt, Cd, dvec, off, vp,
                 sc, self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         try:
             out = self._geo(*args)
@@ -700,9 +746,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             B = self.num_agents
             pe = np.full(B, self.p0)
             sg = np.full(B, 7e-3)
+            gstate = self._gen.get_state()
             self.tick = 12345
             ref = self._trace_power(pe, sg, np.zeros((B, 2)), np.ones(B))
             self._geo = fused
+            self._gen.set_state(gstate)
             self.tick = 12345
             fus = self._trace_power(pe, sg, np.zeros((B, 2)), np.ones(B))
         finally:
