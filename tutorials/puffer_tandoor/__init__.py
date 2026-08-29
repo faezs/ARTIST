@@ -39,6 +39,16 @@ try:
 except Exception:
     pass
 
+# pufferlib's advantage op has CUDA + CPU paths only; on MPS the CPU
+# fallback copies the FULL batch (5 tensors) to host and back, TWICE
+# per minibatch - the Train.Misc/Copy wall on the dashboard. Install
+# the Metal kernel (bit-exact vs their CPU op: max diff 0.00e+00).
+try:
+    import tandoor_mps_advantage
+    tandoor_mps_advantage.install()
+except Exception:
+    pass
+
 _here = pathlib.Path(__file__).resolve().parent  # -> ARTIST/tutorials/puffer_tandoor
 _tutorials = _here.parent
 if str(_tutorials.parent) not in sys.path:
