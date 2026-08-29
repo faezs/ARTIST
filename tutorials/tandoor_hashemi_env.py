@@ -310,8 +310,24 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._e_el = self.el_m - el0
         self._e_az = (self.az_m - az0) * np.cos(np.radians(el0))
         t_before = float(self.t_solar[0])
+        # potential-based tracking shaping, the same pattern as the
+        # belt-rise term in the base reward: r += k (phi_prev - phi_now)
+        # with phi = min(|e_az|+|e_el|, 4 deg). Policy-invariant (it
+        # telescopes to phi_end - phi_start, bounded +-0.4/episode), so
+        # it cannot be farmed - but it gives the motor heads the
+        # per-step gradient the roti reward is too far downstream to
+        # provide: measured at 14M steps of training, a random policy
+        # loses the sun in ~4 steps, power stays 0, every episode
+        # returns the same -172, and approx_kl sits at 0.000.
+        pot_prev = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
         out = super().step(a[:, :3])
-        if float(self.t_solar[0]) < t_before - 1.0:
+        pot_now = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
+        wrapped = float(self.t_solar[0]) < t_before - 1.0
+        if not wrapped:
+            shape = 0.1 * (pot_prev - pot_now)
+            self.rewards[:] += shape.astype(np.float32)
+            self.ep_return += shape
+        if wrapped:
             # the episode wrapped to the next morning: the crew reparks
             # the carriage overnight (hours of slack at full slew)
             el1, az1, _ = _sim.solar_position(self.lat, self.day,
