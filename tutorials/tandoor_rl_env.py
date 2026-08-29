@@ -84,7 +84,8 @@ class TandoorEnv(pufferlib.PufferEnv):
     N_EXTRA_OBS = 0
 
     def __init__(self, num_agents=32, n_zones=5, dt=15.0, lat=28.6,
-                 day_of_year=80, seed=0, device=None, render_mode=None,
+                 day_of_year=80, day_random=0, seed=0, device=None,
+                 render_mode=None,
                  nurbs=0, flare_ratio=1.4, flare_reflect=0.6,
                  sigma_surf=2.0e-3, sigma_fab=1.5e-3, csr_frac=0.08,
                  wind_limit=9.0, wide_shutter=0, warm_frac=0.5,
@@ -109,6 +110,13 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.dt = dt
         self.lat = lat
         self.day = day_of_year
+        # day_random=1 draws a fresh day-of-year each dawn. A fixed day
+        # lets the LSTM memorize THE solar trajectory against its clock
+        # and track semi-open-loop - and day 80 never exceeds el 61.4,
+        # so the slot/crossing regime above 65 deg goes completely
+        # untrained. Found auditing the eval suite, after 1.4B steps of
+        # training on one identical day.
+        self.day_random = bool(day_random)
         self.n_belt = 8
         # nodes: belt segments + hearth spot (beam footprint) + floor rest
         # + crown. The tiny hearth node runs ~800 K and does the radiating

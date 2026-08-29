@@ -422,6 +422,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self.az_m[i] = np.degrees(az1) + self.rng.normal(0, 0.3)
             self._lost_ct[cut] = 0
         if wrapped:
+            if self.day_random:
+                self.day = int(self.rng.integers(1, 366))
             # the episode wrapped to the next morning: the crew reparks
             # the carriage overnight (hours of slack at full slew)
             el1, az1, _ = _sim.solar_position(self.lat, self.day,
