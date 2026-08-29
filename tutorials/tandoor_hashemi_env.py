@@ -319,7 +319,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
 
     def __init__(self, *args, a_mem=2.10, g_orbit=5.0, z_waist=None,
                  z_m5=-0.10, el_min=12.0, r_mast=0.25, n_rays=1100,
-                 fuse=1, **kwargs):
+                 fuse=1, gpu=0, **kwargs):
+        self.gpu = bool(gpu)
+        self._gpu = None
         self.fuse = bool(fuse)
         # n_rays trades Monte-Carlo noise per step against speed. The
         # power estimate's sigma ~ 1/sqrt(n); training averages it out
@@ -357,6 +359,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         return np.concatenate([base, enc], axis=1)
 
     def step(self, actions):
+        if self.gpu and self._metal is not None \
+                and self.render_mode != "human":
+            return self._gpu_full_step(actions)
         B = self.num_agents
         a = np.asarray(actions).reshape(B, self.N_HEADS)
         # -- the two motors, BEFORE the optics see the sun this step.
@@ -661,6 +666,157 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         print(f"  [hashemi] machine wholly on the roof: ring rail R 4.6, "
               f"dish sweep r={g+a:.1f} m inside the parapet; beam sealed "
               f"below the roof deck")
+
+    def _gpu_full_step(self, actions):
+        """The whole step on-device (tandoor_gpu_step). Python keeps the
+        scalar sun clock, the rare synchronized day-over branch, and one
+        obs/reward copy into the pufferlib buffers."""
+        from tandoor_gpu_step import GpuState, gpu_step
+        import tandoor_gpu_step as G
+        if self._gpu is None:
+            self._gpu = GpuState(self)
+        S, dev, B = self._gpu, self.device, self.num_agents
+        rew, cut, p_in, e_el, e_az = gpu_step(self, actions)
+        self.truncations[:] = False
+        if bool(cut.any()):
+            el1, az1, _ = _sim.solar_position(self.lat, self.day,
+                                              float(self.t_solar[0]))
+            warm = (S.u(B) < self.warm_frac)
+            newT = torch.where(
+                warm[:, None],
+                540.0 + 80.0 * S.u(B, self.n_nodes),
+                torch.full((B, self.n_nodes), 350.0, device=dev)) \
+                + (S.u(B, self.n_nodes) - 0.5) * 30.0
+            cutf = cut[:, None]
+            S.T = torch.where(cutf, newT, S.T)
+            for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
+                       "ep_len", "bread_E", "bread_t"):
+                v = getattr(S, nm)
+                setattr(S, nm, torch.where(cut[:, None] if v.dim() > 1
+                                           else cut,
+                                           torch.zeros_like(v), v))
+            S.has_bread = S.has_bread & ~cutf
+            S.p_set = torch.where(cut, torch.full_like(S.p_set, self.p0),
+                                  S.p_set)
+            S.p_act = torch.where(cut, torch.full_like(S.p_act, self.p0),
+                                  S.p_act)
+            S.el_m = torch.where(
+                cut, (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
+                                                self.el_max_h), S.el_m)
+            S.az_m = torch.where(cut, np.degrees(az1) + 0.3 * S.n(B),
+                                 S.az_m)
+            S.lost_ct = torch.where(cut, torch.zeros_like(S.lost_ct),
+                                    S.lost_ct)
+            self.truncations[:] = cut.cpu().numpy()
+        infos = []
+        if float(self.t_solar[0]) >= 16.0:
+            infos.append({
+                "rotis_per_day": float(S.ep_rotis.mean()),
+                "scorched": float(S.ep_scorch.mean()),
+                "spall_events": float(S.ep_spall.mean()),
+                "form_minutes": float(S.form_time.mean() * self.dt / 60),
+                "episode_return": float(S.ep_return.mean()),
+                "episode_length": float(S.ep_len.mean()),
+            })
+            self.terminals[:] = True
+            self.t_solar[:] = 8.0
+            if self.day_random:
+                self.day = int(self.rng.integers(1, 366))
+            if self.lat_random:
+                self.lat = float(self.rng.uniform(15.0, 35.0))
+            el1, az1, _ = _sim.solar_position(self.lat, self.day, 8.0)
+            warm = (S.u(B) < self.warm_frac)
+            S.T = torch.where(
+                warm[:, None], 540.0 + 80.0 * S.u(B, self.n_nodes),
+                torch.full((B, self.n_nodes), 350.0, device=dev)) \
+                + (S.u(B, self.n_nodes) - 0.5) * 30.0
+            for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
+                       "ep_len", "bread_E", "bread_t", "form_time",
+                       "wind_g", "cloud", "p_dist"):
+                setattr(S, nm, torch.zeros_like(getattr(S, nm)))
+            S.has_bread = torch.zeros_like(S.has_bread)
+            S.p_set = torch.full_like(S.p_set, self.p0)
+            S.p_act = torch.full_like(S.p_act, self.p0)
+            S.shutter = torch.ones_like(S.shutter)
+            S.soil = 0.90 + 0.08 * S.u(B)
+            S.el_m = (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
+                                                self.el_max_h)
+            S.az_m = np.degrees(az1) + 0.3 * S.n(B)
+            S.belt_prev = S.T[:, :self.n_belt].mean(1)
+        else:
+            self.terminals[:] = False
+        # ---- obs, one assembly + one copy
+        ts = torch.full((B,), float(self.t_solar[0]), device=dev)
+        h = (ts - 8.0) / 8.0
+        enc_el = ((e_el + 0.03 * S.n(B)) / 0.5).clamp(-3, 3)
+        enc_az = ((e_az + 0.03 * S.n(B)) / 0.5).clamp(-3, 3)
+        obs = torch.cat([
+            torch.stack([torch.sin(np.pi * h), torch.cos(np.pi * h),
+                         S.dni / 1000.0], 1),
+            S.T / 1000.0,
+            torch.stack([(S.p_act - self.p0) / 60.0, S.shutter,
+                         torch.zeros_like(S.shutter),
+                         (S.bore[:, 0] / 0.1).clamp(-2, 2),
+                         (S.bore[:, 1] / 0.1).clamp(-2, 2),
+                         (S.load_timer / 45.0).clamp(0, 2)], 1),
+            S.bread_E / 45e3,
+            p_in[:, None] / 6000.0,
+            torch.stack([S.jammed.float(),
+                         ((S.decl_formed - float(self._decl())).abs()
+                          / 10.0).clamp(0, 3),
+                         enc_el, enc_az], 1),
+        ], 1)
+        self.observations[:] = obs.cpu().numpy()
+        self.rewards[:] = rew.cpu().numpy()
+        self.p_in = p_in.cpu().numpy()
+        self._e_el = e_el.cpu().numpy()
+        self._e_az = e_az.cpu().numpy()
+        return (self.observations, self.rewards, self.terminals,
+                self.truncations, infos)
+
+    def _metal_trace(self, p_eff, sigma_b, off, soil, e_el, e_az, el):
+        """Megakernel call with all-torch inputs (the gpu_step path).
+        Frame math identical to _trace_power's."""
+        dev = self.device
+        B, P_ = p_eff.shape[0], len(self._hx)
+        _, az, u_np = _sim.solar_position(self.lat, self.day,
+                                          float(self.t_solar[0]))
+        u = np.array([u_np[1], u_np[0], u_np[2]], dtype=float)
+        u /= np.linalg.norm(u)
+        P_fold = np.array([X_TOWER, 0.0, self.z_fold])
+        C_dish = P_fold - self.g_orbit * u
+        M = _align_np([0.0, 0.0, 1.0], u)
+        el_r = np.radians(el)
+        h_np = -(u - u[2] * np.array([0., 0., 1.]))
+        h_np = h_np / max(np.linalg.norm(h_np), 1e-9)
+        p_up = h_np * np.sin(el_r) + np.array([0., 0., 1.]) * np.cos(el_r)
+        nf_np = u + np.array([0., 0., 1.])
+        nf_np = nf_np / np.linalg.norm(nf_np)
+        e_par_np = u - (u @ nf_np) * nf_np
+        e_par_np = e_par_np / np.linalg.norm(e_par_np)
+        e_prp_np = np.cross(nf_np, e_par_np)
+        e_pp_np = np.cross(u, -p_up)
+        vp = torch.tensor(np.stack([u, P_fold, -p_up, e_pp_np, nf_np,
+                                    e_par_np, e_prp_np]),
+                          dtype=torch.float32, device=dev)
+        Mt = torch.tensor(M.T, dtype=torch.float32, device=dev)
+        Cd = vp.new_tensor(C_dish)
+        sc = self._sc_base.clone()
+        sc[14] = float(np.cos(np.radians(45.0 - 0.5 * el)))
+        du = torch.randn(B, P_, generator=self._gen, device=dev)
+        de = torch.randn(B, P_, generator=self._gen, device=dev)
+        upick = torch.rand(B, P_, generator=self._gen, device=dev)
+        dvec = torch.stack([2.0 * self.f_nom * torch.deg2rad(e_el),
+                            2.0 * self.f_nom * torch.deg2rad(e_az)],
+                           1)[:, None, :]
+        lv = ((p_eff / self.p0 - self.level_frac[0])
+              / (self.level_frac[-1] - self.level_frac[0])
+              * (self.N_LEVELS - 1)).clamp(0, self.N_LEVELS - 1)
+        args = (self._pts_l, self._nrm_l, lv, du, de, upick, sigma_b,
+                self._Acan, Mt, Cd, dvec, off, vp, sc,
+                self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
+        _, _, per = self._metal(*args, self._ray_pw, soil, self.n_nodes)
+        return per
 
     # ------------------------------------------------------------ trace #
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
