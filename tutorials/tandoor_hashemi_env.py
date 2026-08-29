@@ -428,10 +428,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                               float(self.t_solar[0]))
             for i in np.nonzero(cut)[0]:
                 self.truncations[i] = True
-                if self.rng.random() < self.warm_frac:
-                    self.T[i] = self.rng.uniform(540, 620)
-                else:
-                    self.T[i] = 350.0
+                # always cold on lost-sun truncation (no warm lottery)
+                self.T[i] = 350.0
                 self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
                 self.ep_spall[i] = 0.0
@@ -442,6 +440,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self.el_m[i] = np.clip(el1 + self.rng.normal(0, 0.3),
                                        self.el_min_h, self.el_max_h)
                 self.az_m[i] = np.degrees(az1) + self.rng.normal(0, 0.3)
+                # clear the shaping potential to post-reset pointing
+                self._e_el[i] = self.el_m[i] - el1
+                self._e_az[i] = (self.az_m[i] - np.degrees(az1)) \
+                    * np.cos(np.radians(el1))
             self._lost_ct[cut] = 0
             # obs were assembled inside super().step BEFORE these
             # resets: rebuild for the cut agents so a truncation step
@@ -706,11 +708,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if bool(cut.any()):
             el1, az1, _ = _sim.solar_position(self.lat, self.day,
                                               float(self.t_solar[0]))
-            warm = (S.u(B) < self.warm_frac)
-            newT = torch.where(
-                warm[:, None],
-                540.0 + 80.0 * S.u(B, self.n_nodes),
-                torch.full((B, self.n_nodes), 350.0, device=dev)) \
+            # ALWAYS COLD on a lost-sun truncation. The warm_frac draw
+            # here was a lottery: 20% chance of a free 540-620 K pot for
+            # crashing the episode - and a trained policy found it
+            # (ep_len pinned at 24, cook-and-crash at 220M steps). A
+            # fresh pot mid-day is cold; warm mornings belong to
+            # day-over only.
+            newT = torch.full((B, self.n_nodes), 350.0, device=dev) \
                 + (S.u(B, self.n_nodes) - 0.5) * 30.0
             cutf = cut[:, None]
             S.T = torch.where(cutf, newT, S.T)
@@ -732,6 +736,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                  S.az_m)
             S.lost_ct = torch.where(cut, torch.zeros_like(S.lost_ct),
                                     S.lost_ct)
+            # clear the shaping potential to the POST-reset pointing:
+            # leaving the stale pre-reset error refunded the whole
+            # drift (+0.1*(4.0 - 0.3)) on the first step after reset -
+            # the exit penalty for losing the sun netted to zero
+            e_el_r = S.el_m - el1
+            e_az_r = (S.az_m - np.degrees(az1)) \
+                * float(np.cos(np.radians(el1)))
+            S.e_el_prev = torch.where(cut, e_el_r, S.e_el_prev)
+            S.e_az_prev = torch.where(cut, e_az_r, S.e_az_prev)
             self.truncations[:] = cut.cpu().numpy()
         infos = []
         if float(self.t_solar[0]) >= 16.0:
@@ -767,6 +780,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.el_m = (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
                                                 self.el_max_h)
             S.az_m = np.degrees(az1) + 0.3 * S.n(B)
+            S.e_el_prev = S.el_m - el1
+            S.e_az_prev = (S.az_m - np.degrees(az1)) \
+                * float(np.cos(np.radians(el1)))
             S.belt_prev = S.T[:, :self.n_belt].mean(1)
         else:
             self.terminals[:] = False
