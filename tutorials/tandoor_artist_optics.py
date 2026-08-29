@@ -193,20 +193,35 @@ class SunCone:
     def scatter_csr(self, nominal, sigma, csr_frac, csr_sigma, B, P, seed):
         """Two-component sunshape: gaussian core + circumsolar tail.
 
-        ARTIST's Sun accepts only a normal distribution (it raises on
-        anything else), so the tail is a second ARTIST sample mixed in
-        rather than a different distribution type. Same mixture the envs
-        already used, but now both components come from ARTIST.
+        ONE draw, scaled per ray. A zero-mean normal scaled by
+        sigma_tail/sigma_core IS the tail distribution, so mixing by
+        per-ray sigma is exactly the two-draw mixture at half the cost -
+        the profiler showed scatter was drawing the full cone twice.
         """
-        core = self.scatter(nominal, sigma, B, P, seed)
         if not csr_frac:
-            return core
-        tail = self.scatter(nominal, np.full(B, csr_sigma), B, P,
-                            seed + 977)
+            return self.scatter(nominal, sigma, B, P, seed)
         g = torch.Generator(device="cpu").manual_seed(int(seed) % (2 ** 31))
         pick = (torch.rand(B, P, 1, generator=g) < float(csr_frac)).to(
             self.device)
-        return torch.where(pick, tail, core)
+        sig_t = torch.as_tensor(sigma, dtype=torch.float32,
+                                device=self.device).reshape(-1, 1, 1)
+        sig_eff = torch.where(pick, torch.full_like(sig_t.expand(B, P, 1),
+                                                    float(csr_sigma)),
+                              sig_t.expand(B, P, 1))
+        return self.scatter_sig(nominal, sig_eff, B, P, seed)
+
+    def scatter_sig(self, nominal, sig_eff, B, P, seed):
+        """scatter() with a per-ray (B,P,1) sigma tensor."""
+        du, de = self.sun.get_distortions(number_of_points=P,
+                                          number_of_heliostats=B,
+                                          random_seed=int(seed) % (2 ** 31))
+        se = sig_eff.squeeze(-1)[:, None, :]
+        R = utils.rotate_distortions(e=de * se, u=du * se,
+                                     device=self.device)
+        canon = torch.tensor(self._CANON, device=self.device)
+        v = (R @ canon.expand(B, 1, P, 4).unsqueeze(-1)).squeeze(-1)[:, 0]
+        return (self._align(canon[:3], nominal) @ v[..., :3, None]
+                ).squeeze(-1)
 
     def _align(self, a, b):
         """Rotation carrying unit a onto unit b (Rodrigues, 3x3)."""
