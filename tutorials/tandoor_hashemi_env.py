@@ -745,6 +745,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 * float(np.cos(np.radians(el1)))
             S.e_el_prev = torch.where(cut, e_el_r, S.e_el_prev)
             S.e_az_prev = torch.where(cut, e_az_r, S.e_az_prev)
+            # the cleared pointing must also reach THIS step's obs and
+            # the host mirrors (autoreset: a truncation step reports the
+            # new episode's state, matching the numpy path's rebuild)
+            e_el = torch.where(cut, e_el_r, e_el)
+            e_az = torch.where(cut, e_az_r, e_az)
+            self._e_el_t, self._e_az_t = e_el, e_az
             self.truncations[:] = cut.cpu().numpy()
         infos = []
         if float(self.t_solar[0]) >= 16.0:
@@ -783,6 +789,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.e_el_prev = S.el_m - el1
             S.e_az_prev = (S.az_m - np.degrees(az1)) \
                 * float(np.cos(np.radians(el1)))
+            e_el, e_az = S.e_el_prev, S.e_az_prev
+            self._e_el_t, self._e_az_t = e_el, e_az
             S.belt_prev = S.T[:, :self.n_belt].mean(1)
         else:
             self.terminals[:] = False
