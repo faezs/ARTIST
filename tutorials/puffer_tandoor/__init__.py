@@ -15,6 +15,18 @@ import importlib.util
 import pathlib
 import sys
 
+# train.compile = True dies on the policy's LSTM: dynamo refuses to
+# trace nn.LSTM by default ("Unsupported: Attempted to wrap RNN, GRU,
+# or LSTM"). The experimental path works on this stack - measured
+# 4.67 ms compiled vs 7.36 ms eager for the exact LSTM(256,256)
+# forward at B=8192 on MPS - so enable it here, where the puffer CLI
+# imports us before the policy is built.
+try:
+    import torch._dynamo
+    torch._dynamo.config.allow_rnn = True
+except Exception:
+    pass
+
 _here = pathlib.Path(__file__).resolve().parent  # -> ARTIST/tutorials/puffer_tandoor
 _tutorials = _here.parent
 if str(_tutorials.parent) not in sys.path:
