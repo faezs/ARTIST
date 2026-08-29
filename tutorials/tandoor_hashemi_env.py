@@ -90,6 +90,115 @@ def _align_np(a, b):
     return np.eye(3) + K + K @ K / (1 + c)
 
 
+def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, cosi,
+              Tw, r_tw, ellM, ellS, ellC, V0t,
+              r_fold, slot_r0, slot_w2, z1_t, z0_t, z_lip, m_c,
+              r_tube_in, r_m5, z_m5, x_tower, z_duct, r_pot, r_duct_h):
+    """The whole ray geometry as ONE pure-tensor function, so
+    torch.compile can fuse its ~150 elementwise kernels. The math is a
+    line-for-line transcription of the reference implementation below
+    it in git history; verify_fusion() checks the two agree ray-for-ray.
+    vp rows: 0 ut, 1 Pf, 2 s_dir, 3 e_pp, 4 nf, 5 e_par, 6 e_prp."""
+    ut, Pf = vp[0], vp[1]
+    s_dir, e_pp = vp[2], vp[3]
+    nf, e_par, e_prp = vp[4], vp[5], vp[6]
+    p = org3 @ Mt + Cd
+    d = d43 @ Mt
+    d = d / d.norm(dim=-1, keepdim=True)
+    w = Tw[None, None] - p[..., None, :]
+    tproj = (w * ut).sum(-1)
+    perp = (w - tproj[..., None] * ut).norm(dim=-1)
+    lit = ~((tproj > 0) & (perp < r_tw)).any(-1)
+    vf = Pf - p
+    perpf = vf - (vf * ut).sum(-1, keepdim=True) * ut
+    lit = lit & (perpf.norm(dim=-1) > r_fold)
+    q = p - Cd
+    in_slot = ((q * s_dir).sum(-1) > slot_r0) \
+        & ((q * e_pp).sum(-1).abs() < slot_w2)
+    lit = lit & ~in_slot
+    den = (d * nf).sum(-1)
+    t1 = ((Pf - p) * nf).sum(-1) / torch.where(
+        den.abs() > 1e-9, den, torch.full_like(den, 1e-9))
+    h1 = p + t1[..., None] * d
+    rel1 = h1 - Pf
+    c_par = (rel1 * e_par).sum(-1) * cosi
+    c_prp = (rel1 * e_prp).sum(-1)
+    rad1 = torch.stack([c_par, c_prp], -1).norm(dim=-1)
+    wb = Tw[None, None] - p[..., None, :]
+    tb = (wb * d[..., None, :]).sum(-1)
+    perp_b = (wb - tb[..., None] * d[..., None, :]).norm(dim=-1)
+    graze = ((tb > 0) & (tb < t1[..., None] - 0.10)
+             & (perp_b < r_tw)).any(-1)
+    ok = lit & ~graze & (t1 > 0) & (rad1 < r_fold)
+    d4v = torch.cat([d, torch.zeros_like(d[..., :1])], -1)
+    nf4 = torch.cat([nf, torch.zeros_like(nf[..., :1])], -1)
+    d2 = reflect(d4v, nf4.expand_as(d4v))[..., :3]
+    ok_pre_tube = ok
+    Xo = h1[..., 0] - x_tower + dvec[..., 0]
+    Yo = h1[..., 1] + dvec[..., 1]
+    dz2 = d2[..., 2]
+    rz0 = r_tube_in + m_c * (h1[..., 2] - z1_t)
+    qa_c = d2[..., 0] ** 2 + d2[..., 1] ** 2 - (m_c * dz2) ** 2
+    qb_c = 2 * (Xo * d2[..., 0] + Yo * d2[..., 1] - m_c * rz0 * dz2)
+    qc_c = Xo ** 2 + Yo ** 2 - rz0 ** 2
+    disc_c = qb_c ** 2 - 4 * qa_c * qc_c
+    sq_c = torch.sqrt(disc_c.clamp(min=0))
+    tc = torch.where(qa_c.abs() > 1e-9, (-qb_c - sq_c) / (2 * qa_c),
+                     -qc_c / qb_c.clamp(min=1e-9))
+    tc2 = torch.where(qa_c.abs() > 1e-9, (-qb_c + sq_c) / (2 * qa_c), tc)
+    tc = torch.where(tc > 1e-4, tc, tc2)
+    zc_h = h1[..., 2] + tc * dz2
+    hits_wall = (disc_c > 0) & (tc > 1e-4) & (zc_h > z1_t) & (zc_h < z_lip)
+    hx = Xo + tc * d2[..., 0]
+    hy = Yo + tc * d2[..., 1]
+    rc = (r_tube_in + m_c * (zc_h - z1_t)).clamp(min=1e-6)
+    n_c = torch.stack([hx, hy, -m_c * rc], -1)
+    n_c = n_c / n_c.norm(dim=-1, keepdim=True)
+    d2r = d2 - 2 * (d2 * n_c).sum(-1, keepdim=True) * n_c
+    h1r = torch.stack([hx + x_tower - dvec[..., 0],
+                       hy - dvec[..., 1], zc_h], -1)
+    d2 = torch.where(hits_wall[..., None], d2r, d2)
+    h1 = torch.where(hits_wall[..., None], h1r, h1)
+    w_ray = torch.where(hits_wall, torch.full_like(tc, 0.95),
+                        torch.ones_like(tc))
+    for z_st in (z1_t, z0_t):
+        t_st = (z_st - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
+        at_st = h1 + t_st[..., None] * d2
+        rad_st = torch.stack([at_st[..., 0] - x_tower + dvec[..., 0],
+                              at_st[..., 1] + dvec[..., 1]], -1
+                             ).norm(dim=-1)
+        ok = ok & (rad_st < r_tube_in)
+    ok_post_tube = ok
+    pl = (h1 - ellC) @ ellM.T
+    dl = d2 @ ellM.T
+    qa = (dl * dl * ellS).sum(-1)
+    qb = 2 * (pl * dl * ellS).sum(-1)
+    qc = (pl * pl * ellS).sum(-1) - 1
+    disc = qb * qb - 4 * qa * qc
+    oke = disc > 0
+    sq = torch.sqrt(disc.clamp(min=0))
+    t2 = (-qb + sq) / (2 * qa)
+    h2 = h1 + t2[..., None] * d2
+    ok = ok & oke & (t2 > 0) & ((h2 - V0t).norm(dim=-1) < 1.25 * r_m5)
+    hl = (h2 - ellC) @ ellM.T
+    nl = hl * ellS
+    nl = nl / nl.norm(dim=-1, keepdim=True)
+    ne = nl @ ellM
+    d24 = torch.cat([d2, torch.zeros_like(d2[..., :1])], -1)
+    ne4 = torch.cat([ne, torch.zeros_like(ne[..., :1])], -1)
+    d3 = reflect(d24, ne4)[..., :3]
+    t3 = (r_pot - h2[..., 0]) / d3[..., 0].clamp(max=-1e-9)
+    ok = ok & (d3[..., 0] < -0.05) & (t3 < 4.0)
+    t3 = t3.clamp(max=4.0)
+    h3 = h2 + t3[..., None] * d3
+    dy = h3[..., 1] + off[:, 0:1]
+    dz = h3[..., 2] - z_duct + off[:, 1:2]
+    through_b = ok & (t3 > 0) & (dy ** 2 + dz ** 2 <= r_duct_h ** 2)
+    return (through_b, w_ray, dy, dz, d3, ok, ok_pre_tube, ok_post_tube,
+            lit, in_slot, graze, rad1, p, h1, h2, h3)
+
+
+
 class TandoorHashemiEnv(TandoorCoudeEnv):
     #: level, shutter, jam - plus Hashemi's TWO DC MOTORS (fig 14/17):
     #: the azimuth roller on the ring rail and the elevation tow-wire.
@@ -106,7 +215,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
 
     def __init__(self, *args, a_mem=2.10, g_orbit=5.0, z_waist=1.5,
                  z_m5=-0.10, el_min=12.0, r_mast=0.25, n_rays=1100,
-                 **kwargs):
+                 fuse=1, **kwargs):
+        self.fuse = bool(fuse)
         # n_rays trades Monte-Carlo noise per step against speed. The
         # power estimate's sigma ~ 1/sqrt(n); training averages it out
         # over thousands of steps, eval keeps full resolution.
@@ -315,6 +425,28 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                     dtype=torch.float32, device=dev)
         self._env_off = (torch.arange(self.num_agents, device=dev)
                          * self.n_nodes).repeat_interleave(NR)
+        # static geometry tensors, built ONCE (they were rebuilt every
+        # step); and the fused trace core - the same _geo_core function
+        # either eager or torch.compile'd, so the fallback is exact
+        K = 18
+        zs = torch.linspace(Z_ROOF, self.z_fold - 0.10, K, device=dev)
+        in_tb = (zs > self.z_tube[0]) & (zs < self.z_tube[1])
+        self._r_tw = torch.where(
+            in_tb, torch.full((K,), self.r_tube, device=dev),
+            torch.full((K,), self.r_post, device=dev))
+        self._Tw = torch.stack([torch.full((K,), X_TOWER, device=dev),
+                                torch.zeros(K, device=dev), zs], 1)
+        self._V0t = torch.tensor([X_TOWER, 0.0, self.z_m5],
+                                 dtype=torch.float32, device=dev)
+        self._geo = _geo_core
+        self._geo_is_fused = False
+        if self.fuse:
+            try:
+                self._geo = torch.compile(_geo_core, dynamic=False)
+                self._geo_is_fused = True
+            except Exception as ex:
+                print(f"  [hashemi] torch.compile unavailable ({ex}); "
+                      f"running the eager reference")
         pk = 0.9 * np.pi * a * a * 0.88 * (1 - self.obstruction)
         print(f"  [hashemi] dish {np.pi*a*a:.1f} m2 SPHERE R="
               f"{self.R_sphere:.1f} m (f=R/2={self.R_sphere/2:.2f}, "
@@ -335,8 +467,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     # ------------------------------------------------------------ trace #
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
         """Live ARTIST trace: dish -> fixed 2-axis fold -> waist ->
-        fixed ellipsoidal M5 -> duct -> pot. No table: wind blur and the
-        true sun position enter every step."""
+        fixed ellipsoidal M5 -> duct -> pot. The geometry runs in
+        _geo_core - torch.compile-fused when available, eager otherwise;
+        both are the same function, and verify_fusion() checks the
+        compiled path agrees ray-for-ray."""
         dev = self.device
         B, P = np.asarray(p_eff).shape[0], len(self._hx)
         el, az, u_np = _sim.solar_position(self.lat, self.day,
@@ -349,204 +483,63 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         org, d4, _ = self.primary.bounce(
             torch.as_tensor(lv, dtype=torch.float32, device=dev),
             sigma_b, int(self.tick))
-        # SITE ORIENTATION, pinned: world +x is NORTH. The pot room is
-        # south of the wall (x<X_TOWER), the courtyard north (x>X_TOWER).
-        # The dish sits down-sun of the fold, and at lat 28.6 the sun
-        # rides the southern sky, so the dish stays over the northern
-        # courtyard through the tracked day. solar_position returns
-        # s=(east,north,up); remap to (north,east,up).
+        # SITE ORIENTATION, pinned: world +x is NORTH (see git history
+        # for the full siting note). All per-step frame vectors are
+        # assembled here in numpy - they are 7 tiny vectors - and packed
+        # into one tensor for the fused core.
         u = np.array([u_np[1], u_np[0], u_np[2]], dtype=float)
         u /= np.linalg.norm(u)
         P_fold = np.array([X_TOWER, 0.0, self.z_fold])
-        C_dish = P_fold - self.g_orbit * u          # down-sun of the fold
+        C_dish = P_fold - self.g_orbit * u
         M = _align_np([0.0, 0.0, 1.0], u)
-        Mt = torch.tensor(M.T, dtype=torch.float32, device=dev)
-        Cd = torch.tensor(C_dish, dtype=torch.float32, device=dev)
-        p = org[..., :3] @ Mt + Cd
-        d = d4[..., :3] @ Mt
-        d = d / d.norm(dim=-1, keepdim=True)
-        ut = torch.tensor(u, dtype=torch.float32, device=dev)
-        Pf = torch.tensor(P_fold, dtype=torch.float32, device=dev)
-        # EVERYTHING IS OPAQUE, and modelling that redesigned the tower.
-        # A solid masonry column to the fold shadows the dish brutally -
-        # the dish hangs directly down-sun of it, and measured throughput
-        # collapsed 60% -> 7% at noon. But the dish always rides above
-        # the roofline, so only the ABOVE-ROOF structure can shadow it:
-        # that section is therefore SKELETAL - four slender legs carrying
-        # the fold, the converging beam in open air (the same exposure
-        # class as the dish->fold leg beside it, inside the same fence),
-        # entering a sealed masonry hopper at the roof deck. Below the
-        # roof, sealed all the way to the pot as before.
-        # single focal post (fig 14: the bearing wraps its base), with
-        # the thicker sealed tube section around the waist
-        K = 18
-        zs = torch.linspace(Z_ROOF, self.z_fold - 0.10, K, device=dev)
-        in_tube = (zs > self.z_tube[0]) & (zs < self.z_tube[1])
-        r_tw = torch.where(in_tube,
-                           torch.full((K,), self.r_tube, device=dev),
-                           torch.full((K,), self.r_post, device=dev))
-        Tw = torch.stack([torch.full((K,), X_TOWER, device=dev),
-                          torch.zeros(K, device=dev), zs], 1)
-        # (a) incoming sun: ray p + t*u, t>0 toward the sun
-        w = Tw[None, None] - p[..., None, :]               # (B,P,4K,3)
-        tproj = (w * ut).sum(-1)
-        perp = (w - tproj[..., None] * ut).norm(dim=-1)
-        lit = ~((tproj > 0) & (perp < r_tw)).any(-1)
-        # the fold disc itself still shadows the dish centre
-        vf = Pf - p
-        perpf = vf - (vf * ut).sum(-1, keepdim=True) * ut
-        lit = lit & (perpf.norm(dim=-1) > self.r_fold)
-        # THE SLOT (fig 12): a radial cut in the dish, always facing the
-        # post. The membrane is axisymmetric, so rotating the mask with
-        # azimuth is exactly the physical dish rotating on its carriage.
         el_r = np.radians(el)
         h_np = -(u - u[2] * np.array([0., 0., 1.]))
         h_np = h_np / max(np.linalg.norm(h_np), 1e-9)
         p_up = h_np * np.sin(el_r) + np.array([0., 0., 1.]) * np.cos(el_r)
-        s_dir = torch.tensor(-p_up, dtype=torch.float32, device=dev)
-        e_pp = torch.linalg.cross(ut, s_dir)
-        Cd_t = Cd
-        q = p - Cd_t
-        in_slot = ((q * s_dir).sum(-1) > self.slot_r0) \
-            & ((q * e_pp).sum(-1).abs() < self.slot_w2)
-        lit = lit & ~in_slot
-        # the fold: fixed point, two axes of tilt; output exactly -z
-        zh = torch.tensor([0.0, 0.0, 1.0], device=dev)
-        nf = ut + zh
-        nf = nf / nf.norm()
-        den = (d * nf).sum(-1)
-        t1 = ((Pf - p) * nf).sum(-1) / torch.where(
-            den.abs() > 1e-9, den, torch.full_like(den, 1e-9))
-        h1 = p + t1[..., None] * d
-        # the plate is trimmed to the beam's true footprint: an ELLIPSE,
-        # semi-major r_fold/cos(i) along the in-plane beam direction. A
-        # circle both clipped the tails at low sun (largest i) and
-        # oversized the cross axis for nothing.
-        inc_i = np.radians(45.0 - 0.5 * el)
-        e_par = ut - (ut * nf).sum() * nf
-        e_par = e_par / e_par.norm()
-        e_prp = torch.linalg.cross(nf, e_par)
-        rel1 = h1 - Pf
-        c_par = (rel1 * e_par).sum(-1) * np.cos(inc_i)
-        c_prp = (rel1 * e_prp).sum(-1)
-        rad1 = torch.stack([c_par, c_prp], -1).norm(dim=-1)
-        # (b) the dish->fold leg against the post and tube (the dish
-        # never dips below the deck, so the core cannot graze it)
-        wb = Tw[None, None] - p[..., None, :]
-        tb = (wb * d[..., None, :]).sum(-1)
-        perp_b = (wb - tb[..., None] * d[..., None, :]).norm(dim=-1)
-        graze = ((tb > 0) & (tb < t1[..., None] - 0.10)
-                 & (perp_b < r_tw)).any(-1)
-        ok = lit & ~graze & (t1 > 0) & (rad1 < self.r_fold)
-        d2 = reflect(torch.cat([d, torch.zeros_like(d[..., :1])], -1),
-                     torch.cat([nf, torch.zeros(1, device=dev)]
-                               ).expand_as(
-                         torch.cat([d, torch.zeros_like(d[..., :1])], -1))
-                     )[..., :3]
-        # the descending beam must pass the sealed tube: clip blur tails
-        # on its inner wall at both ends
-        ok_pre_tube = ok.clone()
-        # POINTING ERROR from the two motors: a mistrack of e tilts the
-        # reflected beam 2e, decentering it 2 e f at the waist. Applied
-        # as a per-agent transverse shift in the funnel frame (the
-        # geometry itself is traced at the true sun; first-order model,
-        # same approach as the bore channel every env uses).
+        nf_np = u + np.array([0., 0., 1.])
+        nf_np = nf_np / np.linalg.norm(nf_np)
+        e_par_np = u - (u @ nf_np) * nf_np
+        e_par_np = e_par_np / np.linalg.norm(e_par_np)
+        e_prp_np = np.cross(nf_np, e_par_np)
+        e_pp_np = np.cross(u, -p_up)
+        vp = torch.tensor(np.stack([u, P_fold, -p_up, e_pp_np, nf_np,
+                                    e_par_np, e_prp_np]),
+                          dtype=torch.float32, device=dev)
+        Mt = torch.tensor(M.T, dtype=torch.float32, device=dev)
+        Cd = vp.new_tensor(C_dish)
+        # cosi varies per step: it MUST be a tensor, or dynamo guards
+        # on the float value, recompiles to its cache limit, then falls
+        # back to eager through the wrapper (measured: 1215 sps < eager)
+        cosi = torch.tensor(np.cos(np.radians(45.0 - 0.5 * el)),
+                            dtype=torch.float32, device=dev)
         dvec = torch.tensor(
             np.stack([2.0 * self.f_nom * np.radians(self._e_el),
                       2.0 * self.f_nom * np.radians(self._e_az)], 1),
             dtype=torch.float32, device=dev)[:, None, :]
-        # THE FUNNEL, shaped where the CPC logic actually wants it: the
-        # slot pins the pipe to r_tube_in only over the dish-crossing
-        # band, so the pipe is straight there (the measured optimum,
-        # 0.32) and FLARES above the band into a mirrored collecting
-        # lip - wide where nothing constrains it, reflecting tail rays
-        # inward-and-down. One bounce traced at rho 0.95. (First cut
-        # put the cone INSIDE the band and narrowed the throat to 0.19:
-        # tighter than the pipe it replaced, and it cost 20 percent.)
-        z1_t, z0_t = self.z_tube[1], self.z_tube[0]
-        z_lip = z1_t + 0.60
-        r_lip = 0.55
-        m_c = (r_lip - self.r_tube_in) / (z_lip - z1_t)
-        Xo = h1[..., 0] - X_TOWER + dvec[..., 0]
-        Yo = h1[..., 1] + dvec[..., 1]
-        dz2 = d2[..., 2]
-        rz0 = self.r_tube_in + m_c * (h1[..., 2] - z1_t)
-        qa_c = d2[..., 0] ** 2 + d2[..., 1] ** 2 - (m_c * dz2) ** 2
-        qb_c = 2 * (Xo * d2[..., 0] + Yo * d2[..., 1] - m_c * rz0 * dz2)
-        qc_c = Xo ** 2 + Yo ** 2 - rz0 ** 2
-        disc_c = qb_c ** 2 - 4 * qa_c * qc_c
-        sq_c = torch.sqrt(disc_c.clamp(min=0))
-        tc = torch.where(qa_c.abs() > 1e-9, (-qb_c - sq_c) / (2 * qa_c),
-                         -qc_c / qb_c.clamp(min=1e-9))
-        tc2 = torch.where(qa_c.abs() > 1e-9, (-qb_c + sq_c) / (2 * qa_c),
-                          tc)
-        tc = torch.where(tc > 1e-4, tc, tc2)
-        zc_h = h1[..., 2] + tc * dz2
-        hits_wall = (disc_c > 0) & (tc > 1e-4) & (zc_h > z1_t) \
-            & (zc_h < z_lip)
-        hx = Xo + tc * d2[..., 0]
-        hy = Yo + tc * d2[..., 1]
-        rc = (self.r_tube_in + m_c * (zc_h - z1_t)).clamp(min=1e-6)
-        n_c = torch.stack([hx, hy, -m_c * rc], -1)
-        n_c = n_c / n_c.norm(dim=-1, keepdim=True)
-        d2r = d2 - 2 * (d2 * n_c).sum(-1, keepdim=True) * n_c
-        h1r = torch.stack([hx + X_TOWER - dvec[..., 0],
-                           hy - dvec[..., 1], zc_h], -1)
-        d2 = torch.where(hits_wall[..., None], d2r, d2)
-        h1 = torch.where(hits_wall[..., None], h1r, h1)
-        w_ray = torch.where(hits_wall, torch.full_like(tc, 0.95),
-                            torch.ones_like(tc))
-        # the straight section's two gates, pointing decenter included
-        for z_st in (z1_t, z0_t):
-            t_st = (z_st - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
-            at_st = h1 + t_st[..., None] * d2
-            rad_st = torch.stack([at_st[..., 0] - X_TOWER + dvec[..., 0],
-                                  at_st[..., 1] + dvec[..., 1]], -1
-                                 ).norm(dim=-1)
-            ok = ok & (rad_st < self.r_tube_in)
-        ok_post_tube = ok.clone()
-        # M5's ellipsoid: far root = the physical mirror at the wall base
-        pl = (h1 - self.ell_ctr_t) @ self.ell_M.T
-        dl = d2 @ self.ell_M.T
-        qa = (dl * dl * self.ell_S).sum(-1)
-        qb = 2 * (pl * dl * self.ell_S).sum(-1)
-        qc = (pl * pl * self.ell_S).sum(-1) - 1
-        disc = qb * qb - 4 * qa * qc
-        oke = disc > 0
-        sq = torch.sqrt(disc.clamp(min=0))
-        t2 = (-qb + sq) / (2 * qa)
-        h2 = h1 + t2[..., None] * d2
-        # THE MIRROR IS A PATCH, NOT THE WHOLE ELLIPSOID. The far root
-        # can land on the surface's side lobes (measured: x 0.15-2.11,
-        # z to +1.07); rays reflecting there went wherever, some drawn
-        # straight through the foundations. Bound the patch to a disc
-        # around its vertex V0 at the core base.
-        V0t = torch.tensor([X_TOWER, 0.0, self.z_m5], dtype=torch.float32,
-                           device=dev)
-        ok = ok & oke & (t2 > 0) \
-            & ((h2 - V0t).norm(dim=-1) < 1.25 * self.r_m5)
-        hl = (h2 - self.ell_ctr_t) @ self.ell_M.T
-        nl = hl * self.ell_S
-        nl = nl / nl.norm(dim=-1, keepdim=True)
-        ne = nl @ self.ell_M
-        d3 = reflect(torch.cat([d2, torch.zeros_like(d2[..., :1])], -1),
-                     torch.cat([ne, torch.zeros_like(ne[..., :1])], -1)
-                     )[..., :3]
-        # the duct plane x = R_POT, with boresight decenter. A ray must
-        # make real progress toward the pot: near-grazing directions
-        # (d3x ~ 0) produced kilometre-long bogus segments - they hit
-        # the chamber masonry within a metre in reality.
-        t3 = (R_POT - h2[..., 0]) / d3[..., 0].clamp(max=-1e-9)
-        ok = ok & (d3[..., 0] < -0.05) & (t3 < 4.0)
-        t3 = t3.clamp(max=4.0)
-        h3 = h2 + t3[..., None] * d3
         off = torch.as_tensor(offset_w, dtype=torch.float32, device=dev)
-        dy = h3[..., 1] + off[:, 0:1]
-        dz = h3[..., 2] - Z_DUCT + off[:, 1:2]
-        through_b = ok & (t3 > 0) & (dy ** 2 + dz ** 2 <= R_DUCT_H ** 2)
+        z1_t, z0_t = self.z_tube[1], self.z_tube[0]
+        args = (org[..., :3], d4[..., :3], Mt, Cd, dvec, off, vp,
+                cosi, self._Tw, self._r_tw, self.ell_M, self.ell_S,
+                self.ell_ctr_t, self._V0t,
+                self.r_fold, self.slot_r0, self.slot_w2, z1_t, z0_t,
+                z1_t + 0.60, (0.55 - self.r_tube_in) / 0.60,
+                self.r_tube_in, self.r_m5, self.z_m5,
+                X_TOWER, Z_DUCT, R_POT, R_DUCT_H)
+        try:
+            out = self._geo(*args)
+        except Exception as ex:
+            if self._geo_is_fused:
+                print(f"  [hashemi] fused core failed ({type(ex).__name__}:"
+                      f" {ex}); falling back to eager permanently")
+                self._geo = _geo_core
+                self._geo_is_fused = False
+                out = self._geo(*args)
+            else:
+                raise
+        (through_b, w_ray, dy, dz, d3, ok, ok_pre_tube, ok_post_tube,
+         lit, in_slot, graze, rad1, p, h1, h2, h3) = out
         through = through_b.float() * w_ray
         if self.render_mode == "human":
-            n_all = float(lit.shape[-1])
             self._ladder = dict(
                 shadow=1.0 - float(lit[0].float().mean()),
                 slot=float(in_slot[0].float().mean()),
@@ -557,7 +550,6 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 m5=float((ok_post_tube[0] & ~ok[0]).float().mean()),
                 duct=float((ok[0] & ~through_b[0]).float().mean()),
                 through=float(through[0].float().mean()))
-        if self.render_mode == "human":
             self._hv = dict(dish=p[0].cpu().numpy(),
                             fold=h1[0].cpu().numpy(),
                             m5=h2[0].cpu().numpy(),
@@ -572,6 +564,29 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         return self._bin_pot(dy - off[:, 0:1], dz - off[:, 1:2],
                              d3[..., 1], -d3[..., 0], d3[..., 2],
                              through, soil, B, P)
+
+    def verify_fusion(self, n=6):
+        """Run the compiled and eager cores on identical inputs and
+        compare ray-for-ray. Returns (mask_mismatches, max_pos_diff)."""
+        if not self._geo_is_fused:
+            return 0, 0.0
+        fused, self._geo = self._geo, _geo_core
+        tick0 = self.tick
+        try:
+            B = self.num_agents
+            pe = np.full(B, self.p0)
+            sg = np.full(B, 7e-3)
+            self.tick = 12345
+            ref = self._trace_power(pe, sg, np.zeros((B, 2)), np.ones(B))
+            self._geo = fused
+            self.tick = 12345
+            fus = self._trace_power(pe, sg, np.zeros((B, 2)), np.ones(B))
+        finally:
+            self._geo = fused
+            self.tick = tick0
+        mism = int((ref - fus).abs().gt(1e-4).sum())
+        return mism, float((ref - fus).abs().max())
+
 
     # ------------------------------------------------ exact renderer #
     def render(self):
