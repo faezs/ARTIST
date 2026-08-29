@@ -424,6 +424,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if wrapped:
             if self.day_random:
                 self.day = int(self.rng.integers(1, 366))
+            if self.lat_random:
+                self.lat = float(self.rng.uniform(15.0, 35.0))
             # the episode wrapped to the next morning: the crew reparks
             # the carriage overnight (hours of slack at full slew)
             el1, az1, _ = _sim.solar_position(self.lat, self.day,
@@ -622,6 +624,20 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             dtype=torch.float32, device=dev)
         self._geo = _geo_core
         self._geo_is_fused = False
+        # THE MEGAKERNEL: on MPS the whole trace runs as one Metal
+        # kernel, one thread per ray, registers only. _geo_core stays
+        # the reference implementation; verify_megakernel() compares
+        # them on identical inputs. Physics changes go: _geo_core ->
+        # verify_fusion -> transcribe to MSL -> verify_megakernel.
+        self._metal = None
+        if dev.type == "mps":
+            try:
+                from tandoor_metal_kernel import MetalGeo
+                self._metal = MetalGeo()
+                print("  [hashemi] megakernel active (Metal, 1 thread/ray)")
+            except Exception as ex:
+                print(f"  [hashemi] megakernel unavailable ({ex}); "
+                      f"using the fused graph")
         if self.fuse:
             try:
                 self._geo = torch.compile(_geo_core, dynamic=False)
@@ -706,6 +722,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         args = (self._pts_l, self._nrm_l, lv_t, du, de, upick, sigb_t,
                 self._Acan, Mt, Cd, dvec, off, vp,
                 sc, self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
+        if self._metal is not None and self.render_mode != "human":
+            soil_t = torch.as_tensor(np.asarray(soil),
+                                     dtype=torch.float32, device=dev)
+            thr, out6, per = self._metal(*args, self._ray_pw, soil_t,
+                                         self.n_nodes)
+            return per.cpu()
         try:
             out = self._geo(*args)
         except Exception as ex:
@@ -746,6 +768,32 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         return self._bin_pot(dy - off[:, 0:1], dz - off[:, 1:2],
                              d3[..., 1], -d3[..., 0], d3[..., 2],
                              through, soil, B, P)
+
+    def verify_megakernel(self):
+        """Megakernel vs the eager reference core on identical inputs.
+        Returns (through-mask mismatches, max |diff| on jointly-through
+        rays' duct coordinates and directions)."""
+        if self._metal is None:
+            return 0, 0.0
+        gstate = self._gen.get_state()
+        tick0, rm0 = self.tick, self.render_mode
+        B = self.num_agents
+        pe, sg = np.full(B, self.p0), np.full(B, 7e-3)
+        try:
+            self.render_mode = None
+            metal, self._metal = self._metal, None
+            geo0, self._geo = self._geo, _geo_core
+            self.tick = 4242
+            ref = self._trace_power(pe, sg, np.zeros((B, 2)), np.ones(B))
+            self._metal = metal
+            self._gen.set_state(gstate)
+            self.tick = 4242
+            fus = self._trace_power(pe, sg, np.zeros((B, 2)), np.ones(B))
+        finally:
+            self._metal, self._geo = metal, geo0
+            self.tick, self.render_mode = tick0, rm0
+        mism = int((ref - fus).abs().gt(1e-3).sum())
+        return mism, float((ref - fus).abs().max())
 
     def verify_fusion(self, n=6):
         """Run the compiled and eager cores on identical inputs and
