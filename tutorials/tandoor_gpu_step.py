@@ -47,6 +47,9 @@ class GpuState:
         self.el_m = f(e.el_m); self.az_m = f(e.az_m)
         self.lost_ct = torch.as_tensor(e._lost_ct, device=dev)
         self.belt_prev = f(e._belt_prev)
+        self.dni = f(getattr(e, "dni", np.full(e.num_agents, 700.0)))
+        self.e_az_prev = f(e._e_az)
+        self.e_el_prev = f(e._e_el)
         self.node_area = f(e.node_area)[None, :]
         self.node_heat_cap = f(e.node_heat_cap)
         self.r_soil = f(e.r_soil) if np.ndim(e.r_soil) else float(e.r_soil)
@@ -80,6 +83,8 @@ def gpu_step(env, actions):
     el0s, az0s, _ = _sim.solar_position(env.lat, env.day,
                                         float(env.t_solar[0]))
     az0d = np.degrees(az0s)
+    # potential BEFORE this step's motor action (see the numpy path)
+    pot_prev = (S.e_az_prev.abs() + S.e_el_prev.abs()).clamp(max=4.0)
     r_az = (a[:, 3].clamp(0, 6).float() - 3) / 3.0 * env.RATE_AZ
     r_el = (a[:, 4].clamp(0, 6).float() - 3) / 3.0 * env.RATE_EL
     S.az_m = S.az_m + r_az * dt + 0.02 * S.n(B)
@@ -87,7 +92,6 @@ def gpu_step(env, actions):
         env.el_min_h - 2.0, env.el_max_h + 1.0)
     e_el = S.el_m - el0s
     e_az = (S.az_m - az0d) * float(np.cos(np.radians(el0s)))
-    pot_prev = (e_az.abs() + e_el.abs()).clamp(max=4.0)
 
     # ---- polar step: heads, jam, servo
     thr_g = 3.5 if env.wide_shutter else 0.5
@@ -97,8 +101,7 @@ def gpu_step(env, actions):
     jamming = (~S.jammed) & want_jam
     S.jammed = want_jam.clone()
     S.form_time = S.form_time + (~S.jammed).float()
-    bias = 0.05 * (getattr(S, "dni", torch.zeros(B, device=dev))
-                   - 400.0) / 10.0
+    bias = 0.05 * (S.dni - 400.0) / 10.0
     S.p_dist = (S.p_dist + (bias - S.p_dist) / 900.0 * dt
                 + 1.2 * S.n(B)).clamp(-40, 60)
     soft = ~S.jammed
@@ -132,6 +135,7 @@ def gpu_step(env, actions):
         + 1.8*np.sqrt(2*dt/600.0) * S.n(B)
     wind = ((base_w + S.wind_g) * env.wall_shelter).clamp(0, 25)
     S.stowed = (S.stowed | (wind > 16.0)) & ~(wind < 14.0)
+    S.wind = wind
     el0 = el_deg
     cosf = env._cosine(decl) if el0 > 8.0 else 0.0
     dni = clear * torch.exp(S.cloud) * float(el0 > 8.0) * (~S.stowed).float()
@@ -219,6 +223,7 @@ def gpu_step(env, actions):
     e_az2 = (S.az_m - az0d) * float(np.cos(np.radians(el0s)))
     pot_now = (e_az2.abs() + e_el2.abs()).clamp(max=4.0)
     rew = rew + 0.1 * (pot_prev - pot_now)
+    S.e_az_prev, S.e_el_prev = e_az2, e_el2
     lost = (e_az2.abs() + e_el2.abs()) > 3.0
     S.lost_ct = torch.where(lost, S.lost_ct + 1,
                             torch.zeros_like(S.lost_ct))

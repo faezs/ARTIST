@@ -369,6 +369,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         el0, az0, _ = _sim.solar_position(self.lat, self.day,
                                           float(self.t_solar[0]))
         az0 = np.degrees(az0)
+        # potential BEFORE this step's motor action: the previous
+        # step's pointing error. (The zero-noise trajectory harness
+        # caught the original placement: pot_prev was computed AFTER the
+        # motor update and pot_now after super().step() from the SAME
+        # unchanged arrays - the shaping term had been identically zero
+        # through every training run so far.)
+        pot_prev = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
         r_az = (np.clip(a[:, 3], 0, 6) - 3) / 3.0 * self.RATE_AZ
         r_el = (np.clip(a[:, 4], 0, 6) - 3) / 3.0 * self.RATE_EL
         self.az_m = self.az_m + r_az * self.dt \
@@ -389,7 +396,6 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # provide: measured at 14M steps of training, a random policy
         # loses the sun in ~4 steps, power stays 0, every episode
         # returns the same -172, and approx_kl sits at 0.000.
-        pot_prev = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
         out = super().step(a[:, :3])
         pot_now = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
         wrapped = float(self.t_solar[0]) < t_before - 1.0
@@ -426,6 +432,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                        self.el_min_h, self.el_max_h)
                 self.az_m[i] = np.degrees(az1) + self.rng.normal(0, 0.3)
             self._lost_ct[cut] = 0
+            # obs were assembled inside super().step BEFORE these
+            # resets: rebuild for the cut agents so a truncation step
+            # returns the new episode's first obs, matching the base
+            # env's own day-over convention (autoreset) and the GPU
+            # path. Caught by the zero-noise trajectory harness.
+            self.observations[cut] = self._obs()[cut]
         if wrapped:
             if self.day_random:
                 self.day = int(self.rng.integers(1, 366))
@@ -755,7 +767,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                          S.dni / 1000.0], 1),
             S.T / 1000.0,
             torch.stack([(S.p_act - self.p0) / 60.0, S.shutter,
-                         torch.zeros_like(S.shutter),
+                         S.wind / 10.0,
                          (S.bore[:, 0] / 0.1).clamp(-2, 2),
                          (S.bore[:, 1] / 0.1).clamp(-2, 2),
                          (S.load_timer / 45.0).clamp(0, 2)], 1),
