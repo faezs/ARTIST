@@ -105,7 +105,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     RATE_EL = 0.025    # tow-wire slew [deg/s] at full command
 
     def __init__(self, *args, a_mem=2.10, g_orbit=5.0, z_waist=1.5,
-                 z_m5=-0.10, el_min=12.0, r_mast=0.25, **kwargs):
+                 z_m5=-0.10, el_min=12.0, r_mast=0.25, n_rays=1100,
+                 **kwargs):
+        # n_rays trades Monte-Carlo noise per step against speed. The
+        # power estimate's sigma ~ 1/sqrt(n); training averages it out
+        # over thousands of steps, eval keeps full resolution.
+        self.n_rays = int(n_rays)
         self.g_orbit = float(g_orbit)
         self.z_waist = float(z_waist)
         self.z_m5 = float(z_m5)
@@ -290,7 +295,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
 
         # -- ray set + ARTIST primary
         rng = np.random.default_rng(7)
-        NR = 1100
+        NR = self.n_rays
         rr = np.sqrt(rng.uniform((0.05 * a) ** 2, (0.985 * a) ** 2, NR))
         th = rng.uniform(0, 2 * np.pi, NR)
         self._hx, self._hy = rr * np.cos(th), rr * np.sin(th)
