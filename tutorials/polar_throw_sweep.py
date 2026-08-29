@@ -21,6 +21,7 @@ def cold(B=16, seeds=2, steps=1922):
                                     device="cpu")
             env.reset(seed=sd)
         env.T[:] = 350.0 + env.rng.uniform(-15, 15, env.T.shape)
+        env.equilibrate_wall()
         env._belt_prev = env.T[:, : env.n_belt].mean(1).copy()
         rot, pin = [], []
         for _ in range(steps):

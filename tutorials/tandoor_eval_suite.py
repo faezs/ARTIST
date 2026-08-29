@@ -38,7 +38,15 @@ def make_env(seed, **kw):
         e = TandoorHashemiEnv(num_agents=kw.pop("agents", 16), seed=seed,
                               wide_shutter=1, device="cpu", **kw)
         e.reset(seed=seed)
-    e.T[:] = 350.0 + e.rng.uniform(-15, 15, e.T.shape)
+    # eval from the honest SEASONED operating state (season_sim.py,
+    # 45-day carried cycle, spherical wall): morning face ~487 K
+    # equilibrated, halo ~405 K. Stone cold is a commissioning
+    # scenario, not an informative daily benchmark - the honest wall
+    # cannot reach the band from 350 K in one sun-day.
+    e.T[:] = 487.0 + e.rng.uniform(-15, 15, e.T.shape)
+    e.T_sub = e.T.copy()
+    e.T_deep = e.T.copy()
+    e.T_halo[:] = 405.0
     e._belt_prev = e.T[:, :e.n_belt].mean(1).copy()
     return e
 
@@ -177,7 +185,12 @@ def main():
     rots = np.array([r[0] for r in rr]); rets = np.array([r[1] for r in rr])
     ratio = rets.sum() / max(rots.sum(), 1e-9)
     print(f"  return/rotis ratio {ratio:.2f} (clean ~ 5.0-5.3)")
-    if len(seeds) > 2:
+    if rots.sum() == 0:
+        print("  WARNING: zero rotis in every seed - return is 100%"
+              " shaping and the alignment monitor below is blind."
+              " Check the thermal start state / band reachability"
+              " before trusting anything else in this suite.")
+    if len(seeds) > 2 and rots.std() > 0 and rets.std() > 0:
         c = np.corrcoef(rots, rets)[0, 1]
         print(f"  corr(return, rotis) across seeds: {c:+.3f}")
 

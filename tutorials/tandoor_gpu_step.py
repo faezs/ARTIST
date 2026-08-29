@@ -19,7 +19,7 @@ Physics changes land in the numpy step first, then here.
 import numpy as np
 import torch
 
-SIGMA = 5.670374419e-8
+SIGMA = 5.67e-8  # match tandoor_rl_env exactly
 T_AMB = 300.0
 R_MOUTH = 0.26
 
@@ -52,7 +52,12 @@ class GpuState:
         self.e_el_prev = f(e._e_el)
         self.node_area = f(e.node_area)[None, :]
         self.node_heat_cap = f(e.node_heat_cap)
-        self.r_soil = f(e.r_soil) if np.ndim(e.r_soil) else float(e.r_soil)
+        self.T_sub = f(e.T_sub); self.T_deep = f(e.T_deep)
+        self.cap_sub = f(e.cap_sub); self.cap_deep = f(e.cap_deep)
+        self.g01 = f(e.g01); self.g12 = f(e.g12); self.g2s = f(e.g2s)
+        self.T_halo = f(e.T_halo)
+        self.g_halo_out = float(e.g_halo_out)
+        self.c_halo = float(e.c_halo)
         self.level_frac = f(e.level_frac)
         self.zero_noise = False
 
@@ -178,7 +183,14 @@ def gpu_step(env, actions):
                       torch.full_like(S.load_timer, env.lid_leak))
     q_ap = 0.75 * SIGMA * (t_cav4.squeeze(1) - T_AMB**4) \
         * (np.pi * R_MOUTH**2) * lid
-    q = q_solar + q_exch - (T - T_AMB) / S.r_soil
+    q01 = S.g01 * (T - S.T_sub)
+    q12 = S.g12 * (S.T_sub - S.T_deep)
+    q2s = S.g2s * (S.T_deep - S.T_halo[:, None])
+    q = q_solar + q_exch - q01
+    S.T_sub = S.T_sub + (q01 - q12) * dt / S.cap_sub
+    S.T_deep = S.T_deep + (q12 - q2s) * dt / S.cap_deep
+    S.T_halo = S.T_halo + (
+        q2s.sum(1) - S.g_halo_out * (S.T_halo - T_AMB)) * dt / S.c_halo
     q[:, env.n_belt + 2] -= q_ap
     belt_T = T[:, :env.n_belt]
     q_b = S.has_bread.float() * (25.0*0.05) * (belt_T - 400.0)

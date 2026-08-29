@@ -64,6 +64,7 @@ def run(name, cls, seeds, B, mode):
         env.reset(seed=sd)
         env.T[:] = (350.0 if mode == "cold" else 580.0) \
             + env.rng.uniform(-15, 15, env.T.shape)
+        env.equilibrate_wall()
         env._belt_prev = env.T[:, : env.n_belt].mean(1).copy()
         rotis, scorch, pin, n = [], [], [], 0
         for _ in range(1922):

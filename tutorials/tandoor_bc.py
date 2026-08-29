@@ -166,6 +166,7 @@ def main():
     for mode, t0 in (("cold", 350.0), ("warm", 580.0)):
         env.reset(seed=11)
         env.T[:] = t0 + env.rng.uniform(-15, 15, env.T.shape)
+        env.equilibrate_wall()
         env._belt_prev = env.T[:, :8].mean(1).copy()
         o = env._obs()
         st = dict(lstm_h=torch.zeros(32, 128), lstm_c=torch.zeros(32, 128))

@@ -362,7 +362,15 @@ class TandoorPolarEnv(TandoorEnv):
         lid = np.where(self.load_timer < 4.0, 1.0, self.lid_leak)
         q_ap = 0.75 * SIGMA * (t_cav4.squeeze(1) - T_AMB**4) \
             * (np.pi * R_MOUTH**2) * lid
-        q = q_solar + q_exch - (T - T_AMB) / self.r_soil
+        q01 = self.g01 * (T - self.T_sub)
+        q12 = self.g12 * (self.T_sub - self.T_deep)
+        q2s = self.g2s * (self.T_deep - self.T_halo[:, None])
+        q = q_solar + q_exch - q01
+        self.T_sub = self.T_sub + (q01 - q12) * self.dt / self.cap_sub
+        self.T_deep = self.T_deep + (q12 - q2s) * self.dt / self.cap_deep
+        self.T_halo = self.T_halo + (
+            q2s.sum(1) - self.g_halo_out * (self.T_halo - T_AMB)
+        ) * self.dt / self.c_halo
         q[:, self.n_belt + 2] -= q_ap
         belt_T = T[:, : self.n_belt]
         q_b = self.has_bread * (25.0 * 0.05) * (belt_T - 400.0)
@@ -418,6 +426,12 @@ class TandoorPolarEnv(TandoorEnv):
         self.rewards[:] = rew.astype(np.float32)
         infos = []
         if day_over.any():
+            # end-of-day stuff-the-oven closed: a loaf loaded in the
+            # last minutes was paid +0.3 but can never cook - charge
+            # the bonus back when the day wipes it
+            inflight = 0.3 * self.has_bread[day_over].sum(1)
+            self.rewards[day_over] -= inflight.astype(np.float32)
+            self.ep_return[day_over] -= inflight
             infos.append({
                 "rotis_per_day": float(self.ep_rotis[day_over].mean()),
                 "scorched": float(self.ep_scorch[day_over].mean()),
@@ -429,11 +443,16 @@ class TandoorPolarEnv(TandoorEnv):
             })
             for i in np.nonzero(day_over)[0]:
                 self.t_solar[i] = 8.0
-                if self.rng.random() < self.warm_frac:
-                    self.T[i] = self.rng.uniform(540, 620)
+                warm_i = self.rng.random() < self.warm_frac
+                if warm_i:
+                    self.T[i] = self.rng.uniform(465, 505)
                 else:
                     self.T[i] = 350.0
                 self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
+                self.T_sub[i] = self.T[i].copy()
+                self.T_deep[i] = self.T[i].copy()
+                self.T_halo[i] = (self.rng.uniform(395, 415)
+                                  if warm_i else 300.0)
                 self._belt_prev[i] = self.T[i, : self.n_belt].mean()
                 self.p_set[i] = self.p_act[i] = self.p0
                 self.f_locked[i] = self.p0

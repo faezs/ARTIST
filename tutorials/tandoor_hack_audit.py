@@ -25,6 +25,7 @@ def run(cls, strat, agents=8, seed=1, mode="cold"):
     env.reset(seed=seed)
     env.T[:] = (350.0 if mode == "cold" else 580.0) + \
         env.rng.uniform(-15, 15, env.T.shape)
+    env.equilibrate_wall()
     env._belt_prev = env.T[:, : env.n_belt].mean(1).copy()
     R, rot, loads = 0.0, 0.0, 0
     prev_bread = np.zeros((agents, env.n_belt), dtype=bool)
@@ -90,6 +91,7 @@ for en, cls in ENVS.items():
         env = cls(num_agents=6, seed=1, wide_shutter=1, device="cpu")
         env.reset(seed=1); env.T[:] = 350.0 + env.rng.uniform(-15, 15,
                                                               env.T.shape)
+        env.equilibrate_wall()
         env._belt_prev = env.T[:, : env.n_belt].mean(1).copy()
         R, rot = 0.0, 0.0
         for t in range(1922):

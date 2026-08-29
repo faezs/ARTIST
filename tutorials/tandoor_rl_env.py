@@ -127,7 +127,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.n_nodes = self.n_belt + 3
         # obs: [sin t, cos t, dni] + node temps + [pressure lvl, shutter,
         # wind, boresight qx, boresight qy] + bread progress + [p_in]
-        obs_dim = (3 + self.n_nodes + 6 + self.n_belt + 1
+        obs_dim = (3 + self.n_nodes + 3 + 6 + self.n_belt + 1
                    + self.N_EXTRA_OBS)
         self.single_observation_space = gymnasium.spaces.Box(
             low=-4, high=4, shape=(obs_dim,), dtype=np.float32
@@ -396,6 +396,36 @@ class TandoorEnv(pufferlib.PufferEnv):
         # liner reaches the cooking band in tens of minutes on ~5 kW, at
         # the price of less thermal buffering when clouds pass.
         self.node_heat_cap = self.node_area * 1900 * 880 * 0.015
+        # THE WALL BEHIND THE LINER (thermal audit, thermal_audit.py):
+        # the lumped 1.5 cm face + steady U=0.7 drain reached the cook
+        # band in 0.78 h where true 1-D conduction takes 3.80 h - the
+        # charge phase was ~5x too fast, inflating every cold-start
+        # roti count. Model: face (the 1.5 cm liner above) + 5 cm
+        # substrate + 10 cm deep clay + a soil halo shell, discretized
+        # as SPHERICAL shells of the equivalent buried cavity
+        # (r_eff = sqrt(A_tot/4pi)): exact 4 pi k/(1/ra - 1/rb) shell
+        # conductances and true shell volumes - planar layers would
+        # understate deep storage ~40% and the far field is a 3-D
+        # spreading resistance, not a slab to ambient. The halo
+        # (~12 MJ/K, tau ~2 weeks) is the transient 3-D soil term: a
+        # fresh pit loses ~2x what a seasoned one does.
+        K_CLAY, K_SOIL, RC = 0.9, 0.5, 1900 * 880
+        a_tot = float(self.node_area.sum())
+        r0 = float(np.sqrt(a_tot / (4 * np.pi)))
+        rf1, rf2, rf3 = r0 + 0.015, r0 + 0.065, r0 + 0.165
+        r_halo = rf3 + 0.55
+        shell = lambda ra, rb: (4/3) * np.pi * (rb**3 - ra**3)
+        gsph = lambda k, ra, rb: 4 * np.pi * k / (1/ra - 1/rb)
+        frac = self.node_area / a_tot
+        self.cap_sub = RC * shell(rf1, rf2) * frac
+        self.cap_deep = RC * shell(rf2, rf3) * frac
+        self.g01 = gsph(K_CLAY, r0 + 0.0075, r0 + 0.040) * frac
+        self.g12 = gsph(K_CLAY, r0 + 0.040, r0 + 0.115) * frac
+        self.g2s = frac / (1/gsph(K_CLAY, r0 + 0.115, rf3)
+                           + 1/gsph(K_SOIL, rf3, r_halo))
+        self.g_halo_out = 4 * np.pi * K_SOIL * r_halo
+        self.c_halo = 1500 * 1200 * shell(rf3, r_halo)
+
         # 8 cm fiber backfill (honest-yield redesign): 0.06/0.08
         self.r_soil = 1.0 / (0.7 * self.node_area)
         self.a_ap = np.pi * cfg.r_pit**2
@@ -408,7 +438,15 @@ class TandoorEnv(pufferlib.PufferEnv):
         # (belt in or near the loading band) so the shutter/loading skill
         # is discoverable; cold starts remain the other half
         warm = self.rng.random(B) < self.warm_frac
-        base_T = np.where(warm, self.rng.uniform(540, 620, B),
+        # "warm" = a SEASONED pit operated yesterday. 45-day carried
+        # simulation (season_sim.py, spherical wall + halo, state
+        # preserved across the day-over reset): daily operation
+        # converges to morning face ~487 K equilibrated, halo ~405 K,
+        # after ~6 weeks. The old 540-620 K draw was a mid-day
+        # temperature no overnight preserves - off-manifold - and the
+        # interim 405-470 K draw was read off a sim the env's own
+        # day-over reset was stomping (under-seasoned, band-unreachable).
+        base_T = np.where(warm, self.rng.uniform(465, 505, B),
                           350.0 + self.rng.uniform(-15, 15, B))
         self.T = np.repeat(base_T[:, None], self.n_nodes, axis=1)
         self.T += self.rng.uniform(-15, 15, (B, self.n_nodes))
@@ -430,8 +468,25 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.ep_rotis = np.zeros(B)
         self.ep_scorch = np.zeros(B)
         self.ep_spall = np.zeros(B)
+        self.T_sub = self.T.copy()
+        self.T_deep = self.T.copy()
+        self.T_halo = np.where(warm, self.rng.uniform(395, 415, B), 300.0)
         self.ep_return = np.zeros(B)
         self.ep_len = np.zeros(B)
+
+    def equilibrate_wall(self, halo=None):
+        """For diagnostics that force self.T wholesale after reset():
+        bring the hidden wall state (substrate, deep clay, soil halo)
+        onto the same manifold, or they leak yesterday's heat into a
+        supposedly cold benchmark. Halo defaults by face temp: seasoned
+        ~400 K for a warm wall, fresh 300 K for a cold one."""
+        self.T_sub = self.T.copy()
+        self.T_deep = self.T.copy()
+        if halo is None:
+            warm = self.T[:, : self.n_belt].mean(1) > 450.0
+            self.T_halo = np.where(warm, 400.0, 300.0)
+        else:
+            self.T_halo = np.full(self.num_agents, float(halo))
 
     def _obs(self):
         h = (self.t_solar - 8.0) / 8.0
@@ -439,6 +494,16 @@ class TandoorEnv(pufferlib.PufferEnv):
             np.stack([np.sin(np.pi * h), np.cos(np.pi * h),
                       self.dni / 1000.0], axis=1),
             self.T / 1000.0,
+            # buried thermocouples: the wall's hidden charge state. The
+            # value function cannot price a morning (face 470/sub 470
+            # vs face 470/sub 390 differ by the whole day's return) by
+            # integrating face history over 1900 steps through a short
+            # BPTT window - so let it read the column directly.
+            np.stack([
+                self.T_sub[:, : self.n_belt].mean(1) / 1000.0,
+                self.T_deep[:, : self.n_belt].mean(1) / 1000.0,
+                self.T_halo / 1000.0,
+            ], axis=1),
             np.stack([
                 (self.p_act - self.p0) / 60.0,
                 self.shutter,
@@ -555,7 +620,15 @@ class TandoorEnv(pufferlib.PufferEnv):
         # traps cavity re-radiation (transmission cost is in the
         # chain; here its greenhouse benefit cuts aperture IR loss)
         q_ap = 0.3 * SIGMA * (t_cav4.squeeze(1) - T_AMB**4) * self.a_ap
-        q = q_solar + q_exch - (T - T_AMB) / self.r_soil
+        q01 = self.g01 * (T - self.T_sub)
+        q12 = self.g12 * (self.T_sub - self.T_deep)
+        q2s = self.g2s * (self.T_deep - self.T_halo[:, None])
+        q = q_solar + q_exch - q01
+        self.T_sub = self.T_sub + (q01 - q12) * self.dt / self.cap_sub
+        self.T_deep = self.T_deep + (q12 - q2s) * self.dt / self.cap_deep
+        self.T_halo = self.T_halo + (
+            q2s.sum(1) - self.g_halo_out * (self.T_halo - T_AMB)
+        ) * self.dt / self.c_halo
         q[:, self.n_belt + 2] -= q_ap
         h_bread = 25.0 * 0.05
         belt_T = T[:, : self.n_belt]
@@ -623,6 +696,12 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.rewards[:] = rew.astype(np.float32)
         infos = []
         if day_over.any():
+            # end-of-day stuff-the-oven closed: a loaf loaded in the
+            # last minutes was paid +0.3 but can never cook - charge
+            # the bonus back when the day wipes it
+            inflight = 0.3 * self.has_bread[day_over].sum(1)
+            self.rewards[day_over] -= inflight.astype(np.float32)
+            self.ep_return[day_over] -= inflight
             infos.append({
                 "rotis_per_day": float(self.ep_rotis[day_over].mean()),
                 "scorched": float(self.ep_scorch[day_over].mean()),
@@ -632,11 +711,16 @@ class TandoorEnv(pufferlib.PufferEnv):
             })
             for i in np.nonzero(day_over)[0]:
                 self.t_solar[i] = 8.0
-                if self.rng.random() < self.warm_frac:
-                    self.T[i] = self.rng.uniform(540, 620)
+                warm_i = self.rng.random() < self.warm_frac
+                if warm_i:
+                    self.T[i] = self.rng.uniform(465, 505)
                 else:
                     self.T[i] = 350.0
                 self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
+                self.T_sub[i] = self.T[i].copy()
+                self.T_deep[i] = self.T[i].copy()
+                self.T_halo[i] = (self.rng.uniform(395, 415)
+                                  if warm_i else 300.0)
                 self.p_set[i] = self.p_act[i] = self.p0
                 self.p_dist[i] = 0.0
                 self.shutter[i] = 1.0

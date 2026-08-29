@@ -12,6 +12,7 @@ def cold_day(agents=8, seed=1, steps=1922, **kw):
     env = TandoorEnv(num_agents=agents, seed=seed, wide_shutter=1,
                      device="cpu", **kw)
     env.reset(seed=seed); env.T[:] = 350.0
+    env.equilibrate_wall()
     env._belt_prev = env.T[:, :8].mean(1).copy()
     rot, p = 0.0, []
     t_band, n_in, n_hot, peak = None, 0, 0, 0.0

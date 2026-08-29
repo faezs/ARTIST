@@ -8,6 +8,7 @@ from tandoor_rl_env import TandoorEnv
 def diag(**kw):
     env = TandoorEnv(num_agents=8, seed=1, wide_shutter=1, device="cpu", **kw)
     env.reset(seed=1); env.T[:] = 350.0
+    env.equilibrate_wall()
     env._belt_prev = env.T[:, :8].mean(1).copy()
     t_band, rot = None, 0
     p_hist = []

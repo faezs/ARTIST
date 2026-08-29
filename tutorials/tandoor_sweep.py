@@ -51,6 +51,7 @@ def score_checkpoint(ck, warm_frac):
     for mode, t0 in (("cold", 350.0), ("warm", 580.0)):
         env.reset(seed=11)
         env.T[:] = t0 + env.rng.uniform(-15, 15, env.T.shape)
+        env.equilibrate_wall()
         env._belt_prev = env.T[:, :8].mean(1).copy()
         obs = env._obs()
         state = dict(lstm_h=torch.zeros(32, 128),

@@ -71,7 +71,7 @@ import tandoor_artist_optics as AO
 import tandoor_coude_optics as CO
 from tandoor_coude_env import TandoorCoudeEnv
 from tandoor_polar_env import TandoorPolarEnv, R_MOUTH
-from tandoor_rl_env import _sim, ROTI_ENERGY
+from tandoor_rl_env import _sim, ROTI_ENERGY, T_COOK_LO
 
 R_POT, H_POT, Z_DUCT = CO.R_POT, CO.H_POT, CO.Z_DUCT
 X_TOWER = CO.X_CHASE
@@ -428,9 +428,23 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                               float(self.t_solar[0]))
             for i in np.nonzero(cut)[0]:
                 self.truncations[i] = True
+                # CHARGE-AND-CRASH closed: the preheat shaping accrued
+                # this episode (0.05 per K of belt rise below the band)
+                # re-arms on the fresh cold pot, so a deliberate sun-loss
+                # farms it (+15% measured). Give it back at the cut -
+                # the potential telescopes to zero across the truncation.
+                belt_i = float(self.T[i, : self.n_belt].mean())
+                give = 0.05 * max(0.0, min(belt_i, T_COOK_LO) - 350.0)
+                give += 0.3 * float(self.has_bread[i].sum())
+                self.rewards[i] -= give
+                self.ep_return[i] -= give
                 # always cold on lost-sun truncation (no warm lottery)
                 self.T[i] = 350.0
                 self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
+                self.T_sub[i] = self.T[i].copy()
+                self.T_deep[i] = self.T[i].copy()
+                self.T_halo[i] = 300.0
+                self.bread_t[i] = 0.0
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
                 self.ep_spall[i] = 0.0
                 self.ep_return[i] = self.ep_len[i] = 0.0
@@ -444,6 +458,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self._e_el[i] = self.el_m[i] - el1
                 self._e_az[i] = (self.az_m[i] - np.degrees(az1)) \
                     * np.cos(np.radians(el1))
+                self._belt_prev[i] = self.T[i, : self.n_belt].mean()
             self._lost_ct[cut] = 0
             # obs were assembled inside super().step BEFORE these
             # resets: rebuild for the cut agents so a truncation step
@@ -577,15 +592,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
 
         # -- M5's ellipsoid: foci at the waist and the duct centre; sized
         # so its lower surface passes through the wall base at z_m5
-        self.W = np.array([X_TOWER, 0.0, self.z_waist])
-        self.T = np.array([R_POT, 0.0, Z_DUCT])
+        # local foci only - NOT stored on self: self.T is the
+        # temperature state array and self.W would shadow nothing but
+        # the collision cost a debugging session once
+        fW = np.array([X_TOWER, 0.0, self.z_waist])
+        fT = np.array([R_POT, 0.0, Z_DUCT])
         V0 = np.array([X_TOWER, 0.0, self.z_m5])
-        A2 = np.linalg.norm(V0 - self.W) + np.linalg.norm(V0 - self.T)
+        A2 = np.linalg.norm(V0 - fW) + np.linalg.norm(V0 - fT)
         self.ell_A = 0.5 * A2
-        cc = 0.5 * np.linalg.norm(self.T - self.W)
+        cc = 0.5 * np.linalg.norm(fT - fW)
         self.ell_B2 = self.ell_A ** 2 - cc ** 2
-        self.ell_ctr = 0.5 * (self.W + self.T)
-        w = (self.T - self.W) / np.linalg.norm(self.T - self.W)
+        self.ell_ctr = 0.5 * (fW + fT)
+        w = (fT - fW) / np.linalg.norm(fT - fW)
         e1 = np.cross(w, [0.0, 1.0, 0.0]); e1 /= np.linalg.norm(e1)
         e2 = np.cross(w, e1)
         self.ell_M = torch.tensor(np.stack([e1, e2, w]),
@@ -717,7 +735,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             newT = torch.full((B, self.n_nodes), 350.0, device=dev) \
                 + (S.u(B, self.n_nodes) - 0.5) * 30.0
             cutf = cut[:, None]
+            # CHARGE-AND-CRASH closed (mirror of the numpy path): give
+            # back the accrued preheat shaping and any load bonuses
+            # still in flight before the state is overwritten
+            belt_pre = S.T[:, : self.n_belt].mean(1)
+            give = 0.05 * (belt_pre.clamp(max=T_COOK_LO) - 350.0)\
+                .clamp(min=0.0)
+            give = give + 0.3 * S.has_bread.float().sum(1)
+            rew = rew - give * cut.float()
             S.T = torch.where(cutf, newT, S.T)
+            S.T_sub = torch.where(cutf, newT, S.T_sub)
+            S.T_deep = torch.where(cutf, newT, S.T_deep)
+            S.T_halo = torch.where(cut, torch.full_like(S.T_halo, 300.0),
+                                   S.T_halo)
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                        "ep_len", "bread_E", "bread_t"):
                 v = getattr(S, nm)
@@ -745,6 +775,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 * float(np.cos(np.radians(el1)))
             S.e_el_prev = torch.where(cut, e_el_r, S.e_el_prev)
             S.e_az_prev = torch.where(cut, e_az_r, S.e_az_prev)
+            S.belt_prev = torch.where(cut, newT[:, : self.n_belt].mean(1),
+                                      S.belt_prev)
             # the cleared pointing must also reach THIS step's obs and
             # the host mirrors (autoreset: a truncation step reports the
             # new episode's state, matching the numpy path's rebuild)
@@ -754,6 +786,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self.truncations[:] = cut.cpu().numpy()
         infos = []
         if float(self.t_solar[0]) >= 16.0:
+            # end-of-day stuff-the-oven closed (mirror of numpy paths)
+            inflight = 0.3 * S.has_bread.float().sum(1)
+            rew = rew - inflight
+            S.ep_return = S.ep_return - inflight
             infos.append({
                 "rotis_per_day": float(S.ep_rotis.mean()),
                 "scorched": float(S.ep_scorch.mean()),
@@ -771,9 +807,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             el1, az1, _ = _sim.solar_position(self.lat, self.day, 8.0)
             warm = (S.u(B) < self.warm_frac)
             S.T = torch.where(
-                warm[:, None], 540.0 + 80.0 * S.u(B, self.n_nodes),
+                warm[:, None],
+                (465.0 + 40.0 * S.u(B))[:, None].expand(B, self.n_nodes),
                 torch.full((B, self.n_nodes), 350.0, device=dev)) \
                 + (S.u(B, self.n_nodes) - 0.5) * 30.0
+            S.T_sub = S.T.clone()
+            S.T_deep = S.T.clone()
+            S.T_halo = torch.where(warm, 395.0 + 20.0 * S.u(B),
+                                   torch.full((B,), 300.0, device=dev))
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                        "ep_len", "bread_E", "bread_t", "form_time",
                        "wind_g", "cloud", "p_dist"):
@@ -806,6 +847,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             torch.stack([torch.sin(np.pi * h), torch.cos(np.pi * h),
                          S.dni / 1000.0], 1),
             S.T / 1000.0,
+            torch.stack([S.T_sub[:, : self.n_belt].mean(1) / 1000.0,
+                         S.T_deep[:, : self.n_belt].mean(1) / 1000.0,
+                         S.T_halo / 1000.0], 1),
             torch.stack([(S.p_act - self.p0) / 60.0, S.shutter,
                          S.wind / 10.0,
                          (S.bore[:, 0] / 0.1).clamp(-2, 2),

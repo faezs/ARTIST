@@ -10,6 +10,7 @@ pol = pufferlib.models.LSTMWrapper(env, pol, input_size=128, hidden_size=128)
 pol.load_state_dict(sd)
 def rollout(kind):
     env.reset(seed=11); env.T[:] = 350. + env.rng.uniform(-15,15,env.T.shape)
+    env.equilibrate_wall()
     env._belt_prev = env.T[:,:8].mean(1).copy()
     o = env._obs(); st = dict(lstm_h=torch.zeros(6,128), lstm_c=torch.zeros(6,128))
     rot, loads, shut, prev = 0., 0, 0., np.zeros((6,8),bool)

@@ -13,6 +13,7 @@ def day(policy, agents=8, seed=1, **kw):
     env = TandoorEnv(num_agents=agents, seed=seed, wide_shutter=1,
                      device="cpu", **kw)
     env.reset(seed=seed); env.T[:] = 350.0
+    env.equilibrate_wall()
     env._belt_prev = env.T[:, :8].mean(1).copy()
     rot, n_in, n_hot, peak, p = 0.0, 0, 0, 0.0, []
     for t in range(1922):
