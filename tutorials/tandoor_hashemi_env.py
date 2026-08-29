@@ -565,10 +565,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                       device=dev)
 
         # -- ray set + ARTIST primary
-        rng = np.random.default_rng(7)
         NR = self.n_rays
-        rr = np.sqrt(rng.uniform((0.05 * a) ** 2, (0.985 * a) ** 2, NR))
-        th = rng.uniform(0, 2 * np.pi, NR)
+        # FIBONACCI-SPIRAL aperture sampling. A random draw fixed at
+        # build time is a BIAS at small N, not a variance: 16 unlucky
+        # points scored 306 rotis where 8 lucky ones scored 416. The
+        # golden-angle spiral covers the annulus uniformly at any N, so
+        # the ray count buys only Monte-Carlo smoothness, never
+        # coverage.
+        k = np.arange(NR) + 0.5
+        rr = np.sqrt((0.05 * a) ** 2
+                     + ((0.985 * a) ** 2 - (0.05 * a) ** 2) * k / NR)
+        th = k * np.pi * (3.0 - np.sqrt(5.0))
         self._hx, self._hy = rr * np.cos(th), rr * np.sin(th)
         self.primary = AO.MembranePrimary(
             _sim, cfg, mems, self._hx, self._hy, dev,
