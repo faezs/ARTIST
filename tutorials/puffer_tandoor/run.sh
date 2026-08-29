@@ -13,7 +13,7 @@ shift || true
 if [ "$mode" = "eval" ]; then
     exec ./.venv/bin/puffer eval puffer_tandoor \
         --load-model-path ../data/tandoor/tandoor_lstm.pt \
-        --env.num-agents 8 "$@"
+        --env.num-agents 8 --env.render-mode human "$@"
 else
     exec ./.venv/bin/puffer "$mode" puffer_tandoor "$@"
 fi
