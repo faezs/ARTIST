@@ -90,25 +90,62 @@ def _align_np(a, b):
     return np.eye(3) + K + K @ K / (1 + c)
 
 
-def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, cosi,
-              Tw, r_tw, ellM, ellS, ellC, V0t,
-              r_fold, slot_r0, slot_w2, z1_t, z0_t, z_lip, m_c,
-              r_tube_in, r_m5, z_m5, x_tower, z_duct, r_pot, r_duct_h):
+def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, sc,
+              ellM, ellS, ellC, V0t):
     """The whole ray geometry as ONE pure-tensor function, so
     torch.compile can fuse its ~150 elementwise kernels. The math is a
     line-for-line transcription of the reference implementation below
     it in git history; verify_fusion() checks the two agree ray-for-ray.
-    vp rows: 0 ut, 1 Pf, 2 s_dir, 3 e_pp, 4 nf, 5 e_par, 6 e_prp."""
+    vp rows: 0 ut, 1 Pf, 2 s_dir, 3 e_pp, 4 nf, 5 e_par, 6 e_prp.
+
+    Every scalar parameter arrives INSIDE sc, a packed float32 tensor:
+    python-float args get lifted by dynamo into float64 scalar
+    constants, and inductor's MPS codegen has no float64 entry
+    (KeyError: torch.float64, seen in a live training run). With the
+    graph all-float32-tensor, the same compile serves CPU and MPS."""
+    r_fold, slot_r0, slot_w2 = sc[0], sc[1], sc[2]
+    z1_t, z0_t, z_lip, m_c = sc[3], sc[4], sc[5], sc[6]
+    r_tube_in, r_m5, z_m5 = sc[7], sc[8], sc[9]
+    x_tower, z_duct, r_pot, r_duct_h = sc[10], sc[11], sc[12], sc[13]
+    cosi, m_c2 = sc[14], sc[15]
     ut, Pf = vp[0], vp[1]
     s_dir, e_pp = vp[2], vp[3]
     nf, e_par, e_prp = vp[4], vp[5], vp[6]
+    z_roof_c, z_top_c = sc[16], sc[17]
+    r_post_c, r_tube_c = sc[18], sc[19]
     p = org3 @ Mt + Cd
     d = d43 @ Mt
     d = d / d.norm(dim=-1, keepdim=True)
-    w = Tw[None, None] - p[..., None, :]
-    tproj = (w * ut).sum(-1)
-    perp = (w - tproj[..., None] * ut).norm(dim=-1)
-    lit = ~((tproj > 0) & (perp < r_tw)).any(-1)
+
+    # OCCLUSION IN CLOSED FORM. The post and its tube section are
+    # vertical cylinders, and ray-vs-vertical-line distance is a 2-D
+    # problem: project to xy. This replaces the sampled (B,P,18)
+    # broadcast tests - the trace's single biggest tensor block - with
+    # O(B,P) arithmetic, and it is exact where sampling could miss a
+    # thin crossing between stations.
+    def _hits_column(px_, py_, pz_, vx_, vy_, vz_, r_seg, zlo, zhi,
+                     t_lo, t_hi):
+        v2 = vx_ * vx_ + vy_ * vy_
+        t_star = -(px_ * vx_ + py_ * vy_) / v2.clamp(min=1e-12)
+        near_vert = v2 < 1e-10
+        dmin = torch.where(
+            near_vert, torch.sqrt(px_ * px_ + py_ * py_),
+            (px_ * vy_ - py_ * vx_).abs() / torch.sqrt(v2.clamp(min=1e-12)))
+        z_star = pz_ + t_star * vz_
+        # for a near-vertical ray any z in the segment is reachable
+        z_ok = torch.where(near_vert,
+                           torch.ones_like(z_star, dtype=torch.bool),
+                           (z_star > zlo) & (z_star < zhi))
+        t_ok = torch.where(near_vert,
+                           torch.ones_like(t_star, dtype=torch.bool),
+                           (t_star > t_lo) & (t_star < t_hi))
+        return (dmin < r_seg) & z_ok & t_ok
+    big = torch.full_like(p[..., 0], 1e9)
+    px_, py_, pz_ = p[..., 0] - x_tower, p[..., 1], p[..., 2]
+    lit = ~(_hits_column(px_, py_, pz_, ut[0], ut[1], ut[2],
+                         r_post_c, z_roof_c, z_top_c, 0.0 * big, big)
+            | _hits_column(px_, py_, pz_, ut[0], ut[1], ut[2],
+                           r_tube_c, z0_t, z1_t, 0.0 * big, big))
     vf = Pf - p
     perpf = vf - (vf * ut).sum(-1, keepdim=True) * ut
     lit = lit & (perpf.norm(dim=-1) > r_fold)
@@ -124,11 +161,11 @@ def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, cosi,
     c_par = (rel1 * e_par).sum(-1) * cosi
     c_prp = (rel1 * e_prp).sum(-1)
     rad1 = torch.stack([c_par, c_prp], -1).norm(dim=-1)
-    wb = Tw[None, None] - p[..., None, :]
-    tb = (wb * d[..., None, :]).sum(-1)
-    perp_b = (wb - tb[..., None] * d[..., None, :]).norm(dim=-1)
-    graze = ((tb > 0) & (tb < t1[..., None] - 0.10)
-             & (perp_b < r_tw)).any(-1)
+    graze = _hits_column(px_, py_, pz_, d[..., 0], d[..., 1], d[..., 2],
+                         r_post_c, z_roof_c, z_top_c,
+                         0.0 * big, t1 - 0.10) \
+        | _hits_column(px_, py_, pz_, d[..., 0], d[..., 1], d[..., 2],
+                       r_tube_c, z0_t, z1_t, 0.0 * big, t1 - 0.10)
     ok = lit & ~graze & (t1 > 0) & (rad1 < r_fold)
     d4v = torch.cat([d, torch.zeros_like(d[..., :1])], -1)
     nf4 = torch.cat([nf, torch.zeros_like(nf[..., :1])], -1)
@@ -176,10 +213,6 @@ def _geo_core(org3, d43, Mt, Cd, dvec, off, vp, cosi,
     # rays that would have died at the M5 patch bound get one traced
     # bounce inward instead, rho 0.95. Outer masonry is constant width;
     # this is the inner wall.
-    # the wall flares to 1.3 r_m5, OUTSIDE the bundle the M5 patch
-    # accepts: hugging the point-waist envelope clipped real marginal
-    # rays (the waist has size) and pushed the m5 loss UP to 10.5%
-    m_c2 = -(1.12 * r_m5 - r_tube_in) / (z0_t - z_m5)
     Xo = h1[..., 0] - x_tower + dvec[..., 0]
     Yo = h1[..., 1] + dvec[..., 1]
     rz0b = r_tube_in + m_c2 * (h1[..., 2] - z0_t)
@@ -253,7 +286,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     RATE_AZ = 0.035    # roller slew [deg/s] at full command
     RATE_EL = 0.025    # tow-wire slew [deg/s] at full command
 
-    def __init__(self, *args, a_mem=2.10, g_orbit=5.0, z_waist=1.5,
+    def __init__(self, *args, a_mem=2.10, g_orbit=5.0, z_waist=None,
                  z_m5=-0.10, el_min=12.0, r_mast=0.25, n_rays=1100,
                  fuse=1, **kwargs):
         self.fuse = bool(fuse)
@@ -262,7 +295,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # over thousands of steps, eval keeps full resolution.
         self.n_rays = int(n_rays)
         self.g_orbit = float(g_orbit)
-        self.z_waist = float(z_waist)
+        self.z_waist = None if z_waist is None else float(z_waist)
         self.z_m5 = float(z_m5)
         self.el_min_h = float(el_min)
         self.r_mast = float(r_mast)
@@ -278,6 +311,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.az_m = np.degrees(az0) + self.rng.normal(0, 0.3, B)
         self._e_el = np.zeros(B)
         self._e_az = np.zeros(B)
+        self._lost_ct = np.zeros(B, dtype=int)
 
     def _extra_obs(self):
         base = super()._extra_obs()
@@ -327,6 +361,35 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             shape = 0.1 * (pot_prev - pot_now)
             self.rewards[:] += shape.astype(np.float32)
             self.ep_return += shape
+        # EARLY EXIT, as most RL envs do: 40 consecutive steps (10 min)
+        # with the sun lost is a dead rollout - the rest of the day
+        # teaches nothing. The sun clock is shared by the batch, so the
+        # episode is TRUNCATED in place: fresh pot, counters zeroed,
+        # carriage re-acquired, sun left where it is. Bootstrapped via
+        # truncations, not terminals.
+        lost = (np.abs(self._e_az) + np.abs(self._e_el)) > 3.0
+        self._lost_ct = np.where(lost, self._lost_ct + 1, 0)
+        cut = self._lost_ct >= 40
+        if cut.any() and not wrapped:
+            el1, az1, _ = _sim.solar_position(self.lat, self.day,
+                                              float(self.t_solar[0]))
+            for i in np.nonzero(cut)[0]:
+                self.truncations[i] = True
+                if self.rng.random() < self.warm_frac:
+                    self.T[i] = self.rng.uniform(540, 620)
+                else:
+                    self.T[i] = 350.0
+                self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
+                self.ep_rotis[i] = self.ep_scorch[i] = 0.0
+                self.ep_spall[i] = 0.0
+                self.ep_return[i] = self.ep_len[i] = 0.0
+                self.p_set[i] = self.p_act[i] = self.p0
+                self.has_bread[i] = False
+                self.bread_E[i] = 0.0
+                self.el_m[i] = np.clip(el1 + self.rng.normal(0, 0.3),
+                                       self.el_min_h, self.el_max_h)
+                self.az_m[i] = np.degrees(az1) + self.rng.normal(0, 0.3)
+            self._lost_ct[cut] = 0
         if wrapped:
             # the episode wrapped to the next morning: the crew reparks
             # the carriage overnight (hours of slack at full slew)
@@ -374,8 +437,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         el_x = np.degrees(np.arccos(np.clip(a / g, 0, 1)))
         z_x = [self.z_fold - g * np.sin(np.radians(e))
                for e in (el_x, self.el_max_h)]
-        self.z_waist = 0.5 * (z_x[0] + z_x[1])
         self.z_tube = (min(z_x) - 0.20, max(z_x) + 0.20)
+        # the WAIST need not sit at the band centre: the slot only needs
+        # the beam narrow OVER THE BAND, and it is narrow within ~1.5 m
+        # of the waist either side. Raising z_w shortens the fold's
+        # lever delta = z_fold - z_w, and obstruction = (delta/f)^2 -
+        # this is the direct answer to "the secondary is pretty shit".
+        # z_waist=None keeps the old band-centre behaviour.
+        if self.z_waist is None or self.z_waist <= 0:
+            self.z_waist = 0.5 * (z_x[0] + z_x[1])
         delta = self.z_fold - self.z_waist
         f_design = g + delta
 
@@ -427,7 +497,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         #   r_in 0.32: slot 12% tube  4% -> through 45.1%   <- optimum
         #   r_in 0.50: slot 17% tube  0% -> through 43.9%
         # The static-only 3-sigma sizing (0.20) was starving the machine.
-        self.r_tube_in = 0.32
+        geo_band = max(abs(z - self.z_waist) for z in self.z_tube) \
+            * a / f_design
+        self.r_tube_in = geo_band + 0.235
         self.r_tube = self.r_tube_in + 0.04
         self.r_post = 0.15
         # the slot: radial cut from r0 to the rim, wide enough for the
@@ -484,16 +556,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # static geometry tensors, built ONCE (they were rebuilt every
         # step); and the fused trace core - the same _geo_core function
         # either eager or torch.compile'd, so the fallback is exact
-        K = 18
-        zs = torch.linspace(Z_ROOF, self.z_fold - 0.10, K, device=dev)
-        in_tb = (zs > self.z_tube[0]) & (zs < self.z_tube[1])
-        self._r_tw = torch.where(
-            in_tb, torch.full((K,), self.r_tube, device=dev),
-            torch.full((K,), self.r_post, device=dev))
-        self._Tw = torch.stack([torch.full((K,), X_TOWER, device=dev),
-                                torch.zeros(K, device=dev), zs], 1)
         self._V0t = torch.tensor([X_TOWER, 0.0, self.z_m5],
                                  dtype=torch.float32, device=dev)
+        z1_t, z0_t = self.z_tube[1], self.z_tube[0]
+        self._sc_base = torch.tensor(
+            [self.r_fold, self.slot_r0, self.slot_w2, z1_t, z0_t,
+             z1_t + 0.60, (0.55 - self.r_tube_in) / 0.60,
+             self.r_tube_in, self.r_m5, self.z_m5,
+             X_TOWER, Z_DUCT, R_POT, R_DUCT_H,
+             0.0,                                   # cosi, set per step
+             -(1.12 * self.r_m5 - self.r_tube_in) / (z0_t - self.z_m5),
+             Z_ROOF, self.z_fold - 0.10, self.r_post, self.r_tube],
+            dtype=torch.float32, device=dev)
         self._geo = _geo_core
         self._geo_is_fused = False
         if self.fuse:
@@ -566,21 +640,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # cosi varies per step: it MUST be a tensor, or dynamo guards
         # on the float value, recompiles to its cache limit, then falls
         # back to eager through the wrapper (measured: 1215 sps < eager)
-        cosi = torch.tensor(np.cos(np.radians(45.0 - 0.5 * el)),
-                            dtype=torch.float32, device=dev)
+        sc = self._sc_base.clone()
+        sc[14] = float(np.cos(np.radians(45.0 - 0.5 * el)))
         dvec = torch.tensor(
             np.stack([2.0 * self.f_nom * np.radians(self._e_el),
                       2.0 * self.f_nom * np.radians(self._e_az)], 1),
             dtype=torch.float32, device=dev)[:, None, :]
         off = torch.as_tensor(offset_w, dtype=torch.float32, device=dev)
-        z1_t, z0_t = self.z_tube[1], self.z_tube[0]
         args = (org[..., :3], d4[..., :3], Mt, Cd, dvec, off, vp,
-                cosi, self._Tw, self._r_tw, self.ell_M, self.ell_S,
-                self.ell_ctr_t, self._V0t,
-                self.r_fold, self.slot_r0, self.slot_w2, z1_t, z0_t,
-                z1_t + 0.60, (0.55 - self.r_tube_in) / 0.60,
-                self.r_tube_in, self.r_m5, self.z_m5,
-                X_TOWER, Z_DUCT, R_POT, R_DUCT_H)
+                sc, self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         try:
             out = self._geo(*args)
         except Exception as ex:
