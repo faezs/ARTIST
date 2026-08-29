@@ -23,7 +23,19 @@ import sys
 # imports us before the policy is built.
 try:
     import torch._dynamo
+    import torch._inductor.config as _icfg
     torch._dynamo.config.allow_rnn = True
+    # Metal caps a kernel at 31 constant buffers. Inductor's horizontal
+    # fusion (notably multi-parameter optimizer updates) can emit
+    # kernels with more ("number of constant buffers exceeds maximum
+    # supported (31)"). Cap fusion width so no generated kernel crosses
+    # the limit; if a run still hits it, set train.compile = False -
+    # the eager trainer was the 100K-sps baseline.
+    _icfg.max_fusion_size = 16
+    try:
+        _icfg.combo_kernels = False
+    except Exception:
+        pass
 except Exception:
     pass
 
