@@ -296,8 +296,10 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, sigb, Acan,
     dy = h3[..., 1] + off[:, 0:1]
     dz = h3[..., 2] - z_duct + off[:, 1:2]
     through_b = ok & (t3 > 0) & (dy ** 2 + dz ** 2 <= r_duct_h ** 2)
+    t_dsc = (z1_t - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
+    desc = h1 + t_dsc[..., None] * d2
     return (through_b, w_ray, dy, dz, d3, ok, ok_pre_tube, ok_post_tube,
-            lit, in_slot, graze, rad1, p, h1, h2, h3)
+            lit, in_slot, graze, rad1, p, h1, h2, h3, desc)
 
 
 
@@ -707,7 +709,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             else:
                 raise
         (through_b, w_ray, dy, dz, d3, ok, ok_pre_tube, ok_post_tube,
-         lit, in_slot, graze, rad1, p, h1, h2, h3) = out
+         lit, in_slot, graze, rad1, p, h1, h2, h3, desc) = out
         through = through_b.float() * w_ray
         if self.render_mode == "human":
             self._ladder = dict(
@@ -727,6 +729,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                             ok=ok[0].cpu().numpy(),
                             ok_pre=ok_pre_tube[0].cpu().numpy(),
                             slot=in_slot[0].cpu().numpy(),
+                            desc=desc[0].cpu().numpy(),
                             through=through_b[0].cpu().numpy(),
                             u=u, el=el, az=float(az), C=C_dish)
         # into the pot via the SHARED polar binning; rigid map between the
@@ -1080,7 +1083,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # every traced ray, additive; spill in red
             pr.begin_blend_mode(pr.BlendMode.BLEND_ADDITIVE)
             a_hi = int(4 + 20*dim)
-            cb, cd = (120, 88, 30, a_hi), (150, 40, 30, 55)
+            cb = (150, 112, 40, min(int(a_hi * 1.6), 255))
+            cd = (150, 40, 30, 42)
             ok, th = H["ok"], H["through"]
             fold, m5, duct = H["fold"], H["m5"], H["duct"]
             dish = H["dish"]
@@ -1095,12 +1099,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 if not okp[i]:
                     continue
                 if not ok[i]:
-                    # died on the tube or the M5 bound: red to the fold,
-                    # then a red stub down the descent to the tube zone
+                    # died at the tube gates or the M5 bound: drawn along
+                    # its ACTUAL reflected path to the lip plane. (The
+                    # first version drew a fabricated vertical stub from
+                    # the fold hit - a 2.3 m wide curtain of geometry
+                    # that never existed, read as "rays going straight
+                    # from the primary into the tandoor".)
                     pr.draw_line_3d(v3(dish[i]), v3(fold[i]), cd)
-                    dz_ = fold[i] - np.array([0, 0,
-                                              fold[i][2] - self.z_tube[1]])
-                    pr.draw_line_3d(v3(fold[i]), v3(dz_), cd)
+                    pr.draw_line_3d(v3(fold[i]), v3(H["desc"][i]), cd)
                     continue
                 col = cb if th[i] else cd
                 pr.draw_line_3d(v3(dish[i]), v3(fold[i]), col)
