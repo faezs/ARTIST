@@ -1095,6 +1095,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             pr.set_target_fps(24); self._window = True
             self._cam_th, self._cam_ph, self._cam_r = 1.05, 0.22, 20.0
             self._cam_tgt = np.array([1.0, 0.0, 3.0])
+            # roti-lifecycle animation state (agent 0's kitchen)
+            self._rvis = dict(prev=None, anims=[], flash=[],
+                              stack=0, rej=0, prev_rot=0.0, prev_sc=0.0)
         if pr.is_mouse_button_down(0):
             dd = pr.get_mouse_delta()
             self._cam_th -= dd.x * 0.006
@@ -1130,6 +1133,42 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                               c[2]+r*np.sin(t)], 1)
             for k in range(n):
                 pr.draw_line_3d(v3(q[k]), v3(q[k+1]), col)
+
+        def disc(c, nrm, r, col, seg=12):
+            # solid triangle-fan disc facing nrm, both windings
+            n_ = np.asarray(nrm, float)
+            n_ = n_ / max(np.linalg.norm(n_), 1e-9)
+            e1 = np.cross(n_, [0.0, 0.0, 1.0])
+            if np.linalg.norm(e1) < 1e-6:
+                e1 = np.array([1.0, 0.0, 0.0])
+            e1 /= np.linalg.norm(e1)
+            e2 = np.cross(n_, e1)
+            c = np.asarray(c, float)
+            th = np.linspace(0, 2*np.pi, seg + 1)
+            rim = [c + r*(np.cos(t)*e1 + np.sin(t)*e2) for t in th]
+            for j in range(seg):
+                pr.draw_triangle_3d(v3(c), v3(rim[j]), v3(rim[j+1]), col)
+                pr.draw_triangle_3d(v3(c), v3(rim[j+1]), v3(rim[j]), col)
+
+        def browning(fr_, scorched=False):
+            if scorched:
+                return (62, 48, 38, 255)
+            if fr_ < 0.5:
+                t_ = fr_ / 0.5
+                return (int(232-24*t_), int(215-57*t_), int(180-88*t_),
+                        255)
+            t_ = (fr_ - 0.5) / 0.5
+            return (int(208-48*t_), int(158-60*t_), int(92-47*t_), 255)
+
+        def smooth(t_):
+            t_ = float(np.clip(t_, 0.0, 1.0))
+            return t_*t_*(3.0 - 2.0*t_)
+
+        def path_eval(path, u_):
+            q = smooth(u_) * (len(path) - 1)
+            j = min(int(q), len(path) - 2)
+            f_ = q - j
+            return (1-f_)*np.asarray(path[j]) + f_*np.asarray(path[j+1])
 
         dim = float(np.clip(self.dni[0]/950., 0.05, 1.))
         pr.begin_drawing()
@@ -1191,10 +1230,24 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                             (118, 102, 84, 255))
         # THE EXISTING POT, drawn for real (ported from the beam-down):
         # clay barrel sunk under the workfloor, neck to the mouth
-        for zz in np.linspace(0.0, H_POT, 8):
+        pot_prof = []
+        for zz in np.linspace(0.0, H_POT, 14):
             rr_ = R_POT if zz < H_POT - 0.25 else \
                 R_MOUTH + (R_POT - R_MOUTH) * (H_POT - zz) / 0.25
+            pot_prof.append((zz, rr_))
             ring([0, 0, zz], rr_, (150, 118, 92, 255), 28)
+        for aa in np.linspace(0, 2*np.pi, 12, endpoint=False):
+            pts_ = [np.array([r_*np.cos(aa), r_*np.sin(aa), zz])
+                    for zz, r_ in pot_prof]
+            for j in range(len(pts_) - 1):
+                pr.draw_line_3d(v3(pts_[j]), v3(pts_[j+1]),
+                                (128, 100, 78, 255))
+        # hearth glow: the coal-bed spot breathing with temperature
+        t_h = float(self.T[0, self.n_belt])
+        if t_h > 450.0:
+            gl = float(np.clip((t_h - 450.0) / 400.0, 0, 1))
+            disc([0, 0, 0.05], [0, 0, 1], R_POT*(0.30 + 0.20*gl),
+                 (255, int(120 + 90*gl), 40, int(70 + 120*gl)), 16)
         ring([0, 0, H_POT], R_MOUTH, (190, 160, 120, 255), 24)
         if self.load_timer[0] >= 4.0:          # lid on between loads
             ring([0, 0, H_POT + 0.03], R_MOUTH * 0.92,
@@ -1214,14 +1267,26 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                             zz]),
                         v3([-R_POT*np.sin(th_[j+1]),
                             R_POT*np.cos(th_[j+1]), zz]), col)
-            # the ROTI stuck on this wall segment, growing as it cooks
+            # the ROTI slapped on this wall segment: a flat disc
+            # pressed against the clay, browning as it cooks, blistering
+            # past half-done, charring if the wall runs to scorch
             if self.has_bread[0, k]:
                 am = a0 + np.pi / self.n_belt
+                anchor = np.array([-0.955*R_POT*np.sin(am),
+                                   0.955*R_POT*np.cos(am),
+                                   0.5*(z_lo + z_hi)])
+                nrm = -anchor * [1, 1, 0]        # inward wall normal
                 fr_ = min(float(self.bread_E[0, k]) / ROTI_ENERGY, 1.0)
-                pr.draw_sphere(
-                    v3([-0.965*R_POT*np.sin(am), 0.965*R_POT*np.cos(am),
-                        0.5*(z_lo+z_hi)]),
-                    0.05 + 0.02 * fr_, (205, 170, 112, 255))
+                hot = float(self.T[0, k]) > 730.0
+                disc(anchor, nrm, 0.085 + 0.02*fr_, browning(fr_, hot))
+                if fr_ > 0.5 and not hot:        # blisters
+                    e1 = np.cross(nrm/np.linalg.norm(nrm), [0., 0., 1.])
+                    for bx, bz in ((0.03, 0.02), (-0.025, -0.03),
+                                   (0.01, -0.045)):
+                        pr.draw_sphere(
+                            v3(anchor + bx*e1 + [0, 0, bz]
+                               + 0.012*nrm/np.linalg.norm(nrm)),
+                            0.012, (168, 112, 58, 255))
         # hearth (coal-bed spot the beam lands on) and crown
         ring([0, 0, 0.03], R_POT * 0.5,
              self._heat_color(self.T[0, self.n_belt]), 18)
@@ -1229,6 +1294,150 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              self._heat_color(self.T[0, self.n_belt + 2]), 22)
         ring([R_POT, 0, Z_DUCT], R_DUCT_H, (120, 220, 235, 255), 18,
              ax="x")
+        # ---- THE KITCHEN: the workfloor over the pit. Dough comes off
+        # the prep table, down through the mouth, slapped to the wall;
+        # done rotis come back up on the hook. Driven by diffing agent
+        # 0's bread state between frames - every animation is an event
+        # the env actually emitted, never decoration.
+        RV = self._rvis
+        TBL = np.array([-1.5, 1.2, H_POT + 0.82])
+        AM = np.array([0.0, 0.0, H_POT + 0.55])
+        MTH = np.array([0.0, 0.0, H_POT - 0.15])
+        REJ = np.array([0.85, -0.75, H_POT + 0.03])
+
+        def bin_anchor(k_):
+            am_ = -np.pi + 2*np.pi*(k_ + 0.5) / self.n_belt
+            return np.array([-0.955*R_POT*np.sin(am_),
+                             0.955*R_POT*np.cos(am_),
+                             0.5*(z_lo + z_hi)])
+
+        cur = self.has_bread[0].copy()
+        rot_now = float(self.ep_rotis[0])
+        sc_now = float(self.ep_scorch[0])
+        if RV["prev"] is None or rot_now < RV["prev_rot"] - 0.5:
+            RV["prev"] = cur.copy()          # first frame / day rollover
+            RV["prev_rot"], RV["prev_sc"] = rot_now, sc_now
+            RV["stack"] = RV["rej"] = 0
+        d_rot = rot_now - RV["prev_rot"]
+        d_sc = sc_now - RV["prev_sc"]
+        for k_ in np.nonzero(cur & ~RV["prev"])[0]:
+            a_ = bin_anchor(int(k_))
+            RV["anims"].append(dict(
+                kind="load", t=0, T=26, k=int(k_),
+                path=[TBL, TBL + [0.35, -0.45, 0.40], AM, MTH, a_]))
+        for k_ in np.nonzero(RV["prev"] & ~cur)[0]:
+            a_ = bin_anchor(int(k_))
+            if d_rot > 0.5:
+                d_rot -= 1.0
+                RV["anims"].append(dict(
+                    kind="pull", t=0, T=34, k=int(k_), ok=True,
+                    down=[AM, MTH, a_], up=[a_, MTH, AM,
+                                            TBL + [-0.28, 0.18, 0.10]]))
+            elif d_sc > 0.5:
+                d_sc -= 1.0
+                RV["anims"].append(dict(
+                    kind="pull", t=0, T=34, k=int(k_), ok=False,
+                    down=[AM, MTH, a_], up=[a_, MTH, AM, REJ]))
+        RV["prev"] = cur.copy()
+        RV["prev_rot"], RV["prev_sc"] = rot_now, sc_now
+
+        hand_tgt = None
+        keep = []
+        for an in RV["anims"]:
+            an["t"] += 1
+            if an["kind"] == "load":
+                u_ = an["t"] / an["T"]
+                pos = path_eval(an["path"], u_)
+                nrm = (1-u_)*np.array([0., 0., 1.]) \
+                    - u_*bin_anchor(an["k"])*[1, 1, 0]
+                disc(pos, nrm, 0.075, (235, 224, 198, 255))
+                if u_ < 0.45:
+                    hand_tgt = pos
+                if an["t"] >= an["T"]:
+                    RV["flash"].append(dict(k=an["k"], age=0))
+                else:
+                    keep.append(an)
+            else:                                      # the hook
+                T1 = 12
+                if an["t"] <= T1:
+                    tip = path_eval(an["down"], an["t"]/T1)
+                else:
+                    u_ = (an["t"] - T1) / (an["T"] - T1)
+                    tip = path_eval(an["up"], u_)
+                    col = browning(1.0, not an["ok"])
+                    disc(tip, [0, 0, 1], 0.085, col)
+                pole0 = np.array([0.0, 0.0, H_POT + 0.95])
+                pr.draw_line_3d(v3(pole0), v3(tip + [0, 0, 0.05]),
+                                (185, 185, 195, 255))
+                for jj in range(5):                    # the curl
+                    q0 = tip + [0, 0, 0.05] \
+                        + 0.05*np.array([np.sin(jj*0.5), 0,
+                                         -1 + np.cos(jj*0.5)])
+                    q1 = tip + [0, 0, 0.05] \
+                        + 0.05*np.array([np.sin((jj+1)*0.5), 0,
+                                         -1 + np.cos((jj+1)*0.5)])
+                    pr.draw_line_3d(v3(q0), v3(q1), (185, 185, 195, 255))
+                hand_tgt = pole0 + np.array([-0.25, 0.1, -0.1])
+                if an["t"] >= an["T"]:
+                    if an["ok"]:
+                        RV["stack"] += 1
+                    else:
+                        RV["rej"] += 1
+                else:
+                    keep.append(an)
+        RV["anims"] = keep
+        fl_keep = []
+        for fl in RV["flash"]:                          # the slap
+            fl["age"] += 1
+            a_ = bin_anchor(fl["k"])
+            n_ = -a_ * [1, 1, 0]
+            n_ = n_ / np.linalg.norm(n_)
+            e1 = np.cross(n_, [0., 0., 1.])
+            rr_ = 0.09 + 0.022 * fl["age"]
+            th = np.linspace(0, 2*np.pi, 13)
+            q = [a_ + 0.01*n_ + rr_*(np.cos(t_)*e1
+                                     + np.sin(t_)*np.array([0., 0., 1.]))
+                 for t_ in th]
+            for jj in range(12):
+                pr.draw_line_3d(v3(q[jj]), v3(q[jj+1]),
+                                (255, 240, 200, 255))
+            if fl["age"] < 6:
+                fl_keep.append(fl)
+        RV["flash"] = fl_keep
+        # prep table, waiting dough, the day's stack, the reject pile
+        pr.draw_cube(v3(TBL), 0.95, 0.65, 0.05, (140, 110, 80, 255))
+        for lx, ly in ((-0.42, -0.27), (-0.42, 0.27), (0.42, -0.27),
+                       (0.42, 0.27)):
+            pr.draw_line_3d(v3(TBL + [lx, ly, -0.02]),
+                            v3([TBL[0]+lx, TBL[1]+ly, H_POT]),
+                            (110, 88, 66, 255))
+        if self.load_timer[0] >= 35.0:
+            pr.draw_sphere(v3(TBL + [0.28, -0.14, 0.07]), 0.055,
+                           (238, 228, 206, 255))
+        if self.load_timer[0] >= 44.0:
+            pr.draw_sphere(v3(TBL + [0.14, -0.22, 0.05]), 0.04,
+                           (238, 228, 206, 255))
+        for i_ in range(min(RV["stack"], 14)):
+            disc(TBL + [-0.28, 0.18, 0.03 + 0.022*i_], [0, 0, 1],
+                 0.085, browning(1.0))
+        for i_ in range(min(RV["rej"], 6)):
+            disc(REJ + [0.06*(i_ % 3), 0.05*(i_ // 3), 0.012*i_],
+                 [0, 0, 1], 0.08, browning(1.0, True))
+        # THE COOK at the mouth: feet on the workfloor, one arm working
+        ck = np.array([-0.72, 0.34, H_POT])
+        hips, sho = ck + [0, 0, 0.52], ck + [0, 0, 0.88]
+        skin, cloth = (222, 190, 158, 255), (94, 108, 138, 255)
+        pr.draw_sphere(v3(ck + [0, 0, 1.00]), 0.075, skin)
+        pr.draw_line_3d(v3(hips), v3(sho), cloth)
+        for sx in (-0.09, 0.09):
+            pr.draw_line_3d(v3(hips), v3(ck + [sx, 0.02, 0.0]), cloth)
+        if hand_tgt is None:
+            hand_tgt = hips + np.array([0.22, -0.18, 0.05])
+        rv = np.asarray(hand_tgt, float) - sho
+        rn = np.linalg.norm(rv)
+        hand = sho + rv * (min(rn, 0.62) / max(rn, 1e-9))
+        pr.draw_line_3d(v3(sho), v3(hand), skin)
+        pr.draw_line_3d(v3(sho), v3(hips + [-0.20, 0.12, 0.12]), skin)
         # THE PIPE, drawn as built: constant outer width everywhere
         # (the visible object), with the reflective CPC inner profile
         # drawn inside it - flared lip at the mouth, straight through
