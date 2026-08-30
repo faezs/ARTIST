@@ -1,0 +1,142 @@
+"""Run the puffer_hashemi hyperparameter sweep on Modal (CUDA),
+SEEDED with every completed probe from the local Mac sweep.
+
+The stack is CUDA-clean by construction: the Metal megakernel and the
+Metal advantage kernel gate on device.type == "mps" and fall back to
+the fused torch graph / pufferlib's native CUDA advantage. The local
+pufferlib patches are applied at runtime by apply_pufferlib_patches.py.
+
+Seeding: sweep_seeds.json (built from the Mac sweep logs) holds one
+observation per completed probe - the 8 swept dims, the 30-log tail
+mean of rotis_per_day, and the estimated wall cost. Protein's GP
+starts warm instead of resampling the search center. The two dims the
+logs never recorded (prio_alpha/prio_beta0) are pinned in hashemi.ini
+so historical vectors are complete.
+
+Usage:
+    .venv/bin/modal run modal_sweep.py --smoke        # ~5 min, cents
+    .venv/bin/modal run --detach modal_sweep.py --max-runs 40
+    .venv/bin/modal app logs puffer-tandoor-sweep     # follow output
+"""
+import modal
+
+REPO = "/root/ARTIST"
+
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "torch==2.8.0",
+        "numpy",
+        "gymnasium==0.29.1",
+        "pufferlib==3.0.0",
+        "pyro-ppl",
+        "heavyball",
+        "psutil",
+        "rich",
+    )
+    .add_local_dir(
+        "/Users/faezs/ARTIST/artist", f"{REPO}/artist", copy=True)
+    .add_local_dir(
+        "/Users/faezs/ARTIST/tutorials", f"{REPO}/tutorials", copy=True,
+        ignore=[".venv/**", "experiments/**", "__pycache__/**",
+                "**/__pycache__/**", "*.log", "wandb/**"])
+)
+
+app = modal.App("puffer-tandoor-sweep", image=image)
+
+
+@app.function(gpu="A100", timeout=60 * 60 * 12,
+              memory=32768, cpu=8)
+def run_sweep(max_runs: int = 40, smoke: bool = False):
+    import copy as _copy
+    import json
+    import os
+    import random
+    import subprocess
+    import sys
+    import time
+
+    pkg = f"{REPO}/tutorials/puffer_tandoor"
+    os.chdir(pkg)
+    sys.path.insert(0, pkg)
+    sys.path.insert(0, f"{REPO}/tutorials")
+    sys.path.insert(0, REPO)
+
+    subprocess.run([sys.executable, "apply_pufferlib_patches.py"],
+                   check=True)
+
+    import numpy as np
+    import torch
+    assert torch.cuda.is_available(), "no CUDA in container"
+    print("GPU:", torch.cuda.get_device_name(0))
+
+    import pufferlib.sweep
+    from pufferlib.pufferl import train, load_config, downsample
+
+    args = load_config("puffer_hashemi")
+    args["train"]["device"] = "cuda"
+    args["env"]["device"] = "cuda"
+    args["wandb"] = False
+    args["neptune"] = False
+    if smoke:
+        args["sweep"]["train"]["total_timesteps"] = dict(
+            distribution="log_normal", min=2.4e7, max=2.6e7,
+            mean=2.5e7, scale="time")
+
+    method = args["sweep"].pop("method")
+    sweep = getattr(pufferlib.sweep, method)(args["sweep"])
+    points_per_run = args["sweep"]["downsample"]
+    target_key = f'environment/{args["sweep"]["metric"]}'
+
+    # ---- seed the GP with everything the Mac sweep already learned
+    with open("sweep_seeds.json") as f:
+        seeds = json.load(f)
+    for s_ in seeds:
+        hist = _copy.deepcopy(args)
+        t = hist["train"]
+        t["learning_rate"] = s_["lr"]
+        t["gamma"] = s_["gamma"]
+        t["gae_lambda"] = s_["lam"]
+        t["ent_coef"] = s_["ent"]
+        t["bptt_horizon"] = s_["bptt"]
+        t["minibatch_size"] = s_["mb"]
+        t["total_timesteps"] = s_["steps"]
+        t["vf_coef"] = s_["vf"]
+        sweep.observe(hist, s_["score"], s_["cost"])
+    print(f"seeded {len(seeds)} historical observations "
+          f"(best {max(x['score'] for x in seeds):.1f})")
+
+    # ---- the sweep loop (pufferl.sweep, replicated so seeding works)
+    n_runs = 1 if smoke else max_runs
+    for i in range(n_runs):
+        seed = time.time_ns() & 0xFFFFFFFF
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        sweep.suggest(args)
+        _t = args["train"]
+        print(f"SWEEP RUN {i}: lr={_t['learning_rate']:.4g} "
+              f"gamma={_t['gamma']:.5g} lam={_t['gae_lambda']:.4g} "
+              f"ent={_t['ent_coef']:.4g} bptt={_t['bptt_horizon']} "
+              f"mb={_t['minibatch_size']} "
+              f"steps={_t['total_timesteps']:.3g} "
+              f"vf={_t['vf_coef']:.3g} "
+              f"gn={_t['max_grad_norm']:.3g}", flush=True)
+        total_timesteps = args["train"]["total_timesteps"]
+        all_logs = train("puffer_hashemi", args=args)
+        all_logs = [e for e in all_logs if target_key in e]
+        scores = downsample([lg[target_key] for lg in all_logs],
+                            points_per_run)
+        costs = downsample([lg["uptime"] for lg in all_logs],
+                           points_per_run)
+        steps = downsample([lg["agent_steps"] for lg in all_logs],
+                           points_per_run)
+        for score, cost, ts in zip(scores, costs, steps):
+            args["train"]["total_timesteps"] = ts
+            sweep.observe(args, score, cost)
+        args["train"]["total_timesteps"] = total_timesteps
+
+
+@app.local_entrypoint()
+def main(smoke: bool = False, max_runs: int = 40):
+    run_sweep.remote(max_runs=max_runs, smoke=smoke)
