@@ -1125,12 +1125,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                              d3[..., 1], -d3[..., 0], d3[..., 2],
                              through, soil, B, P_).to(soil.device)
 
-    # measured fold-shadow fraction vs |beta| (solstice ladders,
-    # slotless): the chooser's lookup - shadow relief is symmetric in
-    # the SIGN of beta (the offset g sin b slides the fold's shadow
-    # off the aperture either way)
+    # measured fold-shadow fraction vs beta (solstice ladders,
+    # slotless). NOT sign-symmetric: on the negative side the fold
+    # disc turns broadside to low sun and the tower shades the
+    # below-fold dish - the negative curve floors at ~12% (measured
+    # peak of scheduled power at -36; -42/-48 are collision geometry
+    # anyway and gain nothing).
     _SHADOW_B = (0.0, 12.0, 19.0, 24.0, 28.0, 32.0, 36.0, 40.0)
     _SHADOW_F = (0.33, 0.21, 0.15, 0.142, 0.09, 0.046, 0.0155, 0.0)
+    _SHADOW_BN = (0.0, 24.0, 30.0, 36.0, 42.0)
+    _SHADOW_FN = (0.33, 0.208, 0.156, 0.124, 0.119)
 
     def _beta_now(self, el):
         """The SIGNED beta schedule. beta has a sign: positive tilts
@@ -1166,8 +1170,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         bn = -min(self.beta_dev, max(self.el_x - 2.0 - el, 0.0))
         if bn == 0.0 or bp >= self.beta_dev - 1e-9:
             return bp
-        sh = lambda b: float(np.interp(abs(b), self._SHADOW_B,
+        def sh(b):
+            if b >= 0:
+                return float(np.interp(b, self._SHADOW_B,
                                        self._SHADOW_F))
+            return float(np.interp(-b, self._SHADOW_BN,
+                                   self._SHADOW_FN))
         score = lambda b: np.cos(np.radians(b) / 2.0) * (1.0 - sh(b))
         return bn if score(bn) > score(bp) else bp
 
