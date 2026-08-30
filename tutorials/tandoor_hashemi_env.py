@@ -219,14 +219,22 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, sigb, Acan,
         qc_c = Xo ** 2 + Yo ** 2 - rz0 ** 2
         disc_c = qb_c ** 2 - 4 * qa_c * qc_c
         sq_c = torch.sqrt(disc_c.clamp(min=0))
-        t1_ = torch.where(qa_c.abs() > 1e-9, (-qb_c - sq_c) / (2 * qa_c),
+        tA_ = torch.where(qa_c.abs() > 1e-9, (-qb_c - sq_c) / (2 * qa_c),
                           -qc_c / qb_c.clamp(min=1e-9))
-        t2_ = torch.where(qa_c.abs() > 1e-9, (-qb_c + sq_c) / (2 * qa_c),
-                          t1_)
-        t1_ = torch.where(t1_ > 1e-4, t1_, t2_)
-        zc_k = h1[..., 2] + t1_ * dz2
-        val = ((disc_c > 0) & (t1_ > 1e-4) & (zc_k >= zk)
-               & (zc_k < zk + dzseg) & (t1_ < tc))
+        tB_ = torch.where(qa_c.abs() > 1e-9, (-qb_c + sq_c) / (2 * qa_c),
+                          tA_)
+        # BOTH roots checked against the band (a ray can cross the
+        # widened upper sheet of the infinite cone before the real
+        # wall; testing only the first root hides genuine hits - the
+        # bug that made the full-funnel experiment's wall invisible)
+        zA_ = h1[..., 2] + tA_ * dz2
+        zB_ = h1[..., 2] + tB_ * dz2
+        vA_ = (tA_ > 1e-4) & (zA_ >= zk) & (zA_ < zk + dzseg)
+        vB_ = (tB_ > 1e-4) & (zB_ >= zk) & (zB_ < zk + dzseg)
+        big_ = torch.full_like(tA_, 1e9)
+        t1_ = torch.minimum(torch.where(vA_, tA_, big_),
+                            torch.where(vB_, tB_, big_))
+        val = (disc_c > 0) & (t1_ < 1e8) & (t1_ < tc)
         tc = torch.where(val, t1_, tc)
         m_hit = torch.where(val, mk.expand_as(m_hit), m_hit)
         hits_wall = hits_wall | val
@@ -267,14 +275,19 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, sigb, Acan,
     qc_b = Xo ** 2 + Yo ** 2 - rz0b ** 2
     disc_b = qb_b ** 2 - 4 * qa_b * qc_b
     sq_b = torch.sqrt(disc_b.clamp(min=0))
-    tcb = torch.where(qa_b.abs() > 1e-9, (-qb_b - sq_b) / (2 * qa_b),
+    tAb = torch.where(qa_b.abs() > 1e-9, (-qb_b - sq_b) / (2 * qa_b),
                       -qc_b / qb_b.clamp(min=1e-9))
-    tcb2 = torch.where(qa_b.abs() > 1e-9, (-qb_b + sq_b) / (2 * qa_b),
-                       tcb)
-    tcb = torch.where(tcb > 1e-4, tcb, tcb2)
+    tBb = torch.where(qa_b.abs() > 1e-9, (-qb_b + sq_b) / (2 * qa_b),
+                      tAb)
+    zAb = h1[..., 2] + tAb * d2[..., 2]
+    zBb = h1[..., 2] + tBb * d2[..., 2]
+    vAb = (tAb > 1e-4) & (zAb > z_m5 + 0.35) & (zAb < z0_t)
+    vBb = (tBb > 1e-4) & (zBb > z_m5 + 0.35) & (zBb < z0_t)
+    bigb = torch.full_like(tAb, 1e9)
+    tcb = torch.minimum(torch.where(vAb, tAb, bigb),
+                        torch.where(vBb, tBb, bigb))
     zc_b = h1[..., 2] + tcb * d2[..., 2]
-    hits_b = (disc_b > 0) & (tcb > 1e-4) & (zc_b > z_m5 + 0.35) \
-        & (zc_b < z0_t)
+    hits_b = (disc_b > 0) & (tcb < 1e8)
     hxb = Xo + tcb * d2[..., 0]
     hyb = Yo + tcb * d2[..., 1]
     rcb = (r_tube_in + m_c2 * (zc_b - z0_t)).clamp(min=1e-6)

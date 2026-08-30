@@ -160,13 +160,14 @@ kernel void tandoor_trace(
         float qc = Xo*Xo + Yo*Yo - rz0*rz0;
         float disc = qb*qb - 4.0f*qa*qc;
         float sq = sqrt(max(disc, 0.0f));
-        float t1_ = (fabs(qa) > 1e-9f) ? (-qb-sq)/(2.0f*qa)
+        float tA_ = (fabs(qa) > 1e-9f) ? (-qb-sq)/(2.0f*qa)
                                        : -qc/max(qb, 1e-9f);
-        float t2_ = (fabs(qa) > 1e-9f) ? (-qb+sq)/(2.0f*qa) : t1_;
-        t1_ = (t1_ > 1e-4f) ? t1_ : t2_;
-        float zc_k = h1.z + t1_*d2.z;
-        bool val = (disc > 0.0f) && (t1_ > 1e-4f) && (zc_k >= zk)
-                   && (zc_k < zk + dzseg) && (t1_ < tc);
+        float tB_ = (fabs(qa) > 1e-9f) ? (-qb+sq)/(2.0f*qa) : tA_;
+        float zA_ = h1.z + tA_*d2.z, zB_ = h1.z + tB_*d2.z;
+        bool vA_ = (tA_ > 1e-4f) && (zA_ >= zk) && (zA_ < zk + dzseg);
+        bool vB_ = (tB_ > 1e-4f) && (zB_ >= zk) && (zB_ < zk + dzseg);
+        float t1_ = min(vA_ ? tA_ : 1e9f, vB_ ? tB_ : 1e9f);
+        bool val = (disc > 0.0f) && (t1_ < 1e8f) && (t1_ < tc);
         if (val) { tc = t1_; m_hit = mk; hitsw = true; }
     }
     float zc = h1.z + tc*d2.z;
@@ -195,13 +196,15 @@ kernel void tandoor_trace(
     float qcb = Xo*Xo + Yo*Yo - rz0b*rz0b;
     float discb = qbb*qbb - 4.0f*qab*qcb;
     float sqb = sqrt(max(discb, 0.0f));
-    float tcb  = (fabs(qab) > 1e-9f) ? (-qbb-sqb)/(2.0f*qab)
+    float tAb = (fabs(qab) > 1e-9f) ? (-qbb-sqb)/(2.0f*qab)
                                      : -qcb/max(qbb, 1e-9f);
-    float tcb2 = (fabs(qab) > 1e-9f) ? (-qbb+sqb)/(2.0f*qab) : tcb;
-    tcb = (tcb > 1e-4f) ? tcb : tcb2;
+    float tBb = (fabs(qab) > 1e-9f) ? (-qbb+sqb)/(2.0f*qab) : tAb;
+    float zAb = h1.z + tAb*d2.z, zBb = h1.z + tBb*d2.z;
+    bool vAb = (tAb > 1e-4f) && (zAb > sc[9]+0.35f) && (zAb < sc[4]);
+    bool vBb = (tBb > 1e-4f) && (zBb > sc[9]+0.35f) && (zBb < sc[4]);
+    float tcb = min(vAb ? tAb : 1e9f, vBb ? tBb : 1e9f);
     float zcb = h1.z + tcb*d2.z;
-    bool hitsb = (discb > 0.0f) && (tcb > 1e-4f)
-                 && (zcb > sc[9] + 0.35f) && (zcb < sc[4]);
+    bool hitsb = (discb > 0.0f) && (tcb < 1e8f);
     if (hitsb) {
         float hx = Xo + tcb*d2.x, hy = Yo + tcb*d2.y;
         float rc = max(sc[7] + sc[15]*(zcb - sc[4]), 1e-6f);
