@@ -258,7 +258,7 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
                        hy - dvec[..., 1], zc_h], -1)
     d2 = torch.where(hits_wall[..., None], d2r, d2)
     h1 = torch.where(hits_wall[..., None], h1r, h1)
-    w_ray = torch.where(hits_wall, torch.full_like(tc, 0.95),
+    w_ray = torch.where(hits_wall, m_c.expand_as(tc).clone(),
                         torch.ones_like(tc))
     for z_st in (z1_t, z0_t):
         t_st = (z_st - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
@@ -307,7 +307,7 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
                        hyb - dvec[..., 1], zc_b], -1)
     d2 = torch.where(hits_b[..., None], d2b, d2)
     h1 = torch.where(hits_b[..., None], h1b, h1)
-    w_ray = w_ray * torch.where(hits_b, torch.full_like(tcb, 0.95),
+    w_ray = w_ray * torch.where(hits_b, m_c.expand_as(tcb).clone(),
                                 torch.ones_like(tcb))
     pl = (h1 - ellC) @ ellM.T
     dl = d2 @ ellM.T
@@ -760,7 +760,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._sun_table = np.interp(_uu, _cdf, _th) * 1e-3   # radians
         self._sc_base = torch.tensor(
             [self.r_fold, self.slot_r0, self.slot_w2, z1_t, z0_t,
-             z1_t + 0.60, (0.55 - self.r_tube_in) / 0.60,
+             z1_t + 0.60, (0.97 if self.silvered else 0.95),
              self.r_tube_in, self.r_m5, self.z_m5,
              X_TOWER, Z_DUCT, R_POT, R_DUCT_H,
              0.0,                                   # cosi, set per step

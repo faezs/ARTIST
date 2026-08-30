@@ -186,7 +186,7 @@ kernel void tandoor_trace(
         float3 nc = normalize(float3(hx, hy, -m_hit*rc));
         d2 = d2 - 2.0f*dot(d2, nc)*nc;
         h1 = float3(hx + sc[10] - dv0, hy - dv1, zc);
-        w = 0.95f;
+        w = sc[6];
     }
     // ---- the straight section's two gates
     for (int g = 0; g < 2; g++) {
@@ -219,7 +219,7 @@ kernel void tandoor_trace(
         float3 nc = normalize(float3(hx, hy, -sc[15]*rc));
         d2 = d2 - 2.0f*dot(d2, nc)*nc;
         h1 = float3(hx + sc[10] - dv0, hy - dv1, zcb);
-        w *= 0.95f;
+        w *= sc[6];
     }
     // ---- M5's ellipsoid, far root; patch bound 1.50 r_m5
     float3 vec = h1 - float3(ellC[0], ellC[1], ellC[2]);
