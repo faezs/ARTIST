@@ -55,6 +55,24 @@ PATCHES = [
         return np.array(arr)
     last = arr[-1]
 """),
+    (ROOT / "pufferl.py",
+     """        sweep.suggest(args)
+        total_timesteps = args['train']['total_timesteps']
+""",
+     """        sweep.suggest(args)
+        # tandoor patch: print the sampled config as one grep-able
+        # line - nothing else persists it, and a sweep you cannot
+        # attribute is a sweep you cannot learn from
+        _t = args['train']
+        print(f"SWEEP RUN {i}: lr={_t['learning_rate']:.4g} "
+              f"gamma={_t['gamma']:.5g} lam={_t['gae_lambda']:.4g} "
+              f"ent={_t['ent_coef']:.4g} bptt={_t['bptt_horizon']} "
+              f"mb={_t['minibatch_size']} "
+              f"steps={_t['total_timesteps']:.3g} "
+              f"vf={_t['vf_coef']:.3g} "
+              f"gn={_t['max_grad_norm']:.3g}", flush=True)
+        total_timesteps = args['train']['total_timesteps']
+"""),
     (ROOT / "sweep.py",
      """        assert 'distribution' in param
         distribution = param['distribution']
