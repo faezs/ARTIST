@@ -847,9 +847,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             torch.stack([torch.sin(np.pi * h), torch.cos(np.pi * h),
                          S.dni / 1000.0], 1),
             S.T / 1000.0,
-            torch.stack([S.T_sub[:, : self.n_belt].mean(1) / 1000.0,
-                         S.T_deep[:, : self.n_belt].mean(1) / 1000.0,
-                         S.T_halo / 1000.0], 1),
+        ] + ([torch.stack([S.T_sub[:, : self.n_belt].mean(1) / 1000.0,
+                           S.T_deep[:, : self.n_belt].mean(1) / 1000.0,
+                           S.T_halo / 1000.0], 1)]
+             if self.wall_obs else []) + [
             torch.stack([(S.p_act - self.p0) / 60.0, S.shutter,
                          S.wind / 10.0,
                          (S.bore[:, 0] / 0.1).clamp(-2, 2),

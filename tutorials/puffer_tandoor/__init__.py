@@ -114,7 +114,17 @@ _spec5.loader.exec_module(_mod5)
 TandoorHashemiEnv = _mod5.TandoorHashemiEnv
 
 
+_spec6 = importlib.util.spec_from_file_location(
+    "electroform_env", _tutorials / "electroform_env.py")
+_mod6 = importlib.util.module_from_spec(_spec6)
+sys.modules.setdefault("electroform_env", _mod6)
+_spec6.loader.exec_module(_mod6)
+ElectroformEnv = _mod6.ElectroformEnv
+
+
 def env_creator(name="puffer_tandoor"):
+    if "electroform" in name or "plating" in name:
+        return functools.partial(ElectroformEnv)
     if "hashemi" in name:
         return functools.partial(TandoorHashemiEnv)
     if "coude" in name:

@@ -33,10 +33,14 @@ from tandoor_hashemi_env import TandoorHashemiEnv
 from tandoor_compare import heuristic
 
 
+ENV_KW = {}     # global overrides (e.g. wall_obs=0 for old checkpoints)
+
+
 def make_env(seed, **kw):
     with contextlib.redirect_stdout(io.StringIO()):
         e = TandoorHashemiEnv(num_agents=kw.pop("agents", 16), seed=seed,
-                              wide_shutter=1, device="cpu", **kw)
+                              wide_shutter=1, device="cpu",
+                              **{**ENV_KW, **kw})
         e.reset(seed=seed)
     # eval from the honest SEASONED operating state (season_sim.py,
     # 45-day carried cycle, spherical wall): morning face ~487 K
@@ -135,7 +139,10 @@ def main():
     ap.add_argument("--ckpt", default=None,
                     help="checkpoint .pt; omit for the heuristic")
     ap.add_argument("--quick", action="store_true")
+    ap.add_argument("--wall_obs", type=int, default=1,
+                    help="0 = legacy 33-dim obs for old ckpts")
     a = ap.parse_args()
+    ENV_KW["wall_obs"] = a.wall_obs
     dummy = make_env(0, agents=16)
     act, name = load_policy(a.ckpt, dummy)
     seeds = (1, 2) if a.quick else (1, 2, 3)

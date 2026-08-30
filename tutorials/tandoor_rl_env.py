@@ -90,7 +90,22 @@ class TandoorEnv(pufferlib.PufferEnv):
                  sigma_surf=2.0e-3, sigma_fab=1.5e-3, csr_frac=0.08,
                  wind_limit=9.0, wide_shutter=0, warm_frac=0.5,
                  z_gap=2.6, r_pit=0.42, pivot_drop=1.6, a_mem=2.45,
-                 buf=None):
+                 wall_obs=None, buf=None):
+        # wall_obs=0 drops the 3 buried-thermocouple channels so
+        # checkpoints trained before the honest-wall obs (33-dim) load.
+        # Settable via env var (pufferlib's CLI only forwards known ini
+        # keys):  TANDOOR_WALL_OBS=0 puffer eval puffer_hashemi ...
+        import os
+        _ev = os.environ.get("TANDOOR_WALL_OBS")
+        if _ev is not None:
+            wall_obs = int(_ev)      # env var beats ini/kwarg: the
+        elif wall_obs is None:       # ini always forwards its value,
+            wall_obs = 1             # so the var must outrank it
+        self.wall_obs = bool(wall_obs)
+        # TANDOOR_RENDER=human opens the exact renderer under
+        # `puffer eval` (the ini carries no render_mode key)
+        if render_mode is None:
+            render_mode = os.environ.get("TANDOOR_RENDER")
         self.g_zgap, self.g_rpit = float(z_gap), float(r_pit)
         self.g_pivot, self.g_a = float(pivot_drop), float(a_mem)
         self.warm_frac = float(warm_frac)
@@ -127,8 +142,8 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.n_nodes = self.n_belt + 3
         # obs: [sin t, cos t, dni] + node temps + [pressure lvl, shutter,
         # wind, boresight qx, boresight qy] + bread progress + [p_in]
-        obs_dim = (3 + self.n_nodes + 3 + 6 + self.n_belt + 1
-                   + self.N_EXTRA_OBS)
+        obs_dim = (3 + self.n_nodes + (3 if self.wall_obs else 0)
+                   + 6 + self.n_belt + 1 + self.N_EXTRA_OBS)
         self.single_observation_space = gymnasium.spaces.Box(
             low=-4, high=4, shape=(obs_dim,), dtype=np.float32
         )
@@ -494,6 +509,7 @@ class TandoorEnv(pufferlib.PufferEnv):
             np.stack([np.sin(np.pi * h), np.cos(np.pi * h),
                       self.dni / 1000.0], axis=1),
             self.T / 1000.0,
+        ] + ([
             # buried thermocouples: the wall's hidden charge state. The
             # value function cannot price a morning (face 470/sub 470
             # vs face 470/sub 390 differ by the whole day's return) by
@@ -504,6 +520,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                 self.T_deep[:, : self.n_belt].mean(1) / 1000.0,
                 self.T_halo / 1000.0,
             ], axis=1),
+        ] if self.wall_obs else []) + [
             np.stack([
                 (self.p_act - self.p0) / 60.0,
                 self.shutter,
