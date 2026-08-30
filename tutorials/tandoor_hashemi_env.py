@@ -203,22 +203,38 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, sigb, Acan,
     Xo = h1[..., 0] - x_tower + dvec[..., 0]
     Yo = h1[..., 1] + dvec[..., 1]
     dz2 = d2[..., 2]
-    rz0 = r_tube_in + m_c * (h1[..., 2] - z1_t)
-    qa_c = d2[..., 0] ** 2 + d2[..., 1] ** 2 - (m_c * dz2) ** 2
-    qb_c = 2 * (Xo * d2[..., 0] + Yo * d2[..., 1] - m_c * rz0 * dz2)
-    qc_c = Xo ** 2 + Yo ** 2 - rz0 ** 2
-    disc_c = qb_c ** 2 - 4 * qa_c * qc_c
-    sq_c = torch.sqrt(disc_c.clamp(min=0))
-    tc = torch.where(qa_c.abs() > 1e-9, (-qb_c - sq_c) / (2 * qa_c),
-                     -qc_c / qb_c.clamp(min=1e-9))
-    tc2 = torch.where(qa_c.abs() > 1e-9, (-qb_c + sq_c) / (2 * qa_c), tc)
-    tc = torch.where(tc > 1e-4, tc, tc2)
+    # Winston CPC lip as 8 conical segments (sc[22+2k], sc[23+2k]) -
+    # per segment a closed-form cone intersection, first hit wins.
+    # One traced bounce, as before (funnel rays here rarely double).
+    dzseg = (z_lip - z1_t) / 8.0
+    tc = torch.full_like(dz2, 1e9)
+    m_hit = torch.zeros_like(dz2)
+    hits_wall = torch.zeros_like(dz2, dtype=torch.bool)
+    for kseg in range(8):
+        zk = z1_t + kseg * dzseg
+        r0k, mk = sc[22 + 2*kseg], sc[23 + 2*kseg]
+        rz0 = r0k + mk * (h1[..., 2] - zk)
+        qa_c = d2[..., 0] ** 2 + d2[..., 1] ** 2 - (mk * dz2) ** 2
+        qb_c = 2 * (Xo * d2[..., 0] + Yo * d2[..., 1] - mk * rz0 * dz2)
+        qc_c = Xo ** 2 + Yo ** 2 - rz0 ** 2
+        disc_c = qb_c ** 2 - 4 * qa_c * qc_c
+        sq_c = torch.sqrt(disc_c.clamp(min=0))
+        t1_ = torch.where(qa_c.abs() > 1e-9, (-qb_c - sq_c) / (2 * qa_c),
+                          -qc_c / qb_c.clamp(min=1e-9))
+        t2_ = torch.where(qa_c.abs() > 1e-9, (-qb_c + sq_c) / (2 * qa_c),
+                          t1_)
+        t1_ = torch.where(t1_ > 1e-4, t1_, t2_)
+        zc_k = h1[..., 2] + t1_ * dz2
+        val = ((disc_c > 0) & (t1_ > 1e-4) & (zc_k >= zk)
+               & (zc_k < zk + dzseg) & (t1_ < tc))
+        tc = torch.where(val, t1_, tc)
+        m_hit = torch.where(val, mk.expand_as(m_hit), m_hit)
+        hits_wall = hits_wall | val
     zc_h = h1[..., 2] + tc * dz2
-    hits_wall = (disc_c > 0) & (tc > 1e-4) & (zc_h > z1_t) & (zc_h < z_lip)
     hx = Xo + tc * d2[..., 0]
     hy = Yo + tc * d2[..., 1]
-    rc = (r_tube_in + m_c * (zc_h - z1_t)).clamp(min=1e-6)
-    n_c = torch.stack([hx, hy, -m_c * rc], -1)
+    rc = torch.sqrt((hx**2 + hy**2).clamp(min=1e-12))
+    n_c = torch.stack([hx, hy, -m_hit * rc], -1)
     n_c = n_c / n_c.norm(dim=-1, keepdim=True)
     d2r = d2 - 2 * (d2 * n_c).sum(-1, keepdim=True) * n_c
     h1r = torch.stack([hx + x_tower - dvec[..., 0],
@@ -660,6 +676,23 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._V0t = torch.tensor([X_TOWER, 0.0, self.z_m5],
                                  dtype=torch.float32, device=dev)
         z1_t, z0_t = self.z_tube[1], self.z_tube[0]
+        # THE CPC LIP, done honestly: a compound parabolic concentrator
+        # is NOT a cone - it is the tilted-parabola Winston profile
+        # (each meridional arc is a parabola whose focus sits on the
+        # OPPOSITE edge of the throat, axis tilted by the acceptance
+        # half-angle), truncated to the 0.60 m the pipe allows. Solve
+        # the acceptance angle so the truncated profile meets the
+        # built entry radius, then trace it as 8 conical segments
+        # (closed-form intersections; the sag of a segment vs the true
+        # curve is < 1 mm).
+        self._cpc_knots = self._solve_cpc(self.r_tube_in, 0.55, 0.60,
+                                          n_seg=8)
+        cpc_flat = []
+        dzseg = 0.60 / 8
+        for k in range(8):
+            r0k = self._cpc_knots[k][1]
+            mk = (self._cpc_knots[k+1][1] - r0k) / dzseg
+            cpc_flat += [r0k, mk]
         self._sc_base = torch.tensor(
             [self.r_fold, self.slot_r0, self.slot_w2, z1_t, z0_t,
              z1_t + 0.60, (0.55 - self.r_tube_in) / 0.60,
@@ -668,7 +701,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              0.0,                                   # cosi, set per step
              -(1.12 * self.r_m5 - self.r_tube_in) / (z0_t - self.z_m5),
              Z_ROOF, self.z_fold - 0.10, self.r_post, self.r_tube,
-             self.csr_frac, 15e-3],
+             self.csr_frac, 15e-3] + cpc_flat,
             dtype=torch.float32, device=dev)
         self._geo = _geo_core
         self._geo_is_fused = False
@@ -921,6 +954,53 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         return per
 
     # ------------------------------------------------------------ trace #
+    @staticmethod
+    def _solve_cpc(a_thr, r_entry, height, n_seg=8):
+        """Truncated Winston CPC profile knots [(z, r)], z measured up
+        from the throat. Parametrization (Welford & Winston):
+          f = a'(1+sin th),  phi in [2 th, pi/2 + th]
+          r(phi) = 2 f sin(phi-th)/(1-cos phi) - a'
+          z(phi) = 2 f cos(phi-th)/(1-cos phi)
+        (checked: r,z at phi=pi/2+th -> (a', 0); at phi=2 th ->
+        (a'/sin th, full length)). Bisect th so the profile passes
+        through (height, r_entry); if the envelope cannot host any
+        truncated CPC that wide, fall back to the widest-acceptance
+        profile (th = asin(a'/r_entry)) and report its actual mouth.
+        """
+        def prof(th):
+            f = a_thr * (1.0 + np.sin(th))
+            phi = np.linspace(np.pi/2 + th, 2*th + 1e-4, 3000)
+            r = 2*f*np.sin(phi - th)/(1 - np.cos(phi)) - a_thr
+            z = 2*f*np.cos(phi - th)/(1 - np.cos(phi))
+            return z, r
+
+        def r_at(th, zq):
+            z, r = prof(th)
+            if z[-1] < zq:
+                return r[-1] + (zq - z[-1]) * 1e3   # too short: punish
+            return float(np.interp(zq, z, r))
+
+        th_hi = float(np.arcsin(min(a_thr / r_entry, 1.0)))  # widest
+        lo, hi = 0.05, th_hi
+        g_lo, g_hi = r_at(lo, height) - r_entry, r_at(hi, height) - r_entry
+        if g_lo * g_hi > 0:
+            th = th_hi          # envelope inconsistent: widest CPC
+        else:
+            for _ in range(60):
+                mid = 0.5 * (lo + hi)
+                if (r_at(mid, height) - r_entry) * g_lo <= 0:
+                    hi = mid
+                else:
+                    lo = mid
+            th = 0.5 * (lo + hi)
+        z, r = prof(th)
+        zk = np.linspace(0.0, height, n_seg + 1)
+        rk = np.interp(zk, z, r)
+        print(f"  [hashemi] CPC lip: Winston profile, acceptance "
+              f"{np.degrees(th):.1f} deg, throat {a_thr:.2f} -> mouth "
+              f"{rk[-1]:.3f} m over {height:.2f} m ({n_seg} segments)")
+        return list(zip(zk, rk))
+
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
         """Live ARTIST trace: dish -> fixed 2-axis fold -> waist ->
         fixed ellipsoidal M5 -> duct -> pot. The geometry runs in
@@ -1450,11 +1530,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         for zz in np.linspace(self.z_m5, Z_ROOF, 6):    # buried outer
             ring([X_TOWER, 0, zz], self.r_m5 + 0.20, (120, 104, 88, 255),
                  20)
-        # inner CPC profile (gold): lip -> straight -> expanding cone
+        # inner CPC profile (gold): the true Winston lip -> straight
+        # -> expanding cone; drawn from the same knots the trace uses
         prof = []
-        for zz in np.linspace(self.z_tube[1] + 0.6, self.z_tube[1], 4):
-            prof.append((zz, self.r_tube_in + (0.55 - self.r_tube_in)
-                         * (zz - self.z_tube[1]) / 0.6))
+        for zk_, rk_ in reversed(self._cpc_knots):
+            prof.append((self.z_tube[1] + zk_, rk_))
         for zz in np.linspace(self.z_tube[1], self.z_tube[0], 3):
             prof.append((zz, self.r_tube_in))
         for zz in np.linspace(self.z_tube[0], self.z_m5 + 0.35, 6):

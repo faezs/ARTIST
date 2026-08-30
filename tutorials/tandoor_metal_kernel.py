@@ -143,26 +143,38 @@ kernel void tandoor_trace(
     float3 d2 = d - 2.0f*dot(d, nf)*nf;
 
     const float dv0 = dvec[b*2], dv1 = dvec[b*2+1];
-    // ---- the CPC lip, one traced bounce
+    // ---- the CPC lip: Winston profile as 8 conical segments
+    // (sc[22+2k]=r0_k, sc[23+2k]=m_k over [sc[3], sc[5]]), first hit
+    // wins; one traced bounce - mirrors _geo_core line for line
     float Xo = h1.x - sc[10] + dv0, Yo = h1.y + dv1;
-    float rz0 = sc[7] + sc[6]*(h1.z - sc[3]);
-    float qa = d2.x*d2.x + d2.y*d2.y - (sc[6]*d2.z)*(sc[6]*d2.z);
-    float qb = 2.0f*(Xo*d2.x + Yo*d2.y - sc[6]*rz0*d2.z);
-    float qc = Xo*Xo + Yo*Yo - rz0*rz0;
-    float disc = qb*qb - 4.0f*qa*qc;
-    float sq = sqrt(max(disc, 0.0f));
-    float tc  = (fabs(qa) > 1e-9f) ? (-qb-sq)/(2.0f*qa)
-                                   : -qc/max(qb, 1e-9f);
-    float tc2 = (fabs(qa) > 1e-9f) ? (-qb+sq)/(2.0f*qa) : tc;
-    tc = (tc > 1e-4f) ? tc : tc2;
+    float dzseg = (sc[5] - sc[3]) * 0.125f;
+    float tc = 1e9f;
+    float m_hit = 0.0f;
+    bool hitsw = false;
+    for (int ks = 0; ks < 8; ks++) {
+        float zk = sc[3] + ks*dzseg;
+        float r0k = sc[22 + 2*ks], mk = sc[23 + 2*ks];
+        float rz0 = r0k + mk*(h1.z - zk);
+        float qa = d2.x*d2.x + d2.y*d2.y - (mk*d2.z)*(mk*d2.z);
+        float qb = 2.0f*(Xo*d2.x + Yo*d2.y - mk*rz0*d2.z);
+        float qc = Xo*Xo + Yo*Yo - rz0*rz0;
+        float disc = qb*qb - 4.0f*qa*qc;
+        float sq = sqrt(max(disc, 0.0f));
+        float t1_ = (fabs(qa) > 1e-9f) ? (-qb-sq)/(2.0f*qa)
+                                       : -qc/max(qb, 1e-9f);
+        float t2_ = (fabs(qa) > 1e-9f) ? (-qb+sq)/(2.0f*qa) : t1_;
+        t1_ = (t1_ > 1e-4f) ? t1_ : t2_;
+        float zc_k = h1.z + t1_*d2.z;
+        bool val = (disc > 0.0f) && (t1_ > 1e-4f) && (zc_k >= zk)
+                   && (zc_k < zk + dzseg) && (t1_ < tc);
+        if (val) { tc = t1_; m_hit = mk; hitsw = true; }
+    }
     float zc = h1.z + tc*d2.z;
-    bool hitsw = (disc > 0.0f) && (tc > 1e-4f)
-                 && (zc > sc[3]) && (zc < sc[5]);
     float w = 1.0f;
     if (hitsw) {
         float hx = Xo + tc*d2.x, hy = Yo + tc*d2.y;
-        float rc = max(sc[7] + sc[6]*(zc - sc[3]), 1e-6f);
-        float3 nc = normalize(float3(hx, hy, -sc[6]*rc));
+        float rc = max(sqrt(hx*hx + hy*hy), 1e-6f);
+        float3 nc = normalize(float3(hx, hy, -m_hit*rc));
         d2 = d2 - 2.0f*dot(d2, nc)*nc;
         h1 = float3(hx + sc[10] - dv0, hy - dv1, zc);
         w = 0.95f;
