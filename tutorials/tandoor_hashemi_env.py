@@ -575,6 +575,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # el > acos(a/g); the waist sits at its centre, tube around it
         el_x = np.degrees(np.arccos(np.clip(a / g, 0, 1)))
         self.el_x = float(el_x)
+        # SLOTLESS: with beta_dev >= el_max - el_x the beam elevation
+        # never reaches the crossing condition - the dish NEVER
+        # intersects the post, so the physical dish needs no slot cut
+        # at all (an uncut, stiffer membrane; flaps hardware deleted).
+        self.slotless = self.beta_dev >= (self.el_max_h - el_x)
+        if self.slotless:
+            print(f"  [hashemi] SLOTLESS: beta_dev {self.beta_dev:.0f}"
+                  f" deg keeps beam el <= {self.el_max_h - self.beta_dev:.0f}"
+                  f" < el_x {el_x:.0f} - dish never crosses the post;"
+                  f" build the dish UNCUT")
         z_x = [self.z_fold - g * np.sin(np.radians(e))
                for e in (el_x, self.el_max_h)]
         self.z_tube = (min(z_x) - 0.20, max(z_x) + 0.20)
