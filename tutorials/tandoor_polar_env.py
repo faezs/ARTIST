@@ -244,7 +244,8 @@ class TandoorPolarEnv(TandoorEnv):
         soil_t = torch.as_tensor(soil, dtype=torch.float32,
                                  device=self.device)
         w = ((self._ray_pw[None, :] * soil_t[:, None]).reshape(-1)
-             * through.reshape(-1).float())
+             * through.reshape(-1).float()
+             * getattr(self, "_ray_scale", 1.0))
         if self.render_mode == "human" and self._last_org is not None:
             # populated by the caller, which is where the ray
             # origins live; _bin_pot only knows the duct plane on.

@@ -393,6 +393,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # (PRBM). Enables beta past the astigmatism budget, toward
         # the shadow-zero orbit.
         self.fold_toroid = float(kwargs.pop("fold_toroid", 0))
+        # beta_cap_z: hard cap (meters) on the TOP OF THE DISH RIM.
+        # beta becomes a per-step SCHEDULE: full beta_dev when the sun
+        # is high, tapered exactly as much as the cap demands when it
+        # is low (winter mornings). The slot lower bound (beam below
+        # el_x) is always kept, so the dish stays uncut.
+        bcz = kwargs.pop("beta_cap_z", None)
+        self.beta_cap_z = None if bcz is None else float(bcz)
+        self._ray_scale = 1.0
         self.gpu = bool(gpu)
         self._gpu = None
         self.fuse = bool(fuse)
@@ -593,7 +601,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # never reaches the crossing condition - the dish NEVER
         # intersects the post, so the physical dish needs no slot cut
         # at all (an uncut, stiffer membrane; flaps hardware deleted).
-        self.slotless = self.beta_dev >= (self.el_max_h - el_x)
+        self.slotless = (self.beta_dev >= (self.el_max_h - el_x)
+            or self.beta_cap_z is not None)
         if self.slotless:
             print(f"  [hashemi] SLOTLESS: beta_dev {self.beta_dev:.0f}"
                   f" deg keeps beam el <= {self.el_max_h - self.beta_dev:.0f}"
@@ -727,14 +736,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._loss_chain = 0.88 * 0.95 * 0.95 * 0.96
         rho_r = 1.0 - 0.10 * (rr / a) ** 4
         cell = np.pi * (a ** 2) * (1 - 0.05 ** 2) / NR
-        # beta's cosine tax, exactly: the dish aims along the bisector
-        # of sun and beam, so its aperture is tilted beta/2 off the sun
-        # AT EVERY ELEVATION (ub is u rotated by beta, naim bisects -
-        # the angle is constant). Flux through the rim plane is
-        # DNI cos(beta/2); the retro orbit (beta 0) pays nothing.
-        cos_ap = float(np.cos(np.radians(self.beta_dev) / 2.0))
-        self._ray_pw = torch.tensor(cell * rho_r * self._loss_chain
-                                    * cos_ap,
+        # beta's cosine tax cos(beta_t/2) is charged PER STEP via
+        # self._ray_scale (set in the mount solve): with the beta
+        # SCHEDULE the tilt varies over the day, so it cannot live in
+        # this static tensor. The retro orbit (beta 0) pays nothing.
+        self._ray_pw = torch.tensor(cell * rho_r * self._loss_chain,
                                     dtype=torch.float32, device=dev)
         self._env_off = (torch.arange(self.num_agents, device=dev)
                          * self.n_nodes).repeat_interleave(NR)
@@ -1021,8 +1027,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # aims along the bisector of sun and beam, and the fold's
         # sun-shadow (the lit/perpf term below) slides off the
         # aperture by g*sin(beta) - the whole point.
-        if self.beta_dev != 0.0:
-            bd = np.radians(self.beta_dev)
+        beta_t = self._beta_now(el)
+        self._ray_scale = float(np.cos(np.radians(beta_t) / 2.0))
+        if beta_t != 0.0:
+            bd = np.radians(beta_t)
             ax = np.cross([0., 0., 1.], u)
             axn = float(np.linalg.norm(ax))
             if axn > 1e-6:
@@ -1101,8 +1109,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc,
                 self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         if self._metal is not None:
-            _, _, per = self._metal(*args, self._ray_pw, soil,
-                                    self.n_nodes)
+            _, _, per = self._metal(*args,
+                                    self._ray_pw * self._ray_scale,
+                                    soil, self.n_nodes)
             return per
         # no Metal on this device (CUDA/CPU): the fused torch graph,
         # binned identically - verify_megakernel certifies the two
@@ -1115,6 +1124,52 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         return self._bin_pot(dy - off[:, 0:1], dz - off[:, 1:2],
                              d3[..., 1], -d3[..., 0], d3[..., 2],
                              through, soil, B, P_).to(soil.device)
+
+    # measured fold-shadow fraction vs |beta| (solstice ladders,
+    # slotless): the chooser's lookup - shadow relief is symmetric in
+    # the SIGN of beta (the offset g sin b slides the fold's shadow
+    # off the aperture either way)
+    _SHADOW_B = (0.0, 12.0, 19.0, 24.0, 28.0, 32.0, 36.0, 40.0)
+    _SHADOW_F = (0.33, 0.21, 0.15, 0.142, 0.09, 0.046, 0.0155, 0.0)
+
+    def _beta_now(self, el):
+        """The SIGNED beta schedule. beta has a sign: positive tilts
+        the beam DOWN (el_b = el - b, dish rides high at low sun),
+        negative tilts it UP (el_b = el + |b|, dish sinks BELOW the
+        fold). With beta_cap_z set, each step picks the branch of
+        larger scheduled power cos(b/2)(1 - shadow(|b|)):
+          positive: full beta_dev if the rim top stays under the cap,
+            else tapered to the cap (fixed point on the rim eqn);
+            slot bound b >= el - (el_x-1).
+          negative: |b| = min(beta_dev, el_x - 2 - el) - the slot
+            bound from above (el + |b| < el_x); the dish sinks, so
+            the cap is free by construction.
+        Winter noon picks negative (dish at ~5.5 m); high sun picks
+        positive (dish dives anyway). The seam el ~ 40-48 pays a few
+        shadow points; the envelope never exceeds the cap."""
+        lo = max(0.0, el - (self.el_x - 1.0))
+        bp = float(np.clip(self.beta_dev, lo, max(self.beta_dev, lo)))
+        if self.beta_cap_z is None:
+            return bp
+        # positive branch, tapered to the rim cap
+        for _ in range(3):
+            naim_el = np.radians(el - 0.5 * bp)
+            allow = self.beta_cap_z \
+                - self.a_mem * max(np.cos(naim_el), 0.0)
+            sarg = np.clip((self.z_fold - allow) / self.g_orbit,
+                           -1.0, 1.0)
+            hi = el - np.degrees(np.arcsin(sarg))
+            bp = float(np.clip(min(self.beta_dev, hi), lo,
+                               max(self.beta_dev, lo)))
+        # negative branch (only exists while the slot bound allows it
+        # and the positive branch is actually pinched by the cap)
+        bn = -min(self.beta_dev, max(self.el_x - 2.0 - el, 0.0))
+        if bn == 0.0 or bp >= self.beta_dev - 1e-9:
+            return bp
+        sh = lambda b: float(np.interp(abs(b), self._SHADOW_B,
+                                       self._SHADOW_F))
+        score = lambda b: np.cos(np.radians(b) / 2.0) * (1.0 - sh(b))
+        return bn if score(bn) > score(bp) else bp
 
     # ------------------------------------------------------------ trace #
     @staticmethod
@@ -1205,8 +1260,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # aims along the bisector of sun and beam, and the fold's
         # sun-shadow (the lit/perpf term below) slides off the
         # aperture by g*sin(beta) - the whole point.
-        if self.beta_dev != 0.0:
-            bd = np.radians(self.beta_dev)
+        beta_t = self._beta_now(el)
+        self._ray_scale = float(np.cos(np.radians(beta_t) / 2.0))
+        if beta_t != 0.0:
+            bd = np.radians(beta_t)
             ax = np.cross([0., 0., 1.], u)
             axn = float(np.linalg.norm(ax))
             if axn > 1e-6:
@@ -1279,8 +1336,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if self._metal is not None and self.render_mode != "human":
             soil_t = torch.as_tensor(np.asarray(soil),
                                      dtype=torch.float32, device=dev)
-            thr, out6, per = self._metal(*args, self._ray_pw, soil_t,
-                                         self.n_nodes)
+            thr, out6, per = self._metal(*args,
+                                         self._ray_pw * self._ray_scale,
+                                         soil_t, self.n_nodes)
             return per.cpu()
         try:
             out = self._geo(*args)
