@@ -337,7 +337,7 @@ class TandoorPolarEnv(TandoorEnv):
         # seasonal drift since the last re-forming shows up as astigmatism
         drift = np.abs(self._decl() - self.decl_formed)
         sig_drift = np.radians(drift) * 0.04
-        sigma_b = np.sqrt(self.sigma_sun**2 + self.sig_static**2
+        sigma_b = np.sqrt(self.sig_static**2
                           + (2 * 0.35 * sig_wind) ** 2 + sig_drift**2)
         self.bore += (-self.bore / 300.0 * self.dt
                       + self.rng.normal(

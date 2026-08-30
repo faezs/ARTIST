@@ -607,7 +607,9 @@ class TandoorEnv(pufferlib.PufferEnv):
         # q*a/2T hand estimate that overstated this ~2.5x: the nonlinear
         # membrane resists asymmetric load far better, and sublinearly
         sig_wind = 0.88e-3 * (q_w / 15.0) ** 0.6
-        sigma_b = np.sqrt(self.sigma_sun**2 + (2 * self.sigma_surf) ** 2
+        # OPTICS-ONLY sigma: the sun's shape now comes from the Buie
+        # table in the trace itself, not a Gaussian folded in here
+        sigma_b = np.sqrt((2 * self.sigma_surf) ** 2
                           + (2 * self.sigma_fab) ** 2
                           + (2 * sig_wind) ** 2)
         # boresight: OU wander + tilt-dependent mast flexure + wind buffet

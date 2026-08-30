@@ -90,6 +90,16 @@ def run_sweep(max_runs: int = 40, smoke: bool = False):
     print("build-time patches verified in file AND imported module",
           flush=True)
 
+    # HARD GATE: the CUDA trace must reproduce the Metal kernel's
+    # output on the frozen reference bundle before any paid probe
+    r = subprocess.run(
+        [sys.executable, f"{REPO}/tutorials/tandoor_cuda_verify.py",
+         "check"], capture_output=True, text=True)
+    print(r.stdout[-500:], flush=True)
+    assert r.returncode == 0, \
+        f"CUDA-vs-Metal gate FAILED: {r.stderr[-800:]}"
+
+
     # register the tandoor package the way the local venv does: the
     # ini into pufferlib's config dir, the package into its
     # environments namespace (load_config/load_env look ONLY there)

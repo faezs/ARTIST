@@ -91,7 +91,7 @@ def _align_np(a, b):
     return np.eye(3) + K + K @ K / (1 + c)
 
 
-def _geo_core(pts_l, nrm_l, lv, du, de, upick, sigb, Acan,
+def _geo_core(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
               Mt, Cd, dvec, off, vp, sc,
               ellM, ellS, ellC, V0t):
     """The whole ray geometry as ONE pure-tensor function, so
@@ -117,11 +117,20 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, sigb, Acan,
     p_loc = (1 - fr) * pts_l[i0] + fr * pts_l[i0 + 1]
     n_loc = (1 - fr) * nrm_l[i0] + fr * nrm_l[i0 + 1]
     n_loc = n_loc / n_loc.norm(dim=-1, keepdim=True)
-    sig_eff = torch.where(upick < csr_frac_c,
-                          csr_sig_c.expand_as(du),
-                          sigb[:, None].expand_as(du))
+    # THE SUN from its true distribution: Buie radial table
+    # (sc[38..102], 65 knots) indexed by the uniform us; azimuth from
+    # upick. du/de are now the OPTICS Gaussian alone (sigb no longer
+    # folds a sun sigma in).
+    tq = us.clamp(0, 1) * 64.0
+    ti = tq.long().clamp(max=63)
+    tf = tq - ti.float()
+    sun_t = sc[38:103]
+    th_sun = sun_t[ti] * (1 - tf) + sun_t[ti + 1] * tf
+    psi = 2.0 * np.pi * upick
+    e_ang = th_sun * torch.cos(psi) + de * sigb[:, None]
+    u_ang = th_sun * torch.sin(psi) + du * sigb[:, None]
     R = artist_utils.rotate_distortions(
-        e=(de * sig_eff)[:, None, :], u=(du * sig_eff)[:, None, :],
+        e=e_ang[:, None, :], u=u_ang[:, None, :],
         device=du.device)
     canon = torch.zeros(4, device=du.device, dtype=du.dtype)
     canon[1] = 1.0
@@ -706,6 +715,23 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             r0k = self._cpc_knots[k][1]
             mk = (self._cpc_knots[k+1][1] - r0k) / dzseg
             cpc_flat += [r0k, mk]
+        # THE SUN, actually: a Gaussian is not a star. The Buie
+        # sunshape - limb-darkened 4.65 mrad disk, power-law
+        # circumsolar tail parameterized by the CSR - sampled exactly
+        # through a 65-knot inverse-CDF table both kernels share.
+        # (DNI already comes from the Meinel clear-sky airmass model;
+        # this fixes the sun's SHAPE, the remaining approximation.)
+        chi = max(float(self.csr_frac), 0.01)
+        _gam = 2.2 * np.log(0.52 * chi) * chi ** 0.43 - 0.1
+        _kap = 0.9 * np.log(13.5 * chi) * chi ** (-0.3)
+        _th = np.linspace(1e-4, 43.6, 6000)          # mrad
+        _phi = np.where(_th <= 4.65,
+                        np.cos(0.326 * _th) / np.cos(0.308 * _th),
+                        np.exp(_kap) * _th ** _gam)
+        _cdf = np.cumsum(_phi * _th)
+        _cdf = _cdf / _cdf[-1]
+        _uu = np.linspace(0.0, 1.0, 65)
+        self._sun_table = np.interp(_uu, _cdf, _th) * 1e-3   # radians
         self._sc_base = torch.tensor(
             [self.r_fold, self.slot_r0, self.slot_w2, z1_t, z0_t,
              z1_t + 0.60, (0.55 - self.r_tube_in) / 0.60,
@@ -714,7 +740,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              0.0,                                   # cosi, set per step
              -(1.12 * self.r_m5 - self.r_tube_in) / (z0_t - self.z_m5),
              Z_ROOF, self.z_fold - 0.10, self.r_post, self.r_tube,
-             self.csr_frac, 15e-3] + cpc_flat,
+             self.csr_frac, 15e-3] + cpc_flat
+            + list(self._sun_table),
             dtype=torch.float32, device=dev)
         self._geo = _geo_core
         self._geo_is_fused = False
@@ -954,14 +981,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         du = torch.randn(B, P_, generator=self._gen, device=dev)
         de = torch.randn(B, P_, generator=self._gen, device=dev)
         upick = torch.rand(B, P_, generator=self._gen, device=dev)
+        us = torch.rand(B, P_, generator=self._gen, device=dev)
         dvec = torch.stack([2.0 * self.f_nom * torch.deg2rad(e_el),
                             2.0 * self.f_nom * torch.deg2rad(e_az)],
                            1)[:, None, :]
         lv = ((p_eff / self.p0 - self.level_frac[0])
               / (self.level_frac[-1] - self.level_frac[0])
               * (self.N_LEVELS - 1)).clamp(0, self.N_LEVELS - 1)
-        args = (self._pts_l, self._nrm_l, lv, du, de, upick, sigma_b,
-                self._Acan, Mt, Cd, dvec, off, vp, sc,
+        args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
+                sigma_b, self._Acan, Mt, Cd, dvec, off, vp, sc,
                 self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         if self._metal is not None:
             _, _, per = self._metal(*args, self._ray_pw, soil,
@@ -973,9 +1001,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         out = self._geo(*args)
         (through_b, w_ray, dy, dz, d3) = out[:5]
         through = through_b.float() * w_ray
+        # _bin_pot returns cpu (its numpy-path contract) - gpu_step
+        # needs it back on the compute device
         return self._bin_pot(dy - off[:, 0:1], dz - off[:, 1:2],
                              d3[..., 1], -d3[..., 0], d3[..., 2],
-                             through, soil, B, P_)
+                             through, soil, B, P_).to(soil.device)
 
     # ------------------------------------------------------------ trace #
     @staticmethod
@@ -1044,6 +1074,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         du = torch.randn(B, P_, generator=self._gen, device=dev)
         de = torch.randn(B, P_, generator=self._gen, device=dev)
         upick = torch.rand(B, P_, generator=self._gen, device=dev)
+        us = torch.rand(B, P_, generator=self._gen, device=dev)
         sigb_t = torch.as_tensor(np.asarray(sigma_b), dtype=torch.float32,
                                  device=dev)
         lv_t = torch.as_tensor(lv, dtype=torch.float32, device=dev)
@@ -1081,8 +1112,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                       2.0 * self.f_nom * np.radians(self._e_az)], 1),
             dtype=torch.float32, device=dev)[:, None, :]
         off = torch.as_tensor(offset_w, dtype=torch.float32, device=dev)
-        args = (self._pts_l, self._nrm_l, lv_t, du, de, upick, sigb_t,
-                self._Acan, Mt, Cd, dvec, off, vp,
+        args = (self._pts_l, self._nrm_l, lv_t, du, de, upick, us,
+                sigb_t, self._Acan, Mt, Cd, dvec, off, vp,
                 sc, self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         if self._metal is not None and self.render_mode != "human":
             soil_t = torch.as_tensor(np.asarray(soil),

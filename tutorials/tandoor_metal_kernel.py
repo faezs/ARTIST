@@ -75,6 +75,7 @@ kernel void tandoor_trace(
     device const float* ray_pw [[buffer(21)]],
     device const float* soil   [[buffer(22)]],
     device float*       per_dni [[buffer(23)]],  // (B, n_nodes) zeroed
+    device const float* us     [[buffer(24)]],  // (B*P) sun-table u
     uint tid [[thread_position_in_grid]])
 {
     const int B = dims[0], P = dims[1], L = dims[2];
@@ -100,10 +101,17 @@ kernel void tandoor_trace(
                  +        fr*float3(nrm_l[o1],nrm_l[o1+1],nrm_l[o1+2]);
     n_loc = normalize(n_loc);
 
-    // ---- ARTIST sun cone: rotate_distortions (heliostat convention,
-    // sin_e NEGATED) applied to the canonical ray (0,1,0)
-    float sg = (upk[tid] < sc[20]) ? sc[21] : sigb[b];
-    float ea = de[tid]*sg, ua = du[tid]*sg;
+    // ---- THE SUN from its Buie table (sc[38..102], 65 knots):
+    // radial angle by inverse-CDF on us, azimuth from upk; du/de are
+    // the OPTICS Gaussian alone. rotate_distortions convention
+    // (heliostat, sin_e NEGATED) on the canonical ray (0,1,0).
+    float tq = clamp(us[tid], 0.0f, 1.0f) * 64.0f;
+    int   ti = min((int)tq, 63);
+    float tf = tq - (float)ti;
+    float th_sun = sc[38 + ti]*(1.0f - tf) + sc[38 + ti + 1]*tf;
+    float psi = 6.2831853f * upk[tid];
+    float ea = th_sun*cos(psi) + de[tid]*sigb[b];
+    float ua = th_sun*sin(psi) + du[tid]*sigb[b];
     float ce = cos(ea), se_ = -sin(ea), cu = cos(ua), su = sin(ua);
     float3 v = float3(-su, ce*cu, -se_*cu);
     float3 inc = mrow(v, Acan);
@@ -289,9 +297,9 @@ class MetalGeo:
     def __init__(self):
         self.lib = torch.mps.compile_shader(MSL)
 
-    def __call__(self, pts_l, nrm_l, lv, du, de, upick, sigb, Acan,
-                 Mt, Cd, dvec, off, vp, sc, ellM, ellS, ellC, V0t,
-                 ray_pw, soil, n_nodes):
+    def __call__(self, pts_l, nrm_l, lv, du, de, upick, us, sigb,
+                 Acan, Mt, Cd, dvec, off, vp, sc, ellM, ellS, ellC,
+                 V0t, ray_pw, soil, n_nodes):
         B, P = du.shape
         L = pts_l.shape[0]
         dev = du.device
@@ -305,5 +313,5 @@ class MetalGeo:
             thr, out6, c(pts_l), c(nrm_l), c(lv), c(du), c(de), c(upick),
             c(sigb), c(dvec.reshape(B, -1)[:, :2]), c(off), c(vp), c(sc),
             c(Acan), c(Mt), c(Cd), c(ellM), c(ellS), c(ellC), c(V0t),
-            dims, c(ray_pw), c(soil), per)
+            dims, c(ray_pw), c(soil), per, c(us))
         return thr.view(B, P), out6.view(B, P, 6), per

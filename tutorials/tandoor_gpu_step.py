@@ -159,7 +159,7 @@ def gpu_step(env, actions):
     drift = abs(decl - 0) # placeholder replaced below
     drift_t = (S.decl_formed - float(decl)).abs()
     sig_drift = torch.deg2rad(drift_t) * 0.04
-    sigma_b = torch.sqrt(env.sigma_sun**2 + env.sig_static**2
+    sigma_b = torch.sqrt(env.sig_static**2
                          + (2*0.35*sig_wind)**2 + sig_drift**2)
     S.bore = S.bore - S.bore/300.0*dt \
         + 0.010*np.sqrt(2*dt/300.0) * S.n(B, 2)
