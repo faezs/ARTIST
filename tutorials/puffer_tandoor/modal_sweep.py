@@ -181,6 +181,67 @@ def run_sweep(max_runs: int = 40, smoke: bool = False):
         args["train"]["total_timesteps"] = total_timesteps
 
 
+@app.function(gpu="A100", timeout=1800, memory=16384, cpu=4)
+def diag():
+    import os
+    import sys
+    pkg = f"{REPO}/tutorials/puffer_tandoor"
+    os.chdir(pkg)
+    sys.path.insert(0, pkg)
+    sys.path.insert(0, f"{REPO}/tutorials")
+    sys.path.insert(0, REPO)
+    import pufferlib as _pl
+    _pl_dir = os.path.dirname(_pl.__file__)
+    for a, b in ((f"{pkg}/hashemi.ini",
+                  os.path.join(_pl_dir, "config", "hashemi.ini")),
+                 (pkg, os.path.join(_pl_dir, "environments",
+                                    "tandoor"))):
+        if not os.path.exists(b):
+            os.symlink(a, b)
+    import subprocess as sp
+    r = sp.run([sys.executable,
+                f"{REPO}/tutorials/tandoor_step_verify.py", "check"],
+               capture_output=True, text=True)
+    print(r.stdout[-800:], flush=True)
+    if r.returncode != 0:
+        print("STDERR:", r.stderr[-1200:], flush=True)
+        raise SystemExit(1)
+
+    # ---- the advantage kernel vs the certified reference (the same
+    # vtrace math our Metal kernel matched to 0.00e+00 on the Mac)
+    import torch
+    import pufferlib.pufferl as PL
+    print("ADVANTAGE_CUDA:", PL.ADVANTAGE_CUDA, flush=True)
+    torch.manual_seed(0)
+    S_, T_ = 64, 128
+    v = torch.randn(S_, T_, device="cuda")
+    rw = torch.randn(S_, T_, device="cuda") * 0.1
+    dn = (torch.rand(S_, T_, device="cuda") < 0.02).float()
+    imp = (1 + 0.1 * torch.randn(S_, T_, device="cuda")).clamp(.5, 2)
+    adv = torch.zeros_like(v)
+    PL.compute_puff_advantage(v.clone(), rw.clone(), dn.clone(),
+                              imp.clone(), adv, 0.995, 0.95, 1.0, 1.0)
+    ref = torch.zeros_like(v)
+    lastlam = torch.zeros(S_, device="cuda")
+    for t in range(T_ - 2, -1, -1):
+        rho = imp[:, t].clamp(max=1.0)
+        c = imp[:, t].clamp(max=1.0)
+        nonterm = 1.0 - dn[:, t + 1]
+        delta = rho * (rw[:, t + 1] + 0.995 * v[:, t + 1] * nonterm
+                       - v[:, t])
+        lastlam = delta + 0.995 * 0.95 * c * lastlam * nonterm
+        ref[:, t] = lastlam
+    err = float((adv - ref).abs().max())
+    print(f"advantage kernel vs reference: max err {err:.3e} "
+          f"(adv absmax {float(adv.abs().max()):.3e}, "
+          f"ref absmax {float(ref.abs().max()):.3e})", flush=True)
+    print("diag done", flush=True)
+
+
 @app.local_entrypoint()
-def main(smoke: bool = False, max_runs: int = 40):
-    run_sweep.remote(max_runs=max_runs, smoke=smoke)
+def main(smoke: bool = False, max_runs: int = 40,
+         run_diag: bool = False):
+    if run_diag:
+        diag.remote()
+    else:
+        run_sweep.remote(max_runs=max_runs, smoke=smoke)

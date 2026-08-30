@@ -73,6 +73,63 @@ PATCHES = [
               f"gn={_t['max_grad_norm']:.3g}", flush=True)
         total_timesteps = args['train']['total_timesteps']
 """),
+    (ROOT / "pufferl.py",
+     """    device = values.device
+    if not ADVANTAGE_CUDA:
+        values = values.cpu()
+        rewards = rewards.cpu()
+        terminals = terminals.cpu()
+        ratio = ratio.cpu()
+        advantages = advantages.cpu()
+
+    torch.ops.pufferlib.compute_puff_advantage(values, rewards, terminals,
+        ratio, advantages, gamma, gae_lambda, vtrace_rho_clip, vtrace_c_clip)
+
+    if not ADVANTAGE_CUDA:
+        return advantages.to(device)
+
+    return advantages
+""",
+     """    device = values.device
+    if not ADVANTAGE_CUDA and device.type == "cuda":
+        # tandoor patch: without nvcc at install time there is no CUDA
+        # advantage op, and the cpu fallback mutates DETACHED copies -
+        # train() relies on in-place mutation (it rebinds to
+        # mb_advantages right after the call), so CUDA training got
+        # all-zero advantages, silently. Run the certified vtrace scan
+        # on-device instead (the same math the Metal kernel matched to
+        # 0.00e+00) and write the caller's buffer in place.
+        T_ = values.shape[1]
+        lastlam = torch.zeros_like(values[:, 0])
+        rho = ratio.clamp(max=vtrace_rho_clip)
+        cc = ratio.clamp(max=vtrace_c_clip)
+        gl = gamma * gae_lambda
+        for t in range(T_ - 2, -1, -1):
+            nonterm = 1.0 - terminals[:, t + 1]
+            delta = rho[:, t] * (rewards[:, t + 1]
+                                 + gamma * values[:, t + 1] * nonterm
+                                 - values[:, t])
+            lastlam = delta + gl * cc[:, t] * lastlam * nonterm
+            advantages[:, t] = lastlam
+        return advantages
+    if not ADVANTAGE_CUDA:
+        adv_in = advantages
+        values = values.cpu()
+        rewards = rewards.cpu()
+        terminals = terminals.cpu()
+        ratio = ratio.cpu()
+        advantages = advantages.cpu()
+        torch.ops.pufferlib.compute_puff_advantage(
+            values, rewards, terminals, ratio, advantages, gamma,
+            gae_lambda, vtrace_rho_clip, vtrace_c_clip)
+        adv_in.copy_(advantages.to(device))
+        return adv_in
+
+    torch.ops.pufferlib.compute_puff_advantage(values, rewards, terminals,
+        ratio, advantages, gamma, gae_lambda, vtrace_rho_clip, vtrace_c_clip)
+
+    return advantages
+"""),
     (ROOT / "sweep.py",
      """        assert 'distribution' in param
         distribution = param['distribution']

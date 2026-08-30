@@ -978,10 +978,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         Cd = vp.new_tensor(C_dish)
         sc = self._sc_base.clone()
         sc[14] = float(np.cos(np.radians(45.0 - 0.5 * el)))
-        du = torch.randn(B, P_, generator=self._gen, device=dev)
-        de = torch.randn(B, P_, generator=self._gen, device=dev)
-        upick = torch.rand(B, P_, generator=self._gen, device=dev)
-        us = torch.rand(B, P_, generator=self._gen, device=dev)
+        if getattr(self, "_det_trace", False):
+            du = torch.zeros(B, P_, device=dev)
+            de = torch.zeros(B, P_, device=dev)
+            upick = torch.full((B, P_), 0.5, device=dev)
+            us = torch.full((B, P_), 0.5, device=dev)
+        else:
+            du = torch.randn(B, P_, generator=self._gen, device=dev)
+            de = torch.randn(B, P_, generator=self._gen, device=dev)
+            upick = torch.rand(B, P_, generator=self._gen, device=dev)
+            us = torch.rand(B, P_, generator=self._gen, device=dev)
         dvec = torch.stack([2.0 * self.f_nom * torch.deg2rad(e_el),
                             2.0 * self.f_nom * torch.deg2rad(e_az)],
                            1)[:, None, :]
@@ -1071,10 +1077,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                      / (self.level_frac[-1] - self.level_frac[0])
                      * (self.N_LEVELS - 1), 0, self.N_LEVELS - 1)
         P_ = len(self._hx)
-        du = torch.randn(B, P_, generator=self._gen, device=dev)
-        de = torch.randn(B, P_, generator=self._gen, device=dev)
-        upick = torch.rand(B, P_, generator=self._gen, device=dev)
-        us = torch.rand(B, P_, generator=self._gen, device=dev)
+        if getattr(self, "_det_trace", False):
+            du = torch.zeros(B, P_, device=dev)
+            de = torch.zeros(B, P_, device=dev)
+            upick = torch.full((B, P_), 0.5, device=dev)
+            us = torch.full((B, P_), 0.5, device=dev)
+        else:
+            du = torch.randn(B, P_, generator=self._gen, device=dev)
+            de = torch.randn(B, P_, generator=self._gen, device=dev)
+            upick = torch.rand(B, P_, generator=self._gen, device=dev)
+            us = torch.rand(B, P_, generator=self._gen, device=dev)
         sigb_t = torch.as_tensor(np.asarray(sigma_b), dtype=torch.float32,
                                  device=dev)
         lv_t = torch.as_tensor(lv, dtype=torch.float32, device=dev)
