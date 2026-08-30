@@ -727,7 +727,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._loss_chain = 0.88 * 0.95 * 0.95 * 0.96
         rho_r = 1.0 - 0.10 * (rr / a) ** 4
         cell = np.pi * (a ** 2) * (1 - 0.05 ** 2) / NR
-        self._ray_pw = torch.tensor(cell * rho_r * self._loss_chain,
+        # beta's cosine tax, exactly: the dish aims along the bisector
+        # of sun and beam, so its aperture is tilted beta/2 off the sun
+        # AT EVERY ELEVATION (ub is u rotated by beta, naim bisects -
+        # the angle is constant). Flux through the rim plane is
+        # DNI cos(beta/2); the retro orbit (beta 0) pays nothing.
+        cos_ap = float(np.cos(np.radians(self.beta_dev) / 2.0))
+        self._ray_pw = torch.tensor(cell * rho_r * self._loss_chain
+                                    * cos_ap,
                                     dtype=torch.float32, device=dev)
         self._env_off = (torch.arange(self.num_agents, device=dev)
                          * self.n_nodes).repeat_interleave(NR)
