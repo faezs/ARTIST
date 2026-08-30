@@ -373,7 +373,7 @@ class TandoorPolarEnv(TandoorEnv):
         ) * self.dt / self.c_halo
         q[:, self.n_belt + 2] -= q_ap
         belt_T = T[:, : self.n_belt]
-        q_b = self.has_bread * (25.0 * 0.05) * (belt_T - 400.0)
+        q_b = self.has_bread * self.h_bread * (belt_T - 400.0)
         q[:, : self.n_belt] -= q_b
         dT = q * self.dt / self.node_heat_cap
         self.T = T + dT
@@ -384,7 +384,7 @@ class TandoorPolarEnv(TandoorEnv):
 
         rew = np.zeros(B)
         belt_T = self.T[:, : self.n_belt]
-        cooked = self.has_bread & (self.bread_E >= 45e3)
+        cooked = self.has_bread & (self.bread_E >= self.roti_energy)
         scorched = self.has_bread & (belt_T > 730.0)
         doughy = self.has_bread & (self.bread_t > 300.0) & ~cooked
         rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1) \
@@ -400,11 +400,16 @@ class TandoorPolarEnv(TandoorEnv):
         # the retrofit's structural safety win
         self.load_timer += self.dt
         ok_ = (~self.has_bread) & (belt_T >= 560.0) & (belt_T <= 700.0)
-        can = np.nonzero((self.load_timer >= 45.0) & ok_.any(1))[0]
-        j = np.argmax(np.where(ok_, belt_T, -np.inf), axis=1)
-        self.has_bread[can, j[can]] = True
+        can = np.nonzero((self.load_timer >= self.load_period)
+                         & ok_.any(1))[0]
+        okm = ok_.copy()
+        for _k in range(self.loaves_per_load):
+            j = np.argmax(np.where(okm, belt_T, -np.inf), axis=1)
+            sel = can[okm[can, j[can]]]
+            self.has_bread[sel, j[sel]] = True
+            okm[sel, j[sel]] = False
+            rew[sel] += 0.3
         self.load_timer[can] = 0.0
-        rew[can] += 0.3
         belt_mean = belt_T.mean(1)
         below = belt_mean < 560.0
         rew += 0.05 * np.clip(belt_mean - self._belt_prev, -5, 5) * below

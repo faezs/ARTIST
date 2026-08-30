@@ -357,7 +357,28 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
 
     def __init__(self, *args, a_mem=2.10, g_orbit=5.0, z_waist=None,
                  z_m5=-0.10, el_min=12.0, r_mast=0.25, n_rays=1100,
-                 fuse=1, gpu=0, **kwargs):
+                 fuse=1, gpu=0, beta_dev=0.0, slot_flaps=0,
+                 silvered=0, m5_scale=1.0, **kwargs):
+        # OPTICAL-EFFICIENCY levers (defaults = current machine):
+        # beta_dev: off-axis deviation [deg] of the beam from retro.
+        #   The primary is a SPHERE - it has no optical axis, so the
+        #   retro orbit (dish diametrically opposite the fold from the
+        #   sun) is a choice, and the costliest one: it centers the
+        #   fold's shadow on the aperture (31%). Biasing the orbit by
+        #   beta_dev slides the shadow off at the price of the
+        #   sphere's working-angle astigmatism ~ a*(beta/2)^2, which
+        #   the ellipsoid's 3x DEMAGNIFYING relay compresses below
+        #   the duct radius. Pure aim law - the carriage already owns
+        #   both degrees of freedom.
+        # slot_flaps: thin mirrored flaps close the dish slot except
+        #   in the post-crossing band (el >= el_x - 3 deg).
+        # silvered: ReflecTech-class silvered film and silvered
+        #   fold/M5/duct (0.88/0.95/0.95/0.96 -> 0.94/0.97/0.96/0.97).
+        # m5_scale: M5 patch radius margin multiplier.
+        self.beta_dev = float(beta_dev)
+        self.slot_flaps = bool(slot_flaps)
+        self.silvered = bool(silvered)
+        self.m5_scale = float(m5_scale)
         self.gpu = bool(gpu)
         self._gpu = None
         self.fuse = bool(fuse)
@@ -553,6 +574,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # dish-crossing band: the dish plane crosses the post axis for
         # el > acos(a/g); the waist sits at its centre, tube around it
         el_x = np.degrees(np.arccos(np.clip(a / g, 0, 1)))
+        self.el_x = float(el_x)
         z_x = [self.z_fold - g * np.sin(np.radians(e))
                for e in (el_x, self.el_max_h)]
         self.z_tube = (min(z_x) - 0.20, max(z_x) + 0.20)
@@ -626,7 +648,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.slot_w2 = self.r_tube + 0.06
         self.slot_loss = 2 * self.slot_w2 * (a - self.slot_r0) \
             / (np.pi * a * a)
-        self.r_m5 = (a / self.f_nom) * (self.z_waist - self.z_m5) + 0.10
+        self.r_m5 = ((a / self.f_nom) * (self.z_waist - self.z_m5)
+                     + 0.10) * self.m5_scale
 
         # -- M5's ellipsoid: foci at the waist and the duct centre; sized
         # so its lower surface passes through the wall base at z_m5
@@ -674,7 +697,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.sig_static = float(np.sqrt((2 * 2.0e-3) ** 2
                                         + (2 * self.sigma_print) ** 2))
         # film 0.88 w/ rim thinning, fold 0.95, M5 0.95, duct lip 0.96
-        self._loss_chain = 0.88 * 0.95 * 0.95 * 0.96
+        if self.silvered:
+            self._loss_chain = 0.94 * 0.97 * 0.96 * 0.97
+        else:
+            self._loss_chain = 0.88 * 0.95 * 0.95 * 0.96
         rho_r = 1.0 - 0.10 * (rr / a) ** 4
         cell = np.pi * (a ** 2) * (1 - 0.05 ** 2) / NR
         self._ray_pw = torch.tensor(cell * rho_r * self._loss_chain,
@@ -929,7 +955,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                          (S.bore[:, 0] / 0.1).clamp(-2, 2),
                          (S.bore[:, 1] / 0.1).clamp(-2, 2),
                          (S.load_timer / 45.0).clamp(0, 2)], 1),
-            S.bread_E / 45e3,
+            S.bread_E / self.roti_energy,
             p_in[:, None] / 6000.0,
             torch.stack([S.jammed.float(),
                          ((S.decl_formed - float(self._decl())).abs()
@@ -959,25 +985,50 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         u = np.array([u_np[1], u_np[0], u_np[2]], dtype=float)
         u /= np.linalg.norm(u)
         P_fold = np.array([X_TOWER, 0.0, self.z_fold])
-        C_dish = P_fold - self.g_orbit * u
-        M = _align_np([0.0, 0.0, 1.0], u)
-        el_r = np.radians(el)
-        h_np = -(u - u[2] * np.array([0., 0., 1.]))
+        # OFF-AXIS ORBIT (beta_dev): the sphere has no axis, so the
+        # beam-to-fold direction ub may deviate from retro; the dish
+        # aims along the bisector of sun and beam, and the fold's
+        # sun-shadow (the lit/perpf term below) slides off the
+        # aperture by g*sin(beta) - the whole point.
+        if self.beta_dev != 0.0:
+            bd = np.radians(self.beta_dev)
+            ax = np.cross([0., 0., 1.], u)
+            axn = float(np.linalg.norm(ax))
+            if axn > 1e-6:
+                ax = ax / axn
+                K = np.array([[0., -ax[2], ax[1]],
+                              [ax[2], 0., -ax[0]],
+                              [-ax[1], ax[0], 0.]])
+                ub = (np.eye(3) + np.sin(bd) * K
+                      + (1 - np.cos(bd)) * (K @ K)) @ u
+            else:
+                ub = u
+        else:
+            ub = u
+        C_dish = P_fold - self.g_orbit * ub
+        naim = u + ub
+        naim = naim / np.linalg.norm(naim)
+        M = _align_np([0.0, 0.0, 1.0], naim)
+        el_b = float(np.degrees(np.arcsin(np.clip(ub[2], -1, 1))))
+        el_r = np.radians(el_b)
+        h_np = -(ub - ub[2] * np.array([0., 0., 1.]))
         h_np = h_np / max(np.linalg.norm(h_np), 1e-9)
         p_up = h_np * np.sin(el_r) + np.array([0., 0., 1.]) * np.cos(el_r)
-        nf_np = u + np.array([0., 0., 1.])
+        nf_np = ub + np.array([0., 0., 1.])
         nf_np = nf_np / np.linalg.norm(nf_np)
-        e_par_np = u - (u @ nf_np) * nf_np
+        e_par_np = ub - (ub @ nf_np) * nf_np
         e_par_np = e_par_np / np.linalg.norm(e_par_np)
         e_prp_np = np.cross(nf_np, e_par_np)
-        e_pp_np = np.cross(u, -p_up)
+        e_pp_np = np.cross(ub, -p_up)
         vp = torch.tensor(np.stack([u, P_fold, -p_up, e_pp_np, nf_np,
                                     e_par_np, e_prp_np]),
                           dtype=torch.float32, device=dev)
         Mt = torch.tensor(M.T, dtype=torch.float32, device=dev)
         Cd = vp.new_tensor(C_dish)
         sc = self._sc_base.clone()
-        sc[14] = float(np.cos(np.radians(45.0 - 0.5 * el)))
+        sc[14] = float(abs(ub @ nf_np))
+        if self.slot_flaps and el_b < self.el_x - 3.0:
+            sc[1] = 1e9        # flaps closed: no slot loss
         if getattr(self, "_det_trace", False):
             du = torch.zeros(B, P_, device=dev)
             de = torch.zeros(B, P_, device=dev)
@@ -994,8 +1045,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         lv = ((p_eff / self.p0 - self.level_frac[0])
               / (self.level_frac[-1] - self.level_frac[0])
               * (self.N_LEVELS - 1)).clamp(0, self.N_LEVELS - 1)
+        A_np = _align_np([0.0, 1.0, 0.0], M.T @ (-u))
+        Acan_t = torch.tensor(A_np, dtype=torch.float32, device=dev)
         args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
-                sigma_b, self._Acan, Mt, Cd, dvec, off, vp, sc,
+                sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc,
                 self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         if self._metal is not None:
             _, _, per = self._metal(*args, self._ray_pw, soil,
@@ -1097,18 +1150,41 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         u = np.array([u_np[1], u_np[0], u_np[2]], dtype=float)
         u /= np.linalg.norm(u)
         P_fold = np.array([X_TOWER, 0.0, self.z_fold])
-        C_dish = P_fold - self.g_orbit * u
-        M = _align_np([0.0, 0.0, 1.0], u)
-        el_r = np.radians(el)
-        h_np = -(u - u[2] * np.array([0., 0., 1.]))
+        # OFF-AXIS ORBIT (beta_dev): the sphere has no axis, so the
+        # beam-to-fold direction ub may deviate from retro; the dish
+        # aims along the bisector of sun and beam, and the fold's
+        # sun-shadow (the lit/perpf term below) slides off the
+        # aperture by g*sin(beta) - the whole point.
+        if self.beta_dev != 0.0:
+            bd = np.radians(self.beta_dev)
+            ax = np.cross([0., 0., 1.], u)
+            axn = float(np.linalg.norm(ax))
+            if axn > 1e-6:
+                ax = ax / axn
+                K = np.array([[0., -ax[2], ax[1]],
+                              [ax[2], 0., -ax[0]],
+                              [-ax[1], ax[0], 0.]])
+                ub = (np.eye(3) + np.sin(bd) * K
+                      + (1 - np.cos(bd)) * (K @ K)) @ u
+            else:
+                ub = u
+        else:
+            ub = u
+        C_dish = P_fold - self.g_orbit * ub
+        naim = u + ub
+        naim = naim / np.linalg.norm(naim)
+        M = _align_np([0.0, 0.0, 1.0], naim)
+        el_b = float(np.degrees(np.arcsin(np.clip(ub[2], -1, 1))))
+        el_r = np.radians(el_b)
+        h_np = -(ub - ub[2] * np.array([0., 0., 1.]))
         h_np = h_np / max(np.linalg.norm(h_np), 1e-9)
         p_up = h_np * np.sin(el_r) + np.array([0., 0., 1.]) * np.cos(el_r)
-        nf_np = u + np.array([0., 0., 1.])
+        nf_np = ub + np.array([0., 0., 1.])
         nf_np = nf_np / np.linalg.norm(nf_np)
-        e_par_np = u - (u @ nf_np) * nf_np
+        e_par_np = ub - (ub @ nf_np) * nf_np
         e_par_np = e_par_np / np.linalg.norm(e_par_np)
         e_prp_np = np.cross(nf_np, e_par_np)
-        e_pp_np = np.cross(u, -p_up)
+        e_pp_np = np.cross(ub, -p_up)
         vp = torch.tensor(np.stack([u, P_fold, -p_up, e_pp_np, nf_np,
                                     e_par_np, e_prp_np]),
                           dtype=torch.float32, device=dev)
@@ -1118,14 +1194,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # on the float value, recompiles to its cache limit, then falls
         # back to eager through the wrapper (measured: 1215 sps < eager)
         sc = self._sc_base.clone()
-        sc[14] = float(np.cos(np.radians(45.0 - 0.5 * el)))
+        sc[14] = float(abs(ub @ nf_np))
+        if self.slot_flaps and el_b < self.el_x - 3.0:
+            sc[1] = 1e9        # flaps closed: no slot loss
         dvec = torch.tensor(
             np.stack([2.0 * self.f_nom * np.radians(self._e_el),
                       2.0 * self.f_nom * np.radians(self._e_az)], 1),
             dtype=torch.float32, device=dev)[:, None, :]
         off = torch.as_tensor(offset_w, dtype=torch.float32, device=dev)
+        A_np = _align_np([0.0, 1.0, 0.0], M.T @ (-u))
+        Acan_t = torch.tensor(A_np, dtype=torch.float32, device=dev)
         args = (self._pts_l, self._nrm_l, lv_t, du, de, upick, us,
-                sigb_t, self._Acan, Mt, Cd, dvec, off, vp,
+                sigb_t, Acan_t, Mt, Cd, dvec, off, vp,
                 sc, self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         if self._metal is not None and self.render_mode != "human":
             soil_t = torch.as_tensor(np.asarray(soil),

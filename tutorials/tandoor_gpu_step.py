@@ -193,7 +193,7 @@ def gpu_step(env, actions):
         q2s.sum(1) - S.g_halo_out * (S.T_halo - T_AMB)) * dt / S.c_halo
     q[:, env.n_belt + 2] -= q_ap
     belt_T = T[:, :env.n_belt]
-    q_b = S.has_bread.float() * (25.0*0.05) * (belt_T - 400.0)
+    q_b = S.has_bread.float() * env.h_bread * (belt_T - 400.0)
     q[:, :env.n_belt] -= q_b
     dT = q * dt / S.node_heat_cap
     S.T = T + dT
@@ -204,7 +204,7 @@ def gpu_step(env, actions):
 
     rew = torch.zeros(B, device=dev)
     belt_T = S.T[:, :env.n_belt]
-    cooked = S.has_bread & (S.bread_E >= 45e3)
+    cooked = S.has_bread & (S.bread_E >= env.roti_energy)
     scorched = S.has_bread & (belt_T > 730.0)
     doughy = S.has_bread & (S.bread_t > 300.0) & ~cooked
     rew = rew + 5.0*cooked.float().sum(1) - 5.0*scorched.float().sum(1) \

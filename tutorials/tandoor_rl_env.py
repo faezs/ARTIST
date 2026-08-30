@@ -90,7 +90,18 @@ class TandoorEnv(pufferlib.PufferEnv):
                  sigma_surf=2.0e-3, sigma_fab=1.5e-3, csr_frac=0.08,
                  wind_limit=9.0, wide_shutter=0, warm_frac=0.5,
                  z_gap=2.6, r_pit=0.42, pivot_drop=1.6, a_mem=2.45,
-                 wall_obs=None, buf=None):
+                 wall_obs=None, insulation=0, load_period=45.0,
+                 loaves_per_load=1, roti_kj=45.0, bread_area=0.05,
+                 buf=None):
+        # design levers for the 900/day campaign (defaults = current).
+        # Ground truth from the real oven: up to 9-10 loaves cook
+        # SIMULTANEOUSLY, Afghani-naan sized (~120-140 kJ each, ~3x
+        # the generic small roti this env grew up with).
+        self.insulation = bool(insulation)
+        self.load_period = float(load_period)
+        self.loaves_per_load = int(loaves_per_load)
+        self.roti_energy = float(roti_kj) * 1e3
+        self.h_bread = 25.0 * float(bread_area)
         # wall_obs=0 drops the 3 buried-thermocouple channels so
         # checkpoints trained before the honest-wall obs (33-dim) load.
         # Settable via env var (pufferlib's CLI only forwards known ini
@@ -440,6 +451,11 @@ class TandoorEnv(pufferlib.PufferEnv):
                            + 1/gsph(K_SOIL, rf3, r_halo))
         self.g_halo_out = 4 * np.pi * K_SOIL * r_halo
         self.c_halo = 1500 * 1200 * shell(rf3, r_halo)
+        if self.insulation:
+            # 10 cm glass-wool annulus (k=0.05) between clay and soil:
+            # R_ins ~ 0.27 K/W in series with the 0.105 K/W spreading
+            # path -> deep->halo conductance drops to ~28%
+            self.g2s = self.g2s * 0.28
 
         # 8 cm fiber backfill (honest-yield redesign): 0.06/0.08
         self.r_soil = 1.0 / (0.7 * self.node_area)
@@ -530,7 +546,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                 # cook readiness: the next pera is rolled (bell signal)
                 np.clip(self.load_timer / 45.0, 0, 2),
             ], axis=1),
-            self.bread_E / ROTI_ENERGY,
+            self.bread_E / self.roti_energy,
             self.p_in[:, None] / 6000.0,
         ] + ([self._extra_obs()] if self.N_EXTRA_OBS else []),
             axis=1).astype(np.float32)
@@ -649,7 +665,7 @@ class TandoorEnv(pufferlib.PufferEnv):
             q2s.sum(1) - self.g_halo_out * (self.T_halo - T_AMB)
         ) * self.dt / self.c_halo
         q[:, self.n_belt + 2] -= q_ap
-        h_bread = 25.0 * 0.05
+        h_bread = self.h_bread
         belt_T = T[:, : self.n_belt]
         q_b = self.has_bread * h_bread * (belt_T - 400.0)
         q[:, : self.n_belt] -= q_b
@@ -665,7 +681,7 @@ class TandoorEnv(pufferlib.PufferEnv):
 
         rew = np.zeros(B)
         belt_T = self.T[:, : self.n_belt]
-        cooked = self.has_bread & (self.bread_E >= ROTI_ENERGY)
+        cooked = self.has_bread & (self.bread_E >= self.roti_energy)
         scorched = self.has_bread & (belt_T > T_SCORCH)
         doughy = self.has_bread & (self.bread_t > ROTI_TIMEOUT) & ~cooked
         rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1) - 0.5 * doughy.sum(1)
@@ -679,14 +695,19 @@ class TandoorEnv(pufferlib.PufferEnv):
         # INTERLOCK: the cook loads through the side port only while the
         # shutter is CLOSED (beam dumped) - admitting bread costs flux
         self.load_timer += self.dt
-        want = (self.load_timer >= 45.0) & (self.shutter < 0.5)
+        want = (self.load_timer >= self.load_period) & (self.shutter < 0.5)
         ok_ = (~self.has_bread) & (belt_T >= T_COOK_LO) & (belt_T <= T_COOK_HI)
         can = np.nonzero(want & ok_.any(1))[0]
-        j = np.argmax(np.where(ok_, belt_T, -np.inf), axis=1)
-        self.has_bread[can, j[can]] = True
+        # the cook slaps up to loaves_per_load rotis per opening
+        # (real tandoor practice is 2-4), hottest free bins first
+        okm = ok_.copy()
+        for _k in range(self.loaves_per_load):
+            j = np.argmax(np.where(okm, belt_T, -np.inf), axis=1)
+            sel = can[okm[can, j[can]]]
+            self.has_bread[sel, j[sel]] = True
+            okm[sel, j[sel]] = False
+            rew[sel] += 0.3
         self.load_timer[can] = 0.0
-        # small load bonus (< doughy penalty, so load-farming loses)
-        rew[can] += 0.3
         belt_mean = belt_T.mean(1)
         # potential-based preheat shaping: reward belt temperature RISE
         # while below the band (policy-invariant, telescopes to zero over
