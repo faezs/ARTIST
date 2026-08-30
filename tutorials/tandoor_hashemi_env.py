@@ -963,8 +963,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         args = (self._pts_l, self._nrm_l, lv, du, de, upick, sigma_b,
                 self._Acan, Mt, Cd, dvec, off, vp, sc,
                 self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
-        _, _, per = self._metal(*args, self._ray_pw, soil, self.n_nodes)
-        return per
+        if self._metal is not None:
+            _, _, per = self._metal(*args, self._ray_pw, soil,
+                                    self.n_nodes)
+            return per
+        # no Metal on this device (CUDA/CPU): the fused torch graph,
+        # binned identically - verify_megakernel certifies the two
+        # agree ray for ray on machines that have both
+        out = self._geo(*args)
+        (through_b, w_ray, dy, dz, d3) = out[:5]
+        through = through_b.float() * w_ray
+        return self._bin_pot(dy - off[:, 0:1], dz - off[:, 1:2],
+                             d3[..., 1], -d3[..., 0], d3[..., 2],
+                             through, soil, B, P_)
 
     # ------------------------------------------------------------ trace #
     @staticmethod

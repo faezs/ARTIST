@@ -25,21 +25,37 @@ REPO = "/root/ARTIST"
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
-        "torch==2.8.0",
+        "torch==2.13.0",
         "numpy",
         "gymnasium==0.29.1",
         "pufferlib==3.0.0",
         "pyro-ppl",
         "heavyball",
         "psutil",
+        "matplotlib",
+        "colorlog",
+        "h5py",
+        "scipy",
         "rich",
+    )
+    .add_local_file(
+        "/Users/faezs/ARTIST/tutorials/puffer_tandoor/"
+        "apply_pufferlib_patches.py",
+        "/root/apply_pufferlib_patches.py", copy=True)
+    .run_commands(
+        # patch pufferlib AT BUILD TIME - deterministic, no runtime
+        # ordering or bytecode-cache questions - and purge stale pyc
+        "python /root/apply_pufferlib_patches.py",
+        "find /usr/local/lib/python3.11/site-packages/pufferlib "
+        "-name __pycache__ -type d -exec rm -rf {} + || true",
     )
     .add_local_dir(
         "/Users/faezs/ARTIST/artist", f"{REPO}/artist", copy=True)
     .add_local_dir(
         "/Users/faezs/ARTIST/tutorials", f"{REPO}/tutorials", copy=True,
-        ignore=[".venv/**", "experiments/**", "__pycache__/**",
-                "**/__pycache__/**", "*.log", "wandb/**"])
+        ignore=["**/.venv/**", "**/experiments/**",
+                "**/__pycache__/**", "**/*.log", "**/wandb/**",
+                "**/.venv", "**/experiments"])
 )
 
 app = modal.App("puffer-tandoor-sweep", image=image)
@@ -62,8 +78,26 @@ def run_sweep(max_runs: int = 40, smoke: bool = False):
     sys.path.insert(0, f"{REPO}/tutorials")
     sys.path.insert(0, REPO)
 
-    subprocess.run([sys.executable, "apply_pufferlib_patches.py"],
-                   check=True)
+    import pufferlib as _plv
+    _sw = os.path.join(os.path.dirname(_plv.__file__), "sweep.py")
+    assert "zero-width space = pinned" in open(_sw).read(), \
+        "pinned-space patch NOT in installed sweep.py"
+    import pufferlib.sweep as _pls
+    import inspect
+    assert "zero-width space = pinned" in inspect.getsource(
+        _pls._params_from_puffer_sweep), \
+        "imported sweep module does not carry the patch (stale pyc?)"
+    print("build-time patches verified in file AND imported module",
+          flush=True)
+
+    # register the tandoor package the way the local venv does: the
+    # ini into pufferlib's config dir, the package into its
+    # environments namespace (load_config/load_env look ONLY there)
+    import pufferlib as _pl
+    _pl_dir = os.path.dirname(_pl.__file__)
+    os.symlink(f"{pkg}/hashemi.ini",
+               os.path.join(_pl_dir, "config", "hashemi.ini"))
+    os.symlink(pkg, os.path.join(_pl_dir, "environments", "tandoor"))
 
     import numpy as np
     import torch
