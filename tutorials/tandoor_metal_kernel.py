@@ -142,13 +142,17 @@ kernel void tandoor_trace(
     float3 rel1 = h1 - Pf;
     float c_par = dot(rel1, epar) * sc[14];
     float c_prp = dot(rel1, eprp);
+    // compliant toroidal fold: sc[103]=1/R_t, sc[104]=1/R_s (0 = flat)
+    float3 n_tor = nf - sc[103]*dot(rel1, epar)*epar
+                      - sc[104]*dot(rel1, eprp)*eprp;
+    n_tor = normalize(n_tor);
     float rad1 = sqrt(c_par*c_par + c_prp*c_prp);
     bool graze = hits_column(px_,py_,pz_, d.x,d.y,d.z,
                              sc[18], sc[16], sc[17], 0.0f, t1-0.10f)
               || hits_column(px_,py_,pz_, d.x,d.y,d.z,
                              sc[19], sc[4], sc[3], 0.0f, t1-0.10f);
     bool ok = lit && !graze && (t1 > 0.0f) && (rad1 < sc[0]);
-    float3 d2 = d - 2.0f*dot(d, nf)*nf;
+    float3 d2 = d - 2.0f*dot(d, n_tor)*n_tor;
 
     const float dv0 = dvec[b*2], dv1 = dvec[b*2+1];
     // ---- the CPC lip: Winston profile as 8 conical segments

@@ -205,9 +205,14 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
         | _hits_column(px_, py_, pz_, d[..., 0], d[..., 1], d[..., 2],
                        r_tube_c, z0_t, z1_t, 0.0 * big, t1 - 0.10)
     ok = lit & ~graze & (t1 > 0) & (rad1 < r_fold)
+    xi_t = (rel1 * e_par).sum(-1)
+    xi_s = (rel1 * e_prp).sum(-1)
+    n_tor = nf - sc[103] * xi_t[..., None] * e_par \
+        - sc[104] * xi_s[..., None] * e_prp
+    n_tor = n_tor / n_tor.norm(dim=-1, keepdim=True)
     d4v = torch.cat([d, torch.zeros_like(d[..., :1])], -1)
-    nf4 = torch.cat([nf, torch.zeros_like(nf[..., :1])], -1)
-    d2 = reflect(d4v, nf4.expand_as(d4v))[..., :3]
+    nf4 = torch.cat([n_tor, torch.zeros_like(n_tor[..., :1])], -1)
+    d2 = reflect(d4v, nf4)[..., :3]
     ok_pre_tube = ok
     Xo = h1[..., 0] - x_tower + dvec[..., 0]
     Yo = h1[..., 1] + dvec[..., 1]
@@ -379,6 +384,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.slot_flaps = bool(slot_flaps)
         self.silvered = bool(silvered)
         self.m5_scale = float(m5_scale)
+        # fold_toroid: COMPLIANT SECONDARY. The fold becomes a weak
+        # toroid whose meridian curvatures re-unify the sphere's
+        # off-axis tangential/sagittal foci at the waist. The needed
+        # ratio R_t/R_s = 1/cos^2(i) varies with elevation - exactly
+        # a one-parameter figure family, i.e. a membrane on a
+        # compliant rim with a single squeeze dof slaved to pitch
+        # (PRBM). Enables beta past the astigmatism budget, toward
+        # the shadow-zero orbit.
+        self.fold_toroid = float(kwargs.pop("fold_toroid", 0))
         self.gpu = bool(gpu)
         self._gpu = None
         self.fuse = bool(fuse)
@@ -777,7 +791,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              -(1.12 * self.r_m5 - self.r_tube_in) / (z0_t - self.z_m5),
              Z_ROOF, self.z_fold - 0.10, self.r_post, self.r_tube,
              self.csr_frac, 15e-3] + cpc_flat
-            + list(self._sun_table),
+            + list(self._sun_table) + [0.0, 0.0],
             dtype=torch.float32, device=dev)
         self._geo = _geo_core
         self._geo_is_fused = False
@@ -1037,8 +1051,27 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         Cd = vp.new_tensor(C_dish)
         sc = self._sc_base.clone()
         sc[14] = float(abs(ub @ nf_np))
-        if self.slot_flaps and el_b < self.el_x - 3.0:
-            sc[1] = 1e9        # flaps closed: no slot loss
+        if self.slotless or (self.slot_flaps and el_b < self.el_x - 3.0):
+            sc[1] = 1e9        # uncut dish / flaps closed: no slot
+        if self.fold_toroid:
+            # working half-angle of the sphere = angle(sun, aim)
+            cth = float(np.clip(np.dot(u, naim), -1, 1))
+            f1 = self.f_nom
+            ft_d, fs_d = f1 * cth, f1 / cth      # dish meridian foci
+            dw = self.z_fold - self.z_waist      # fold-to-waist
+            ci = float(abs(ub @ nf_np))
+            kt = ks = 0.0
+            st = ft_d - self.g_orbit             # tangential focus
+            ss = fs_d - self.g_orbit             # sagittal focus
+            if st > 0.05 and ss > 0.05:
+                Pt = 1.0 / dw - 1.0 / st         # mirror powers
+                Ps = 1.0 / dw - 1.0 / ss
+                lam = self.fold_toroid           # partial correction
+                kt = lam * Pt * ci / 2.0         # f_tan = R cos(i)/2
+                ks = lam * Ps / (2.0 * ci)       # f_sag = R/(2 cos i)
+            sc[103], sc[104] = kt, ks
+        else:
+            sc[103], sc[104] = 0.0, 0.0
         if getattr(self, "_det_trace", False):
             du = torch.zeros(B, P_, device=dev)
             de = torch.zeros(B, P_, device=dev)
@@ -1205,8 +1238,27 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # back to eager through the wrapper (measured: 1215 sps < eager)
         sc = self._sc_base.clone()
         sc[14] = float(abs(ub @ nf_np))
-        if self.slot_flaps and el_b < self.el_x - 3.0:
-            sc[1] = 1e9        # flaps closed: no slot loss
+        if self.slotless or (self.slot_flaps and el_b < self.el_x - 3.0):
+            sc[1] = 1e9        # uncut dish / flaps closed: no slot
+        if self.fold_toroid:
+            # working half-angle of the sphere = angle(sun, aim)
+            cth = float(np.clip(np.dot(u, naim), -1, 1))
+            f1 = self.f_nom
+            ft_d, fs_d = f1 * cth, f1 / cth      # dish meridian foci
+            dw = self.z_fold - self.z_waist      # fold-to-waist
+            ci = float(abs(ub @ nf_np))
+            kt = ks = 0.0
+            st = ft_d - self.g_orbit             # tangential focus
+            ss = fs_d - self.g_orbit             # sagittal focus
+            if st > 0.05 and ss > 0.05:
+                Pt = 1.0 / dw - 1.0 / st         # mirror powers
+                Ps = 1.0 / dw - 1.0 / ss
+                lam = self.fold_toroid           # partial correction
+                kt = lam * Pt * ci / 2.0         # f_tan = R cos(i)/2
+                ks = lam * Ps / (2.0 * ci)       # f_sag = R/(2 cos i)
+            sc[103], sc[104] = kt, ks
+        else:
+            sc[103], sc[104] = 0.0, 0.0
         dvec = torch.tensor(
             np.stack([2.0 * self.f_nom * np.radians(self._e_el),
                       2.0 * self.f_nom * np.radians(self._e_az)], 1),
