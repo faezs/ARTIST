@@ -43,6 +43,18 @@ PATCHES = [
             torch.mps.empty_cache()
         all_logs = [e for e in all_logs if target_key in e]
 """),
+    (ROOT / "pufferl.py",
+     """    orig_arr = arr
+    last = arr[-1]
+""",
+     """    orig_arr = arr
+    # tandoor patch: a short sweep probe can emit fewer scored logs
+    # than m points - (n//m)*m is then 0 and arr[-0:] grabs the whole
+    # array into an impossible reshape. Use the points as they are.
+    if len(arr) <= m + 1:
+        return np.array(arr)
+    last = arr[-1]
+"""),
     (ROOT / "sweep.py",
      """        assert 'distribution' in param
         distribution = param['distribution']
