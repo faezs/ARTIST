@@ -1624,6 +1624,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         def browning(fr_, scorched=False):
             if scorched:
                 return (62, 48, 38, 255)
+            fr_ = min(max(fr_, 0.0), 1.0)   # pyray colors are u8
             if fr_ < 0.5:
                 t_ = fr_ / 0.5
                 return (int(232-24*t_), int(215-57*t_), int(180-88*t_),
@@ -1764,7 +1765,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 anchor = np.array([XC - r_an*np.sin(am),
                                    r_an*np.cos(am), z_br])
                 nrm = -anchor * [1, 1, 0]        # inward wall normal
-                fr_ = min(float(self.bread_E[0, k]) / ROTI_ENERGY, 1.0)
+                fr_ = min(max(float(self.bread_E[0, k])
+                              / self.roti_energy, 0.0), 1.0)
                 hot = float(self.bread_C[0, k]) > 0.5
                 disc(anchor, nrm, 0.085 + 0.02*fr_, browning(fr_, hot))
                 if fr_ > 0.5 and not hot:        # blisters

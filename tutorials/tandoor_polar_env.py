@@ -551,7 +551,11 @@ class TandoorPolarEnv(TandoorEnv):
         ) * self.dt / self.c_halo
         q[:, self.n_belt + 2] -= q_ap
         belt_T = T[:, : self.n_belt]
-        q_b = self.has_bread * self.h_bread * (belt_T - 400.0)
+        # dough exchanges at its own temperature: room-temp coldstart
+        # warming to ~400 K at full bake (see the rl_env twin)
+        t_dough = 300.0 + 100.0 * np.clip(
+            np.maximum(self.bread_E, 0.0) / self.roti_energy, 0.0, 1.0)
+        q_b = self.has_bread * self.h_bread * (belt_T - t_dough)
         q[:, : self.n_belt] -= q_b
         dT = q * self.dt / self.node_heat_cap
         self.T = T + dT

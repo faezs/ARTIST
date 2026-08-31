@@ -784,7 +784,10 @@ kernel void step_post(
     s[3*N] = Th + (q2sum - sp[38]*(Th - sp[43]))*dt/sp[39];
     qv[NB+2] -= q_ap;
     for (int k = 0; k < NB; k++) {
-        float qb = hb[k]*sp[18]*(Tv[k] - 400.0f);
+        // dough exchanges at its own temperature: room-temp
+        // coldstart warming to ~400 K at full bake (numpy twins)
+        float fdn = clamp(max(bE[k], 0.0f)/sp[19], 0.0f, 1.0f);
+        float qb = hb[k]*sp[18]*(Tv[k] - (sp[43] + 100.0f*fdn));
         qv[k] -= qb;
         bE[k] += qb*dt;
         bt_[k] += hb[k]*dt;

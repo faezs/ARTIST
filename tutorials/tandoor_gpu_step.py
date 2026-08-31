@@ -223,7 +223,11 @@ def gpu_step(env, actions):
         q2s.sum(1) - S.g_halo_out * (S.T_halo - T_AMB)) * dt / S.c_halo
     q[:, env.n_belt + 2] -= q_ap
     belt_T = T[:, :env.n_belt]
-    q_b = S.has_bread.float() * env.h_bread * (belt_T - 400.0)
+    # dough exchanges at its own temperature: room-temp coldstart
+    # warming to ~400 K at full bake (numpy twins line for line)
+    t_dough = T_AMB + 100.0 * (S.bread_E.clamp(min=0.0)
+                               / env.roti_energy).clamp(max=1.0)
+    q_b = S.has_bread.float() * env.h_bread * (belt_T - t_dough)
     q[:, :env.n_belt] -= q_b
     dT = q * dt / S.node_heat_cap
     S.T = T + dT
