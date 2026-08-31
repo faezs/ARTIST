@@ -143,6 +143,10 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.dt = dt
         self.lat = lat
         self.day = day_of_year
+        # PER-ENV SUN: every env its own day and site. The scalars
+        # above stay as env-0 mirrors for render/eval consumers.
+        self.day_v = np.full(num_agents, float(day_of_year))
+        self.lat_v = np.full(num_agents, float(lat))
         # day_random=1 draws a fresh day-of-year each dawn. A fixed day
         # lets the LSTM memorize THE solar trajectory against its clock
         # and track semi-open-loop - and day 80 never exceeds el 61.4,

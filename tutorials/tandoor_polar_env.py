@@ -389,9 +389,11 @@ class TandoorPolarEnv(TandoorEnv):
                                     self.n_belt + 3 + seg4)))  # lower belly
         soil_t = torch.as_tensor(soil, dtype=torch.float32,
                                  device=self.device)
-        w = ((self._ray_pw[None, :] * soil_t[:, None]).reshape(-1)
-             * through.reshape(-1).float()
-             * getattr(self, "_ray_scale", 1.0))
+        rs = getattr(self, "_ray_scale", 1.0)
+        if torch.is_tensor(rs):
+            rs = rs.to(pxp.device)[:, None]   # per-env cosine + gate
+        w = ((self._ray_pw[None, :] * soil_t[:, None] * rs).reshape(-1)
+             * through.reshape(-1).float())
         if self.render_mode == "human":
             # pot-frame strikes for the kitchen view: where the jet
             # (post-elbow) actually lands on the clay

@@ -94,7 +94,7 @@ def _align_np(a, b):
 
 
 def _geo_core(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
-              Mt, Cd, dvec, off, vp, sc,
+              Mt, Cd, dvec, off, vp, sc, scb,
               ellM, ellS, ellC, V0t):
     """The whole ray geometry as ONE pure-tensor function, so
     torch.compile can fuse its ~150 elementwise kernels. The math is a
@@ -143,14 +143,17 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     n4l = torch.cat([n_loc, torch.zeros_like(n_loc[..., :1])], -1)
     d43 = reflect(inc4, n4l)
     org3 = p_loc
-    r_fold, slot_r0, slot_w2 = sc[0], sc[1], sc[2]
+    r_fold, slot_w2 = sc[0], sc[2]
+    slot_r0 = scb[:, 1:2]                # per env
+    cosi_b = scb[:, 0:1]
+    kt_b, ks_b = scb[:, 2:3], scb[:, 3:4]
     z1_t, z0_t, z_lip, m_c = sc[3], sc[4], sc[5], sc[6]
     r_tube_in, r_m5, z_m5 = sc[7], sc[8], sc[9]
     x_tower, z_duct, r_pot, r_duct_h = sc[10], sc[11], sc[12], sc[13]
-    cosi, m_c2 = sc[14], sc[15]
-    ut, Pf = vp[0], vp[1]
-    s_dir, e_pp = vp[2], vp[3]
-    nf, e_par, e_prp = vp[4], vp[5], vp[6]
+    cosi, m_c2 = cosi_b, sc[15]
+    ut, Pf = vp[:, 0], vp[:, 1]
+    s_dir, e_pp = vp[:, 2], vp[:, 3]
+    nf, e_par, e_prp = vp[:, 4], vp[:, 5], vp[:, 6]
     z_roof_c, z_top_c = sc[16], sc[17]
     r_post_c, r_tube_c = sc[18], sc[19]
     p = org3 @ Mt + Cd
@@ -182,9 +185,10 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
         return (dmin < r_seg) & z_ok & t_ok
     big = torch.full_like(p[..., 0], 1e9)
     px_, py_, pz_ = p[..., 0] - x_tower, p[..., 1], p[..., 2]
-    lit = ~(_hits_column(px_, py_, pz_, ut[0], ut[1], ut[2],
+    ux_, uy_, uz_ = ut[..., 0], ut[..., 1], ut[..., 2]
+    lit = ~(_hits_column(px_, py_, pz_, ux_, uy_, uz_,
                          r_post_c, z_roof_c, z_top_c, 0.0 * big, big)
-            | _hits_column(px_, py_, pz_, ut[0], ut[1], ut[2],
+            | _hits_column(px_, py_, pz_, ux_, uy_, uz_,
                            r_tube_c, z0_t, z1_t, 0.0 * big, big))
     vf = Pf - p
     perpf = vf - (vf * ut).sum(-1, keepdim=True) * ut
@@ -209,8 +213,8 @@ def _geo_core(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     ok = lit & ~graze & (t1 > 0) & (rad1 < r_fold)
     xi_t = (rel1 * e_par).sum(-1)
     xi_s = (rel1 * e_prp).sum(-1)
-    n_tor = nf - sc[103] * xi_t[..., None] * e_par \
-        - sc[104] * xi_s[..., None] * e_prp
+    n_tor = nf - (kt_b * xi_t)[..., None] * e_par \
+        - (ks_b * xi_s)[..., None] * e_prp
     n_tor = n_tor / n_tor.norm(dim=-1, keepdim=True)
     d4v = torch.cat([d, torch.zeros_like(d[..., :1])], -1)
     nf4 = torch.cat([n_tor, torch.zeros_like(n_tor[..., :1])], -1)
@@ -536,8 +540,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._lost_ct = np.where(lost, self._lost_ct + 1, 0)
         cut = self._lost_ct >= 40
         if cut.any() and not wrapped:
-            el1, az1, _ = _sim.solar_position(self.lat, self.day,
-                                              float(self.t_solar[0]))
+            from tandoor_mount_batch import solar_batch
+            el1v, az1v, _ = solar_batch(
+                torch.as_tensor(self.lat_v, dtype=torch.float32),
+                torch.as_tensor(self.day_v, dtype=torch.float32),
+                float(self.t_solar[0]))
+            el1v = el1v.numpy()
+            az1v = np.degrees(az1v.numpy())
             for i in np.nonzero(cut)[0]:
                 self.truncations[i] = True
                 # CHARGE-AND-CRASH closed: the preheat shaping accrued
@@ -563,13 +572,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self.p_set[i] = self.p_act[i] = self.p0
                 self.has_bread[i] = False
                 self.bread_E[i] = 0.0
-                self.el_m[i] = np.clip(el1 + self.rng.normal(0, 0.3),
+                self.el_m[i] = np.clip(el1v[i]
+                                       + self.rng.normal(0, 0.3),
                                        self.el_min_h, self.el_max_h)
-                self.az_m[i] = np.degrees(az1) + self.rng.normal(0, 0.3)
+                self.az_m[i] = az1v[i] + self.rng.normal(0, 0.3)
                 # clear the shaping potential to post-reset pointing
-                self._e_el[i] = self.el_m[i] - el1
-                self._e_az[i] = (self.az_m[i] - np.degrees(az1)) \
-                    * np.cos(np.radians(el1))
+                self._e_el[i] = self.el_m[i] - el1v[i]
+                self._e_az[i] = (self.az_m[i] - az1v[i]) \
+                    * np.cos(np.radians(el1v[i]))
                 self._belt_prev[i] = self.T[i, : self.n_belt].max()
             self._lost_ct[cut] = 0
             # obs were assembled inside super().step BEFORE these
@@ -580,9 +590,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self.observations[cut] = self._obs()[cut]
         if wrapped:
             if self.day_random:
-                self.day = int(self.rng.integers(1, 366))
+                self.day_v[:] = self.rng.integers(
+                    1, 366, self.num_agents)
+                self.day = int(self.day_v[0])
             if self.lat_random:
-                self.lat = float(self.rng.uniform(15.0, 35.0))
+                self.lat_v[:] = self.rng.uniform(
+                    15.0, 35.0, self.num_agents)
+                self.lat = float(self.lat_v[0])
             # the episode wrapped to the next morning: the crew reparks
             # the carriage overnight (hours of slack at full slew)
             el1, az1, _ = _sim.solar_position(self.lat, self.day,
@@ -693,6 +707,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 for fr in self.level_frac]
         self._mem0 = mems[4]
         self.f_nom = float(mems[4]["z0"] + mems[4]["f_fit"])
+        self.X_TOWER_C = float(X_TOWER)
 
         # -- apertures, from the beam itself
         self.r_fold = a * delta / self.f_nom * 1.08 + 0.06
@@ -902,8 +917,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._e_el_t, self._e_az_t = e_el, e_az
         self.truncations[:] = False
         if bool(cut.any()):
-            el1, az1, _ = _sim.solar_position(self.lat, self.day,
-                                              float(self.t_solar[0]))
+            from tandoor_mount_batch import solar_batch
+            el1, az1r, _ = solar_batch(S.lat_v, S.day_v,
+                                       float(self.t_solar[0]))
+            az1d = torch.rad2deg(az1r)
             # ALWAYS COLD on a lost-sun truncation. The warm_frac draw
             # here was a lottery: 20% chance of a free 540-620 K pot for
             # crashing the episode - and a trained policy found it
@@ -940,8 +957,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.el_m = torch.where(
                 cut, (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
                                                 self.el_max_h), S.el_m)
-            S.az_m = torch.where(cut, np.degrees(az1) + 0.3 * S.n(B),
-                                 S.az_m)
+            S.az_m = torch.where(cut, az1d + 0.3 * S.n(B), S.az_m)
             S.lost_ct = torch.where(cut, torch.zeros_like(S.lost_ct),
                                     S.lost_ct)
             # clear the shaping potential to the POST-reset pointing:
@@ -949,8 +965,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # drift (+0.1*(4.0 - 0.3)) on the first step after reset -
             # the exit penalty for losing the sun netted to zero
             e_el_r = S.el_m - el1
-            e_az_r = (S.az_m - np.degrees(az1)) \
-                * float(np.cos(np.radians(el1)))
+            e_az_r = (S.az_m - az1d) * torch.cos(torch.deg2rad(el1))
             S.e_el_prev = torch.where(cut, e_el_r, S.e_el_prev)
             S.e_az_prev = torch.where(cut, e_az_r, S.e_az_prev)
             S.belt_prev = torch.where(
@@ -983,10 +998,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self.terminals[:] = True
             self.t_solar[:] = 8.0
             if self.day_random:
-                self.day = int(self.rng.integers(1, 366))
+                self.day_v[:] = self.rng.integers(1, 366, B)
+                self.day = int(self.day_v[0])
             if self.lat_random:
-                self.lat = float(self.rng.uniform(15.0, 35.0))
-            el1, az1, _ = _sim.solar_position(self.lat, self.day, 8.0)
+                self.lat_v[:] = self.rng.uniform(15.0, 35.0, B)
+                self.lat = float(self.lat_v[0])
+            S.day_v = torch.as_tensor(self.day_v.astype(np.float32),
+                                      device=dev)
+            S.lat_v = torch.as_tensor(self.lat_v.astype(np.float32),
+                                      device=dev)
+            from tandoor_mount_batch import solar_batch
+            el1, az1r, _ = solar_batch(S.lat_v, S.day_v,
+                                       torch.full_like(S.day_v, 8.0))
+            az1d = torch.rad2deg(az1r)
             warm = (S.u(B) < self.warm_frac)
             S.T = torch.where(
                 warm[:, None],
@@ -1008,10 +1032,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.soil = 0.90 + 0.08 * S.u(B)
             S.el_m = (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
                                                 self.el_max_h)
-            S.az_m = np.degrees(az1) + 0.3 * S.n(B)
+            S.az_m = az1d + 0.3 * S.n(B)
             S.e_el_prev = S.el_m - el1
-            S.e_az_prev = (S.az_m - np.degrees(az1)) \
-                * float(np.cos(np.radians(el1)))
+            S.e_az_prev = (S.az_m - az1d) \
+                * torch.cos(torch.deg2rad(el1))
             e_el, e_az = S.e_el_prev, S.e_az_prev
             self._e_el_t, self._e_az_t = e_el, e_az
             S.belt_prev = S.T[:, :self.n_belt].max(1).values
@@ -1042,8 +1066,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.bread_C,
             p_in[:, None] / 6000.0,
             torch.stack([S.jammed.float(),
-                         ((S.decl_formed - float(self._decl())).abs()
-                          / 10.0).clamp(0, 3),
+                         ((S.decl_formed
+                           - getattr(S, "decl_now", S.decl_formed))
+                          .abs() / 10.0).clamp(0, 3),
                          enc_el, enc_az], 1),
         ] + ([torch.stack(
             [(S.spot_phi - _SP0) / 2.0,
@@ -1089,92 +1114,20 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                           zt - M[2]], 1)
         return (a1 / a1.norm(dim=1, keepdim=True)).contiguous()
 
-    def _metal_trace(self, p_eff, sigma_b, off, soil, e_el, e_az, el):
-        """Megakernel call with all-torch inputs (the gpu_step path).
-        Frame math identical to _trace_power's."""
+    def _metal_trace(self, p_eff, sigma_b, off, soil, e_el, e_az, mnt):
+        """Megakernel call, per-env geometry (the gpu_step path).
+        mnt is mount_batch's output: every env its own sun. Zero
+        per-step host->device work - the 03bda4ee invariant, restored
+        and now structural (the geometry never touches numpy)."""
         dev = self.device
         B, P_ = p_eff.shape[0], len(self._hx)
-        _, az, u_np = _sim.solar_position(self.lat, self.day,
-                                          float(self.t_solar[0]))
-        u = np.array([u_np[1], u_np[0], u_np[2]], dtype=float)
-        u /= np.linalg.norm(u)
-        P_fold = np.array([X_TOWER, 0.0, self.z_fold])
-        # OFF-AXIS ORBIT (beta_dev): the sphere has no axis, so the
-        # beam-to-fold direction ub may deviate from retro; the dish
-        # aims along the bisector of sun and beam, and the fold's
-        # sun-shadow (the lit/perpf term below) slides off the
-        # aperture by g*sin(beta) - the whole point.
-        beta_t = self._beta_now(el)
-        self._ray_scale = float(np.cos(np.radians(beta_t) / 2.0))
-        if beta_t != 0.0:
-            bd = np.radians(beta_t)
-            ax = np.cross([0., 0., 1.], u)
-            axn = float(np.linalg.norm(ax))
-            if axn > 1e-6:
-                ax = ax / axn
-                K = np.array([[0., -ax[2], ax[1]],
-                              [ax[2], 0., -ax[0]],
-                              [-ax[1], ax[0], 0.]])
-                ub = (np.eye(3) + np.sin(bd) * K
-                      + (1 - np.cos(bd)) * (K @ K)) @ u
-            else:
-                ub = u
-        else:
-            ub = u
-        C_dish = P_fold - self.g_orbit * ub
-        naim = u + ub
-        naim = naim / np.linalg.norm(naim)
-        M = _align_np([0.0, 0.0, 1.0], naim)
-        el_b = float(np.degrees(np.arcsin(np.clip(ub[2], -1, 1))))
-        el_r = np.radians(el_b)
-        h_np = -(ub - ub[2] * np.array([0., 0., 1.]))
-        h_np = h_np / max(np.linalg.norm(h_np), 1e-9)
-        p_up = h_np * np.sin(el_r) + np.array([0., 0., 1.]) * np.cos(el_r)
-        nf_np = ub + np.array([0., 0., 1.])
-        nf_np = nf_np / np.linalg.norm(nf_np)
-        e_par_np = ub - (ub @ nf_np) * nf_np
-        e_par_np = e_par_np / np.linalg.norm(e_par_np)
-        e_prp_np = np.cross(nf_np, e_par_np)
-        e_pp_np = np.cross(ub, -p_up)
-        # ONE host->device upload for the whole mount solve. The
-        # profile convicted the old four torch.tensor() calls plus
-        # four sc item-writes of 4.3 ms/step - 28% of the step, 5x
-        # the megakernel itself.
-        kt = ks = 0.0
-        if self.fold_toroid:
-            # working half-angle of the sphere = angle(sun, aim)
-            cth = float(np.clip(np.dot(u, naim), -1, 1))
-            f1 = self.f_nom
-            ft_d, fs_d = f1 * cth, f1 / cth      # dish meridian foci
-            dw = self.z_fold - self.z_waist      # fold-to-waist
-            ci_ = float(abs(ub @ nf_np))
-            st = ft_d - self.g_orbit             # tangential focus
-            ss = fs_d - self.g_orbit             # sagittal focus
-            if st > 0.05 and ss > 0.05:
-                Pt = 1.0 / dw - 1.0 / st         # mirror powers
-                Ps = 1.0 / dw - 1.0 / ss
-                lam = self.fold_toroid           # partial correction
-                kt = lam * Pt * ci_ / 2.0        # f_tan = R cos(i)/2
-                ks = lam * Ps / (2.0 * ci_)      # f_sag = R/(2 cos i)
-        pk = self._mount_pack
-        pk[0:21] = np.stack([u, P_fold, -p_up, e_pp_np, nf_np,
-                             e_par_np, e_prp_np]).ravel()
-        pk[21:30] = M.T.ravel()
-        pk[30:33] = C_dish
-        pk[33:42] = _align_np([0.0, 1.0, 0.0], M.T @ (-u)).ravel()
-        pk[42] = abs(ub @ nf_np)
-        pk[43] = 1e9 if (self.slotless or (self.slot_flaps
-                         and el_b < self.el_x - 3.0)) \
-            else self._sc1_base
-        pk[44] = kt
-        pk[45] = ks
-        pkd = torch.from_numpy(pk).to(dev, non_blocking=True)
-        vp = pkd[0:21].view(7, 3)
-        Mt = pkd[21:30].view(3, 3)
-        Cd = pkd[30:33]
-        Acan_t = pkd[33:42].view(3, 3)
-        sc = self._sc_base.clone()
-        sc.index_copy_(0, self._sc_idx, pkd[42:46])
+        vp = mnt["vp"].reshape(B, 21).contiguous()
+        Mt = mnt["Mt"].contiguous()
+        Cd = mnt["Cd"].contiguous()
+        Acan_t = mnt["Acan"].contiguous()
+        scb = mnt["scb"].contiguous()
+        self._ray_scale = scb[:, 4] * scb[:, 5]
+        sc = self._sc_base
         if getattr(self, "_det_trace", False):
             du = torch.zeros(B, P_, device=dev)
             de = torch.zeros(B, P_, device=dev)
@@ -1191,18 +1144,22 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         lv = ((p_eff / self.p0 - self.level_frac[0])
               / (self.level_frac[-1] - self.level_frac[0])
               * (self.N_LEVELS - 1)).clamp(0, self.N_LEVELS - 1)
-        args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
-                sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc,
-                self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         if self._metal is not None:
-            _, _, per = self._metal(*args,
-                                    self._ray_pw * self._ray_scale,
-                                    soil, self.n_nodes,
-                                    self._aim_dirs(B, dev))
+            args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
+                    sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc,
+                    self.ell_M, self.ell_S, self.ell_ctr_t,
+                    self._V0t)
+            _, _, per = self._metal(*args, self._ray_pw, soil,
+                                    self.n_nodes,
+                                    self._aim_dirs(B, dev), scb)
             return per
-        # no Metal on this device (CUDA/CPU): the fused torch graph,
-        # binned identically - verify_megakernel certifies the two
-        # agree ray for ray on machines that have both
+        # no Metal on this device (CUDA/CPU): the fused torch graph
+        # with broadcast-shaped per-env geometry, binned identically
+        args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
+                sigma_b, Acan_t.view(B, 1, 3, 3), Mt,
+                Cd[:, None, :], dvec, off,
+                mnt["vp"][:, :, None, :], sc, scb,
+                self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         out = self._geo(*args)
         (through_b, w_ray, dy, dz, d3) = out[:5]
         through = through_b.float() * w_ray
@@ -1348,99 +1305,44 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         sigb_t = torch.as_tensor(np.asarray(sigma_b), dtype=torch.float32,
                                  device=dev)
         lv_t = torch.as_tensor(lv, dtype=torch.float32, device=dev)
-        # SITE ORIENTATION, pinned: world +x is NORTH (see git history
-        # for the full siting note). All per-step frame vectors are
-        # assembled here in numpy - they are 7 tiny vectors - and packed
-        # into one tensor for the fused core.
-        u = np.array([u_np[1], u_np[0], u_np[2]], dtype=float)
-        u /= np.linalg.norm(u)
-        P_fold = np.array([X_TOWER, 0.0, self.z_fold])
-        # OFF-AXIS ORBIT (beta_dev): the sphere has no axis, so the
-        # beam-to-fold direction ub may deviate from retro; the dish
-        # aims along the bisector of sun and beam, and the fold's
-        # sun-shadow (the lit/perpf term below) slides off the
-        # aperture by g*sin(beta) - the whole point.
-        beta_t = self._beta_now(el)
-        self._ray_scale = float(np.cos(np.radians(beta_t) / 2.0))
-        if beta_t != 0.0:
-            bd = np.radians(beta_t)
-            ax = np.cross([0., 0., 1.], u)
-            axn = float(np.linalg.norm(ax))
-            if axn > 1e-6:
-                ax = ax / axn
-                K = np.array([[0., -ax[2], ax[1]],
-                              [ax[2], 0., -ax[0]],
-                              [-ax[1], ax[0], 0.]])
-                ub = (np.eye(3) + np.sin(bd) * K
-                      + (1 - np.cos(bd)) * (K @ K)) @ u
-            else:
-                ub = u
-        else:
-            ub = u
-        C_dish = P_fold - self.g_orbit * ub
-        naim = u + ub
-        naim = naim / np.linalg.norm(naim)
-        M = _align_np([0.0, 0.0, 1.0], naim)
-        el_b = float(np.degrees(np.arcsin(np.clip(ub[2], -1, 1))))
-        el_r = np.radians(el_b)
-        h_np = -(ub - ub[2] * np.array([0., 0., 1.]))
-        h_np = h_np / max(np.linalg.norm(h_np), 1e-9)
-        p_up = h_np * np.sin(el_r) + np.array([0., 0., 1.]) * np.cos(el_r)
-        nf_np = ub + np.array([0., 0., 1.])
-        nf_np = nf_np / np.linalg.norm(nf_np)
-        e_par_np = ub - (ub @ nf_np) * nf_np
-        e_par_np = e_par_np / np.linalg.norm(e_par_np)
-        e_prp_np = np.cross(nf_np, e_par_np)
-        e_pp_np = np.cross(ub, -p_up)
-        vp = torch.tensor(np.stack([u, P_fold, -p_up, e_pp_np, nf_np,
-                                    e_par_np, e_prp_np]),
-                          dtype=torch.float32, device=dev)
-        Mt = torch.tensor(M.T, dtype=torch.float32, device=dev)
-        Cd = vp.new_tensor(C_dish)
-        # cosi varies per step: it MUST be a tensor, or dynamo guards
-        # on the float value, recompiles to its cache limit, then falls
-        # back to eager through the wrapper (measured: 1215 sps < eager)
-        sc = self._sc_base.clone()
-        sc[14] = float(abs(ub @ nf_np))
-        if self.slotless or (self.slot_flaps and el_b < self.el_x - 3.0):
-            sc[1] = 1e9        # uncut dish / flaps closed: no slot
-        if self.fold_toroid:
-            # working half-angle of the sphere = angle(sun, aim)
-            cth = float(np.clip(np.dot(u, naim), -1, 1))
-            f1 = self.f_nom
-            ft_d, fs_d = f1 * cth, f1 / cth      # dish meridian foci
-            dw = self.z_fold - self.z_waist      # fold-to-waist
-            ci = float(abs(ub @ nf_np))
-            kt = ks = 0.0
-            st = ft_d - self.g_orbit             # tangential focus
-            ss = fs_d - self.g_orbit             # sagittal focus
-            if st > 0.05 and ss > 0.05:
-                Pt = 1.0 / dw - 1.0 / st         # mirror powers
-                Ps = 1.0 / dw - 1.0 / ss
-                lam = self.fold_toroid           # partial correction
-                kt = lam * Pt * ci / 2.0         # f_tan = R cos(i)/2
-                ks = lam * Ps / (2.0 * ci)       # f_sag = R/(2 cos i)
-            sc[103], sc[104] = kt, ks
-        else:
-            sc[103], sc[104] = 0.0, 0.0
+        # PER-ENV SUN: the same batched mount solve as the gpu path
+        # - one function, both twins, no scalar copy to drift
+        from tandoor_mount_batch import mount_batch
+        day_t = torch.as_tensor(self.day_v, dtype=torch.float32,
+                                device=dev)
+        lat_t = torch.as_tensor(self.lat_v, dtype=torch.float32,
+                                device=dev)
+        mnt = mount_batch(self, day_t, lat_t,
+                          float(self.t_solar[0]), dev)
+        Mt = mnt["Mt"].contiguous()
+        Cd = mnt["Cd"].contiguous()
+        Acan_t = mnt["Acan"].contiguous()
+        scb = mnt["scb"].contiguous()
+        self._ray_scale = scb[:, 4] * scb[:, 5]
+        sc = self._sc_base
         dvec = torch.tensor(
             np.stack([2.0 * self.f_nom * np.radians(self._e_el),
                       2.0 * self.f_nom * np.radians(self._e_az)], 1),
             dtype=torch.float32, device=dev)[:, None, :]
         off = torch.as_tensor(offset_w, dtype=torch.float32, device=dev)
-        A_np = _align_np([0.0, 1.0, 0.0], M.T @ (-u))
-        Acan_t = torch.tensor(A_np, dtype=torch.float32, device=dev)
-        args = (self._pts_l, self._nrm_l, lv_t, du, de, upick, us,
-                sigb_t, Acan_t, Mt, Cd, dvec, off, vp,
-                sc, self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         if self._metal is not None and self.render_mode != "human":
+            args = (self._pts_l, self._nrm_l, lv_t, du, de, upick,
+                    us, sigb_t, Acan_t,
+                    Mt, Cd, dvec, off,
+                    mnt["vp"].reshape(B, 21).contiguous(), sc,
+                    self.ell_M, self.ell_S, self.ell_ctr_t,
+                    self._V0t)
             soil_t = torch.as_tensor(np.asarray(soil),
                                      dtype=torch.float32, device=dev)
-            thr, out6, per = self._metal(*args,
-                                         self._ray_pw * self._ray_scale,
+            thr, out6, per = self._metal(*args, self._ray_pw,
                                          soil_t, self.n_nodes,
-                                         self._aim_dirs(B, dev))
+                                         self._aim_dirs(B, dev), scb)
             return per.cpu()
+        args = (self._pts_l, self._nrm_l, lv_t, du, de, upick, us,
+                sigb_t, Acan_t.view(B, 1, 3, 3), Mt,
+                Cd[:, None, :], dvec, off,
+                mnt["vp"][:, :, None, :], sc, scb,
+                self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
         try:
             out = self._geo(*args)
         except Exception as ex:
@@ -1455,6 +1357,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         (through_b, w_ray, dy, dz, d3, ok, ok_pre_tube, ok_post_tube,
          lit, in_slot, graze, rad1, p, h1, h2, h3, desc) = out
         through = through_b.float() * w_ray
+        u = mnt["u"][0].cpu().numpy()
+        ub = mnt["ub"][0].cpu().numpy()
+        naim = mnt["naim"][0].cpu().numpy()
+        el_b = float(mnt["el_b"][0])
+        C_dish = mnt["Cd"][0].cpu().numpy()
         if self.render_mode == "human":
             self._ladder = dict(
                 shadow=1.0 - float(lit[0].float().mean()),

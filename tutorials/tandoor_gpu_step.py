@@ -36,6 +36,7 @@ class GpuState:
         self.T = f(e.T); self.p_act = f(e.p_act); self.p_set = f(e.p_set)
         self.spot_phi = f(e.spot_phi); self.spot_z = f(e.spot_z)
         self.bread_C = f(e.bread_C)
+        self.day_v = f(e.day_v); self.lat_v = f(e.lat_v)
         self.p_dist = f(e.p_dist); self.shutter = f(e.shutter)
         self.cloud = f(e.cloud); self.wind_g = f(e.wind_g)
         self.bore = f(e.bore); self.stowed = bl(e.stowed)
@@ -90,9 +91,11 @@ def gpu_step(env, actions):
     dt = env.dt
 
     # ---- Hashemi motors (BEFORE the optics see the sun this step)
-    el0s, az0s, _ = _sim.solar_position(env.lat, env.day,
-                                        float(env.t_solar[0]))
-    az0d = np.degrees(az0s)
+    from tandoor_mount_batch import mount_batch
+    mnt = mount_batch(env, S.day_v, S.lat_v, float(env.t_solar[0]),
+                      dev)
+    el0s = mnt["el"]                     # (B,) deg - per-env sun
+    az0d = torch.rad2deg(mnt["az"])
     # potential BEFORE this step's motor action (see the numpy path)
     pot_prev = (S.e_az_prev.abs() + S.e_el_prev.abs()).clamp(max=4.0)
     r_az = (a[:, 3].clamp(0, 6).float() - 3) / 3.0 * env.RATE_AZ
@@ -111,7 +114,7 @@ def gpu_step(env, actions):
     S.el_m = (S.el_m + r_el * dt + 0.02 * S.n(B)).clamp(
         env.el_min_h - 2.0, env.el_max_h + 1.0)
     e_el = S.el_m - el0s
-    e_az = (S.az_m - az0d) * float(np.cos(np.radians(el0s)))
+    e_az = (S.az_m - az0d) * torch.cos(torch.deg2rad(el0s))
 
     # ---- polar step: heads, jam, servo
     thr_g = 3.5 if env.wide_shutter else 0.5
@@ -129,22 +132,21 @@ def gpu_step(env, actions):
         soft, S.p_act + (S.p_set + S.p_dist - S.p_act).clamp(-6, 6),
         S.p_act)
     S.f_locked = torch.where(jamming, S.p_act, S.f_locked)
-    decl = env._decl()
-    S.decl_formed = torch.where(soft, torch.full_like(S.decl_formed,
-                                                      float(decl)),
-                                S.decl_formed)
+    decl_now = 23.44 * torch.sin(2.0 * np.pi * (284.0 + S.day_v)
+                                 / 365.0)
+    S.decl_now = decl_now
+    S.decl_formed = torch.where(soft, decl_now, S.decl_formed)
 
     # ---- sun scalars (python), cloud/wind OU (device)
     env.t_solar += dt / 3600.0
     ts = float(env.t_solar[0])
-    phi = np.radians(env.lat)
-    delta = np.radians(23.44) * np.sin(2*np.pi*(284 + env.day)/365)
-    hh = np.radians(15.0 * (ts - 12.0))
-    sin_el = (np.sin(phi)*np.sin(delta)
-              + np.cos(phi)*np.cos(delta)*np.cos(hh))
-    el_deg = np.degrees(np.arcsin(np.clip(sin_el, -1, 1)))
-    am = 1.0 / max(sin_el, 0.035)
-    clear = 1353.0 * 0.7 ** (am ** 0.678) if el_deg > 2.0 else 0.0
+    sin_el0 = torch.sin(torch.deg2rad(el0s))
+    am = 1.0 / sin_el0.clamp(min=0.035)
+    clear = torch.where(
+        el0s > 2.0,
+        1353.0 * torch.pow(torch.tensor(0.7, device=dev),
+                           am ** 0.678),
+        torch.zeros_like(am))
     tau_c = 900.0
     S.cloud = (S.cloud - S.cloud/tau_c*dt
                + 0.25*np.sqrt(2*dt/tau_c) * S.n(B))
@@ -156,9 +158,10 @@ def gpu_step(env, actions):
     wind = ((base_w + S.wind_g) * env.wall_shelter).clamp(0, 25)
     S.stowed = (S.stowed | (wind > 16.0)) & ~(wind < 14.0)
     S.wind = wind
-    el0 = el_deg
-    cosf = env._cosine(decl) if el0 > 8.0 else 0.0
-    dni = clear * torch.exp(S.cloud) * float(el0 > 8.0) * (~S.stowed).float()
+    el0 = el0s
+    day_up = (el0 > 8.0).float()
+    cosf = day_up * float(env._cosine(0.0))
+    dni = clear * torch.exp(S.cloud) * day_up * (~S.stowed).float()
     S.dni = dni
 
     # ---- wind -> figure, jam-gated
@@ -168,20 +171,17 @@ def gpu_step(env, actions):
     p_eff = torch.where(S.jammed, S.f_locked, S.p_act) \
         + gain * q_w * torch.sign(S.n(B))
     sig_wind = gain * 0.88e-3 * (q_w.clamp(min=1e-9)/15.0)**0.6
-    drift = abs(decl - 0) # placeholder replaced below
-    drift_t = (S.decl_formed - float(decl)).abs()
+    drift_t = (S.decl_formed - S.decl_now).abs()
     sig_drift = torch.deg2rad(drift_t) * 0.04
     sigma_b = torch.sqrt(env.sig_static**2
                          + (2*0.35*sig_wind)**2 + sig_drift**2)
     S.bore = S.bore - S.bore/300.0*dt \
         + 0.010*np.sqrt(2*dt/300.0) * S.n(B, 2)
 
-    # ---- gate on tracking range, then the MEGAKERNEL
-    if env.el_min_h <= el0 <= env.el_max_h:
-        per = env._metal_trace(p_eff, sigma_b, S.bore, S.soil,
-                               e_el, e_az, el0)
-    else:
-        per = torch.zeros(B, env.n_nodes, device=dev)
+    # ---- the MEGAKERNEL, per-env geometry; scb's el_ok gates
+    # out-of-range envs inside the kernel
+    per = env._metal_trace(p_eff, sigma_b, S.bore, S.soil,
+                           e_el, e_az, mnt)
     gate = dni * cosf * S.shutter * S.jammed.float()
     q_solar = per * gate[:, None] * 0.85
     p_in = per.sum(1) * gate
@@ -281,7 +281,7 @@ def gpu_step(env, actions):
 
     # ---- Hashemi shaping + truncation + wrap
     e_el2 = S.el_m - el0s
-    e_az2 = (S.az_m - az0d) * float(np.cos(np.radians(el0s)))
+    e_az2 = (S.az_m - az0d) * torch.cos(torch.deg2rad(el0s))
     pot_now = (e_az2.abs() + e_el2.abs()).clamp(max=4.0)
     rew = rew + 0.1 * (pot_prev - pot_now)
     S.e_az_prev, S.e_el_prev = e_az2, e_el2

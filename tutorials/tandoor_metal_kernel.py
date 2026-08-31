@@ -62,11 +62,11 @@ kernel void tandoor_trace(
     device const float* sigb   [[buffer(8)]],   // (B)
     device const float* dvec   [[buffer(9)]],   // (B,2)
     device const float* off    [[buffer(10)]],  // (B,2)
-    device const float* vp     [[buffer(11)]],  // (7,3)
-    device const float* sc     [[buffer(12)]],  // (22)
-    device const float* Acan   [[buffer(13)]],  // (3,3)
-    device const float* Mt     [[buffer(14)]],  // (3,3)
-    device const float* Cd     [[buffer(15)]],  // (3)
+    device const float* vp     [[buffer(11)]],  // (B,7,3) per env
+    device const float* sc     [[buffer(12)]],  // shared table
+    device const float* Acan   [[buffer(13)]],  // (B,3,3)
+    device const float* Mt     [[buffer(14)]],  // (B,3,3)
+    device const float* Cd     [[buffer(15)]],  // (B,3)
     device const float* ellM   [[buffer(16)]],
     device const float* ellS   [[buffer(17)]],
     device const float* ellC   [[buffer(18)]],
@@ -77,19 +77,22 @@ kernel void tandoor_trace(
     device float*       per_dni [[buffer(23)]],  // (B, n_nodes) zeroed
     device const float* us     [[buffer(24)]],  // (B*P) sun-table u
     device const float* aim    [[buffer(25)]],  // (B,3) elbow aim dirs
+    device const float* scb    [[buffer(26)]],  // (B,6) cosi,slot,kt,ks,rs,ok
     uint tid [[thread_position_in_grid]])
 {
     const int B = dims[0], P = dims[1], L = dims[2];
     if (tid >= uint(B*P)) return;
     const int b = tid / P, ip = tid % P;
-    const float3 ut   = float3(vp[0],  vp[1],  vp[2]);
-    const float3 Pf   = float3(vp[3],  vp[4],  vp[5]);
-    const float3 sdir = float3(vp[6],  vp[7],  vp[8]);
-    const float3 epp  = float3(vp[9],  vp[10], vp[11]);
-    const float3 nf   = float3(vp[12], vp[13], vp[14]);
-    const float3 epar = float3(vp[15], vp[16], vp[17]);
-    const float3 eprp = float3(vp[18], vp[19], vp[20]);
-    const float3 CdV  = float3(Cd[0], Cd[1], Cd[2]);
+    const int vb = b*21;
+    const int sb = b*6;
+    const float3 ut   = float3(vp[vb+0],  vp[vb+1],  vp[vb+2]);
+    const float3 Pf   = float3(vp[vb+3],  vp[vb+4],  vp[vb+5]);
+    const float3 sdir = float3(vp[vb+6],  vp[vb+7],  vp[vb+8]);
+    const float3 epp  = float3(vp[vb+9],  vp[vb+10], vp[vb+11]);
+    const float3 nf   = float3(vp[vb+12], vp[vb+13], vp[vb+14]);
+    const float3 epar = float3(vp[vb+15], vp[vb+16], vp[vb+17]);
+    const float3 eprp = float3(vp[vb+18], vp[vb+19], vp[vb+20]);
+    const float3 CdV  = float3(Cd[b*3+0], Cd[b*3+1], Cd[b*3+2]);
 
     // ---- membrane level-lerp (the fused bounce)
     float lvb = lv[b];
@@ -115,13 +118,13 @@ kernel void tandoor_trace(
     float ua = th_sun*sin(psi) + du[tid]*sigb[b];
     float ce = cos(ea), se_ = -sin(ea), cu = cos(ua), su = sin(ua);
     float3 v = float3(-su, ce*cu, -se_*cu);
-    float3 inc = mrow(v, Acan);
+    float3 inc = mrow(v, Acan + b*9);
     // ARTIST reflect: d - 2 (d.n) n
     float3 d1 = inc - 2.0f*dot(inc, n_loc)*n_loc;
 
     // ---- to world
-    float3 p = vmatT(p_loc, Mt) + CdV;
-    float3 d = normalize(vmatT(d1, Mt));
+    float3 p = vmatT(p_loc, Mt + b*9) + CdV;
+    float3 d = normalize(vmatT(d1, Mt + b*9));
 
     // ---- occlusion, closed form (post + tube), sun leg
     float px_ = p.x - sc[10], py_ = p.y, pz_ = p.z;
@@ -133,7 +136,7 @@ kernel void tandoor_trace(
     float3 perpf = vf - dot(vf, ut)*ut;
     lit = lit && (length(perpf) > sc[0]);
     float3 q = p - CdV;
-    lit = lit && !((dot(q, sdir) > sc[1]) && (fabs(dot(q, epp)) < sc[2]));
+    lit = lit && !((dot(q, sdir) > scb[sb+1]) && (fabs(dot(q, epp)) < sc[2]));
 
     // ---- the fold
     float den = dot(d, nf);
@@ -141,11 +144,11 @@ kernel void tandoor_trace(
     float t1 = dot(Pf - p, nf) / denu;
     float3 h1 = p + t1*d;
     float3 rel1 = h1 - Pf;
-    float c_par = dot(rel1, epar) * sc[14];
+    float c_par = dot(rel1, epar) * scb[sb+0];
     float c_prp = dot(rel1, eprp);
     // compliant toroidal fold: sc[103]=1/R_t, sc[104]=1/R_s (0 = flat)
-    float3 n_tor = nf - sc[103]*dot(rel1, epar)*epar
-                      - sc[104]*dot(rel1, eprp)*eprp;
+    float3 n_tor = nf - scb[sb+2]*dot(rel1, epar)*epar
+                      - scb[sb+3]*dot(rel1, eprp)*eprp;
     n_tor = normalize(n_tor);
     float rad1 = sqrt(c_par*c_par + c_prp*c_prp);
     bool graze = hits_column(px_,py_,pz_, d.x,d.y,d.z,
@@ -320,6 +323,7 @@ kernel void tandoor_trace(
                    : (sz > -0.22f ? NB + 2
                       : (sz > -0.85f ? seg : NB + 3 + seg4));
         float wgt = ray_pw[ip] * soil[b] * (thr ? w : 0.0f)
+                    * scb[sb+4] * scb[sb+5]
                     * (sc[105] > 0.5f ? 0.95f : 1.0f);
         atomic_fetch_add_explicit(
             (device atomic_float*)&per_dni[b*dims[3] + node],
@@ -338,7 +342,7 @@ class MetalGeo:
 
     def __call__(self, pts_l, nrm_l, lv, du, de, upick, us, sigb,
                  Acan, Mt, Cd, dvec, off, vp, sc, ellM, ellS, ellC,
-                 V0t, ray_pw, soil, n_nodes, aim):
+                 V0t, ray_pw, soil, n_nodes, aim, scb):
         B, P = du.shape
         L = pts_l.shape[0]
         dev = du.device
@@ -356,5 +360,5 @@ class MetalGeo:
             thr, out6, c(pts_l), c(nrm_l), c(lv), c(du), c(de), c(upick),
             c(sigb), c(dvec.reshape(B, -1)[:, :2]), c(off), c(vp), c(sc),
             c(Acan), c(Mt), c(Cd), c(ellM), c(ellS), c(ellC), c(V0t),
-            dims, c(ray_pw), c(soil), per, c(us), c(aim))
+            dims, c(ray_pw), c(soil), per, c(us), c(aim), c(scb))
         return thr.view(B, P), out6.view(B, P, 6), per

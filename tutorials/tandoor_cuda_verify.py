@@ -59,7 +59,13 @@ def gen():
     off = torch.zeros(B, 2, device=e.device)
     soil = torch.full((B,), 0.95, device=e.device)
     ee = torch.zeros(B, device=e.device)
-    e._metal_trace(p_eff, sigb, off, soil, ee, ee, 47.5)
+    from tandoor_mount_batch import mount_batch
+    mnt = mount_batch(
+        e, torch.as_tensor(e.day_v, dtype=torch.float32,
+                           device=e.device),
+        torch.as_tensor(e.lat_v, dtype=torch.float32,
+                        device=e.device), 10.5, e.device)
+    e._metal_trace(p_eff, sigb, off, soil, ee, ee, mnt)
     e._metal = orig
     torch.save(cap, BUNDLE)
     print(f"bundle written: {BUNDLE.name}, per sum "
@@ -75,10 +81,21 @@ def check():
     dev = torch.device("cuda")
     # args layout mirrors _metal_trace's kernel call: 19 geo args
     # (pts,nrm,lv,du,de,upick,us,sigb,Acan,Mt,Cd,dvec,off,vp,sc,
-    # ellM,ellS,ellC,V0t) then ray_pw, soil, n_nodes
-    geo_args = [a.to(dev) for a in cap["args"][:19]]
-    off = geo_args[12]
-    soil = cap["args"][20].to(dev)
+    # ellM,ellS,ellC,V0t) then ray_pw, soil, n_nodes, aim, scb.
+    # The torch fallback takes broadcast-shaped per-env geometry:
+    # massage the kernel-flat buffers into it, scb after sc.
+    ka = [a.to(dev) if torch.is_tensor(a) else a
+          for a in cap["args"]]
+    Bc = ka[2].shape[0]
+    scb = ka[23]
+    geo_args = (ka[0], ka[1], ka[2], ka[3], ka[4], ka[5], ka[6],
+                ka[7], ka[8].view(Bc, 1, 3, 3), ka[9],
+                ka[10][:, None, :], ka[11], ka[12],
+                ka[13].view(Bc, 7, 1, 3), ka[14], scb,
+                ka[15], ka[16], ka[17], ka[18])
+    off = ka[12]
+    soil = ka[20]
+    e._ray_scale = scb[:, 4] * scb[:, 5]
     out = e._geo(*geo_args)
     (through_b, w_ray, dy, dz, d3) = out[:5]
     through = through_b.float() * w_ray
