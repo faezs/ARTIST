@@ -274,6 +274,35 @@ kernel void tandoor_trace(
         float pxp = h3.y, pyp = h3.z - sc[11];
         float dxw = d3.y, dyw = -d3.x, dzw = d3.z;
         float ox = pxp, oyv = -RDW, oz = pyp + ZD;
+        if (sc[105] > 1.5f) {
+            // CONCAVE ELBOW (duct_nozzle 2): mirror 0.35 m inside
+            // the pot images the duct waist onto far-wall baking
+            // node 6. Literals derived in tandoor_polar_env.
+            const float3 A0 = float3(0.0f, 0.9606134f, 0.2778882f);
+            const float3 MM = float3(0.0f, -0.8740528f, -0.7627391f);
+            const float3 A1 = float3(-0.2117196f, 0.9699902f,
+                                     0.1195568f);
+            const float FN = 0.2956729f;
+            float3 o3 = float3(ox, oyv, oz);
+            float3 d3w = float3(dxw, dyw, dzw);
+            float da = max(dot(d3w, A0), 1e-6f);
+            float tmn = dot(MM - o3, A0) / da;
+            float3 q3 = o3 + tmn*d3w - MM;
+            // rotate a0 -> a1 (rows of R baked in)
+            const float3 R0 = float3(0.9771883f, -0.1987488f,
+                                     -0.0748461f);
+            const float3 R1 = float3(0.2080126f, 0.9667706f,
+                                     0.1486115f);
+            const float3 R2 = float3(0.0428227f, -0.1607904f,
+                                     0.9860592f);
+            d3w = float3(dot(R0, d3w), dot(R1, d3w), dot(R2, d3w));
+            q3 = float3(dot(R0, q3), dot(R1, q3), dot(R2, q3));
+            float3 qp = q3 - dot(q3, A1)*A1;
+            d3w = normalize(d3w - qp / FN);
+            o3 = MM + q3;
+            ox = o3.x; oyv = o3.y; oz = o3.z;
+            dxw = d3w.x; dyw = d3w.y; dzw = d3w.z;
+        }
         float ozc = oz - ZC;
         float aq = dxw*dxw + dyw*dyw + dzw*dzw;
         float bq = ox*dxw + oyv*dyw + ozc*dzw;
@@ -289,9 +318,13 @@ kernel void tandoor_trace(
         float phi = atan2(sy, sx);
         int seg = clamp(int((phi + M_PI_F) / (2.0f*M_PI_F) * NB),
                         0, NB - 1);
+        int seg4 = clamp(int((phi + M_PI_F) / (2.0f*M_PI_F) * 4),
+                         0, 3);
         int node = (hitf || sz < -HD + 0.12f) ? NB
-                   : (sz > -0.22f ? NB + 2 : seg);
-        float wgt = ray_pw[ip] * soil[b] * (thr ? w : 0.0f);
+                   : (sz > -0.22f ? NB + 2
+                      : (sz > -0.85f ? seg : NB + 3 + seg4));
+        float wgt = ray_pw[ip] * soil[b] * (thr ? w : 0.0f)
+                    * (sc[105] > 0.5f ? 0.95f : 1.0f);
         atomic_fetch_add_explicit(
             (device atomic_float*)&per_dni[b*dims[3] + node],
             wgt, memory_order_relaxed);

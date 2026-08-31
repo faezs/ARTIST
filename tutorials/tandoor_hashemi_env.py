@@ -602,6 +602,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # never reaches the crossing condition - the dish NEVER
         # intersects the post, so the physical dish needs no slot cut
         # at all (an uncut, stiffer membrane; flaps hardware deleted).
+        if self.gpu and self.duct_nozzle == 1:
+            raise ValueError("duct_nozzle=1 is cpu-path only; the "
+                             "kernel implements mode 2 (concave)")
         self.slotless = (self.beta_dev >= (self.el_max_h - el_x)
             or self.beta_cap_z is not None)
         if self.slotless:
@@ -809,7 +812,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              -(1.12 * self.r_m5 - self.r_tube_in) / (z0_t - self.z_m5),
              Z_ROOF, self.z_fold - 0.10, self.r_post, self.r_tube,
              self.csr_frac, 15e-3] + cpc_flat
-            + list(self._sun_table) + [0.0, 0.0],
+            + list(self._sun_table)
+            + [0.0, 0.0, float(self.duct_nozzle)],
             dtype=torch.float32, device=dev)
         self._geo = _geo_core
         self._geo_is_fused = False

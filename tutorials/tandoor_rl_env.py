@@ -150,7 +150,8 @@ class TandoorEnv(pufferlib.PufferEnv):
         # nodes: belt segments + hearth spot (beam footprint) + floor rest
         # + crown. The tiny hearth node runs ~800 K and does the radiating
         # (T^4: a small glowing spot beats the same power smeared wide).
-        self.n_nodes = self.n_belt + 3
+        self.n_nodes = self.n_belt + 3 \
+            + getattr(self, "n_extra_nodes", 0)
         # obs: [sin t, cos t, dni] + node temps + [pressure lvl, shutter,
         # wind, boresight qx, boresight qy] + bread progress + [p_in]
         obs_dim = (3 + self.n_nodes + (3 if self.wall_obs else 0)
@@ -413,12 +414,14 @@ class TandoorEnv(pufferlib.PufferEnv):
             # (Archimedes: zone area = 2 pi R dz), plus the coal-bed
             # floor disc - the same sphere _bin_pot strikes, so power
             # binning and thermal area can never drift apart.
-            R_s, z_cp, h_d, z_cr, z_he = pot
+            R_s, z_cp, h_d, z_cr, z_he, z_bk = pot
             zone = lambda z0, z1: 2 * np.pi * R_s * (z1 - z0)
-            a_belt = zone(z_he, z_cr) / self.n_belt
+            a_belt = zone(z_bk, z_cr) / self.n_belt   # BAKING ROW
             a_hearth = np.pi * 0.28**2       # beam footprint on the bed
             a_floor = (zone(-h_d, z_he) + np.pi * 0.42**2) - a_hearth
             a_crown = zone(z_cr, 0.0)
+            a_lower = zone(z_he, z_bk) / max(
+                getattr(self, "n_extra_nodes", 0), 1)
         else:
             R = cfg.R_oven
             # node areas on the sphere; hearth = beam footprint carved
@@ -427,8 +430,11 @@ class TandoorEnv(pufferlib.PufferEnv):
             a_hearth = np.pi * 0.28**2
             a_floor = 2 * np.pi * R**2 * (1 - 0.4) - a_hearth
             a_crown = 2 * np.pi * R**2 * (self.ct_cut - 0.55)
+        extra = [a_lower] * getattr(self, "n_extra_nodes", 0) \
+            if pot is not None else []
         self.node_area = np.array(
-            [a_belt] * self.n_belt + [a_hearth, a_floor, a_crown],
+            [a_belt] * self.n_belt + [a_hearth, a_floor, a_crown]
+            + extra,
             dtype=np.float64,
         )
         # thin hot-face construction: 1.5 cm dense liner over insulating
