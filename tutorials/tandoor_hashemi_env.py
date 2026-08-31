@@ -931,6 +931,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             except Exception as ex:
                 print(f"  [hashemi] megakernel unavailable ({ex}); "
                       f"using the fused graph")
+        elif dev.type == "cuda":
+            # the SAME kernel source, transpiled to CUDA and NVRTC-
+            # jitted (tandoor_cuda_kernel) - one source of truth
+            try:
+                from tandoor_cuda_kernel import CudaGeo
+                self._metal = CudaGeo()
+                print("  [hashemi] megakernel active (CUDA/NVRTC, "
+                      "1 thread/ray)")
+            except Exception as ex:
+                print(f"  [hashemi] CUDA megakernel unavailable "
+                      f"({ex}); using the fused graph")
         if self.fuse:
             try:
                 self._geo = torch.compile(_geo_core, dynamic=False)

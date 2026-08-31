@@ -667,7 +667,7 @@ kernel void step_pre(
     s[S0+26] = stw ? 1.0f : 0.0f;
     s[S0+25] = wind;
     float day_up = (el0 > 8.0f) ? 1.0f : 0.0f;
-    float cosf = day_up * sp[16];
+    float cosw = day_up * sp[16];   // (not 'cosf': CUDA math name)
     float dni = clearw * exp(cl) * day_up * (stw ? 0.0f : 1.0f);
     s[S0+24] = dni;
     // ---- wind -> figure, jam-gated
@@ -693,7 +693,7 @@ kernel void step_pre(
                                  rt*sin(ph) - sp[32], zt - sp[33]));
     aim[b*3+0] = a1.x; aim[b*3+1] = a1.y; aim[b*3+2] = a1.z;
     // ---- gate + scratch for post
-    s[S0+30] = dni * cosf * s[S0+3] * want;
+    s[S0+30] = dni * cosw * s[S0+3] * want;
     s[S0+27] = el0; s[S0+28] = az0d; s[S0+29] = potp;
     s[S0+32] = e_el; s[S0+33] = e_az;
     for (int i = 0; i < N; i++) per[b*N + i] = 0.0f;

@@ -195,9 +195,11 @@ class FusedState:
 
 
 def make_state(env):
-    """FusedState where the kernels can run, GpuState elsewhere."""
+    """FusedState wherever a megakernel backend is mounted (Metal on
+    MPS, the NVRTC transpile on CUDA), GpuState elsewhere."""
     from tandoor_gpu_step import GpuState
-    if (env._metal is not None and env.device.type == "mps"
+    if (env._metal is not None
+            and env.device.type in ("mps", "cuda")
             and env.n_nodes <= 20 and env.n_belt <= 12):
         return FusedState(env)
     return GpuState(env)
@@ -308,17 +310,19 @@ def _day_over(env, F, infos):
     return obs, rew, infos
 
 
-def verify_fused(B=32, steps=120, quiet=False):
+def verify_fused(B=32, steps=120, quiet=False, dev="mps"):
     """Same device, zero noise: the torch gpu_step path and the fused
     kernels must produce the same obs/reward trajectory from the same
-    initial state and action script."""
+    initial state and action script. (On CUDA the torch path shares
+    the kernel TRACE via _metal_trace, so this gates the step logic;
+    the MPS-frozen bundle in tandoor_step_verify gates the trace.)"""
     import contextlib
     import io
     from tandoor_gpu_step import GpuState
     from tandoor_step_verify import _env, _script
 
     def run(force_torch):
-        e = _env("mps")
+        e = _env(dev)
         S = GpuState(e) if force_torch else FusedState(e)
         S.zero_noise = True
         e._gpu = S

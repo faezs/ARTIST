@@ -90,6 +90,17 @@ def install():
                 _shader = _Shader()
             return _shader(values, rewards, terminals, ratio, advantages,
                            gamma, gae_lambda, rho_clip, c_clip)
+        if values.device.type == "cuda":
+            # the same scan, NVRTC-jitted (tandoor_cuda_kernel);
+            # falls through to the source-patched device loop when
+            # cupy is absent
+            try:
+                from tandoor_cuda_kernel import puff_adv
+                return puff_adv(values, rewards, terminals, ratio,
+                                advantages, gamma, gae_lambda,
+                                rho_clip, c_clip)
+            except Exception:
+                pass
         return orig(values, rewards, terminals, ratio, advantages,
                     gamma, gae_lambda, rho_clip, c_clip)
 
