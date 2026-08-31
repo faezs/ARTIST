@@ -76,7 +76,8 @@ T_COOK_LO, T_COOK_HI, T_SCORCH = 453.0, 700.0, 730.0  # K
 # 560 K = 287 C wall: real tandoor range; the ideal-optics design
 # used a conservative 580 that the honest plant cannot hold
 ROTI_ENERGY = 45e3  # J to cook one roti
-ROTI_TIMEOUT = 300.0  # s on the wall before it counts as doughy
+# (the old ROTI_TIMEOUT doughy rule is gone: a roti comes off only
+# when cooked or charred - user call)
 
 _U32 = 0xFFFFFFFF
 
@@ -772,12 +773,15 @@ class TandoorEnv(pufferlib.PufferEnv):
         pull_open = self.load_timer + self.dt >= self.load_period
         cooked = ready & pull_open[:, None]
         scorched = self.has_bread & (self.bread_C >= 1.0)
-        doughy = self.has_bread & (self.bread_t > ROTI_TIMEOUT) & ~ready
-        rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1) - 0.5 * doughy.sum(1)
+        # NO doughy timeout (user call): a roti comes off the wall
+        # only COOKED or charred. Raw dough on a cold wall just sits
+        # there, blocking its bin from the random cook - the waste IS
+        # the lost throughput, no synthetic penalty needed.
+        rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1)
         rew -= 0.5 * spall
         self.ep_rotis += cooked.sum(1)
         self.ep_scorch += scorched.sum(1)
-        done_bread = cooked | scorched | doughy
+        done_bread = cooked | scorched
         self.has_bread &= ~done_bread
         self.bread_E[done_bread] = 0.0
         self.bread_t[done_bread] = 0.0

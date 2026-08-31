@@ -256,12 +256,12 @@ def gpu_step(env, actions):
     pull_open = S.load_timer + dt >= env.load_period
     cooked = ready & pull_open[:, None]
     scorched = S.has_bread & (S.bread_C >= 1.0)
-    doughy = S.has_bread & (S.bread_t > 300.0) & ~ready
+    # NO doughy timeout: cooked or charred only (numpy twins)
     rew = rew + 5.0*cooked.float().sum(1) - 5.0*scorched.float().sum(1) \
-        - 0.5*doughy.float().sum(1) - 0.5*spall.float()
+        - 0.5*spall.float()
     S.ep_rotis = S.ep_rotis + cooked.float().sum(1)
     S.ep_scorch = S.ep_scorch + scorched.float().sum(1)
-    done_b = cooked | scorched | doughy
+    done_b = cooked | scorched
     S.has_bread = S.has_bread & ~done_b
     S.bread_E = torch.where(done_b, torch.zeros_like(S.bread_E), S.bread_E)
     S.bread_t = torch.where(done_b, torch.zeros_like(S.bread_t), S.bread_t)

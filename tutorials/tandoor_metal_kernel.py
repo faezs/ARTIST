@@ -802,7 +802,7 @@ kernel void step_post(
     s[S0+11] += spall;
     // ---- bread: char rate, ready waits for the cook's lean
     float r = 0.0f;
-    float cooked_n = 0.0f, scorch_n = 0.0f, doughy_n = 0.0f;
+    float cooked_n = 0.0f, scorch_n = 0.0f;
     // ONE lean event: pull and load share the opening (post-
     // increment timer; see the numpy twins)
     bool pull = s[S0+8] + dt >= sp[20];
@@ -818,15 +818,14 @@ kernel void step_post(
         bool ready = has && (bE[k] >= sp[19]);
         bool ckd = ready && pull;
         bool scd = has && (bC[k] >= 1.0f);
-        bool dgh = has && (bt_[k] > 300.0f) && !ready;
+        // NO doughy timeout: cooked or charred only (numpy twins)
         cooked_n += ckd ? 1.0f : 0.0f;
         scorch_n += scd ? 1.0f : 0.0f;
-        doughy_n += dgh ? 1.0f : 0.0f;
-        if (ckd || scd || dgh) {
+        if (ckd || scd) {
             hb[k] = 0.0f; bE[k] = 0.0f; bt_[k] = 0.0f; bC[k] = 0.0f;
         }
     }
-    r += 5.0f*cooked_n - 5.0f*scorch_n - 0.5f*doughy_n - 0.5f*spall;
+    r += 5.0f*cooked_n - 5.0f*scorch_n - 0.5f*spall;
     s[S0+9] += cooked_n;
     s[S0+10] += scorch_n;
     s[S0+8] += dt;

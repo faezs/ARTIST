@@ -595,12 +595,12 @@ class TandoorPolarEnv(TandoorEnv):
         pull_open = self.load_timer + self.dt >= self.load_period
         cooked = ready & pull_open[:, None]
         scorched = self.has_bread & (self.bread_C >= 1.0)
-        doughy = self.has_bread & (self.bread_t > 300.0) & ~ready
+        # NO doughy timeout: cooked or charred only (rl_env twin)
         rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1) \
-            - 0.5 * doughy.sum(1) - 0.5 * spall
+            - 0.5 * spall
         self.ep_rotis += cooked.sum(1)
         self.ep_scorch += scorched.sum(1)
-        done_bread = cooked | scorched | doughy
+        done_bread = cooked | scorched
         self.has_bread &= ~done_bread
         self.bread_E[done_bread] = 0.0
         self.bread_t[done_bread] = 0.0
