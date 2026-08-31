@@ -728,8 +728,9 @@ class TandoorEnv(pufferlib.PufferEnv):
         # the cook banks READY loaves at an opening (same lean that
         # loads); reward lands on the PULL, so bread that chars after
         # doneness earns nothing
-        pull_open = (self.load_timer >= self.load_period) \
-            & (self.shutter < 0.5)
+        # the beam enters at the BASE, never the mouth: the lean
+        # needs no shutter interlock (polar's structural safety win)
+        pull_open = self.load_timer >= self.load_period
         cooked = ready & pull_open[:, None]
         scorched = self.has_bread & (self.bread_C >= 1.0)
         doughy = self.has_bread & (self.bread_t > ROTI_TIMEOUT) & ~ready

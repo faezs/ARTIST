@@ -50,7 +50,8 @@ to 13%. FORM AT THE OPERATING TILT (or the figure bakes in that error).
 import numpy as np
 import torch
 
-from tandoor_rl_env import TandoorEnv, _sim, SIGMA, T_AMB
+from tandoor_rl_env import (TandoorEnv, _sim, SIGMA, T_AMB,
+                            T_COOK_LO, T_COOK_HI)
 
 R_POT = 0.42          # coal-bed FLOOR radius [m]
 H_POT = 1.00          # legacy mouth anchor for the world frame [m]
@@ -559,9 +560,26 @@ class TandoorPolarEnv(TandoorEnv):
 
         rew = np.zeros(B)
         belt_T = self.T[:, : self.n_belt]
-        cooked = self.has_bread & (self.bread_E >= self.roti_energy)
-        scorched = self.has_bread & (belt_T > 730.0)
-        doughy = self.has_bread & (self.bread_t > 300.0) & ~cooked
+        # char as a RATE + banking on the cook's lean (see the rl_env
+        # twin). NOTE: the beam enters at the BASE and never crosses
+        # the mouth, so neither loading nor pulling needs a shutter
+        # interlock - the retrofit's structural safety win.
+        c_dot = np.clip(belt_T - 700.0, 0, None) / 6000.0
+        if getattr(self, "spot_bread", 0) and \
+                getattr(self, "_spot_flux", None) is not None:
+            kbc, validc = self._spot_bin
+            arc = np.arange(len(kbc))
+            fkw = self._spot_flux / 1000.0
+            addc = np.zeros_like(c_dot)
+            addc[arc, kbc] = np.clip(fkw - 8.0, 0, None) / 1000.0 \
+                * validc
+            c_dot = c_dot + addc
+        self.bread_C += self.has_bread * c_dot * self.dt
+        ready = self.has_bread & (self.bread_E >= self.roti_energy)
+        pull_open = self.load_timer >= self.load_period
+        cooked = ready & pull_open[:, None]
+        scorched = self.has_bread & (self.bread_C >= 1.0)
+        doughy = self.has_bread & (self.bread_t > 300.0) & ~ready
         rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1) \
             - 0.5 * doughy.sum(1) - 0.5 * spall
         self.ep_rotis += cooked.sum(1)
@@ -570,11 +588,10 @@ class TandoorPolarEnv(TandoorEnv):
         self.has_bread &= ~done_bread
         self.bread_E[done_bread] = 0.0
         self.bread_t[done_bread] = 0.0
-        # cook loads at the mouth: the beam is at the BASE and never
-        # crosses the mouth, so loading needs no shutter interlock here -
-        # the retrofit's structural safety win
+        self.bread_C[done_bread] = 0.0
         self.load_timer += self.dt
-        ok_ = (~self.has_bread) & (belt_T >= 560.0) & (belt_T <= 700.0)
+        ok_ = (~self.has_bread) & (belt_T >= T_COOK_LO) \
+            & (belt_T <= T_COOK_HI)
         can = np.nonzero((self.load_timer >= self.load_period)
                          & ok_.any(1))[0]
         okm = ok_.copy()
@@ -585,16 +602,13 @@ class TandoorPolarEnv(TandoorEnv):
             okm[sel, j[sel]] = False
             rew[sel] += 0.3
         self.load_timer[can] = 0.0
-        belt_mean = belt_T.mean(1)
-        below = belt_mean < 560.0
-        rew += 0.05 * np.clip(belt_mean - self._belt_prev, -5, 5) * below
-        self._belt_prev = belt_mean.copy()
-        # structure-limit only (950 K), matching the base env: the
-        # comfort-band pair made never-scorch the optimum. NOTE this
-        # method is a full override - the base-class reward edit did NOT
-        # apply here, which nearly shipped the Hashemi run on the old
-        # reward.
-        rew -= 0.10 * np.clip(belt_mean - 950.0, 0, None) / 10.0
+        belt_max = belt_T.max(1)
+        below = belt_max < T_COOK_LO
+        rew += 0.05 * np.clip(belt_max - self._belt_prev, -5, 5) * below
+        self._belt_prev = belt_max.copy()
+        # no temperature penalty (user call; matches the twins - and
+        # heed the old warning here: this method is a FULL OVERRIDE,
+        # base-class reward edits do NOT apply)
         rew -= 0.02 * (~self.jammed)        # soft = exposed and not cooking
 
         self.ep_return += rew

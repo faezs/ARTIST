@@ -249,7 +249,7 @@ def gpu_step(env, actions):
         c_dot = c_dot + addc
     S.bread_C = S.bread_C + S.has_bread.float() * c_dot * dt
     ready = S.has_bread & (S.bread_E >= env.roti_energy)
-    pull_open = (S.load_timer >= env.load_period) & (S.shutter < 0.5)
+    pull_open = S.load_timer >= env.load_period
     cooked = ready & pull_open[:, None]
     scorched = S.has_bread & (S.bread_C >= 1.0)
     doughy = S.has_bread & (S.bread_t > 300.0) & ~ready
