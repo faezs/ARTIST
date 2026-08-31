@@ -1492,7 +1492,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         h = getattr(self, "_ts_h", None)
         if h is None or (h["t"] and t < h["t"][-1] - 0.5):
             keys = ("t", "pin", "dni", "belt", "hearth", "halo",
-                    "thr", "shadow", "el", "elb", "rotis")
+                    "thr", "shadow", "el", "elb", "rotis",
+                    "rew", "ret")
             h = self._ts_h = {k: [] for k in keys}
         H = getattr(self, "_hv", None)
         L = getattr(self, "_ladder", None)
@@ -1507,15 +1508,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         h["el"].append(float(H["el"]) if H else 0.0)
         h["elb"].append(float(H.get("el_b", H["el"])) if H else 0.0)
         h["rotis"].append(float(self.ep_rotis[0]))
+        h["rew"].append(float(self.rewards[0]))
+        h["ret"].append(float(self.ep_return[0]) / 100.0)
         if len(h["t"]) > 4000:
             for k in h:
                 h[k] = h[k][::2]
 
     @staticmethod
-    def _draw_ts(pr, x, y, w, h, title, series):
+    def _draw_ts(pr, x, y, w, h, title, series, unit="", tspan=None,
+                 fmt=".0f"):
         """One panel of day-long line graphs. series is a list of
-        (values, color, label); shared autoscaled y axis, latest value
-        printed beside each label."""
+        (values, color, label); shared autoscaled y axis with
+        unit-labeled ticks (hi/mid/lo), latest value printed beside
+        each label; tspan=(t0, t1) prints the solar-hour x range."""
         pr.draw_rectangle(x, y, w, h, (20, 23, 31, 255))
         pr.draw_rectangle_lines(x, y, w, h, (58, 62, 76, 255))
         allv = [v for d, _, _ in series for v in d if v == v]
@@ -1524,6 +1529,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             pad = 0.08 * (hi - lo) if hi > lo else \
                 max(abs(hi), 1.0) * 0.1
             lo, hi = lo - pad, hi + pad
+            ym = y + h - 3 - int((h - 18) * (0.5))
+            pr.draw_line(x + 3, ym, x + w - 52, ym, (38, 42, 54, 255))
             for d, col, _ in series:
                 m = len(d)
                 if m < 2:
@@ -1532,21 +1539,29 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 idx = list(range(0, m, stride))
                 if idx[-1] != m - 1:
                     idx.append(m - 1)
-                pts = [(x + 4 + int((w - 9) * i / (m - 1)),
+                pts = [(x + 4 + int((w - 58) * i / (m - 1)),
                         y + h - 3 - int((h - 18)
                                         * (d[i] - lo) / (hi - lo)))
                        for i in idx]
                 for k in range(len(pts) - 1):
                     pr.draw_line(pts[k][0], pts[k][1],
                                  pts[k + 1][0], pts[k + 1][1], col)
-            pr.draw_text(f"{hi:.0f}", x + w - 30, y + 14, 10,
+            tick = (130, 138, 150, 255)
+            pr.draw_text(f"{hi:{fmt}}{unit}", x + w - 50, y + 14,
+                         10, tick)
+            pr.draw_text(f"{0.5 * (hi + lo):{fmt}}{unit}",
+                         x + w - 50, ym - 5, 10, tick)
+            pr.draw_text(f"{lo:{fmt}}{unit}", x + w - 50, y + h - 12,
+                         10, tick)
+        if tspan is not None:
+            pr.draw_text(f"{tspan[0]:.1f}h", x + 4, y + h - 12, 10,
                          (130, 138, 150, 255))
-            pr.draw_text(f"{lo:.0f}", x + w - 30, y + h - 12, 10,
-                         (130, 138, 150, 255))
+            pr.draw_text(f"{tspan[1]:.2f}h  solar time", x + 40,
+                         y + h - 12, 10, (130, 138, 150, 255))
         pr.draw_text(title, x + 5, y + 2, 12, (205, 210, 220, 255))
         tx = x + 5 + 8 * len(title) + 10
         for d, col, lab in series:
-            cur = f"{lab} {d[-1]:.0f}" if d else lab
+            cur = f"{lab} {d[-1]:{fmt}}" if d else lab
             pr.draw_text(cur, tx, y + 2, 12, col)
             tx += 8 * len(cur) + 10
 
@@ -1769,6 +1784,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                               / self.roti_energy, 0.0), 1.0)
                 hot = float(self.bread_C[0, k]) > 0.5
                 disc(anchor, nrm, 0.085 + 0.02*fr_, browning(fr_, hot))
+                # the flux integral over THIS roti's surface [W]:
+                # wall contact + direct beam, stashed by the step
+                bpw = getattr(self, "_bread_pw", None)
+                if bpw is not None:
+                    n_ = nrm / np.linalg.norm(nrm)
+                    t_lbls.append((anchor + 0.17 * n_ + [0, 0, 0.09],
+                                   f"{float(bpw[0, k]):.0f}W",
+                                   (255, 228, 150, 255)))
                 if fr_ > 0.5 and not hot:        # blisters
                     e1 = np.cross(nrm/np.linalg.norm(nrm), [0., 0., 1.])
                     for bx, bz in ((0.03, 0.02), (-0.025, -0.03),
@@ -2205,22 +2228,31 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # schedule's sign flip
         self._ts_append()
         h_ = self._ts_h
-        gx, gw, gy, gh, gp = 1012, 376, 372, 88, 4
-        self._draw_ts(pr, gx, gy, gw, gh, "kW",
-                      [(h_["pin"], (235, 180, 80, 255), "pot"),
-                       (h_["dni"], (108, 114, 126, 255), "dni/.1")])
-        self._draw_ts(pr, gx, gy + (gh + gp), gw, gh, "K",
+        gx, gw, gy, gh, gp = 1012, 376, 372, 72, 4
+        tsp = (h_["t"][0], h_["t"][-1]) if h_["t"] else None
+        self._draw_ts(pr, gx, gy, gw, gh, "power into pot",
+                      [(h_["pin"], (235, 180, 80, 255), "pot kW"),
+                       (h_["dni"], (108, 114, 126, 255),
+                        "dni 100W/m2")], unit="kW", fmt=".1f")
+        self._draw_ts(pr, gx, gy + (gh + gp), gw, gh, "wall temp",
                       [(h_["belt"], (235, 140, 60, 255), "belt"),
                        (h_["hearth"], (225, 80, 60, 255), "hearth"),
-                       (h_["halo"], (120, 150, 200, 255), "halo")])
-        self._draw_ts(pr, gx, gy + 2 * (gh + gp), gw, gh, "optics %",
+                       (h_["halo"], (120, 150, 200, 255), "halo")],
+                      unit="K")
+        self._draw_ts(pr, gx, gy + 2 * (gh + gp), gw, gh, "optics",
                       [(h_["thr"], (110, 210, 130, 255), "through"),
-                       (h_["shadow"], (220, 90, 90, 255), "shadow")])
-        self._draw_ts(pr, gx, gy + 3 * (gh + gp), gw, gh, "deg",
+                       (h_["shadow"], (220, 90, 90, 255), "shadow")],
+                      unit="%")
+        self._draw_ts(pr, gx, gy + 3 * (gh + gp), gw, gh, "elevation",
                       [(h_["el"], (235, 210, 90, 255), "sun"),
-                       (h_["elb"], (95, 200, 220, 255), "beam")])
-        self._draw_ts(pr, gx, gy + 4 * (gh + gp), gw, gh, "rotis",
-                      [(h_["rotis"], (230, 230, 235, 255), "")])
+                       (h_["elb"], (95, 200, 220, 255), "beam")],
+                      unit="deg")
+        self._draw_ts(pr, gx, gy + 4 * (gh + gp), gw, gh, "naans",
+                      [(h_["rotis"], (230, 230, 235, 255), "cooked")])
+        self._draw_ts(pr, gx, gy + 5 * (gh + gp), gw, gh, "reward",
+                      [(h_["rew"], (140, 220, 140, 255), "r/step"),
+                       (h_["ret"], (200, 160, 240, 255), "ret/100")],
+                      tspan=tsp, fmt=".1f")
         pr.draw_text("EXACT: dish -> FIXED 2-axis fold -> waist -> FIXED "
                      "ellipsoid M5 -> native air inlet -> pot.",
                      20, HT-72, 16, (150, 200, 160, 255))

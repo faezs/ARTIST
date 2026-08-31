@@ -526,6 +526,7 @@ class TandoorPolarEnv(TandoorEnv):
             self.bread_E[ar, kb] += q_direct * self.dt
             self._spot_bin = (kb, valid)
             self._spot_flux = q_direct / max(self.bread_area, 1e-6)
+            self._spot_kb = kb
         self.p_in = per_dni.sum(1) * gate
 
         # --- thermal / bread / reward: identical to the parent --------- #
@@ -556,6 +557,13 @@ class TandoorPolarEnv(TandoorEnv):
         t_dough = 300.0 + 100.0 * np.clip(
             np.maximum(self.bread_E, 0.0) / self.roti_energy, 0.0, 1.0)
         q_b = self.has_bread * self.h_bread * (belt_T - t_dough)
+        # per-loaf absorbed power for the renderer: the flux integral
+        # over each roti's surface = wall contact + direct beam [W]
+        self._bread_pw = q_b.copy()
+        if getattr(self, "_spot_kb", None) is not None:
+            self._bread_pw[np.arange(len(self._spot_kb)),
+                           self._spot_kb] += \
+                self._spot_flux * self.bread_area
         q[:, : self.n_belt] -= q_b
         dT = q * self.dt / self.node_heat_cap
         self.T = T + dT
