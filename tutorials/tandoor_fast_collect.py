@@ -44,6 +44,16 @@ def _fast_evaluate(self):
     if o_device is None:
         o_device = torch.as_tensor(env.observations).to(device)
 
+    # experience-row bookkeeping as PYTHON ints: the tensor version
+    # cost two .item() calls per step - each a full MPS pipeline
+    # sync, so the whole epoch's GPU work serialized into the
+    # eval_copy bucket (the dashboard's Copy 27%). The sequence is
+    # deterministic (l cycles 0..H-1, rows advance B per flush);
+    # the end-of-epoch reset below re-establishes the tensor state
+    # the stock path expects.
+    l_py = 0
+    row0 = 0
+    free = self.total_agents
     self.full_rows = 0
     while self.full_rows < self.segments:
         profile('eval_forward', epoch)
@@ -65,21 +75,18 @@ def _fast_evaluate(self):
                 self.lstm_h[0] = state['lstm_h']
                 self.lstm_c[0] = state['lstm_c']
             r_c = torch.clamp(r, -1, 1)
-            l = self.ep_lengths[0].item()
-            batch_rows = slice(self.ep_indices[0].item(),
-                               1 + self.ep_indices[B - 1].item())
-            self.observations[batch_rows, l] = o_device
-            self.actions[batch_rows, l] = action
-            self.logprobs[batch_rows, l] = logprob
-            self.rewards[batch_rows, l] = r_c
-            self.terminals[batch_rows, l] = d.float()
-            self.values[batch_rows, l] = value.flatten()
-            self.ep_lengths[env_id] += 1
-            if l + 1 >= config['bptt_horizon']:
-                self.ep_indices[env_id] = self.free_idx + torch.arange(
-                    B, device=device).int()
-                self.ep_lengths[env_id] = 0
-                self.free_idx += B
+            batch_rows = slice(row0, row0 + B)
+            self.observations[batch_rows, l_py] = o_device
+            self.actions[batch_rows, l_py] = action
+            self.logprobs[batch_rows, l_py] = logprob
+            self.rewards[batch_rows, l_py] = r_c
+            self.terminals[batch_rows, l_py] = d.float()
+            self.values[batch_rows, l_py] = value.flatten()
+            l_py += 1
+            if l_py >= config['bptt_horizon']:
+                row0 = free
+                free += B
+                l_py = 0
                 self.full_rows += B
         o_device = o_next
 
