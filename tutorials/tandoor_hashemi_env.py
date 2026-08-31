@@ -1151,7 +1151,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         Winter noon picks negative (dish at ~5.5 m); high sun picks
         positive (dish dives anyway). The seam el ~ 40-48 pays a few
         shadow points; the envelope never exceeds the cap."""
-        lo = max(0.0, el - (self.el_x - 1.0))
+        # the slot lower bound protects an UNCUT dish; the stock cut
+        # dish is allowed to cross the post - that is what the cut is
+        # for. Without the gate the retro baseline gets silently
+        # forced off-axis at high sun (measured +36%/yr - a real
+        # schedule discovery, but not the historical baseline).
+        lo = max(0.0, el - (self.el_x - 1.0)) if self.slotless else 0.0
         bp = float(np.clip(self.beta_dev, lo, max(self.beta_dev, lo)))
         if self.beta_cap_z is None:
             return bp
