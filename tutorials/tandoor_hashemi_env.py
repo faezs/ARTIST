@@ -405,6 +405,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # phi->bin binding is discrete data the env computes
             # exactly - embed it, don't make the net learn it
             self.N_EXTRA_OBS = 14
+        if int(kwargs.get("load_ctrl", 0)):
+            # the policy plays the COOK: one 7-way gate head per bin
+            # (value > thr_g = slap dough here at the next lean; the
+            # last n_belt heads), and has_bread joins obs so a cold
+            # parked loaf is distinguishable from a cold empty bin
+            self.N_HEADS += 8
+            self.N_EXTRA_OBS += 8
         # beta_cap_z: hard cap (meters) on the TOP OF THE DISH RIM.
         # beta becomes a per-step SCHEDULE: full beta_dev when the sun
         # is high, tapered exactly as much as the cap demands when it
@@ -461,6 +468,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                           dtype=np.float64)
             oh[np.arange(self.num_agents), kb] = 1.0
             cols.append(oh)
+        if getattr(self, "load_ctrl", 0):
+            cols.append(self.has_bread.astype(np.float64))
         return np.concatenate(cols, axis=1)
 
     def step(self, actions):
@@ -483,6 +492,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                     self.truncations, infos)
         B = self.num_agents
         a = np.asarray(actions).reshape(B, self.N_HEADS)
+        if getattr(self, "load_ctrl", 0):
+            # the base steps reshape actions to THEIR head counts -
+            # the mask heads only exist here, so stash them for the
+            # polar load block
+            self._load_mask = a[:, -self.n_belt:]
         # -- the two motors, BEFORE the optics see the sun this step.
         # cmd 0..6 -> rate -1..+1 of full slew; backlash as rate noise.
         el0, az0, _ = _sim.solar_position(self.lat, self.day,
@@ -1118,7 +1132,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             torch.nn.functional.one_hot(
                 ((S.spot_phi + np.pi) / (2 * np.pi)
                  * self.n_belt).long() % self.n_belt,
-                self.n_belt).float()] if self.elbow_aim else []),
+                self.n_belt).float()] if self.elbow_aim else [])
+          + ([S.has_bread.float()] if getattr(self, "load_ctrl", 0)
+             else []),
             1)
         return obs, rew, infos
 

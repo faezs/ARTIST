@@ -577,8 +577,8 @@ kernel void tandoor_trace(
 //   40 SPOT_PHI0 41 SPOT_Z0 42 dt_h 43 T_AMB 44 c_cloud 45 c_windg
 //   46 c_bore 47 p_collapse 48 dt/900 49 dt/600 50 dt/300
 //   51 ap_area 52 a_tot 53 bread_area 54..60 level_frac[7]
-//   61 loaves_per_load
-//   62.. node_area[N] heat_cap[N] cap_sub[N] cap_deep[N]
+//   61 loaves_per_load 62 load_ctrl
+//   63.. node_area[N] heat_cap[N] cap_sub[N] cap_deep[N]
 //        g01[N] g12[N] g2s[N]
 // ip: 0 B 1 N 2 NB 3 NH 4 NS 5 OD 6 tick (host-written per step)
 // ==================================================================
@@ -714,6 +714,7 @@ kernel void step_post(
     device float*       obs   [[buffer(11)]],  // (B,OD)
     device float*       trc   [[buffer(12)]],
     device float*       diag  [[buffer(13)]],  // (B,8)
+    device const int*   act   [[buffer(14)]],  // (B,NH) load-mask heads
     uint b [[thread_position_in_grid]])
 {
     if ((int)b >= ip[0]) return;
@@ -729,7 +730,7 @@ kernel void step_post(
     device float* bC = bt_ + NB;
     device float* hb = bC + NB;
     device const float* pv = per + b*N;
-    device const float* NA = sp + 62;
+    device const float* NA = sp + 63;
     device const float* HC = NA + N;
     device const float* CS = HC + N;
     device const float* CD_ = CS + N;
@@ -829,22 +830,34 @@ kernel void step_post(
     s[S0+9] += cooked_n;
     s[S0+10] += scorch_n;
     s[S0+8] += dt;
-    // ---- the cook slaps loaves_per_load rotis into RANDOM bins -
-    // no temperature check, no hottest-first (numpy twins line for
-    // line). cook_bin's xor hash in native uint32; only physics
-    // remains: dough does not stack on an occupied bin.
+    // ---- the lean's dough (numpy twins line for line): either the
+    // POLICY's load-mask heads place it (load_ctrl) or the cook's
+    // xor hash sprays it. Only physics either way: empty bins only,
+    // loaves_per_load per lean.
     if (s[S0+8] >= sp[20]) {
         int LPL = (int)sp[61];
-        uint yt = (uint)ip[6];
-        for (int _k = 0; _k < LPL; _k++) {
-            uint hs = (uint)b + yt*57u + (uint)_k*241u;
-            hs = (hs << 13) ^ hs;
-            uint vv = (hs * (hs*hs*15731u + 789221u)
-                       + 1376312589u) & 0x7FFFFFFFu;
-            // HIGH bits (the float original's /2^30): low bits are
-            // structured - a plain %NB clumped 62.5% into one bin
-            int j = (int)((ulong(vv) * ulong(NB)) >> 31);
-            if (hb[j] < 0.5f) { hb[j] = 1.0f; r += 0.3f; }
+        if (sp[62] > 0.5f) {
+            int NH = ip[3];
+            device const int* am_ = act + b*NH + (NH - NB);
+            int left = LPL;
+            for (int k = 0; k < NB; k++) {
+                if (left > 0 && (float)am_[k] > sp[10]
+                    && hb[k] < 0.5f) {
+                    hb[k] = 1.0f; left--; r += 0.3f;
+                }
+            }
+        } else {
+            uint yt = (uint)ip[6];
+            for (int _k = 0; _k < LPL; _k++) {
+                uint hs = (uint)b + yt*57u + (uint)_k*241u;
+                hs = (hs << 13) ^ hs;
+                uint vv = (hs * (hs*hs*15731u + 789221u)
+                           + 1376312589u) & 0x7FFFFFFFu;
+                // HIGH bits (the float original's /2^30): low bits
+                // are structured - %NB clumped 62.5% into one bin
+                int j = (int)((ulong(vv) * ulong(NB)) >> 31);
+                if (hb[j] < 0.5f) { hb[j] = 1.0f; r += 0.3f; }
+            }
         }
         s[S0+8] = 0.0f;
     }
@@ -938,6 +951,8 @@ kernel void step_post(
         for (int k = 0; k < NB; k++)
             ob[o++] = (k == kb2) ? 1.0f : 0.0f;
     }
+    if (sp[62] > 0.5f)
+        for (int k = 0; k < NB; k++) ob[o++] = hb[k];
     diag[b*8+0] = p_in;
     diag[b*8+1] = e_el2;
     diag[b*8+2] = e_az2;

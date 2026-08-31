@@ -267,28 +267,41 @@ def gpu_step(env, actions):
     S.bread_t = torch.where(done_b, torch.zeros_like(S.bread_t), S.bread_t)
     S.bread_C = torch.where(done_b, torch.zeros_like(S.bread_C), S.bread_C)
     S.load_timer = S.load_timer + dt
-    # the cook slaps loaves_per_load rotis into RANDOM bins - no
-    # temperature check, no hottest-first (numpy twins line for
-    # line). cook_bin's hash transcribed to int64+mask (two's-
-    # complement wraparound recovers uint32 semantics exactly).
     can = S.load_timer >= env.load_period
-    bidx = getattr(S, "_bidx", None)
-    if bidx is None:
-        bidx = S._bidx = torch.arange(B, device=dev)
-    M32 = 0xFFFFFFFF
-    tick = int(env.tick)
     loads = torch.zeros(B, device=dev)
-    for _k in range(env.loaves_per_load):
-        s0 = (bidx + tick * 57 + _k * 241) & M32
-        s0 = ((s0 << 13) ^ s0) & M32
-        t0 = ((s0 * s0) & M32) * 15731 + 789221
-        v = (s0 * (t0 & M32) + 1376312589) & 0x7FFFFFFF
-        j = (v * env.n_belt) >> 31    # HIGH bits: low bits are structured
-        place = can & ~S.has_bread.gather(1, j[:, None]).squeeze(1)
-        oh = torch.nn.functional.one_hot(j, env.n_belt).bool() \
-            & place[:, None]
-        S.has_bread = S.has_bread | oh
-        loads = loads + place.float()
+    if getattr(env, "load_ctrl", 0):
+        # the POLICY plays the cook (numpy twins line for line):
+        # last n_belt heads gate each bin, empty bins only, up to
+        # loaves_per_load per lean
+        mask = a[:, -env.n_belt:].float() > thr_g
+        left = torch.full((B,), float(env.loaves_per_load),
+                          device=dev)
+        hb_ = S.has_bread.clone()
+        for k in range(env.n_belt):
+            place = can & mask[:, k] & ~hb_[:, k] & (left > 0)
+            hb_[:, k] = hb_[:, k] | place
+            left = left - place.float()
+            loads = loads + place.float()
+        S.has_bread = hb_
+    else:
+        # RANDOM bins via cook_bin's hash, int64+mask (two's-
+        # complement wraparound recovers uint32 semantics exactly)
+        bidx = getattr(S, "_bidx", None)
+        if bidx is None:
+            bidx = S._bidx = torch.arange(B, device=dev)
+        M32 = 0xFFFFFFFF
+        tick = int(env.tick)
+        for _k in range(env.loaves_per_load):
+            s0 = (bidx + tick * 57 + _k * 241) & M32
+            s0 = ((s0 << 13) ^ s0) & M32
+            t0 = ((s0 * s0) & M32) * 15731 + 789221
+            v = (s0 * (t0 & M32) + 1376312589) & 0x7FFFFFFF
+            j = (v * env.n_belt) >> 31   # HIGH bits: low are structured
+            place = can & ~S.has_bread.gather(1, j[:, None]).squeeze(1)
+            oh = torch.nn.functional.one_hot(j, env.n_belt).bool() \
+                & place[:, None]
+            S.has_bread = S.has_bread | oh
+            loads = loads + place.float()
     S.load_timer = torch.where(can, torch.zeros_like(S.load_timer),
                                S.load_timer)
     rew = rew + 0.3 * loads

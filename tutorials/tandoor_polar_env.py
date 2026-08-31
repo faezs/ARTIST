@@ -132,6 +132,10 @@ class TandoorPolarEnv(TandoorEnv):
         # wall, spot height up the wall). With it off the mirror is
         # bolted at node 6's centre - identical to the fixed station.
         self.elbow_aim = int(kwargs.pop("elbow_aim", 0))
+        # load_ctrl: the POLICY plays the cook too - one gate head
+        # per bin (shutter threshold semantics) says where the lean's
+        # dough goes; obs gains has_bread so occupancy is visible
+        self.load_ctrl = int(kwargs.pop("load_ctrl", 0))
         self.n_extra_nodes = N_LOWER
         ax_now = np.arctan2(0.278, 0.961)
         ax_tgt = np.arctan2(-H_DEPTH - Z_DUCT, R_DUCT_WALL)
@@ -606,20 +610,33 @@ class TandoorPolarEnv(TandoorEnv):
         self.bread_t[done_bread] = 0.0
         self.bread_C[done_bread] = 0.0
         self.load_timer += self.dt
-        # the cook slaps loaves_per_load rotis into RANDOM bins - no
-        # temperature check, no hottest-first (user call: the argmax
-        # taught the policy to heat ONE cell). Only physics remains:
-        # dough does not stack on an occupied bin. cook_bin is a
-        # deterministic hash of (env, tick, loaf) - identical on
-        # every backend, no generator required.
         from tandoor_rl_env import cook_bin
         want = self.load_timer >= self.load_period
         ar_ = np.arange(self.num_agents)
-        for _k in range(self.loaves_per_load):
-            j = cook_bin(ar_, self.tick, _k, self.n_belt)
-            place = want & ~self.has_bread[ar_, j]
-            self.has_bread[ar_[place], j[place]] = True
-            rew[place] += 0.3
+        if self.load_ctrl:
+            # the POLICY plays the cook (rl_env twin): last n_belt
+            # heads gate each bin; empty bins only, up to
+            # loaves_per_load per lean. The heads live on the OUTER
+            # env's action row (this step sees a (B,3) slice), so
+            # the subclass stashes them as _load_mask.
+            mask = getattr(self, "_load_mask",
+                           a[:, -self.n_belt:]) > thr
+            left = np.full(self.num_agents, self.loaves_per_load)
+            for k in range(self.n_belt):
+                place = want & mask[:, k] & ~self.has_bread[:, k] \
+                    & (left > 0)
+                self.has_bread[place, k] = True
+                left[place] -= 1
+                rew[place] += 0.3
+        else:
+            # RANDOM bins (user call: the argmax cook taught the
+            # policy to heat ONE cell); cook_bin is a deterministic
+            # hash of (env, tick, loaf), identical on every backend
+            for _k in range(self.loaves_per_load):
+                j = cook_bin(ar_, self.tick, _k, self.n_belt)
+                place = want & ~self.has_bread[ar_, j]
+                self.has_bread[ar_[place], j[place]] = True
+                rew[place] += 0.3
         self.load_timer[want] = 0.0
         belt_max = belt_T.max(1)
         below = belt_max < T_COOK_LO

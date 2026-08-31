@@ -790,18 +790,33 @@ class TandoorEnv(pufferlib.PufferEnv):
         # shutter is CLOSED (beam dumped) - admitting bread costs flux
         self.load_timer += self.dt
         want = (self.load_timer >= self.load_period) & (self.shutter < 0.5)
-        # the cook slaps loaves_per_load rotis into RANDOM bins - no
-        # temperature check, no hottest-first (user call: the argmax
-        # taught the policy to heat ONE cell; the real cook doesn't
-        # thermometer the wall). Only physics remains: dough does not
-        # stack on an occupied bin. cook_bin is deterministic in
-        # (env, tick, loaf), identical on every backend.
         ar_ = np.arange(self.num_agents)
-        for _k in range(self.loaves_per_load):
-            j = cook_bin(ar_, self.tick, _k, self.n_belt)
-            place = want & ~self.has_bread[ar_, j]
-            self.has_bread[ar_[place], j[place]] = True
-            rew[place] += 0.3
+        if getattr(self, "load_ctrl", 0):
+            # the POLICY plays the cook: the last n_belt heads gate
+            # each bin (value > thr = slap dough here). Only physics
+            # remains: empty bins only, loaves_per_load per lean.
+            # (_load_mask: the outer env stashes its full action row
+            # - this step's own `a` is reshaped to ITS head count)
+            mask = getattr(self, "_load_mask",
+                           a[:, -self.n_belt:]) > thr
+            left = np.full(self.num_agents, self.loaves_per_load)
+            for k in range(self.n_belt):
+                place = want & mask[:, k] & ~self.has_bread[:, k] \
+                    & (left > 0)
+                self.has_bread[place, k] = True
+                left[place] -= 1
+                rew[place] += 0.3
+        else:
+            # the cook slaps loaves_per_load rotis into RANDOM bins -
+            # no temperature check, no hottest-first (user call: the
+            # argmax taught the policy to heat ONE cell). cook_bin is
+            # deterministic in (env, tick, loaf), same on every
+            # backend; dough does not stack on an occupied bin.
+            for _k in range(self.loaves_per_load):
+                j = cook_bin(ar_, self.tick, _k, self.n_belt)
+                place = want & ~self.has_bread[ar_, j]
+                self.has_bread[ar_[place], j[place]] = True
+                rew[place] += 0.3
         self.load_timer[want] = 0.0
             # potential-based preheat shaping on the HOTTEST bin: reward
         # its temperature RISE while it is below the band (policy-
