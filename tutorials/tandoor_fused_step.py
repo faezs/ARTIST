@@ -154,7 +154,7 @@ class FusedState:
         self.trunc = z(B)
         self.diag = z(B, 8)
         self.sp = torch.as_tensor(_step_params(e), device=dev)
-        self.ip = torch.tensor([B, N, NB, e.N_HEADS, self.NS, OD],
+        self.ip = torch.tensor([B, N, NB, e.N_HEADS, self.NS, OD, 0],
                                dtype=torch.int32, device=dev)
         L = e._pts_l.shape[0]
         self.tdims = torch.tensor([B, self.P, L, N],
@@ -209,6 +209,7 @@ def fused_full_step(env, actions):
     dev, B = env.device, env.num_agents
     lib = env._metal.lib
     env._mnt_prm[0] = float(env.t_solar[0])
+    F.ip[6] = int(env.tick)          # the cook's hash clock
     mnt = env._metal.mount(F.day_v, F.lat_v, env._mnt_prm, B)
     aux = mnt["aux"]
     env.t_solar += env.dt / 3600.0
@@ -287,8 +288,8 @@ def _day_over(env, F, infos):
     S.T_halo.copy_(torch.where(warm, 395.0 + 20.0 * S.u(B),
                                torch.full((B,), 300.0, device=dev)))
     for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
-               "ep_len", "bread_E", "bread_t", "form_time",
-               "wind_g", "cloud", "p_dist"):
+               "ep_len", "bread_E", "bread_t", "bread_C",
+               "form_time", "wind_g", "cloud", "p_dist"):
         getattr(S, nm).zero_()
     S.has_bread.zero_()
     S.p_set.fill_(env.p0)

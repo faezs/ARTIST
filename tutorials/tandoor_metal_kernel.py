@@ -580,7 +580,7 @@ kernel void tandoor_trace(
 //   61 loaves_per_load
 //   62.. node_area[N] heat_cap[N] cap_sub[N] cap_deep[N]
 //        g01[N] g12[N] g2s[N]
-// ip: 0 B 1 N 2 NB 3 NH 4 NS 5 OD
+// ip: 0 B 1 N 2 NB 3 NH 4 NS 5 OD 6 tick (host-written per step)
 // ==================================================================
 
 kernel void step_pre(
@@ -800,7 +800,9 @@ kernel void step_post(
     // ---- bread: char rate, ready waits for the cook's lean
     float r = 0.0f;
     float cooked_n = 0.0f, scorch_n = 0.0f, doughy_n = 0.0f;
-    bool pull = s[S0+8] >= sp[20];
+    // ONE lean event: pull and load share the opening (post-
+    // increment timer; see the numpy twins)
+    bool pull = s[S0+8] + dt >= sp[20];
     for (int k = 0; k < NB; k++) {
         float bT = s[k];
         float cdot = max(bT - 700.0f, 0.0f)/6000.0f;
@@ -825,24 +827,24 @@ kernel void step_post(
     s[S0+9] += cooked_n;
     s[S0+10] += scorch_n;
     s[S0+8] += dt;
-    // ---- the cook slaps up to loaves_per_load rotis per opening,
-    // hottest free bins first (numpy twins line for line)
+    // ---- the cook slaps loaves_per_load rotis into RANDOM bins -
+    // no temperature check, no hottest-first (numpy twins line for
+    // line). cook_bin's xor hash in native uint32; only physics
+    // remains: dough does not stack on an occupied bin.
     if (s[S0+8] >= sp[20]) {
-        bool can = false;
         int LPL = (int)sp[61];
+        uint yt = (uint)ip[6];
         for (int _k = 0; _k < LPL; _k++) {
-            float best = -1e30f; int j = -1;
-            for (int k = 0; k < NB; k++) {
-                float bT = s[k];
-                if (hb[k] < 0.5f && bT >= sp[27] && bT <= sp[28]
-                    && bT > best) { best = bT; j = k; }
-            }
-            if (j < 0) break;
-            can = true;
-            hb[j] = 1.0f;
-            r += 0.3f;
+            uint hs = (uint)b + yt*57u + (uint)_k*241u;
+            hs = (hs << 13) ^ hs;
+            uint vv = (hs * (hs*hs*15731u + 789221u)
+                       + 1376312589u) & 0x7FFFFFFFu;
+            // HIGH bits (the float original's /2^30): low bits are
+            // structured - a plain %NB clumped 62.5% into one bin
+            int j = (int)((ulong(vv) * ulong(NB)) >> 31);
+            if (hb[j] < 0.5f) { hb[j] = 1.0f; r += 0.3f; }
         }
-        if (can) s[S0+8] = 0.0f;
+        s[S0+8] = 0.0f;
     }
     // ---- preheat shaping on the hottest bin, below-lo gated
     float bmax = -1e30f;
@@ -881,6 +883,7 @@ kernel void step_post(
         s[S0+12] = 0.0f; s[S0+13] = 0.0f;
         for (int k = 0; k < NB; k++) {
             bE[k] = 0.0f; bt_[k] = 0.0f; hb[k] = 0.0f;
+            bC[k] = 0.0f;      // fresh dough carries no char
         }
         s[S0+1] = sp[1]; s[S0+0] = sp[1];
         float el1, az1d;

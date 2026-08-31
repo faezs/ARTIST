@@ -569,6 +569,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self.T_deep[i] = self.T[i].copy()
                 self.T_halo[i] = 300.0
                 self.bread_t[i] = 0.0
+                self.bread_C[i] = 0.0    # fresh dough carries no char
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
                 self.ep_spall[i] = 0.0
                 self.ep_return[i] = self.ep_len[i] = 0.0
@@ -985,7 +986,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.T_halo = torch.where(cut, torch.full_like(S.T_halo, 300.0),
                                    S.T_halo)
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
-                       "ep_len", "bread_E", "bread_t"):
+                       "ep_len", "bread_E", "bread_t", "bread_C"):
                 v = getattr(S, nm)
                 setattr(S, nm, torch.where(cut[:, None] if v.dim() > 1
                                            else cut,
@@ -1063,8 +1064,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.T_halo = torch.where(warm, 395.0 + 20.0 * S.u(B),
                                    torch.full((B,), 300.0, device=dev))
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
-                       "ep_len", "bread_E", "bread_t", "form_time",
-                       "wind_g", "cloud", "p_dist"):
+                       "ep_len", "bread_E", "bread_t", "bread_C",
+                       "form_time", "wind_g", "cloud", "p_dist"):
                 setattr(S, nm, torch.zeros_like(getattr(S, nm)))
             S.has_bread = torch.zeros_like(S.has_bread)
             S.p_set = torch.full_like(S.p_set, self.p0)

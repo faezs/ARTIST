@@ -578,7 +578,9 @@ class TandoorPolarEnv(TandoorEnv):
             c_dot = c_dot + addc
         self.bread_C += self.has_bread * c_dot * self.dt
         ready = self.has_bread & (self.bread_E >= self.roti_energy)
-        pull_open = self.load_timer >= self.load_period
+        # ONE lean event: pull and load share the opening (see the
+        # rl_env twin for why this is the post-increment timer)
+        pull_open = self.load_timer + self.dt >= self.load_period
         cooked = ready & pull_open[:, None]
         scorched = self.has_bread & (self.bread_C >= 1.0)
         doughy = self.has_bread & (self.bread_t > 300.0) & ~ready
@@ -592,18 +594,21 @@ class TandoorPolarEnv(TandoorEnv):
         self.bread_t[done_bread] = 0.0
         self.bread_C[done_bread] = 0.0
         self.load_timer += self.dt
-        ok_ = (~self.has_bread) & (belt_T >= T_COOK_LO) \
-            & (belt_T <= T_COOK_HI)
-        can = np.nonzero((self.load_timer >= self.load_period)
-                         & ok_.any(1))[0]
-        okm = ok_.copy()
+        # the cook slaps loaves_per_load rotis into RANDOM bins - no
+        # temperature check, no hottest-first (user call: the argmax
+        # taught the policy to heat ONE cell). Only physics remains:
+        # dough does not stack on an occupied bin. cook_bin is a
+        # deterministic hash of (env, tick, loaf) - identical on
+        # every backend, no generator required.
+        from tandoor_rl_env import cook_bin
+        want = self.load_timer >= self.load_period
+        ar_ = np.arange(self.num_agents)
         for _k in range(self.loaves_per_load):
-            j = np.argmax(np.where(okm, belt_T, -np.inf), axis=1)
-            sel = can[okm[can, j[can]]]
-            self.has_bread[sel, j[sel]] = True
-            okm[sel, j[sel]] = False
-            rew[sel] += 0.3
-        self.load_timer[can] = 0.0
+            j = cook_bin(ar_, self.tick, _k, self.n_belt)
+            place = want & ~self.has_bread[ar_, j]
+            self.has_bread[ar_[place], j[place]] = True
+            rew[place] += 0.3
+        self.load_timer[want] = 0.0
         belt_max = belt_T.max(1)
         below = belt_max < T_COOK_LO
         rew += 0.05 * np.clip(belt_max - self._belt_prev, -5, 5) * below
@@ -665,6 +670,7 @@ class TandoorPolarEnv(TandoorEnv):
                 self.has_bread[i] = False
                 self.bread_E[i] = 0.0
                 self.bread_t[i] = 0.0
+                self.bread_C[i] = 0.0     # fresh dough carries no char
                 self.load_timer[i] = 0.0
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
                 self.ep_spall[i] = 0.0

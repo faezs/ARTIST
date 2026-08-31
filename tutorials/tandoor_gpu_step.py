@@ -247,7 +247,9 @@ def gpu_step(env, actions):
         c_dot = c_dot + addc
     S.bread_C = S.bread_C + S.has_bread.float() * c_dot * dt
     ready = S.has_bread & (S.bread_E >= env.roti_energy)
-    pull_open = S.load_timer >= env.load_period
+    # ONE lean event: pull and load share the opening (post-increment
+    # timer; see the numpy twins)
+    pull_open = S.load_timer + dt >= env.load_period
     cooked = ready & pull_open[:, None]
     scorched = S.has_bread & (S.bread_C >= 1.0)
     doughy = S.has_bread & (S.bread_t > 300.0) & ~ready
@@ -261,21 +263,28 @@ def gpu_step(env, actions):
     S.bread_t = torch.where(done_b, torch.zeros_like(S.bread_t), S.bread_t)
     S.bread_C = torch.where(done_b, torch.zeros_like(S.bread_C), S.bread_C)
     S.load_timer = S.load_timer + dt
-    ok_ = (~S.has_bread) & (belt_T >= 453.0) & (belt_T <= 700.0)
-    can = (S.load_timer >= env.load_period) & ok_.any(1)
-    # the cook slaps up to loaves_per_load rotis per opening,
-    # hottest free bins first (numpy twins line for line)
-    okm = ok_.clone()
+    # the cook slaps loaves_per_load rotis into RANDOM bins - no
+    # temperature check, no hottest-first (numpy twins line for
+    # line). cook_bin's hash transcribed to int64+mask (two's-
+    # complement wraparound recovers uint32 semantics exactly).
+    can = S.load_timer >= env.load_period
+    bidx = getattr(S, "_bidx", None)
+    if bidx is None:
+        bidx = S._bidx = torch.arange(B, device=dev)
+    M32 = 0xFFFFFFFF
+    tick = int(env.tick)
     loads = torch.zeros(B, device=dev)
     for _k in range(env.loaves_per_load):
-        j = torch.where(okm, belt_T,
-                        torch.full_like(belt_T, -1e30)).argmax(1)
-        put = can & okm.gather(1, j[:, None]).squeeze(1)
+        s0 = (bidx + tick * 57 + _k * 241) & M32
+        s0 = ((s0 << 13) ^ s0) & M32
+        t0 = ((s0 * s0) & M32) * 15731 + 789221
+        v = (s0 * (t0 & M32) + 1376312589) & 0x7FFFFFFF
+        j = (v * env.n_belt) >> 31    # HIGH bits: low bits are structured
+        place = can & ~S.has_bread.gather(1, j[:, None]).squeeze(1)
         oh = torch.nn.functional.one_hot(j, env.n_belt).bool() \
-            & put[:, None]
+            & place[:, None]
         S.has_bread = S.has_bread | oh
-        okm = okm & ~oh
-        loads = loads + put.float()
+        loads = loads + place.float()
     S.load_timer = torch.where(can, torch.zeros_like(S.load_timer),
                                S.load_timer)
     rew = rew + 0.3 * loads

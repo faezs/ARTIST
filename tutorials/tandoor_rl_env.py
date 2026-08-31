@@ -78,6 +78,27 @@ T_COOK_LO, T_COOK_HI, T_SCORCH = 453.0, 700.0, 730.0  # K
 ROTI_ENERGY = 45e3  # J to cook one roti
 ROTI_TIMEOUT = 300.0  # s on the wall before it counts as doughy
 
+_U32 = 0xFFFFFFFF
+
+
+def cook_bin(x, y, z, nb):
+    """Which bin gets loaf z at tick y in env x: the cook's habit as
+    a hash (user-supplied xor hash, kept integer-exact - the float
+    step is dropped so numpy/torch/Metal agree BIT for bit; uint32
+    wraparound semantics, masked at every op). The bin comes from the
+    HIGH bits via (v*nb)>>31 - the float original divides by 2^30
+    for the same reason: this hash's low bits are structured (v is
+    always odd; a plain %8 put 62.5% of loaves in one bin)."""
+    x = np.asarray(x, dtype=np.uint64)
+    s = (x + np.uint64(y) * np.uint64(57)
+         + np.uint64(z) * np.uint64(241)) & np.uint64(_U32)
+    s = ((s << np.uint64(13)) ^ s) & np.uint64(_U32)
+    t = ((s * s) & np.uint64(_U32)) * np.uint64(15731) \
+        + np.uint64(789221)
+    v = (s * (t & np.uint64(_U32))
+         + np.uint64(1376312589)) & np.uint64(0x7FFFFFFF)
+    return ((v * np.uint64(nb)) >> np.uint64(31)).astype(np.int64)
+
 
 class TandoorEnv(pufferlib.PufferEnv):
     """Natively vectorized: one instance simulates ``num_agents`` tandoors."""
@@ -734,7 +755,13 @@ class TandoorEnv(pufferlib.PufferEnv):
         # doneness earns nothing
         # the beam enters at the BASE, never the mouth: the lean
         # needs no shutter interlock (polar's structural safety win)
-        pull_open = self.load_timer >= self.load_period
+        # ONE lean event: pull and load share the opening. The timer
+        # is checked against its post-increment value because the
+        # unconditional lean below resets it in the same step - the
+        # pre-increment check never saw the period and pull could
+        # never fire (the old temperature-gated load only worked
+        # because FAILED leans left the timer running past the period)
+        pull_open = self.load_timer + self.dt >= self.load_period
         cooked = ready & pull_open[:, None]
         scorched = self.has_bread & (self.bread_C >= 1.0)
         doughy = self.has_bread & (self.bread_t > ROTI_TIMEOUT) & ~ready
@@ -751,19 +778,19 @@ class TandoorEnv(pufferlib.PufferEnv):
         # shutter is CLOSED (beam dumped) - admitting bread costs flux
         self.load_timer += self.dt
         want = (self.load_timer >= self.load_period) & (self.shutter < 0.5)
-        ok_ = (~self.has_bread) & (belt_T >= T_COOK_LO) \
-            & (belt_T <= T_COOK_HI)
-        can = np.nonzero(want & ok_.any(1))[0]
-        # the cook slaps up to loaves_per_load rotis per opening
-        # (real tandoor practice is 2-4), hottest free bins first
-        okm = ok_.copy()
+        # the cook slaps loaves_per_load rotis into RANDOM bins - no
+        # temperature check, no hottest-first (user call: the argmax
+        # taught the policy to heat ONE cell; the real cook doesn't
+        # thermometer the wall). Only physics remains: dough does not
+        # stack on an occupied bin. cook_bin is deterministic in
+        # (env, tick, loaf), identical on every backend.
+        ar_ = np.arange(self.num_agents)
         for _k in range(self.loaves_per_load):
-            j = np.argmax(np.where(okm, belt_T, -np.inf), axis=1)
-            sel = can[okm[can, j[can]]]
-            self.has_bread[sel, j[sel]] = True
-            okm[sel, j[sel]] = False
-            rew[sel] += 0.3
-        self.load_timer[can] = 0.0
+            j = cook_bin(ar_, self.tick, _k, self.n_belt)
+            place = want & ~self.has_bread[ar_, j]
+            self.has_bread[ar_[place], j[place]] = True
+            rew[place] += 0.3
+        self.load_timer[want] = 0.0
             # potential-based preheat shaping on the HOTTEST bin: reward
         # its temperature RISE while it is below the band (policy-
         # invariant, telescopes to zero over any closed loop). The
@@ -835,6 +862,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                 self.has_bread[i] = False
                 self.bread_E[i] = 0.0
                 self.bread_t[i] = 0.0
+                self.bread_C[i] = 0.0     # fresh dough carries no char
                 self.load_timer[i] = 0.0
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
                 self.ep_spall[i] = 0.0
