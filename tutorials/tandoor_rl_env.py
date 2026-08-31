@@ -826,11 +826,15 @@ class TandoorEnv(pufferlib.PufferEnv):
 
     def _draw_bread_strip(self, pr, x, y):
         """Belt temperatures + bread cook progress (was missing entirely
-        from the shed renderer, so cooking was invisible there)."""
+        from the shed renderer, so cooking was invisible there).
+        Kelvin, like every other temperature in the HUD - the strip
+        printed Celsius unlabeled, so the same wall read 146 in the
+        boxes and 419 in the line graph."""
+        pr.draw_text("belt K", x, y - 14, 12, (170, 176, 188, 255))
         for k in range(self.n_belt):
             pr.draw_rectangle(x + 44 * k, y, 40, 30,
                               self._heat_color(self.T[0, k]))
-            pr.draw_text(f"{self.T[0, k] - 273:.0f}", x + 4 + 44 * k, y + 8,
+            pr.draw_text(f"{self.T[0, k]:.0f}", x + 4 + 44 * k, y + 8,
                          13, (235, 235, 235, 255))
             if self.has_bread[0, k]:
                 fr = float(min(self.bread_E[0, k] / ROTI_ENERGY, 1.0))
