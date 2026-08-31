@@ -406,13 +406,27 @@ class TandoorEnv(pufferlib.PufferEnv):
     # ------------------------------------------------------------ thermal #
     def _build_thermal(self):
         cfg = self.cfg
-        R = cfg.R_oven
-        # node areas on the sphere; hearth = beam footprint carved out of
-        # the bottom cap
-        a_belt = 2 * np.pi * R**2 * (0.55 + 0.4) / self.n_belt
-        a_hearth = np.pi * 0.28**2
-        a_floor = 2 * np.pi * R**2 * (1 - 0.4) - a_hearth
-        a_crown = 2 * np.pi * R**2 * (self.ct_cut - 0.55)
+        pot = getattr(self, "_pot_sphere", None)
+        if pot is not None:
+            # THE REAL PIT: node areas are the exact zones of the
+            # spherical section between the strike code's own z-bands
+            # (Archimedes: zone area = 2 pi R dz), plus the coal-bed
+            # floor disc - the same sphere _bin_pot strikes, so power
+            # binning and thermal area can never drift apart.
+            R_s, z_cp, h_d, z_cr, z_he = pot
+            zone = lambda z0, z1: 2 * np.pi * R_s * (z1 - z0)
+            a_belt = zone(z_he, z_cr) / self.n_belt
+            a_hearth = np.pi * 0.28**2       # beam footprint on the bed
+            a_floor = (zone(-h_d, z_he) + np.pi * 0.42**2) - a_hearth
+            a_crown = zone(z_cr, 0.0)
+        else:
+            R = cfg.R_oven
+            # node areas on the sphere; hearth = beam footprint carved
+            # out of the bottom cap
+            a_belt = 2 * np.pi * R**2 * (0.55 + 0.4) / self.n_belt
+            a_hearth = np.pi * 0.28**2
+            a_floor = 2 * np.pi * R**2 * (1 - 0.4) - a_hearth
+            a_crown = 2 * np.pi * R**2 * (self.ct_cut - 0.55)
         self.node_area = np.array(
             [a_belt] * self.n_belt + [a_hearth, a_floor, a_crown],
             dtype=np.float64,

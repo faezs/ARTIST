@@ -52,11 +52,22 @@ import torch
 
 from tandoor_rl_env import TandoorEnv, _sim, SIGMA, T_AMB
 
-R_POT = 0.42          # existing pot belly radius [m]
-H_POT = 1.00          # pot depth, mouth at workfloor z=0 [m]
+R_POT = 0.42          # coal-bed FLOOR radius [m]
+H_POT = 1.00          # legacy mouth anchor for the world frame [m]
 R_MOUTH = 0.26        # mouth radius (cook's opening) [m]
 R_DUCT = 0.14         # native air-inlet hole radius [m]
-Z_DUCT = -0.86        # duct centre height (near the base) [m]
+Z_DUCT = -0.86        # duct centre, mouth frame - the machine's
+                      # built inlet height, unchanged by the pit
+# THE REAL PIT (as built): a SPHERICAL SECTION ~8 ft to the floor,
+# far wider than the cook - the single sphere through the mouth
+# (R_MOUTH at z 0, mouth frame) and the coal-bed floor (R_POT at
+# z -H_DEPTH). Belly ~2.54 m across at 1.24 m below the mouth.
+H_DEPTH = 2.44
+Z_CPOT = (R_MOUTH**2 - R_POT**2 - H_DEPTH**2) / (2.0 * H_DEPTH)
+R_SPH = float(np.hypot(R_MOUTH, Z_CPOT))
+Z_CROWN = -0.22       # near-mouth band (strike + thermal share it)
+Z_HEARTH = -H_DEPTH + 0.12
+R_DUCT_WALL = float(np.sqrt(R_SPH**2 - (Z_DUCT - Z_CPOT)**2))
 THROW = 3.5           # mirror -> duct mouth [m]
 
 
@@ -89,6 +100,10 @@ class TandoorPolarEnv(TandoorEnv):
         self.sigma_offaxis = float(sigma_offaxis)
         self.sigma_print = float(sigma_print)      # grain print-through
         self.jam_gain = float(jam_gain)            # wind->focus gain jammed
+        # the real pit's sphere, handed to _build_thermal and
+        # struck by _bin_pot - one geometry, two consumers
+        self._pot_sphere = (R_SPH, Z_CPOT, H_DEPTH,
+                            Z_CROWN, Z_HEARTH)
         super().__init__(*args, **kwargs)
 
     # ------------------------------------------------------------ optics #
@@ -215,30 +230,35 @@ class TandoorPolarEnv(TandoorEnv):
         powers. Shared so the polar and Hashemi retrofits, which
         enter through the SAME native air-inlet, cannot drift
         apart downstream of the optics."""
-        # the pot floor where the coal bed lives
+        # jet origin on the sphere wall at the duct mouth
         ox = pxp
-        oy = torch.full_like(pxp, -R_POT)
+        oy = torch.full_like(pxp, -R_DUCT_WALL)
         oz = pyp + Z_DUCT
-        # strike the pot: floor plane first, else the cylinder wall
-        t_floor = (-H_POT - oz) / dzw.clamp(max=-1e-6)
-        fx, fy = ox + t_floor * dxw, oy + t_floor * dyw
-        hit_floor = (fx**2 + fy**2) <= R_POT**2
-        aq = dxw**2 + dyw**2
-        bq = ox * dxw + oy * dyw
-        cq = ox**2 + oy**2 - R_POT**2
+        # strike the SPHERE (the real pit); where the far root dives
+        # below the coal bed the ray lands on the floor disc instead
+        # (the sphere meets z=-H_DEPTH exactly at r=R_POT, so the
+        # crossing is always inside the disc)
+        ozc = oz - Z_CPOT
+        aq = dxw**2 + dyw**2 + dzw**2
+        bq = ox * dxw + oy * dyw + ozc * dzw
+        cq = ox**2 + oy**2 + ozc**2 - R_SPH**2
         t_wall = (-bq + torch.sqrt((bq**2 - aq * cq).clamp(min=0))) \
             / aq.clamp(min=1e-9)
+        sz_s = oz + t_wall * dzw
+        hit_floor = sz_s < -H_DEPTH
+        t_floor = (-H_DEPTH - oz) / dzw.clamp(max=-1e-6)
+        fx, fy = ox + t_floor * dxw, oy + t_floor * dyw
         wz = oz + t_wall * dzw
         sx = torch.where(hit_floor, fx, ox + t_wall * dxw)
         sy = torch.where(hit_floor, fy, oy + t_wall * dyw)
-        sz = torch.where(hit_floor, torch.full_like(wz, -H_POT), wz)
+        sz = torch.where(hit_floor, torch.full_like(wz, -H_DEPTH), wz)
         phi = torch.atan2(sy, sx)
         seg = ((phi + np.pi) / (2 * np.pi) * self.n_belt).long().clamp(
             0, self.n_belt - 1)
         node = torch.where(
-            hit_floor | (sz < -H_POT + 0.12),
-            torch.full_like(seg, self.n_belt),          # hearth = pot floor
-            torch.where(sz > -0.22,
+            hit_floor | (sz < Z_HEARTH),
+            torch.full_like(seg, self.n_belt),          # hearth = coal bed
+            torch.where(sz > Z_CROWN,
                         torch.full_like(seg, self.n_belt + 2),  # near mouth
                         seg))                                   # roti wall
         soil_t = torch.as_tensor(soil, dtype=torch.float32,

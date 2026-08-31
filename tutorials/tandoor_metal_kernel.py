@@ -264,27 +264,32 @@ kernel void tandoor_trace(
     // Their constants: R_POT 0.42, Z_DUCT -0.86, H_POT 1.0,
     // n_belt 8, hearth = n_belt, crown = n_belt + 2.
     if (thr) {
-        const float RPOT = 0.42f, ZD = -0.86f, HP = 1.0f;
+        // THE REAL PIT: spherical section, mouth R 0.26 at z 0,
+        // coal-bed floor R 0.42 at z -2.44 (8 ft). Derived (mirrors
+        // tandoor_polar_env): Z_CPOT, R_SPH, duct-wall radius.
+        const float ZD = -0.86f, HD = 2.44f;
+        const float ZC = -1.2422951f, RS = 1.2692112f;
+        const float RDW = 1.2102675f;
         const int NB = 8;
         float pxp = h3.y, pyp = h3.z - sc[11];
         float dxw = d3.y, dyw = -d3.x, dzw = d3.z;
-        float ox = pxp, oyv = -RPOT, oz = pyp + ZD;
-        float t_f = (-HP - oz) / min(dzw, -1e-6f);
-        float fx = ox + t_f*dxw, fy = oyv + t_f*dyw;
-        bool hitf = (fx*fx + fy*fy) <= RPOT*RPOT;
-        float aq = dxw*dxw + dyw*dyw;
-        float bq = ox*dxw + oyv*dyw;
-        float cq = ox*ox + oyv*oyv - RPOT*RPOT;
+        float ox = pxp, oyv = -RDW, oz = pyp + ZD;
+        float ozc = oz - ZC;
+        float aq = dxw*dxw + dyw*dyw + dzw*dzw;
+        float bq = ox*dxw + oyv*dyw + ozc*dzw;
+        float cq = ox*ox + oyv*oyv + ozc*ozc - RS*RS;
         float t_w = (-bq + sqrt(max(bq*bq - aq*cq, 0.0f)))
                     / max(aq, 1e-9f);
-        float wzv = oz + t_w*dzw;
-        float sx = hitf ? fx : ox + t_w*dxw;
-        float sy = hitf ? fy : oyv + t_w*dyw;
-        float sz = hitf ? -HP : wzv;
+        float sz_s = oz + t_w*dzw;
+        bool hitf = sz_s < -HD;
+        float t_f = (-HD - oz) / min(dzw, -1e-6f);
+        float sx = hitf ? ox + t_f*dxw : ox + t_w*dxw;
+        float sy = hitf ? oyv + t_f*dyw : oyv + t_w*dyw;
+        float sz = hitf ? -HD : sz_s;
         float phi = atan2(sy, sx);
         int seg = clamp(int((phi + M_PI_F) / (2.0f*M_PI_F) * NB),
                         0, NB - 1);
-        int node = (hitf || sz < -HP + 0.12f) ? NB
+        int node = (hitf || sz < -HD + 0.12f) ? NB
                    : (sz > -0.22f ? NB + 2 : seg);
         float wgt = ray_pw[ip] * soil[b] * (thr ? w : 0.0f);
         atomic_fetch_add_explicit(

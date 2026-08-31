@@ -70,7 +70,8 @@ from artist.util import utils as artist_utils
 import tandoor_artist_optics as AO
 import tandoor_coude_optics as CO
 from tandoor_coude_env import TandoorCoudeEnv
-from tandoor_polar_env import TandoorPolarEnv, R_MOUTH
+from tandoor_polar_env import (TandoorPolarEnv, R_MOUTH, H_DEPTH, Z_CPOT, R_SPH,
+                               Z_CROWN, Z_HEARTH, R_DUCT_WALL)
 from tandoor_rl_env import _sim, ROTI_ENERGY, T_COOK_LO
 
 R_POT, H_POT, Z_DUCT = CO.R_POT, CO.H_POT, CO.Z_DUCT
@@ -690,6 +691,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # temperature state array and self.W would shadow nothing but
         # the collision cost a debugging session once
         fW = np.array([X_TOWER, 0.0, self.z_waist])
+        # the duct mouth is BUILT at [R_POT, 0, Z_DUCT] - the real
+        # pit's axis sits R_DUCT_WALL behind it (x = R_POT -
+        # R_DUCT_WALL = -0.79), which is the strike code's frame;
+        # the optics aim at the built mouth, unchanged
         fT = np.array([R_POT, 0.0, Z_DUCT])
         V0 = np.array([X_TOWER, 0.0, self.z_m5])
         A2 = np.linalg.norm(V0 - fW) + np.linalg.norm(V0 - fT)
@@ -1667,15 +1672,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # z 0) and the cook's mouth (R_MOUTH at H_POT); the belly
         # between them is over a metre across, far wider than the
         # cook. z_c and R_S solve those two circles.
-        z_c = (R_MOUTH**2 - R_POT**2 + H_POT**2) / (2.0 * H_POT)
-        R_S = float(np.hypot(R_POT, z_c))
+        zc_w = H_POT + Z_CPOT          # sphere centre, world frame
+        z_fl = H_POT - H_DEPTH         # coal-bed floor, world frame
+        XC = R_POT - R_DUCT_WALL       # pot AXIS: 1.21 m behind the
+        xc3 = np.array([XC, 0.0, 0.0])  # built duct mouth
         r_at = lambda zz: float(np.sqrt(max(
-            R_S*R_S - (zz - z_c)**2, 1e-6)))
-        pot_prof = [(zz, r_at(zz)) for zz in np.linspace(0., H_POT, 18)]
+            R_SPH*R_SPH - (zz - zc_w)**2, 1e-6)))
+        pot_prof = [(zz, r_at(zz))
+                    for zz in np.linspace(z_fl, H_POT, 22)]
         for zz, rr_ in pot_prof:
-            ring([0, 0, zz], rr_, (150, 118, 92, 255), 32)
+            ring([XC, 0, zz], rr_, (150, 118, 92, 255), 32)
         for aa in np.linspace(0, 2*np.pi, 16, endpoint=False):
-            pts_ = [np.array([r_*np.cos(aa), r_*np.sin(aa), zz])
+            pts_ = [np.array([XC + r_*np.cos(aa), r_*np.sin(aa), zz])
                     for zz, r_ in pot_prof]
             for j in range(len(pts_) - 1):
                 pr.draw_line_3d(v3(pts_[j]), v3(pts_[j+1]),
@@ -1685,16 +1693,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         t_h = float(self.T[0, self.n_belt])
         if t_h > 450.0:
             gl = float(np.clip((t_h - 450.0) / 400.0, 0, 1))
-            disc([0, 0, 0.05], [0, 0, 1], R_POT*(0.30 + 0.20*gl),
+            disc([XC, 0, z_fl + 0.05], [0, 0, 1],
+                 R_POT*(0.30 + 0.20*gl),
                  (255, int(120 + 90*gl), 40, int(70 + 120*gl)), 16)
-        ring([0, 0, H_POT], R_MOUTH, (190, 160, 120, 255), 24)
+        ring([XC, 0, H_POT], R_MOUTH, (190, 160, 120, 255), 24)
         if self.load_timer[0] >= 4.0:          # lid on between loads
-            ring([0, 0, H_POT + 0.03], R_MOUTH * 0.92,
+            ring([XC, 0, H_POT + 0.03], R_MOUTH * 0.92,
                  (120, 120, 128, 255), 20)
         # belt WALL SEGMENTS, each at its own node temperature. The bin
         # frame maps theirs->ours as (x,y) = (-y_t, x_t), so segment k's
         # arc is drawn through that map - the hot side faces the duct.
-        z_lo, z_hi = 0.12, H_POT - 0.22
+        z_lo, z_hi = H_POT + Z_HEARTH, H_POT + Z_CROWN
         for k in range(self.n_belt):
             a0 = -np.pi + 2 * np.pi * k / self.n_belt
             th_ = np.linspace(a0, a0 + 2 * np.pi / self.n_belt, 8)
@@ -1703,12 +1712,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 rw = r_at(zz) * 0.995
                 for j in range(7):
                     pr.draw_line_3d(
-                        v3([-rw*np.sin(th_[j]), rw*np.cos(th_[j]), zz]),
-                        v3([-rw*np.sin(th_[j+1]), rw*np.cos(th_[j+1]),
-                            zz]), col)
+                        v3([XC - rw*np.sin(th_[j]),
+                            rw*np.cos(th_[j]), zz]),
+                        v3([XC - rw*np.sin(th_[j+1]),
+                            rw*np.cos(th_[j+1]), zz]), col)
             am_ = a0 + np.pi / self.n_belt
             rl_ = r_at(0.5 * (z_lo + z_hi)) * 1.02
-            t_lbls.append((np.array([-rl_*np.sin(am_),
+            t_lbls.append((np.array([XC - rl_*np.sin(am_),
                                      rl_*np.cos(am_),
                                      0.5 * (z_lo + z_hi)]),
                            f"{self.T[0, k]:.0f}", col))
@@ -1717,10 +1727,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # past half-done, charring if the wall runs to scorch
             if self.has_bread[0, k]:
                 am = a0 + np.pi / self.n_belt
-                r_an = r_at(0.5 * (z_lo + z_hi)) * 0.955
-                anchor = np.array([-r_an*np.sin(am),
-                                   r_an*np.cos(am),
-                                   0.5*(z_lo + z_hi)])
+                z_br = H_POT - 0.55        # arm's reach into the pit
+                r_an = r_at(z_br) * 0.955
+                anchor = np.array([XC - r_an*np.sin(am),
+                                   r_an*np.cos(am), z_br])
                 nrm = -anchor * [1, 1, 0]        # inward wall normal
                 fr_ = min(float(self.bread_E[0, k]) / ROTI_ENERGY, 1.0)
                 hot = float(self.T[0, k]) > 730.0
@@ -1734,30 +1744,30 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                + 0.012*nrm/np.linalg.norm(nrm)),
                             0.012, (168, 112, 58, 255))
         # hearth (coal-bed spot the beam lands on) and crown
-        ring([0, 0, 0.03], R_POT * 0.5,
+        ring([XC, 0, z_fl + 0.03], R_POT * 0.5,
              self._heat_color(self.T[0, self.n_belt]), 18)
-        ring([0, 0, H_POT - 0.12], r_at(H_POT - 0.12) * 0.97,
+        ring([XC, 0, H_POT - 0.12], r_at(H_POT - 0.12) * 0.97,
              self._heat_color(self.T[0, self.n_belt + 2]), 22)
-        t_lbls.append((np.array([0., R_POT * 0.35, 0.06]),
+        t_lbls.append((np.array([XC, R_POT * 0.35, z_fl + 0.06]),
                        f"{self.T[0, self.n_belt]:.0f}",
                        self._heat_color(self.T[0, self.n_belt])))
-        t_lbls.append((np.array([0., r_at(H_POT-0.12)*0.8,
+        t_lbls.append((np.array([XC, r_at(H_POT-0.12)*0.8,
                                  H_POT - 0.10]),
                        f"{self.T[0, self.n_belt + 2]:.0f}",
                        self._heat_color(self.T[0, self.n_belt + 2])))
         self._pot_lbls = t_lbls
-        ring([R_POT, 0, Z_DUCT], R_DUCT_H, (120, 220, 235, 255), 18,
-             ax="x")
+        ring([R_POT, 0, Z_DUCT], R_DUCT_H,
+             (120, 220, 235, 255), 18, ax="x")
         # ---- THE KITCHEN: the workfloor over the pit. Dough comes off
         # the prep table, down through the mouth, slapped to the wall;
         # done rotis come back up on the hook. Driven by diffing agent
         # 0's bread state between frames - every animation is an event
         # the env actually emitted, never decoration.
         RV = self._rvis
-        TBL = np.array([-1.5, 1.2, H_POT + 0.82])
-        AM = np.array([0.0, 0.0, H_POT + 0.55])
-        MTH = np.array([0.0, 0.0, H_POT - 0.15])
-        REJ = np.array([0.85, -0.75, H_POT + 0.03])
+        TBL = np.array([-1.5, 1.2, H_POT + 0.82]) + xc3
+        AM = np.array([0.0, 0.0, H_POT + 0.55]) + xc3
+        MTH = np.array([0.0, 0.0, H_POT - 0.15]) + xc3
+        REJ = np.array([0.85, -0.75, H_POT + 0.03]) + xc3
 
         def bin_anchor(k_):
             am_ = -np.pi + 2*np.pi*(k_ + 0.5) / self.n_belt
