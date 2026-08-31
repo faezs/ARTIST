@@ -748,7 +748,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         # contact side plus front-surface beam flux. A done loaf STAYS
         # on the wall, charring, until the cook's next lean pulls it -
         # scorch is a scheduling phenomenon, not a cliff.
-        c_dot = np.clip(belt_T - 700.0, 0, None) / 6000.0
+        c_dot = np.clip(belt_T - 800.0, 0, None) / 6000.0
         if getattr(self, "spot_bread", 0) and \
                 getattr(self, "_spot_flux", None) is not None:
             kb, valid = self._spot_bin

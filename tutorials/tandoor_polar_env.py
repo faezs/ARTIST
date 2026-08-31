@@ -582,7 +582,7 @@ class TandoorPolarEnv(TandoorEnv):
         # twin). NOTE: the beam enters at the BASE and never crosses
         # the mouth, so neither loading nor pulling needs a shutter
         # interlock - the retrofit's structural safety win.
-        c_dot = np.clip(belt_T - 700.0, 0, None) / 6000.0
+        c_dot = np.clip(belt_T - 800.0, 0, None) / 6000.0
         if getattr(self, "spot_bread", 0) and \
                 getattr(self, "_spot_flux", None) is not None:
             kbc, validc = self._spot_bin

@@ -809,7 +809,7 @@ kernel void step_post(
     bool pull = s[S0+8] + dt >= sp[20];
     for (int k = 0; k < NB; k++) {
         float bT = s[k];
-        float cdot = max(bT - 700.0f, 0.0f)/6000.0f;
+        float cdot = max(bT - 800.0f, 0.0f)/6000.0f;
         if (sp[25] > 0.5f && k == kb) {
             float fkw = q_direct/max(sp[53], 1e-6f)/1000.0f;
             cdot += max(fkw - 8.0f, 0.0f)/1000.0f*validc;

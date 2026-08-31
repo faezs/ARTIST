@@ -240,7 +240,7 @@ def gpu_step(env, actions):
     belt_T = S.T[:, :env.n_belt]
     # char as a RATE (wall time-at-temperature + beam flux on the
     # loaf); ready loaves wait for the cook's lean - see numpy twin
-    c_dot = (belt_T - 700.0).clamp(min=0) / 6000.0
+    c_dot = (belt_T - 800.0).clamp(min=0) / 6000.0
     if getattr(env, "spot_bread", 0):
         kbc, validc = env._spot_bin_t
         fkw = env._spot_flux_t / 1000.0
