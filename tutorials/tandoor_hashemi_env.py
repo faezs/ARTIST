@@ -1052,10 +1052,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         from tandoor_polar_env import R_SPH, Z_CPOT
         M = self._noz2["M"]
         sp, szv = self._spot_view
-        ph = torch.as_tensor(np.asarray(sp), dtype=torch.float32,
-                             device=dev)
-        zt = torch.as_tensor(np.asarray(szv), dtype=torch.float32,
-                             device=dev)
+        ph = (sp if torch.is_tensor(sp) else
+              torch.as_tensor(sp)).to(dev, torch.float32)
+        zt = (szv if torch.is_tensor(szv) else
+              torch.as_tensor(szv)).to(dev, torch.float32)
         rt = torch.sqrt(
             (R_SPH**2 - (zt - Z_CPOT)**2).clamp(min=1e-4)) * 0.999
         a1 = torch.stack([rt * torch.cos(ph) - M[0],
