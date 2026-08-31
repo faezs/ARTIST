@@ -45,13 +45,56 @@ def heuristic(env, B):
             np.where(bm < 665, 2, np.where(bm < 690, 1, 0))))
     ready = (env.load_timer >= 30.0) & (
         ((~env.has_bread) & (belt >= 560.0) & (belt <= 700.0)).any(1))
-    if env.N_HEADS == 5:                       # hashemi: 2 motor heads
+    if env.N_HEADS in (5, 7):                  # hashemi: 2 motor heads
         # P-controller on the pointing-error encoders: cmd 3 = hold,
         # each step of command = a third of full slew
         c_az = np.clip(np.round(3 - env._e_az / 0.08), 0, 6).astype(int)
         c_el = np.clip(np.round(3 - env._e_el / 0.08), 0, 6).astype(int)
-        return np.stack([lvl, np.full(B, 6), np.full(B, 6),
-                         c_az, c_el], axis=1)
+        heads = [lvl, np.full(B, 6), np.full(B, 6), c_az, c_el]
+        if env.N_HEADS == 7:
+            # steer the spot: serve the RAWEST loaded loaf; park at
+            # the default station when the queue is empty
+            from tandoor_polar_env import (SPOT_PHI0, SPOT_Z0,
+                                           RATE_SPOT_PHI, RATE_SPOT_Z)
+            # SERVE TO COMPLETION: hold the beam on the aimed loaf
+            # until ~92% done, then advance one reachable bin - the
+            # finishing loaf closes out on wall contact while the new
+            # bin's gate opens for the next load. If another bin
+            # holds a rawer abandoned loaf, serve it first.
+            # (bins 1-3 face the duct - unreachable)
+            REACH = np.array([4, 5, 6, 7, 0])
+            ar = np.arange(B)
+            kb_now = (((env.spot_phi + np.pi) / (2 * np.pi)
+                       * env.n_belt).astype(int)) % env.n_belt
+            has_here = env.has_bread[ar, kb_now]
+            fr_here = env.bread_E[ar, kb_now] / env.roti_energy
+            stay = has_here & (fr_here < 0.92)
+            Em = np.where(env.has_bread
+                          & (env.bread_E < 0.9 * env.roti_energy),
+                          env.bread_E, np.inf)
+            raw = np.argmin(Em, axis=1)
+            raw_exists = np.isfinite(Em.min(1))
+            pos = np.zeros(B, dtype=int)
+            for i_, k_ in enumerate(REACH):
+                pos = np.where(kb_now == k_, i_, pos)
+            nxt = REACH[(pos + 1) % len(REACH)]
+            done_here = has_here & (fr_here >= 0.92)
+            tgt_bin = np.where(
+                done_here, nxt,                    # move on when done
+                np.where(~has_here & raw_exists, raw,
+                         kb_now))                  # else serve or WAIT
+
+            ph_des = -np.pi + (tgt_bin + 0.5) / env.n_belt * 2 * np.pi
+            ph_des = np.where(ph_des < env.spot_phi - np.pi,
+                              ph_des + 2 * np.pi, ph_des)
+            dphi = np.degrees(ph_des - env.spot_phi)
+            step_ph = RATE_SPOT_PHI * env.dt / 3.0
+            c_ph = np.clip(np.round(3 + dphi / step_ph), 0, 6)
+            dz = SPOT_Z0 - env.spot_z
+            c_zz = np.clip(np.round(3 + dz / (RATE_SPOT_Z * env.dt
+                                              / 3.0)), 0, 6)
+            heads += [c_ph.astype(int), c_zz.astype(int)]
+        return np.stack(heads, axis=1)
     if env.N_HEADS == 3:                       # polar: no shutter interlock
         return np.stack([lvl, np.full(B, 6), np.full(B, 6)], axis=1)
     return np.stack([lvl, np.where(ready, 0, 6)], axis=1)

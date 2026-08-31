@@ -72,8 +72,15 @@ Z_HEARTH = -H_DEPTH + 0.12
 # lower belly becomes 4 quadrant nodes appended after crown.
 Z_BAKE_LO = -0.85
 N_LOWER = 4
-SPOT_NODE = 6          # the concave elbow's target bin
+SPOT_NODE = 6          # the concave elbow's default target bin
 SPOT_AREA = 0.30       # imaged spot area on the wall [m2]
+SPOT_PHI0 = -np.pi + (SPOT_NODE + 0.5) / 8.0 * 2.0 * np.pi
+SPOT_Z0 = 0.5 * (Z_BAKE_LO + Z_CROWN)
+SPOT_PHI_RANGE = (SPOT_PHI0 - np.radians(110.0),
+                  SPOT_PHI0 + np.radians(110.0))
+SPOT_Z_RANGE = (-2.05, -0.30)
+RATE_SPOT_PHI = 4.0    # deg/s of spot azimuth slew
+RATE_SPOT_Z = 0.04     # m/s of spot height slew
 R_DUCT_WALL = float(np.sqrt(R_SPH**2 - (Z_DUCT - Z_CPOT)**2))
 THROW = 3.5           # mirror -> duct mouth [m]
 
@@ -119,6 +126,11 @@ class TandoorPolarEnv(TandoorEnv):
         # the as-built jet axis to the line duct-mouth -> bed centre
         self.duct_nozzle = int(kwargs.pop("duct_nozzle", 0))
         self.spot_bread = int(kwargs.pop("spot_bread", 0))
+        # elbow_aim: the concave elbow gets a 2-DOF mount and its aim
+        # becomes TWO POLICY ACTION HEADS (spot azimuth around the
+        # wall, spot height up the wall). With it off the mirror is
+        # bolted at node 6's centre - identical to the fixed station.
+        self.elbow_aim = int(kwargs.pop("elbow_aim", 0))
         self.n_extra_nodes = N_LOWER
         ax_now = np.arctan2(0.278, 0.961)
         ax_tgt = np.arctan2(-H_DEPTH - Z_DUCT, R_DUCT_WALL)
@@ -291,36 +303,53 @@ class TandoorPolarEnv(TandoorEnv):
             dyw = dy2
             through = through * 0.95
         elif noz == 2:
-            # CONCAVE elbow 0.35 m inside the pot: images the duct
-            # waist onto the far-wall baking node (~3x flux). Thin-
-            # mirror model: propagate to the mirror plane, rotate the
-            # bundle onto the new axis, focusing kick q/f, x0.95.
+            # CONCAVE elbow on its 2-DOF mount: images the duct waist
+            # onto the wall point (spot_phi, spot_z) - per env, per
+            # step. Thin-mirror model: propagate to the mirror plane,
+            # Rodrigues-rotate the bundle onto the aim axis, focusing
+            # kick q/f, x0.95. Aim state comes through _spot_view so
+            # the numpy and gpu paths each feed their own live copy.
             nz = self._noz2
-            a0 = nz["a0"]; M = nz["M"]; a1 = nz["a1"]; f = nz["f"]
-            R3 = nz["R"]
-            da = dxw * a0[0] + dyw * a0[1] + dzw * a0[2]
+            a0 = nz["a0"]; M = nz["M"]; f = nz["f"]
+            sp, szv = self._spot_view
+            dt_ = dxw.dtype; dv_ = dxw.device
+            ph = torch.as_tensor(sp, dtype=dt_, device=dv_)[:, None]
+            zt = torch.as_tensor(szv, dtype=dt_, device=dv_)[:, None]
+            rt = torch.sqrt(
+                (R_SPH**2 - (zt - Z_CPOT)**2).clamp(min=1e-4)) * 0.999
+            a1x = rt * torch.cos(ph) - M[0]
+            a1y = rt * torch.sin(ph) - M[1]
+            a1z = zt - M[2]
+            nA = torch.sqrt(a1x*a1x + a1y*a1y + a1z*a1z)
+            a1x, a1y, a1z = a1x / nA, a1y / nA, a1z / nA
+            da = (dxw * a0[0] + dyw * a0[1]
+                  + dzw * a0[2]).clamp(min=1e-6)
             tm = ((M[0] - ox) * a0[0] + (M[1] - oy) * a0[1]
-                  + (M[2] - oz) * a0[2]) / da.clamp(min=1e-6)
+                  + (M[2] - oz) * a0[2]) / da
             px = ox + tm * dxw - M[0]
             py = oy + tm * dyw - M[1]
             pz = oz + tm * dzw - M[2]
-            # rotate directions and offsets a0 -> a1 (axis-angle)
-            dxw, dyw, dzw = (R3[0]*dxw + R3[1]*dyw + R3[2]*dzw,
-                             R3[3]*dxw + R3[4]*dyw + R3[5]*dzw,
-                             R3[6]*dxw + R3[7]*dyw + R3[8]*dzw)
-            px, py, pz = (R3[0]*px + R3[1]*py + R3[2]*pz,
-                          R3[3]*px + R3[4]*py + R3[5]*pz,
-                          R3[6]*px + R3[7]*py + R3[8]*pz)
-            # focusing kick in the a1-transverse plane
-            qpar = px * a1[0] + py * a1[1] + pz * a1[2]
-            qx = px - qpar * a1[0]
-            qy = py - qpar * a1[1]
-            qz = pz - qpar * a1[2]
-            dxw = dxw - qx / f
-            dyw = dyw - qy / f
-            dzw = dzw - qz / f
-            nrm = torch.sqrt(dxw * dxw + dyw * dyw
-                             + dzw * dzw).clamp(min=1e-9)
+            vx = a0[1]*a1z - a0[2]*a1y
+            vy = a0[2]*a1x - a0[0]*a1z
+            vz = a0[0]*a1y - a0[1]*a1x
+            cc = a0[0]*a1x + a0[1]*a1y + a0[2]*a1z
+            k1 = 1.0 / (1.0 + cc).clamp(min=1e-6)
+
+            def _rot(x, y, z):
+                cx = vy*z - vz*y
+                cy = vz*x - vx*z
+                cz = vx*y - vy*x
+                return (x + cx + k1*(vy*cz - vz*cy),
+                        y + cy + k1*(vz*cx - vx*cz),
+                        z + cz + k1*(vx*cy - vy*cx))
+            dxw, dyw, dzw = _rot(dxw, dyw, dzw)
+            px, py, pz = _rot(px, py, pz)
+            qpar = px*a1x + py*a1y + pz*a1z
+            dxw = dxw - (px - qpar*a1x) / f
+            dyw = dyw - (py - qpar*a1y) / f
+            dzw = dzw - (pz - qpar*a1z) / f
+            nrm = torch.sqrt(dxw*dxw + dyw*dyw
+                             + dzw*dzw).clamp(min=1e-9)
             dxw, dyw, dzw = dxw / nrm, dyw / nrm, dzw / nrm
             ox = M[0] + px
             oy = M[1] + py
@@ -380,6 +409,10 @@ class TandoorPolarEnv(TandoorEnv):
     # -------------------------------------------------------------- step #
     def _reset_state(self):
         super()._reset_state()
+        B_ = self.num_agents
+        self.spot_phi = np.full(B_, SPOT_PHI0)
+        self.spot_z = np.full(B_, SPOT_Z0)
+        self._spot_view = (self.spot_phi, self.spot_z)
         B = self.num_agents
         self.jammed = np.ones(B, dtype=bool)
         self.f_locked = np.full(B, self.p0)     # pressure frozen at jam
@@ -466,15 +499,21 @@ class TandoorPolarEnv(TandoorEnv):
         gate = self.dni * cosf * self.shutter * self.jammed
         q_solar = per_dni * gate[:, None] * 0.85
         if getattr(self, "spot_bread", 0):
-            k = SPOT_NODE
-            lit = self.has_bread[:, k].astype(float)
-            fr = np.clip(self.bread_E[:, k] / self.roti_energy, 0, 1)
+            ph_, zt_ = self._spot_view
+            ar = np.arange(len(ph_))
+            kb = (((np.asarray(ph_) + np.pi) / (2 * np.pi)
+                   * self.n_belt).astype(int)) % self.n_belt
+            valid = ((np.asarray(zt_) >= Z_BAKE_LO)
+                     & (np.asarray(zt_) <= Z_CROWN))
+            lit = (self.has_bread[ar, kb] & valid).astype(float)
+            fr = np.clip(self.bread_E[ar, kb] / self.roti_energy, 0, 1)
             alpha = 0.55 + 0.35 * fr          # dough browns, absorbs
             fcov = min(self.bread_area / SPOT_AREA, 1.0)
-            inc = per_dni[:, k] * gate        # beam arriving at the bin
+            inc = per_dni[ar, kb] * gate      # beam arriving at the bin
             q_direct = lit * alpha * fcov * inc
-            q_solar[:, k] -= lit * 0.85 * fcov * inc
-            self.bread_E[:, k] += q_direct * self.dt
+            q_solar[ar, kb] -= lit * 0.85 * fcov * inc
+            self.bread_E[ar, kb] += q_direct * self.dt
+            self._spot_bin = (kb, valid)
         self.p_in = per_dni.sum(1) * gate
 
         # --- thermal / bread / reward: identical to the parent --------- #

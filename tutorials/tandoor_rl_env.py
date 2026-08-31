@@ -720,11 +720,16 @@ class TandoorEnv(pufferlib.PufferEnv):
         # shutter is CLOSED (beam dumped) - admitting bread costs flux
         self.load_timer += self.dt
         want = (self.load_timer >= self.load_period) & (self.shutter < 0.5)
-        lo_T = np.full(self.n_belt, T_COOK_LO)
+        lo_T = np.full((belt_T.shape[0], self.n_belt), T_COOK_LO)
         if getattr(self, "spot_bread", 0):
-            # the lit station bakes by BEAM; the wall only backs the
+            # the AIMED bin bakes by BEAM; the wall only backs the
             # contact side - 500 K suffices there
-            lo_T[6] = 500.0
+            kb, valid = getattr(self, "_spot_bin", (None, None))
+            if kb is None:
+                lo_T[:, 6] = 500.0
+            else:
+                ar = np.arange(len(kb))
+                lo_T[ar[valid], kb[valid]] = 500.0
         ok_ = (~self.has_bread) & (belt_T >= lo_T) & (belt_T <= T_COOK_HI)
         can = np.nonzero(want & ok_.any(1))[0]
         # the cook slaps up to loaves_per_load rotis per opening

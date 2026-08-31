@@ -34,6 +34,7 @@ class GpuState:
                                        device=dev)
         e = env
         self.T = f(e.T); self.p_act = f(e.p_act); self.p_set = f(e.p_set)
+        self.spot_phi = f(e.spot_phi); self.spot_z = f(e.spot_z)
         self.p_dist = f(e.p_dist); self.shutter = f(e.shutter)
         self.cloud = f(e.cloud); self.wind_g = f(e.wind_g)
         self.bore = f(e.bore); self.stowed = bl(e.stowed)
@@ -95,6 +96,16 @@ def gpu_step(env, actions):
     pot_prev = (S.e_az_prev.abs() + S.e_el_prev.abs()).clamp(max=4.0)
     r_az = (a[:, 3].clamp(0, 6).float() - 3) / 3.0 * env.RATE_AZ
     r_el = (a[:, 4].clamp(0, 6).float() - 3) / 3.0 * env.RATE_EL
+    if getattr(env, "elbow_aim", 0):
+        from tandoor_polar_env import (SPOT_PHI_RANGE, SPOT_Z_RANGE,
+                                       RATE_SPOT_PHI, RATE_SPOT_Z)
+        r_ph = (a[:, 5].clamp(0, 6).float() - 3) / 3.0 * RATE_SPOT_PHI
+        r_zz = (a[:, 6].clamp(0, 6).float() - 3) / 3.0 * RATE_SPOT_Z
+        S.spot_phi = (S.spot_phi + torch.deg2rad(r_ph) * dt).clamp(
+            SPOT_PHI_RANGE[0], SPOT_PHI_RANGE[1])
+        S.spot_z = (S.spot_z + r_zz * dt).clamp(
+            SPOT_Z_RANGE[0], SPOT_Z_RANGE[1])
+    env._spot_view = (S.spot_phi, S.spot_z)
     S.az_m = S.az_m + r_az * dt + 0.02 * S.n(B)
     S.el_m = (S.el_m + r_el * dt + 0.02 * S.n(B)).clamp(
         env.el_min_h - 2.0, env.el_max_h + 1.0)
@@ -174,16 +185,24 @@ def gpu_step(env, actions):
     q_solar = per * gate[:, None] * 0.85
     p_in = per.sum(1) * gate
     if getattr(env, "spot_bread", 0):
-        from tandoor_polar_env import SPOT_NODE, SPOT_AREA
-        k = SPOT_NODE
-        lit = S.has_bread[:, k].float()
-        fr = (S.bread_E[:, k] / env.roti_energy).clamp(0, 1)
-        alpha = 0.55 + 0.35 * fr
+        from tandoor_polar_env import (SPOT_AREA, Z_BAKE_LO, Z_CROWN)
+        import numpy as _np
+        kb = (((S.spot_phi + _np.pi) / (2 * _np.pi)
+               * env.n_belt).long()) % env.n_belt
+        valid = (S.spot_z >= Z_BAKE_LO) & (S.spot_z <= Z_CROWN)
+        kb1 = kb[:, None]
+        lit = (S.has_bread.gather(1, kb1).squeeze(1)
+               & valid).float()
+        frb = (S.bread_E.gather(1, kb1).squeeze(1)
+               / env.roti_energy).clamp(0, 1)
+        alpha = 0.55 + 0.35 * frb
         fcov = min(env.bread_area / SPOT_AREA, 1.0)
-        inc = per[:, k] * gate
+        inc = per.gather(1, kb1).squeeze(1) * gate
         q_direct = lit * alpha * fcov * inc
-        q_solar[:, k] = q_solar[:, k] - lit * 0.85 * fcov * inc
-        S.bread_E[:, k] = S.bread_E[:, k] + q_direct * dt
+        q_solar.scatter_add_(1, kb1,
+                             (-lit * 0.85 * fcov * inc)[:, None])
+        S.bread_E.scatter_add_(1, kb1, (q_direct * dt)[:, None])
+        env._spot_bin_t = (kb, valid)
 
     # ---- thermal / bread / reward (polar's copy, 950 K structure term)
     T = S.T
@@ -229,7 +248,9 @@ def gpu_step(env, actions):
     S.load_timer = S.load_timer + dt
     lo_T = torch.full_like(belt_T, 560.0)
     if getattr(env, "spot_bread", 0):
-        lo_T[:, 6] = 500.0        # lit station bakes by beam
+        kb, valid = env._spot_bin_t
+        lo_T.scatter_(1, kb[:, None],
+                      torch.where(valid, 500.0, 560.0)[:, None])
     ok_ = (~S.has_bread) & (belt_T >= lo_T) & (belt_T <= 700.0)
     can = (S.load_timer >= 45.0) & ok_.any(1)
     j = torch.where(ok_, belt_T,

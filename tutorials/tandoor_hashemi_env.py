@@ -68,6 +68,7 @@ from artist.raytracing.raytracing_utils import reflect
 from artist.util import utils as artist_utils
 
 import tandoor_artist_optics as AO
+from tandoor_polar_env import SPOT_PHI0 as _SP0, SPOT_Z0 as _SZ0
 import tandoor_coude_optics as CO
 from tandoor_coude_env import TandoorCoudeEnv
 from tandoor_polar_env import (TandoorPolarEnv, R_MOUTH, H_DEPTH, Z_CPOT, R_SPH,
@@ -394,6 +395,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # (PRBM). Enables beta past the astigmatism budget, toward
         # the shadow-zero orbit.
         self.fold_toroid = float(kwargs.pop("fold_toroid", 0))
+        if int(kwargs.get("elbow_aim", 0)):
+            self.N_HEADS = 7          # + spot azimuth, spot height
+            self.N_EXTRA_OBS = 6      # + spot phi, spot z
         # beta_cap_z: hard cap (meters) on the TOP OF THE DISH RIM.
         # beta becomes a per-step SCHEDULE: full beta_dev when the sun
         # is high, tapered exactly as much as the cap demands when it
@@ -438,7 +442,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             np.clip((self._e_az + self.rng.normal(0, 0.03,
                                                   self.num_agents)) / 0.5,
                     -3, 3)], axis=1)
-        return np.concatenate([base, enc], axis=1)
+        cols = [base, enc]
+        if self.elbow_aim:
+            from tandoor_polar_env import SPOT_PHI0, SPOT_Z0
+            cols.append(np.stack(
+                [(self.spot_phi - SPOT_PHI0) / 2.0,
+                 (self.spot_z - SPOT_Z0) / 1.0], axis=1))
+        return np.concatenate(cols, axis=1)
 
     def step(self, actions):
         if self.gpu and self._metal is not None \
@@ -471,6 +481,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         pot_prev = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
         r_az = (np.clip(a[:, 3], 0, 6) - 3) / 3.0 * self.RATE_AZ
         r_el = (np.clip(a[:, 4], 0, 6) - 3) / 3.0 * self.RATE_EL
+        if self.elbow_aim:
+            from tandoor_polar_env import (SPOT_PHI_RANGE, SPOT_Z_RANGE,
+                                           RATE_SPOT_PHI, RATE_SPOT_Z)
+            r_ph = (np.clip(a[:, 5], 0, 6) - 3) / 3.0 * RATE_SPOT_PHI
+            r_zz = (np.clip(a[:, 6], 0, 6) - 3) / 3.0 * RATE_SPOT_Z
+            self.spot_phi = np.clip(
+                self.spot_phi + np.radians(r_ph) * self.dt,
+                SPOT_PHI_RANGE[0], SPOT_PHI_RANGE[1])
+            self.spot_z = np.clip(self.spot_z + r_zz * self.dt,
+                                  SPOT_Z_RANGE[0], SPOT_Z_RANGE[1])
+            self._spot_view = (self.spot_phi, self.spot_z)
         self.az_m = self.az_m + r_az * self.dt \
             + self.rng.normal(0, 0.02, B)
         self.el_m = np.clip(self.el_m + r_el * self.dt
@@ -1007,7 +1028,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                          ((S.decl_formed - float(self._decl())).abs()
                           / 10.0).clamp(0, 3),
                          enc_el, enc_az], 1),
-        ], 1)
+        ] + ([torch.stack(
+            [(S.spot_phi - _SP0) / 2.0,
+             (S.spot_z - _SZ0) / 1.0], 1)] if self.elbow_aim else []),
+            1)
         return obs, rew, infos
 
     def step_torch(self, actions):
@@ -1020,6 +1044,24 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         trunc = torch.as_tensor(self.truncations, dtype=torch.float32,
                                 device=self.device)
         return obs, rew, term, trunc, infos
+
+    def _aim_dirs(self, B, dev):
+        """Per-env elbow aim directions a1 (B,3) from the spot state
+        - the same construction _bin_pot uses, so kernel and fallback
+        can never disagree about where the mirror points."""
+        from tandoor_polar_env import R_SPH, Z_CPOT
+        M = self._noz2["M"]
+        sp, szv = self._spot_view
+        ph = torch.as_tensor(np.asarray(sp), dtype=torch.float32,
+                             device=dev)
+        zt = torch.as_tensor(np.asarray(szv), dtype=torch.float32,
+                             device=dev)
+        rt = torch.sqrt(
+            (R_SPH**2 - (zt - Z_CPOT)**2).clamp(min=1e-4)) * 0.999
+        a1 = torch.stack([rt * torch.cos(ph) - M[0],
+                          rt * torch.sin(ph) - M[1],
+                          zt - M[2]], 1)
+        return (a1 / a1.norm(dim=1, keepdim=True)).contiguous()
 
     def _metal_trace(self, p_eff, sigma_b, off, soil, e_el, e_az, el):
         """Megakernel call with all-torch inputs (the gpu_step path).
@@ -1120,7 +1162,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if self._metal is not None:
             _, _, per = self._metal(*args,
                                     self._ray_pw * self._ray_scale,
-                                    soil, self.n_nodes)
+                                    soil, self.n_nodes,
+                                    self._aim_dirs(B, dev))
             return per
         # no Metal on this device (CUDA/CPU): the fused torch graph,
         # binned identically - verify_megakernel certifies the two
@@ -1360,7 +1403,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                      dtype=torch.float32, device=dev)
             thr, out6, per = self._metal(*args,
                                          self._ray_pw * self._ray_scale,
-                                         soil_t, self.n_nodes)
+                                         soil_t, self.n_nodes,
+                                         self._aim_dirs(B, dev))
             return per.cpu()
         try:
             out = self._geo(*args)
