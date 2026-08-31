@@ -845,6 +845,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             + list(self._sun_table)
             + [0.0, 0.0, float(self.duct_nozzle)],
             dtype=torch.float32, device=dev)
+        self._mount_pack = np.empty(46, dtype=np.float32)
+        self._sc_idx = torch.tensor([14, 1, 103, 104], device=dev)
+        self._sc1_base = float(self._sc_base[1])
         self._geo = _geo_core
         self._geo_is_fused = False
         # THE MEGAKERNEL: on MPS the whole trace runs as one Metal
@@ -959,6 +962,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             e_az = torch.where(cut, e_az_r, e_az)
             self._e_el_t, self._e_az_t = e_el, e_az
             self.truncations[:] = cut.cpu().numpy()
+            self._trunc_t = cut.float()
+            self._trunc_live = True
+        else:
+            self._trunc_live = False
         infos = []
         if float(self.t_solar[0]) >= 16.0:
             # end-of-day stuff-the-oven closed (mirror of numpy paths)
@@ -1053,10 +1060,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         numpy anywhere - the fast-collect loop's contract. Identical
         trajectory to the numpy wrapper (same core, same draws)."""
         obs, rew, infos = self._gpu_full_step(actions)
-        term = torch.full((self.num_agents,), bool(self.terminals[0]),
-                          dtype=torch.float32, device=self.device)
-        trunc = torch.as_tensor(self.truncations, dtype=torch.float32,
-                                device=self.device)
+        if not hasattr(self, "_term_zeros"):
+            self._term_zeros = torch.zeros(
+                self.num_agents, dtype=torch.float32,
+                device=self.device)
+        term = self._term_zeros if not bool(self.terminals[0]) else \
+            torch.ones_like(self._term_zeros)
+        trunc = getattr(self, "_trunc_t", None)
+        if trunc is None or not self._trunc_live:
+            trunc = self._term_zeros
         return obs, rew, term, trunc, infos
 
     def _aim_dirs(self, B, dev):
@@ -1124,34 +1136,45 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         e_par_np = e_par_np / np.linalg.norm(e_par_np)
         e_prp_np = np.cross(nf_np, e_par_np)
         e_pp_np = np.cross(ub, -p_up)
-        vp = torch.tensor(np.stack([u, P_fold, -p_up, e_pp_np, nf_np,
-                                    e_par_np, e_prp_np]),
-                          dtype=torch.float32, device=dev)
-        Mt = torch.tensor(M.T, dtype=torch.float32, device=dev)
-        Cd = vp.new_tensor(C_dish)
-        sc = self._sc_base.clone()
-        sc[14] = float(abs(ub @ nf_np))
-        if self.slotless or (self.slot_flaps and el_b < self.el_x - 3.0):
-            sc[1] = 1e9        # uncut dish / flaps closed: no slot
+        # ONE host->device upload for the whole mount solve. The
+        # profile convicted the old four torch.tensor() calls plus
+        # four sc item-writes of 4.3 ms/step - 28% of the step, 5x
+        # the megakernel itself.
+        kt = ks = 0.0
         if self.fold_toroid:
             # working half-angle of the sphere = angle(sun, aim)
             cth = float(np.clip(np.dot(u, naim), -1, 1))
             f1 = self.f_nom
             ft_d, fs_d = f1 * cth, f1 / cth      # dish meridian foci
             dw = self.z_fold - self.z_waist      # fold-to-waist
-            ci = float(abs(ub @ nf_np))
-            kt = ks = 0.0
+            ci_ = float(abs(ub @ nf_np))
             st = ft_d - self.g_orbit             # tangential focus
             ss = fs_d - self.g_orbit             # sagittal focus
             if st > 0.05 and ss > 0.05:
                 Pt = 1.0 / dw - 1.0 / st         # mirror powers
                 Ps = 1.0 / dw - 1.0 / ss
                 lam = self.fold_toroid           # partial correction
-                kt = lam * Pt * ci / 2.0         # f_tan = R cos(i)/2
-                ks = lam * Ps / (2.0 * ci)       # f_sag = R/(2 cos i)
-            sc[103], sc[104] = kt, ks
-        else:
-            sc[103], sc[104] = 0.0, 0.0
+                kt = lam * Pt * ci_ / 2.0        # f_tan = R cos(i)/2
+                ks = lam * Ps / (2.0 * ci_)      # f_sag = R/(2 cos i)
+        pk = self._mount_pack
+        pk[0:21] = np.stack([u, P_fold, -p_up, e_pp_np, nf_np,
+                             e_par_np, e_prp_np]).ravel()
+        pk[21:30] = M.T.ravel()
+        pk[30:33] = C_dish
+        pk[33:42] = _align_np([0.0, 1.0, 0.0], M.T @ (-u)).ravel()
+        pk[42] = abs(ub @ nf_np)
+        pk[43] = 1e9 if (self.slotless or (self.slot_flaps
+                         and el_b < self.el_x - 3.0)) \
+            else self._sc1_base
+        pk[44] = kt
+        pk[45] = ks
+        pkd = torch.from_numpy(pk).to(dev, non_blocking=True)
+        vp = pkd[0:21].view(7, 3)
+        Mt = pkd[21:30].view(3, 3)
+        Cd = pkd[30:33]
+        Acan_t = pkd[33:42].view(3, 3)
+        sc = self._sc_base.clone()
+        sc.index_copy_(0, self._sc_idx, pkd[42:46])
         if getattr(self, "_det_trace", False):
             du = torch.zeros(B, P_, device=dev)
             de = torch.zeros(B, P_, device=dev)
@@ -1168,8 +1191,6 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         lv = ((p_eff / self.p0 - self.level_frac[0])
               / (self.level_frac[-1] - self.level_frac[0])
               * (self.N_LEVELS - 1)).clamp(0, self.N_LEVELS - 1)
-        A_np = _align_np([0.0, 1.0, 0.0], M.T @ (-u))
-        Acan_t = torch.tensor(A_np, dtype=torch.float32, device=dev)
         args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
                 sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc,
                 self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)

@@ -334,6 +334,7 @@ class MetalGeo:
 
     def __init__(self):
         self.lib = torch.mps.compile_shader(MSL)
+        self._dims = {}
 
     def __call__(self, pts_l, nrm_l, lv, du, de, upick, us, sigb,
                  Acan, Mt, Cd, dvec, off, vp, sc, ellM, ellS, ellC,
@@ -344,8 +345,12 @@ class MetalGeo:
         thr = torch.empty(B * P, dtype=torch.float32, device=dev)
         out6 = torch.empty(B * P, 6, dtype=torch.float32, device=dev)
         per = torch.zeros(B, n_nodes, dtype=torch.float32, device=dev)
-        dims = torch.tensor([B, P, L, n_nodes], dtype=torch.int32,
-                            device=dev)
+        key = (B, P, L, n_nodes, dev)
+        dims = self._dims.get(key)
+        if dims is None:
+            dims = torch.tensor([B, P, L, n_nodes],
+                                dtype=torch.int32, device=dev)
+            self._dims[key] = dims
         c = lambda t: t.contiguous()
         self.lib.tandoor_trace(
             thr, out6, c(pts_l), c(nrm_l), c(lv), c(du), c(de), c(upick),
