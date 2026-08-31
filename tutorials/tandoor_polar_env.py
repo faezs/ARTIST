@@ -100,6 +100,13 @@ class TandoorPolarEnv(TandoorEnv):
         self.sigma_offaxis = float(sigma_offaxis)
         self.sigma_print = float(sigma_print)      # grain print-through
         self.jam_gain = float(jam_gain)            # wind->focus gain jammed
+        # nozzle elbow rotation (about the duct-frame x axis): from
+        # the as-built jet axis to the line duct-mouth -> bed centre
+        self.duct_nozzle = int(kwargs.pop("duct_nozzle", 0))
+        ax_now = np.arctan2(0.278, 0.961)
+        ax_tgt = np.arctan2(-H_DEPTH - Z_DUCT, R_DUCT_WALL)
+        dpitch = ax_tgt - ax_now
+        self._nozzle_cs = (float(np.cos(dpitch)), float(np.sin(dpitch)))
         # the real pit's sphere, handed to _build_thermal and
         # struck by _bin_pot - one geometry, two consumers
         self._pot_sphere = (R_SPH, Z_CPOT, H_DEPTH,
@@ -234,6 +241,16 @@ class TandoorPolarEnv(TandoorEnv):
         ox = pxp
         oy = torch.full_like(pxp, -R_DUCT_WALL)
         oz = pyp + Z_DUCT
+        if getattr(self, "duct_nozzle", 0):
+            # polished elbow at the pot end of the duct: aims the jet
+            # at the coal bed instead of the upper belly - the wood
+            # fire's trick (a concentrated radiant core) done in
+            # optics. One extra reflection: x0.95.
+            cn, sn = self._nozzle_cs
+            dy2 = cn * dyw - sn * dzw
+            dzw = sn * dyw + cn * dzw
+            dyw = dy2
+            through = through * 0.95
         # strike the SPHERE (the real pit); where the far root dives
         # below the coal bed the ray lands on the floor disc instead
         # (the sphere meets z=-H_DEPTH exactly at r=R_POT, so the
