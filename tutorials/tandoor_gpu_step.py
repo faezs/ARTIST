@@ -173,6 +173,17 @@ def gpu_step(env, actions):
     gate = dni * cosf * S.shutter * S.jammed.float()
     q_solar = per * gate[:, None] * 0.85
     p_in = per.sum(1) * gate
+    if getattr(env, "spot_bread", 0):
+        from tandoor_polar_env import SPOT_NODE, SPOT_AREA
+        k = SPOT_NODE
+        lit = S.has_bread[:, k].float()
+        fr = (S.bread_E[:, k] / env.roti_energy).clamp(0, 1)
+        alpha = 0.55 + 0.35 * fr
+        fcov = min(env.bread_area / SPOT_AREA, 1.0)
+        inc = per[:, k] * gate
+        q_direct = lit * alpha * fcov * inc
+        q_solar[:, k] = q_solar[:, k] - lit * 0.85 * fcov * inc
+        S.bread_E[:, k] = S.bread_E[:, k] + q_direct * dt
 
     # ---- thermal / bread / reward (polar's copy, 950 K structure term)
     T = S.T
@@ -216,7 +227,10 @@ def gpu_step(env, actions):
     S.bread_E = torch.where(done_b, torch.zeros_like(S.bread_E), S.bread_E)
     S.bread_t = torch.where(done_b, torch.zeros_like(S.bread_t), S.bread_t)
     S.load_timer = S.load_timer + dt
-    ok_ = (~S.has_bread) & (belt_T >= 560.0) & (belt_T <= 700.0)
+    lo_T = torch.full_like(belt_T, 560.0)
+    if getattr(env, "spot_bread", 0):
+        lo_T[:, 6] = 500.0        # lit station bakes by beam
+    ok_ = (~S.has_bread) & (belt_T >= lo_T) & (belt_T <= 700.0)
     can = (S.load_timer >= 45.0) & ok_.any(1)
     j = torch.where(ok_, belt_T,
                     torch.full_like(belt_T, -1e30)).argmax(1)

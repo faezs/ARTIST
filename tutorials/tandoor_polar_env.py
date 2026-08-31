@@ -72,6 +72,8 @@ Z_HEARTH = -H_DEPTH + 0.12
 # lower belly becomes 4 quadrant nodes appended after crown.
 Z_BAKE_LO = -0.85
 N_LOWER = 4
+SPOT_NODE = 6          # the concave elbow's target bin
+SPOT_AREA = 0.30       # imaged spot area on the wall [m2]
 R_DUCT_WALL = float(np.sqrt(R_SPH**2 - (Z_DUCT - Z_CPOT)**2))
 THROW = 3.5           # mirror -> duct mouth [m]
 
@@ -116,6 +118,7 @@ class TandoorPolarEnv(TandoorEnv):
         # nozzle elbow rotation (about the duct-frame x axis): from
         # the as-built jet axis to the line duct-mouth -> bed centre
         self.duct_nozzle = int(kwargs.pop("duct_nozzle", 0))
+        self.spot_bread = int(kwargs.pop("spot_bread", 0))
         self.n_extra_nodes = N_LOWER
         ax_now = np.arctan2(0.278, 0.961)
         ax_tgt = np.arctan2(-H_DEPTH - Z_DUCT, R_DUCT_WALL)
@@ -462,6 +465,16 @@ class TandoorPolarEnv(TandoorEnv):
                                         self.soil).numpy()
         gate = self.dni * cosf * self.shutter * self.jammed
         q_solar = per_dni * gate[:, None] * 0.85
+        if getattr(self, "spot_bread", 0):
+            k = SPOT_NODE
+            lit = self.has_bread[:, k].astype(float)
+            fr = np.clip(self.bread_E[:, k] / self.roti_energy, 0, 1)
+            alpha = 0.55 + 0.35 * fr          # dough browns, absorbs
+            fcov = min(self.bread_area / SPOT_AREA, 1.0)
+            inc = per_dni[:, k] * gate        # beam arriving at the bin
+            q_direct = lit * alpha * fcov * inc
+            q_solar[:, k] -= lit * 0.85 * fcov * inc
+            self.bread_E[:, k] += q_direct * self.dt
         self.p_in = per_dni.sum(1) * gate
 
         # --- thermal / bread / reward: identical to the parent --------- #

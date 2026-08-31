@@ -102,6 +102,10 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.loaves_per_load = int(loaves_per_load)
         self.roti_energy = float(roti_kj) * 1e3
         self.h_bread = 25.0 * float(bread_area)
+        self.bread_area = float(bread_area)
+        # spot_bread (set by the polar retrofit): the elbow's flux
+        # lands ON the loaf at the lit station; default off here
+        self.spot_bread = getattr(self, "spot_bread", 0)
         # wall_obs=0 drops the 3 buried-thermocouple channels so
         # checkpoints trained before the honest-wall obs (33-dim) load.
         # Settable via env var (pufferlib's CLI only forwards known ini
@@ -716,7 +720,12 @@ class TandoorEnv(pufferlib.PufferEnv):
         # shutter is CLOSED (beam dumped) - admitting bread costs flux
         self.load_timer += self.dt
         want = (self.load_timer >= self.load_period) & (self.shutter < 0.5)
-        ok_ = (~self.has_bread) & (belt_T >= T_COOK_LO) & (belt_T <= T_COOK_HI)
+        lo_T = np.full(self.n_belt, T_COOK_LO)
+        if getattr(self, "spot_bread", 0):
+            # the lit station bakes by BEAM; the wall only backs the
+            # contact side - 500 K suffices there
+            lo_T[6] = 500.0
+        ok_ = (~self.has_bread) & (belt_T >= lo_T) & (belt_T <= T_COOK_HI)
         can = np.nonzero(want & ok_.any(1))[0]
         # the cook slaps up to loaves_per_load rotis per opening
         # (real tandoor practice is 2-4), hottest free bins first
