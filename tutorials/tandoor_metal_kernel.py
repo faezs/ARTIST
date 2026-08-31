@@ -50,6 +50,199 @@ static inline bool hits_column(float px, float py, float pz,
     return (dmin < r) && z_ok && t_ok;
 }
 
+kernel void mount_solve(
+    device float*       vp_o   [[buffer(0)]],   // (B,21)
+    device float*       Mt_o   [[buffer(1)]],   // (B,9)
+    device float*       Cd_o   [[buffer(2)]],   // (B,3)
+    device float*       Ac_o   [[buffer(3)]],   // (B,9)
+    device float*       scb_o  [[buffer(4)]],   // (B,6)
+    device float*       aux_o  [[buffer(5)]],   // (B,8) el,azd,elb,ub3,beta
+    device const float* day    [[buffer(6)]],
+    device const float* lat    [[buffer(7)]],
+    device const float* prm    [[buffer(8)]],   // params + shadow tables
+    device const int*   nB     [[buffer(9)]],
+    uint b [[thread_position_in_grid]])
+{
+    if ((int)b >= nB[0]) return;
+    const float PI_ = 3.14159265358979f;
+    float hour = prm[0], beta_dev = prm[1], cap_z = prm[2];
+    float a_mem = prm[3], z_fold = prm[4], g_orb = prm[5];
+    float el_x = prm[6];
+    float xtw = prm[9], sc1b = prm[10], ftor = prm[11];
+    float fnom = prm[12], zwst = prm[13];
+    // ---- solar position (matches tandoor_mount_batch.solar_batch)
+    float phi = lat[b] * PI_ / 180.0f;
+    float delta = 0.40910518f * sin(2.0f*PI_*(284.0f+day[b])/365.0f);
+    float hh = (15.0f * (hour - 12.0f)) * PI_ / 180.0f;
+    float sinel = sin(phi)*sin(delta) + cos(phi)*cos(delta)*cos(hh);
+    sinel = clamp(sinel, -1.0f, 1.0f);
+    float elr = asin(sinel);
+    float el = elr * 180.0f / PI_;
+    float cosaz = (sin(delta) - sinel*sin(phi))
+        / max(cos(elr)*cos(phi), 1e-9f);
+    float az = acos(clamp(cosaz, -1.0f, 1.0f));
+    if (hh > 0.0f) az = 2.0f*PI_ - az;
+    float3 u = float3(cos(elr)*cos(az), cos(elr)*sin(az), sinel);
+    u = normalize(u);          // ENU swapped: x=north comp = cos*cos
+    // ---- signed beta schedule (matches beta_now_batch)
+    float lo = max(el - (el_x - 1.0f), 0.0f);
+    float bp = clamp(beta_dev, lo, max(beta_dev, lo));
+    float bt;
+    if (cap_z > 1e8f) {
+        bt = bp;
+    } else {
+        for (int it = 0; it < 3; it++) {
+            float nel = (el - 0.5f*bp) * PI_ / 180.0f;
+            float allow = cap_z - a_mem * max(cos(nel), 0.0f);
+            float sarg = clamp((z_fold - allow)/g_orb, -1.0f, 1.0f);
+            float hi = el - asin(sarg)*180.0f/PI_;
+            bp = max(max(min(beta_dev, hi), 0.0f), lo);
+        }
+        float bn = -min(beta_dev, max(el_x - 2.0f - el, 0.0f));
+        // shadow curves: prm[14..21]=SB, [22..29]=SF, [30..34]=SBN,
+        // [35..39]=SFN
+        float ap = fabs(bp), an = fabs(bn);
+        float shp = prm[29], shn = prm[39];
+        for (int i = 1; i < 8; i++) {
+            float x0 = prm[14+i-1], x1 = prm[14+i];
+            if (ap <= x1) {
+                float w = clamp((ap-x0)/max(x1-x0, 1e-9f), 0.0f, 1.0f);
+                shp = prm[22+i-1] + w*(prm[22+i]-prm[22+i-1]);
+                break;
+            }
+        }
+        for (int i = 1; i < 5; i++) {
+            float x0 = prm[30+i-1], x1 = prm[30+i];
+            if (an <= x1) {
+                float w = clamp((an-x0)/max(x1-x0, 1e-9f), 0.0f, 1.0f);
+                shn = prm[35+i-1] + w*(prm[35+i]-prm[35+i-1]);
+                break;
+            }
+        }
+        float scp = cos(bp*PI_/360.0f) * (1.0f - shp);
+        float scn = cos(bn*PI_/360.0f) * (1.0f - shn);
+        bool usen = (bn != 0.0f) && (bp < beta_dev - 1e-9f)
+                    && (scn > scp);
+        bt = usen ? bn : bp;
+    }
+    // ---- orbit frames (matches mount_batch)
+    float3 zh = float3(0.0f, 0.0f, 1.0f);
+    float3 ax = cross(zh, u);
+    float axn = length(ax);
+    float3 ub;
+    if (axn > 1e-6f) {
+        float3 axu = ax / axn;
+        float br = bt * PI_ / 180.0f;
+        float cb = cos(br), sb = sin(br);
+        ub = u*cb + cross(axu, u)*sb + axu*dot(axu, u)*(1.0f-cb);
+    } else { ub = u; }
+    ub = normalize(ub);
+    float3 Pf = float3(xtw, 0.0f, z_fold);
+    float3 Cdv = Pf - g_orb * ub;
+    float3 naim = normalize(u + ub);
+    // R: zhat -> naim (Rodrigues with guards)
+    float3 vv = cross(zh, naim);
+    float cc = dot(zh, naim);
+    float s2 = dot(vv, vv);
+    float M9[9];
+    if (s2 < 1e-12f) {
+        for (int i = 0; i < 9; i++) M9[i] = 0.0f;
+        M9[0] = 1.0f; M9[4] = (cc < 0.0f ? -1.0f : 1.0f);
+        M9[8] = (cc < 0.0f ? -1.0f : 1.0f);
+    } else {
+        float k1 = (1.0f - cc) / s2;
+        float K9[9] = {0.0f, -vv.z, vv.y, vv.z, 0.0f, -vv.x,
+                       -vv.y, vv.x, 0.0f};
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) {
+                float kk = 0.0f;
+                for (int k = 0; k < 3; k++)
+                    kk += K9[i*3+k]*K9[k*3+j];
+                M9[i*3+j] = (i == j ? 1.0f : 0.0f) + K9[i*3+j]
+                            + k1*kk;
+            }
+    }
+    float elb = asin(clamp(ub.z, -1.0f, 1.0f)) * 180.0f / PI_;
+    float elbr = elb * PI_ / 180.0f;
+    float3 hv = -(ub - ub.z*zh);
+    hv = hv / max(length(hv), 1e-9f);
+    float3 pup = hv*sin(elbr) + zh*cos(elbr);
+    float3 nf = normalize(ub + zh);
+    float cosi = fabs(dot(ub, nf));
+    float3 epar = normalize(ub - dot(ub, nf)*nf);
+    float3 eprp = cross(nf, epar);
+    float3 epp = cross(ub, -pup);
+    // vp rows: u, Pf, -pup, epp, nf, epar, eprp
+    int vb = b*21;
+    float3 rows[7] = {u, Pf, -pup, epp, nf, epar, eprp};
+    for (int r = 0; r < 7; r++) {
+        vp_o[vb + r*3+0] = rows[r].x;
+        vp_o[vb + r*3+1] = rows[r].y;
+        vp_o[vb + r*3+2] = rows[r].z;
+    }
+    // Mt = M^T
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            Mt_o[b*9 + i*3 + j] = M9[j*3 + i];
+    Cd_o[b*3+0] = Cdv.x; Cd_o[b*3+1] = Cdv.y; Cd_o[b*3+2] = Cdv.z;
+    // Acan: yhat -> Mt @ (-u)
+    float3 mu = float3(M9[0]*(-u.x)+M9[3]*(-u.y)+M9[6]*(-u.z),
+                       M9[1]*(-u.x)+M9[4]*(-u.y)+M9[7]*(-u.z),
+                       M9[2]*(-u.x)+M9[5]*(-u.y)+M9[8]*(-u.z));
+    float3 yh = float3(0.0f, 1.0f, 0.0f);
+    float3 v2 = cross(yh, mu);
+    float c2 = dot(yh, mu);
+    float t2 = dot(v2, v2);
+    if (t2 < 1e-12f) {
+        for (int i = 0; i < 9; i++) Ac_o[b*9+i] = 0.0f;
+        Ac_o[b*9+0] = (c2 < 0.0f ? -1.0f : 1.0f);
+        Ac_o[b*9+4] = 1.0f;
+        Ac_o[b*9+8] = (c2 < 0.0f ? -1.0f : 1.0f);
+    } else {
+        float k2 = (1.0f - c2) / t2;
+        float K2[9] = {0.0f, -v2.z, v2.y, v2.z, 0.0f, -v2.x,
+                       -v2.y, v2.x, 0.0f};
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) {
+                float kk = 0.0f;
+                for (int k = 0; k < 3; k++)
+                    kk += K2[i*3+k]*K2[k*3+j];
+                Ac_o[b*9 + i*3+j] = (i == j ? 1.0f : 0.0f)
+                                    + K2[i*3+j] + k2*kk;
+            }
+    }
+    // scb: cosi, slot, kt, ks, ray_scale, el_ok
+    float kt = 0.0f, ks = 0.0f;
+    if (ftor != 0.0f) {
+        float cth = clamp(dot(u, naim), -1.0f, 1.0f);
+        float ftd = fnom*cth, fsd = fnom/cth;
+        float dw = z_fold - zwst;
+        float st = ftd - g_orb, ss = fsd - g_orb;
+        if (st > 0.05f && ss > 0.05f) {
+            float Pt = 1.0f/dw - 1.0f/st;
+            float Ps = 1.0f/dw - 1.0f/ss;
+            kt = ftor * Pt * cosi / 2.0f;
+            ks = ftor * Ps / (2.0f * cosi);
+        }
+    }
+    bool slotless = prm[7] > 0.5f;   // packed flags
+    bool flaps = prm[8] > 0.5f;
+    float slot = (slotless || (flaps && elb < el_x - 3.0f))
+                 ? 1e9f : sc1b;
+    float rscale = cos(bt*PI_/360.0f);
+    float elok = (el >= prm[40] && el <= prm[41]) ? 1.0f : 0.0f;
+    int sb2 = b*6;
+    scb_o[sb2+0] = cosi; scb_o[sb2+1] = slot;
+    scb_o[sb2+2] = kt;   scb_o[sb2+3] = ks;
+    scb_o[sb2+4] = rscale; scb_o[sb2+5] = elok;
+    aux_o[b*8+0] = el;
+    aux_o[b*8+1] = az;                 // radians, dict contract
+    aux_o[b*8+2] = elb;
+    aux_o[b*8+3] = ub.x; aux_o[b*8+4] = ub.y; aux_o[b*8+5] = ub.z;
+    aux_o[b*8+6] = bt;
+    aux_o[b*8+7] = 0.0f;
+}
+
 kernel void tandoor_trace(
     device float*       thr_o  [[buffer(0)]],   // (B*P) through * w
     device float*       out6   [[buffer(1)]],   // (B*P,6)
@@ -339,6 +532,29 @@ class MetalGeo:
     def __init__(self):
         self.lib = torch.mps.compile_shader(MSL)
         self._dims = {}
+        self._mbuf = {}
+
+    def mount(self, day_t, lat_t, prm_t, B):
+        """The mount solve as ONE kernel launch: B threads, each env
+        computes its own sun, beta schedule and frames in registers.
+        Returns the same dict contract as tandoor_mount_batch."""
+        dev = day_t.device
+        key = (B, dev)
+        bufs = self._mbuf.get(key)
+        if bufs is None:
+            z = lambda n: torch.empty(B, n, dtype=torch.float32,
+                                      device=dev)
+            bufs = (z(21), z(9), z(3), z(9), z(6), z(8),
+                    torch.tensor([B], dtype=torch.int32, device=dev))
+            self._mbuf[key] = bufs
+        vp, Mt, Cd, Ac, scb, aux, nB = bufs
+        self.lib.mount_solve(vp, Mt, Cd, Ac, scb, aux,
+                             day_t.contiguous(), lat_t.contiguous(),
+                             prm_t, nB)
+        return dict(vp=vp, Mt=Mt.view(B, 3, 3), Cd=Cd,
+                    Acan=Ac.view(B, 3, 3), scb=scb,
+                    el=aux[:, 0], az=aux[:, 1], el_b=aux[:, 2],
+                    beta_t=aux[:, 6])
 
     def __call__(self, pts_l, nrm_l, lv, du, de, upick, us, sigb,
                  Acan, Mt, Cd, dvec, off, vp, sc, ellM, ellS, ellC,

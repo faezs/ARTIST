@@ -91,9 +91,7 @@ def gpu_step(env, actions):
     dt = env.dt
 
     # ---- Hashemi motors (BEFORE the optics see the sun this step)
-    from tandoor_mount_batch import mount_batch
-    mnt = mount_batch(env, S.day_v, S.lat_v, float(env.t_solar[0]),
-                      dev)
+    mnt = env._mount(S.day_v, S.lat_v, float(env.t_solar[0]))
     el0s = mnt["el"]                     # (B,) deg - per-env sun
     az0d = torch.rad2deg(mnt["az"])
     # potential BEFORE this step's motor action (see the numpy path)

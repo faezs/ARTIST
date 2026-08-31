@@ -860,9 +860,43 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             + list(self._sun_table)
             + [0.0, 0.0, float(self.duct_nozzle)],
             dtype=torch.float32, device=dev)
-        self._mount_pack = np.empty(46, dtype=np.float32)
-        self._sc_idx = torch.tensor([14, 1, 103, 104], device=dev)
         self._sc1_base = float(self._sc_base[1])
+        prm = np.zeros(42, dtype=np.float32)
+        prm[1] = self.beta_dev
+        prm[2] = 1e9 if self.beta_cap_z is None else self.beta_cap_z
+        prm[3] = self.a_mem
+        prm[4] = self.z_fold
+        prm[5] = self.g_orbit
+        prm[6] = self.el_x
+        prm[7] = 1.0 if self.slotless else 0.0
+        prm[8] = 1.0 if self.slot_flaps else 0.0
+        prm[9] = float(X_TOWER)
+        prm[10] = self._sc1_base
+        prm[11] = float(self.fold_toroid)
+        prm[12] = self.f_nom
+        prm[13] = self.z_waist
+        prm[14:22] = self._SHADOW_B
+        prm[22:30] = self._SHADOW_F
+        prm[30:35] = self._SHADOW_BN
+        prm[35:40] = self._SHADOW_FN
+        prm[40] = self.el_min_h
+        prm[41] = self.el_max_h
+        self._mnt_prm = torch.tensor(prm, device=dev)
+        self._finish_trace_build(a, g, f_design)
+
+    def _mount(self, day_t, lat_t, hour):
+        """Mount solve dispatch: the Metal kernel when present (one
+        launch, B threads), the batched torch solve otherwise."""
+        if self._metal is not None:
+            self._mnt_prm[0] = float(hour)
+            return self._metal.mount(day_t, lat_t, self._mnt_prm,
+                                     day_t.shape[0])
+        from tandoor_mount_batch import mount_batch
+        return mount_batch(self, day_t, lat_t, float(hour),
+                           day_t.device)
+
+    def _finish_trace_build(self, a, g, f_design):
+        dev = self.device
         self._geo = _geo_core
         self._geo_is_fused = False
         # THE MEGAKERNEL: on MPS the whole trace runs as one Metal
