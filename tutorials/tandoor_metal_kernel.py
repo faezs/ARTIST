@@ -577,7 +577,8 @@ kernel void tandoor_trace(
 //   40 SPOT_PHI0 41 SPOT_Z0 42 dt_h 43 T_AMB 44 c_cloud 45 c_windg
 //   46 c_bore 47 p_collapse 48 dt/900 49 dt/600 50 dt/300
 //   51 ap_area 52 a_tot 53 bread_area 54..60 level_frac[7]
-//   61.. node_area[N] heat_cap[N] cap_sub[N] cap_deep[N]
+//   61 loaves_per_load
+//   62.. node_area[N] heat_cap[N] cap_sub[N] cap_deep[N]
 //        g01[N] g12[N] g2s[N]
 // ip: 0 B 1 N 2 NB 3 NH 4 NS 5 OD
 // ==================================================================
@@ -728,7 +729,7 @@ kernel void step_post(
     device float* bC = bt_ + NB;
     device float* hb = bC + NB;
     device const float* pv = per + b*N;
-    device const float* NA = sp + 61;
+    device const float* NA = sp + 62;
     device const float* HC = NA + N;
     device const float* CS = HC + N;
     device const float* CD_ = CS + N;
@@ -824,15 +825,25 @@ kernel void step_post(
     s[S0+9] += cooked_n;
     s[S0+10] += scorch_n;
     s[S0+8] += dt;
-    // ---- the cook loads the hottest empty bakeable bin
-    float best = -1e30f; int j = -1;
-    for (int k = 0; k < NB; k++) {
-        float bT = s[k];
-        if (hb[k] < 0.5f && bT >= sp[27] && bT <= sp[28]
-            && bT > best) { best = bT; j = k; }
+    // ---- the cook slaps up to loaves_per_load rotis per opening,
+    // hottest free bins first (numpy twins line for line)
+    if (s[S0+8] >= sp[20]) {
+        bool can = false;
+        int LPL = (int)sp[61];
+        for (int _k = 0; _k < LPL; _k++) {
+            float best = -1e30f; int j = -1;
+            for (int k = 0; k < NB; k++) {
+                float bT = s[k];
+                if (hb[k] < 0.5f && bT >= sp[27] && bT <= sp[28]
+                    && bT > best) { best = bT; j = k; }
+            }
+            if (j < 0) break;
+            can = true;
+            hb[j] = 1.0f;
+            r += 0.3f;
+        }
+        if (can) s[S0+8] = 0.0f;
     }
-    bool can = (s[S0+8] >= sp[20]) && (j >= 0);
-    if (can) { hb[j] = 1.0f; s[S0+8] = 0.0f; r += 0.3f; }
     // ---- preheat shaping on the hottest bin, below-lo gated
     float bmax = -1e30f;
     for (int k = 0; k < NB; k++) bmax = max(bmax, s[k]);

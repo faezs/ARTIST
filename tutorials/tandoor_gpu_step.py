@@ -263,14 +263,22 @@ def gpu_step(env, actions):
     S.load_timer = S.load_timer + dt
     ok_ = (~S.has_bread) & (belt_T >= 453.0) & (belt_T <= 700.0)
     can = (S.load_timer >= env.load_period) & ok_.any(1)
-    j = torch.where(ok_, belt_T,
-                    torch.full_like(belt_T, -1e30)).argmax(1)
-    put = can[:, None] & (torch.nn.functional.one_hot(
-        j, env.n_belt).bool())
-    S.has_bread = S.has_bread | put
+    # the cook slaps up to loaves_per_load rotis per opening,
+    # hottest free bins first (numpy twins line for line)
+    okm = ok_.clone()
+    loads = torch.zeros(B, device=dev)
+    for _k in range(env.loaves_per_load):
+        j = torch.where(okm, belt_T,
+                        torch.full_like(belt_T, -1e30)).argmax(1)
+        put = can & okm.gather(1, j[:, None]).squeeze(1)
+        oh = torch.nn.functional.one_hot(j, env.n_belt).bool() \
+            & put[:, None]
+        S.has_bread = S.has_bread | oh
+        okm = okm & ~oh
+        loads = loads + put.float()
     S.load_timer = torch.where(can, torch.zeros_like(S.load_timer),
                                S.load_timer)
-    rew = rew + 0.3 * can.float()
+    rew = rew + 0.3 * loads
     belt_max = belt_T.max(1).values
     below = (belt_max < 453.0).float()
     rew = rew + 0.05 * (belt_max - S.belt_prev).clamp(-5, 5) * below
