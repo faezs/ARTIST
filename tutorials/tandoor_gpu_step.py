@@ -262,9 +262,10 @@ def gpu_step(env, actions):
                                S.load_timer)
     rew = rew + 0.3 * can.float()
     belt_mean = belt_T.mean(1)
-    below = (belt_mean < 560.0).float()
-    rew = rew + 0.05 * (belt_mean - S.belt_prev).clamp(-5, 5) * below
-    S.belt_prev = belt_mean.clone()
+    belt_max = belt_T.max(1).values
+    below = (belt_max < 560.0).float()
+    rew = rew + 0.05 * (belt_max - S.belt_prev).clamp(-5, 5) * below
+    S.belt_prev = belt_max.clone()
     rew = rew - 0.10 * (belt_mean - 950.0).clamp(min=0) / 10.0
     rew = rew - 0.02 * (~S.jammed).float()
 

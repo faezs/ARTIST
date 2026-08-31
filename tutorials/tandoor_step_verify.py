@@ -38,7 +38,7 @@ def _env(device):
     e._det_trace = True
     e.T[:] = 500.0
     e.equilibrate_wall(halo=400.0)
-    e._belt_prev = e.T[:, :e.n_belt].mean(1).copy()
+    e._belt_prev = e.T[:, :e.n_belt].max(1).copy()
     return e
 
 

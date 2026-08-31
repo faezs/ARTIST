@@ -519,7 +519,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.bread_t = np.zeros((B, self.n_belt))
         self.has_bread = np.zeros((B, self.n_belt), dtype=bool)
         self.load_timer = np.zeros(B)
-        self._belt_prev = self.T[:, : self.n_belt].mean(1).copy()
+        self._belt_prev = self.T[:, : self.n_belt].max(1).copy()
         self.ep_rotis = np.zeros(B)
         self.ep_scorch = np.zeros(B)
         self.ep_spall = np.zeros(B)
@@ -743,13 +743,17 @@ class TandoorEnv(pufferlib.PufferEnv):
             rew[sel] += 0.3
         self.load_timer[can] = 0.0
         belt_mean = belt_T.mean(1)
-        # potential-based preheat shaping: reward belt temperature RISE
-        # while below the band (policy-invariant, telescopes to zero over
-        # any closed loop - cannot be farmed). This is what teaches the
-        # cold-morning charge phase; the load bonus teaches discharge.
-        below = belt_mean < T_COOK_LO
-        rew += 0.05 * np.clip(belt_mean - self._belt_prev, -5, 5) * below
-        self._belt_prev = belt_mean.copy()
+        # potential-based preheat shaping on the HOTTEST bin: reward
+        # its temperature RISE while it is below the band (policy-
+        # invariant, telescopes to zero over any closed loop). The
+        # mean-based version taught the old whole-belt pot; on the
+        # spot machine one bin of eight charges and the mean diluted
+        # the only signal that teaches holding the aim 8x (Suarez:
+        # difference rewards, but on the RIGHT channel).
+        belt_max = belt_T.max(1)
+        below = belt_max < T_COOK_LO
+        rew += 0.05 * np.clip(belt_max - self._belt_prev, -5, 5) * below
+        self._belt_prev = belt_max.copy()
         # STRUCTURE-LIMIT PENALTY ONLY. The old pair - a tax above
         # 690 K and a quadratic centring the belt at 640 - made
         # scorched = 0.000 the optimum: a trained policy never once
@@ -809,7 +813,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                 self.load_timer[i] = 0.0
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
                 self.ep_spall[i] = 0.0
-                self._belt_prev[i] = self.T[i, : self.n_belt].mean()
+                self._belt_prev[i] = self.T[i, : self.n_belt].max()
                 self.ep_return[i] = self.ep_len[i] = 0.0
         self.observations[:] = self._obs()
         return (self.observations, self.rewards, self.terminals,

@@ -397,7 +397,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.fold_toroid = float(kwargs.pop("fold_toroid", 0))
         if int(kwargs.get("elbow_aim", 0)):
             self.N_HEADS = 7          # + spot azimuth, spot height
-            self.N_EXTRA_OBS = 6      # + spot phi, spot z
+            # + spot phi, spot z, and the aimed BIN one-hot (8): the
+            # phi->bin binding is discrete data the env computes
+            # exactly - embed it, don't make the net learn it
+            self.N_EXTRA_OBS = 14
         # beta_cap_z: hard cap (meters) on the TOP OF THE DISH RIM.
         # beta becomes a per-step SCHEDULE: full beta_dev when the sun
         # is high, tapered exactly as much as the cap demands when it
@@ -448,6 +451,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             cols.append(np.stack(
                 [(self.spot_phi - SPOT_PHI0) / 2.0,
                  (self.spot_z - SPOT_Z0) / 1.0], axis=1))
+            kb = (((self.spot_phi + np.pi) / (2 * np.pi)
+                   * self.n_belt).astype(int)) % self.n_belt
+            oh = np.zeros((self.num_agents, self.n_belt),
+                          dtype=np.float64)
+            oh[np.arange(self.num_agents), kb] = 1.0
+            cols.append(oh)
         return np.concatenate(cols, axis=1)
 
     def step(self, actions):
@@ -561,7 +570,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self._e_el[i] = self.el_m[i] - el1
                 self._e_az[i] = (self.az_m[i] - np.degrees(az1)) \
                     * np.cos(np.radians(el1))
-                self._belt_prev[i] = self.T[i, : self.n_belt].mean()
+                self._belt_prev[i] = self.T[i, : self.n_belt].max()
             self._lost_ct[cut] = 0
             # obs were assembled inside super().step BEFORE these
             # resets: rebuild for the cut agents so a truncation step
@@ -941,8 +950,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 * float(np.cos(np.radians(el1)))
             S.e_el_prev = torch.where(cut, e_el_r, S.e_el_prev)
             S.e_az_prev = torch.where(cut, e_az_r, S.e_az_prev)
-            S.belt_prev = torch.where(cut, newT[:, : self.n_belt].mean(1),
-                                      S.belt_prev)
+            S.belt_prev = torch.where(
+                cut, newT[:, : self.n_belt].max(1).values, S.belt_prev)
             # the cleared pointing must also reach THIS step's obs and
             # the host mirrors (autoreset: a truncation step reports the
             # new episode's state, matching the numpy path's rebuild)
@@ -998,7 +1007,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 * float(np.cos(np.radians(el1)))
             e_el, e_az = S.e_el_prev, S.e_az_prev
             self._e_el_t, self._e_az_t = e_el, e_az
-            S.belt_prev = S.T[:, :self.n_belt].mean(1)
+            S.belt_prev = S.T[:, :self.n_belt].max(1).values
         else:
             self.terminals[:] = False
         return self._gpu_obs(S, dev, B, rew, p_in, e_el, e_az, infos)
@@ -1030,7 +1039,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                          enc_el, enc_az], 1),
         ] + ([torch.stack(
             [(S.spot_phi - _SP0) / 2.0,
-             (S.spot_z - _SZ0) / 1.0], 1)] if self.elbow_aim else []),
+             (S.spot_z - _SZ0) / 1.0], 1),
+            torch.nn.functional.one_hot(
+                ((S.spot_phi + np.pi) / (2 * np.pi)
+                 * self.n_belt).long() % self.n_belt,
+                self.n_belt).float()] if self.elbow_aim else []),
             1)
         return obs, rew, infos
 
