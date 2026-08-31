@@ -514,6 +514,7 @@ class TandoorPolarEnv(TandoorEnv):
             q_solar[ar, kb] -= lit * 0.85 * fcov * inc
             self.bread_E[ar, kb] += q_direct * self.dt
             self._spot_bin = (kb, valid)
+            self._spot_flux = q_direct / max(self.bread_area, 1e-6)
         self.p_in = per_dni.sum(1) * gate
 
         # --- thermal / bread / reward: identical to the parent --------- #

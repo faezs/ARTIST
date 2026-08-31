@@ -159,7 +159,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         # obs: [sin t, cos t, dni] + node temps + [pressure lvl, shutter,
         # wind, boresight qx, boresight qy] + bread progress + [p_in]
         obs_dim = (3 + self.n_nodes + (3 if self.wall_obs else 0)
-                   + 6 + self.n_belt + 1 + self.N_EXTRA_OBS)
+                   + 6 + 2 * self.n_belt + 1 + self.N_EXTRA_OBS)
         self.single_observation_space = gymnasium.spaces.Box(
             low=-4, high=4, shape=(obs_dim,), dtype=np.float32
         )
@@ -516,6 +516,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.bore = np.zeros((B, 2))       # boresight OU wander [m at pit]
         self.cloud = np.zeros(B)
         self.bread_E = np.zeros((B, self.n_belt))
+        self.bread_C = np.zeros((B, self.n_belt))   # char fraction
         self.bread_t = np.zeros((B, self.n_belt))
         self.has_bread = np.zeros((B, self.n_belt), dtype=bool)
         self.load_timer = np.zeros(B)
@@ -571,6 +572,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                 np.clip(self.load_timer / 45.0, 0, 2),
             ], axis=1),
             self.bread_E / self.roti_energy,
+            self.bread_C,
             self.p_in[:, None] / 6000.0,
         ] + ([self._extra_obs()] if self.N_EXTRA_OBS else []),
             axis=1).astype(np.float32)
@@ -705,9 +707,29 @@ class TandoorEnv(pufferlib.PufferEnv):
 
         rew = np.zeros(B)
         belt_T = self.T[:, : self.n_belt]
-        cooked = self.has_bread & (self.bread_E >= self.roti_energy)
-        scorched = self.has_bread & (belt_T > T_SCORCH)
-        doughy = self.has_bread & (self.bread_t > ROTI_TIMEOUT) & ~cooked
+        # CHAR is a RATE, not a threshold: time-at-temperature on the
+        # contact side plus front-surface beam flux. A done loaf STAYS
+        # on the wall, charring, until the cook's next lean pulls it -
+        # scorch is a scheduling phenomenon, not a cliff.
+        c_dot = np.clip(belt_T - 700.0, 0, None) / 6000.0
+        if getattr(self, "spot_bread", 0) and \
+                getattr(self, "_spot_flux", None) is not None:
+            kb, valid = self._spot_bin
+            ar_ = np.arange(len(kb))
+            fkw = self._spot_flux / 1000.0
+            add = np.zeros_like(c_dot)
+            add[ar_, kb] = np.clip(fkw - 8.0, 0, None) / 1000.0 * valid
+            c_dot = c_dot + add
+        self.bread_C += self.has_bread * c_dot * self.dt
+        ready = self.has_bread & (self.bread_E >= self.roti_energy)
+        # the cook banks READY loaves at an opening (same lean that
+        # loads); reward lands on the PULL, so bread that chars after
+        # doneness earns nothing
+        pull_open = (self.load_timer >= self.load_period) \
+            & (self.shutter < 0.5)
+        cooked = ready & pull_open[:, None]
+        scorched = self.has_bread & (self.bread_C >= 1.0)
+        doughy = self.has_bread & (self.bread_t > ROTI_TIMEOUT) & ~ready
         rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1) - 0.5 * doughy.sum(1)
         rew -= 0.5 * spall
         self.ep_rotis += cooked.sum(1)
@@ -716,6 +738,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.has_bread &= ~done_bread
         self.bread_E[done_bread] = 0.0
         self.bread_t[done_bread] = 0.0
+        self.bread_C[done_bread] = 0.0
         # INTERLOCK: the cook loads through the side port only while the
         # shutter is CLOSED (beam dumped) - admitting bread costs flux
         self.load_timer += self.dt

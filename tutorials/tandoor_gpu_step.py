@@ -35,6 +35,7 @@ class GpuState:
         e = env
         self.T = f(e.T); self.p_act = f(e.p_act); self.p_set = f(e.p_set)
         self.spot_phi = f(e.spot_phi); self.spot_z = f(e.spot_z)
+        self.bread_C = f(e.bread_C)
         self.p_dist = f(e.p_dist); self.shutter = f(e.shutter)
         self.cloud = f(e.cloud); self.wind_g = f(e.wind_g)
         self.bore = f(e.bore); self.stowed = bl(e.stowed)
@@ -203,6 +204,7 @@ def gpu_step(env, actions):
                              (-lit * 0.85 * fcov * inc)[:, None])
         S.bread_E.scatter_add_(1, kb1, (q_direct * dt)[:, None])
         env._spot_bin_t = (kb, valid)
+        env._spot_flux_t = q_direct / max(env.bread_area, 1e-6)
 
     # ---- thermal / bread / reward (polar's copy, 950 K structure term)
     T = S.T
@@ -234,9 +236,23 @@ def gpu_step(env, actions):
 
     rew = torch.zeros(B, device=dev)
     belt_T = S.T[:, :env.n_belt]
-    cooked = S.has_bread & (S.bread_E >= env.roti_energy)
-    scorched = S.has_bread & (belt_T > 730.0)
-    doughy = S.has_bread & (S.bread_t > 300.0) & ~cooked
+    # char as a RATE (wall time-at-temperature + beam flux on the
+    # loaf); ready loaves wait for the cook's lean - see numpy twin
+    c_dot = (belt_T - 700.0).clamp(min=0) / 6000.0
+    if getattr(env, "spot_bread", 0):
+        kbc, validc = env._spot_bin_t
+        fkw = env._spot_flux_t / 1000.0
+        addc = torch.zeros_like(c_dot)
+        addc.scatter_(1, kbc[:, None],
+                      ((fkw - 8.0).clamp(min=0) / 1000.0
+                       * validc.float())[:, None])
+        c_dot = c_dot + addc
+    S.bread_C = S.bread_C + S.has_bread.float() * c_dot * dt
+    ready = S.has_bread & (S.bread_E >= env.roti_energy)
+    pull_open = (S.load_timer >= env.load_period) & (S.shutter < 0.5)
+    cooked = ready & pull_open[:, None]
+    scorched = S.has_bread & (S.bread_C >= 1.0)
+    doughy = S.has_bread & (S.bread_t > 300.0) & ~ready
     rew = rew + 5.0*cooked.float().sum(1) - 5.0*scorched.float().sum(1) \
         - 0.5*doughy.float().sum(1) - 0.5*spall.float()
     S.ep_rotis = S.ep_rotis + cooked.float().sum(1)
@@ -245,6 +261,7 @@ def gpu_step(env, actions):
     S.has_bread = S.has_bread & ~done_b
     S.bread_E = torch.where(done_b, torch.zeros_like(S.bread_E), S.bread_E)
     S.bread_t = torch.where(done_b, torch.zeros_like(S.bread_t), S.bread_t)
+    S.bread_C = torch.where(done_b, torch.zeros_like(S.bread_C), S.bread_C)
     S.load_timer = S.load_timer + dt
     lo_T = torch.full_like(belt_T, 560.0)
     if getattr(env, "spot_bread", 0):

@@ -1032,6 +1032,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                          (S.bore[:, 1] / 0.1).clamp(-2, 2),
                          (S.load_timer / 45.0).clamp(0, 2)], 1),
             S.bread_E / self.roti_energy,
+            S.bread_C,
             p_in[:, None] / 6000.0,
             torch.stack([S.jammed.float(),
                          ((S.decl_formed - float(self._decl())).abs()
@@ -1794,7 +1795,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                    r_an*np.cos(am), z_br])
                 nrm = -anchor * [1, 1, 0]        # inward wall normal
                 fr_ = min(float(self.bread_E[0, k]) / ROTI_ENERGY, 1.0)
-                hot = float(self.T[0, k]) > 730.0
+                hot = float(self.bread_C[0, k]) > 0.5
                 disc(anchor, nrm, 0.085 + 0.02*fr_, browning(fr_, hot))
                 if fr_ > 0.5 and not hot:        # blisters
                     e1 = np.cross(nrm/np.linalg.norm(nrm), [0., 0., 1.])
