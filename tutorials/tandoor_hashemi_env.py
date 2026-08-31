@@ -1447,6 +1447,72 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
 
 
     # ------------------------------------------------ exact renderer #
+    def _ts_append(self):
+        """Per-frame history for the HUD line graphs. Resets on day
+        rollover (solar time jumps back); capped by pairwise decimation
+        so a full day stays a few thousand points."""
+        t = float(self.t_solar[0])
+        h = getattr(self, "_ts_h", None)
+        if h is None or (h["t"] and t < h["t"][-1] - 0.5):
+            keys = ("t", "pin", "dni", "belt", "hearth", "halo",
+                    "thr", "shadow", "el", "elb", "rotis")
+            h = self._ts_h = {k: [] for k in keys}
+        H = getattr(self, "_hv", None)
+        L = getattr(self, "_ladder", None)
+        h["t"].append(t)
+        h["pin"].append(float(self.p_in[0]) / 1000.0)
+        h["dni"].append(float(self.dni[0]) / 100.0)
+        h["belt"].append(float(self.T[0, :self.n_belt].mean()))
+        h["hearth"].append(float(self.T[0, self.n_belt]))
+        h["halo"].append(float(self.T_halo[0]))
+        h["thr"].append(100.0 * L["through"] if L else 0.0)
+        h["shadow"].append(100.0 * L["shadow"] if L else 0.0)
+        h["el"].append(float(H["el"]) if H else 0.0)
+        h["elb"].append(float(H.get("el_b", H["el"])) if H else 0.0)
+        h["rotis"].append(float(self.ep_rotis[0]))
+        if len(h["t"]) > 4000:
+            for k in h:
+                h[k] = h[k][::2]
+
+    @staticmethod
+    def _draw_ts(pr, x, y, w, h, title, series):
+        """One panel of day-long line graphs. series is a list of
+        (values, color, label); shared autoscaled y axis, latest value
+        printed beside each label."""
+        pr.draw_rectangle(x, y, w, h, (20, 23, 31, 255))
+        pr.draw_rectangle_lines(x, y, w, h, (58, 62, 76, 255))
+        allv = [v for d, _, _ in series for v in d if v == v]
+        if len(allv) >= 2:
+            lo, hi = min(allv), max(allv)
+            pad = 0.08 * (hi - lo) if hi > lo else \
+                max(abs(hi), 1.0) * 0.1
+            lo, hi = lo - pad, hi + pad
+            for d, col, _ in series:
+                m = len(d)
+                if m < 2:
+                    continue
+                stride = max(1, m // max(w - 8, 1))
+                idx = list(range(0, m, stride))
+                if idx[-1] != m - 1:
+                    idx.append(m - 1)
+                pts = [(x + 4 + int((w - 9) * i / (m - 1)),
+                        y + h - 3 - int((h - 18)
+                                        * (d[i] - lo) / (hi - lo)))
+                       for i in idx]
+                for k in range(len(pts) - 1):
+                    pr.draw_line(pts[k][0], pts[k][1],
+                                 pts[k + 1][0], pts[k + 1][1], col)
+            pr.draw_text(f"{hi:.0f}", x + w - 30, y + 14, 10,
+                         (130, 138, 150, 255))
+            pr.draw_text(f"{lo:.0f}", x + w - 30, y + h - 12, 10,
+                         (130, 138, 150, 255))
+        pr.draw_text(title, x + 5, y + 2, 12, (205, 210, 220, 255))
+        tx = x + 5 + 8 * len(title) + 10
+        for d, col, lab in series:
+            cur = f"{lab} {d[-1]:.0f}" if d else lab
+            pr.draw_text(cur, tx, y + 2, 12, col)
+            tx += 8 * len(cur) + 10
+
     def render(self):
         """The machine this env simulates, from its own traced vertices:
         dish points -> fixed fold -> waist -> fixed ellipsoid M5 -> duct
@@ -2026,24 +2092,38 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         pr.end_mode_3d()
         self._draw_bread_strip(pr, 1015, 26)
         self._draw_disturbances(pr, 1015, 120)
-        el_txt = f"{H['el']:.0f}" if H else "--"
-        hud = [f"sun el {el_txt}   track {self.el_min_h:.0f}-"
-               f"{self.el_max_h:.0f} deg",
-               f"dish f {self.f_nom:.1f} m orbits fixed fold at "
+        hud = [f"dish f {self.f_nom:.1f} m orbits fixed fold at "
                f"g {self.g_orbit:.1f} m",
-               f"fold r {self.r_fold:.2f} m  obstruction "
-               f"{self.obstruction*100:.0f}%",
-               f"waist z {self.z_waist:.1f} m  M5 ellipsoid r "
-               f"{self.r_m5:.2f} m",
-               (lambda L: f"losses: shadow {L['shadow']*100:.0f}% "
-                f"slot {L['slot']*100:.0f}% tube {L['tube']*100:.0f}% "
-                f"duct {L['duct']*100:.0f}%")(self._ladder)
-               if hasattr(self, "_ladder") else "",
-               f"through duct {100*H['through'].mean():.0f}%" if H
-               else "gated",
-               f"into pot {self.p_in[0]:5.0f} W"]
+               f"fold r {self.r_fold:.2f} m  waist z {self.z_waist:.1f}"
+               f" m  M5 r {self.r_m5:.2f} m",
+               ("uncut dish, beta schedule"
+                + (f" cap {self.beta_cap_z:.1f} m"
+                   if self.beta_cap_z is not None else ""))
+               if self.slotless else
+               f"slot cut, obstruction {self.obstruction*100:.0f}%"]
         for j, l in enumerate(hud):
-            pr.draw_text(l, 1015, 300 + 26*j, 17, (225, 225, 205, 255))
+            pr.draw_text(l, 1015, 300 + 22*j, 15, (225, 225, 205, 255))
+        # the day so far, as line graphs - control is a TRAJECTORY:
+        # the instantaneous numbers hid ramps, overshoot, and the
+        # schedule's sign flip
+        self._ts_append()
+        h_ = self._ts_h
+        gx, gw, gy, gh, gp = 1012, 376, 372, 88, 4
+        self._draw_ts(pr, gx, gy, gw, gh, "kW",
+                      [(h_["pin"], (235, 180, 80, 255), "pot"),
+                       (h_["dni"], (108, 114, 126, 255), "dni/.1")])
+        self._draw_ts(pr, gx, gy + (gh + gp), gw, gh, "K",
+                      [(h_["belt"], (235, 140, 60, 255), "belt"),
+                       (h_["hearth"], (225, 80, 60, 255), "hearth"),
+                       (h_["halo"], (120, 150, 200, 255), "halo")])
+        self._draw_ts(pr, gx, gy + 2 * (gh + gp), gw, gh, "optics %",
+                      [(h_["thr"], (110, 210, 130, 255), "through"),
+                       (h_["shadow"], (220, 90, 90, 255), "shadow")])
+        self._draw_ts(pr, gx, gy + 3 * (gh + gp), gw, gh, "deg",
+                      [(h_["el"], (235, 210, 90, 255), "sun"),
+                       (h_["elb"], (95, 200, 220, 255), "beam")])
+        self._draw_ts(pr, gx, gy + 4 * (gh + gp), gw, gh, "rotis",
+                      [(h_["rotis"], (230, 230, 235, 255), "")])
         pr.draw_text("EXACT: dish -> FIXED 2-axis fold -> waist -> FIXED "
                      "ellipsoid M5 -> native air inlet -> pot.",
                      20, HT-72, 16, (150, 200, 160, 255))
