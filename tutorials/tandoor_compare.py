@@ -90,7 +90,7 @@ def heuristic(env, B):
     lvl = np.where(bm < 540, 4, np.where(bm < 630, 3,
             np.where(bm < 665, 2, np.where(bm < 690, 1, 0))))
     ready = (env.load_timer >= 30.0) & (
-        ((~env.has_bread) & (belt >= 560.0) & (belt <= 700.0)).any(1))
+        ((~env.has_bread) & (belt >= 520.0) & (belt <= 700.0)).any(1))
     if env.N_HEADS in (5, 7):                  # hashemi: 2 motor heads
         # P-controller on the pointing-error encoders: cmd 3 = hold,
         # each step of command = a third of full slew

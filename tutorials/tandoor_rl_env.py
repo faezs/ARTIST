@@ -69,7 +69,10 @@ _sim.DEVICE = torch.device("cpu")  # RL rollouts: small batched CPU tensors
 
 SIGMA = 5.67e-8
 T_AMB = 300.0
-T_COOK_LO, T_COOK_HI, T_SCORCH = 560.0, 700.0, 730.0  # K
+# the REAL bakery loads from 180 C (user): the gate is physical
+# permission, not judgment - economics (doughy, char, beam service)
+# decide what is worth loading
+T_COOK_LO, T_COOK_HI, T_SCORCH = 453.0, 700.0, 730.0  # K
 # 560 K = 287 C wall: real tandoor range; the ideal-optics design
 # used a conservative 580 that the honest plant cannot hold
 ROTI_ENERGY = 45e3  # J to cook one roti
@@ -743,17 +746,8 @@ class TandoorEnv(pufferlib.PufferEnv):
         # shutter is CLOSED (beam dumped) - admitting bread costs flux
         self.load_timer += self.dt
         want = (self.load_timer >= self.load_period) & (self.shutter < 0.5)
-        lo_T = np.full((belt_T.shape[0], self.n_belt), T_COOK_LO)
-        if getattr(self, "spot_bread", 0):
-            # the AIMED bin bakes by BEAM; the wall only backs the
-            # contact side - 500 K suffices there
-            kb, valid = getattr(self, "_spot_bin", (None, None))
-            if kb is None:
-                lo_T[:, 6] = 500.0
-            else:
-                ar = np.arange(len(kb))
-                lo_T[ar[valid], kb[valid]] = 500.0
-        ok_ = (~self.has_bread) & (belt_T >= lo_T) & (belt_T <= T_COOK_HI)
+        ok_ = (~self.has_bread) & (belt_T >= T_COOK_LO) \
+            & (belt_T <= T_COOK_HI)
         can = np.nonzero(want & ok_.any(1))[0]
         # the cook slaps up to loaves_per_load rotis per opening
         # (real tandoor practice is 2-4), hottest free bins first
@@ -889,23 +883,30 @@ class TandoorEnv(pufferlib.PufferEnv):
                 else (200, 200, 212, 255))
 
     def _draw_bread_strip(self, pr, x, y):
-        """Belt temperatures + bread cook progress (was missing entirely
-        from the shed renderer, so cooking was invisible there).
-        Kelvin, like every other temperature in the HUD - the strip
-        printed Celsius unlabeled, so the same wall read 146 in the
-        boxes and 419 in the line graph."""
-        pr.draw_text("belt K", x, y - 14, 12, (170, 176, 188, 255))
+        """Belt temperatures + the QUEUE: per-bin dough dots browning
+        by cook fraction, blackening by char, ringed green when READY
+        (waiting for the cook's lean). Kelvin throughout."""
+        nb_ = int(self.has_bread[0].sum())
+        pr.draw_text(f"belt K   queue {nb_}/{self.loaves_per_load}",
+                     x, y - 14, 12, (170, 176, 188, 255))
         for k in range(self.n_belt):
             pr.draw_rectangle(x + 44 * k, y, 40, 30,
                               self._heat_color(self.T[0, k]))
             pr.draw_text(f"{self.T[0, k]:.0f}", x + 4 + 44 * k, y + 8,
                          13, (235, 235, 235, 255))
             if self.has_bread[0, k]:
-                fr = float(min(self.bread_E[0, k] / ROTI_ENERGY, 1.0))
+                fr = float(min(self.bread_E[0, k]
+                               / self.roti_energy, 1.0))
+                ch = float(min(self.bread_C[0, k], 1.0))
+                if fr >= 1.0:          # READY: waiting for the lean
+                    pr.draw_circle(x + 20 + 44 * k, y + 46, 12,
+                                   (110, 220, 130, 255))
                 pr.draw_circle(x + 20 + 44 * k, y + 46, 9,
                                (240, 225, 190, 255))
                 pr.draw_circle(x + 20 + 44 * k, y + 46, int(9 * fr),
-                               (150, 95, 45, 255))
+                               (int(150 * (1 - ch) + 40 * ch),
+                                int(95 * (1 - ch) + 34 * ch),
+                                int(45 * (1 - ch) + 30 * ch), 255))
 
     # ------------------------------------------------------------- render #
     def _flux_maps(self, agent=0, n_az=48, n_ct=28, n_pit=36):

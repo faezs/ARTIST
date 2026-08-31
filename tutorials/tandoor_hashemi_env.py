@@ -1820,6 +1820,34 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._pot_lbls = t_lbls
         ring([R_POT, 0, Z_DUCT], R_DUCT_H,
              (120, 220, 235, 255), 18, ax="x")
+        # THE ELBOW on its 2-DOF mount: mirror disc, aim axis, and
+        # the spot ring on the wall it serves; strikes from the trace
+        if getattr(self, "duct_nozzle", 0) == 2:
+            M_ = self._noz2["M"]
+            p2w = lambda t_: np.array([XC - t_[1], t_[0],
+                                       t_[2] + H_POT])
+            Mw = p2w(M_)
+            ph0_ = float(self.spot_phi[0]); zt0_ = float(self.spot_z[0])
+            rt_ = float(np.sqrt(max(R_SPH**2 - (zt0_ - Z_CPOT)**2,
+                                    1e-4))) * 0.995
+            Tw = p2w([rt_*np.cos(ph0_), rt_*np.sin(ph0_), zt0_])
+            nrm_ = Tw - Mw
+            disc(Mw, nrm_, 0.13, (160, 220, 240, 235), 14)
+            pr.draw_line_3d(v3([R_POT, 0, Z_DUCT]), v3(Mw),
+                            (120, 220, 235, 200))
+            pr.draw_line_3d(v3(Mw), v3(Tw), (255, 230, 140, 200))
+            ring(Tw, 0.31, (255, 230, 140, 220), 20,
+                 ax="z" if abs(nrm_[2]) > 0.7 else "x")
+            ps = getattr(self, "_pot_strikes", None)
+            if ps is not None:
+                pr.begin_blend_mode(pr.BlendMode.BLEND_ADDITIVE)
+                st_, thr_ = ps["strike"], ps["through"]
+                for k_ in range(0, len(st_), max(1, len(st_)//90)):
+                    if thr_[k_] <= 0:
+                        continue
+                    pr.draw_line_3d(v3(Mw), v3(p2w(st_[k_])),
+                                    (200, 150, 60, 26))
+                pr.end_blend_mode()
         # ---- THE KITCHEN: the workfloor over the pit. Dough comes off
         # the prep table, down through the mouth, slapped to the wall;
         # done rotis come back up on the hook. Driven by diffing agent

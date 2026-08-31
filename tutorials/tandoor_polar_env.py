@@ -391,6 +391,14 @@ class TandoorPolarEnv(TandoorEnv):
         w = ((self._ray_pw[None, :] * soil_t[:, None]).reshape(-1)
              * through.reshape(-1).float()
              * getattr(self, "_ray_scale", 1.0))
+        if self.render_mode == "human":
+            # pot-frame strikes for the kitchen view: where the jet
+            # (post-elbow) actually lands on the clay
+            self._pot_strikes = dict(
+                strike=torch.stack([sx[0], sy[0], sz[0]],
+                                   -1).cpu().numpy(),
+                node=node.reshape(pxp.shape)[0].cpu().numpy(),
+                through=through[0].cpu().numpy())
         if self.render_mode == "human" and self._last_org is not None:
             # populated by the caller, which is where the ray
             # origins live; _bin_pot only knows the duct plane on.
