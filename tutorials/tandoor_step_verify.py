@@ -55,8 +55,8 @@ def _script(t):
 
 def _run(e):
     dev = e.device
-    from tandoor_gpu_step import GpuState
-    e._gpu = GpuState(e)
+    from tandoor_fused_step import make_state
+    e._gpu = make_state(e)            # fused kernels on MPS, torch on CUDA
     e._gpu.zero_noise = True          # deterministic from step 0
     obs_t, rew_t = [], []
     for t in range(STEPS):

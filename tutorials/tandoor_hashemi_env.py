@@ -476,6 +476,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._e_el = self._e_el_t.cpu().numpy()
             self._e_az = self._e_az_t.cpu().numpy()
             self.p_in = self._p_in_t.cpu().numpy()
+            if getattr(self._gpu, "fused", False):
+                self.truncations[:] = \
+                    self._trunc_t.cpu().numpy() > 0.5
             return (self.observations, self.rewards, self.terminals,
                     self.truncations, infos)
         B = self.num_agents
@@ -944,7 +947,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         from tandoor_gpu_step import GpuState, gpu_step
         import tandoor_gpu_step as G
         if self._gpu is None:
-            self._gpu = GpuState(self)
+            from tandoor_fused_step import make_state
+            self._gpu = make_state(self)
+        if getattr(self._gpu, "fused", False):
+            from tandoor_fused_step import fused_full_step
+            return fused_full_step(self, actions)
         S, dev, B = self._gpu, self.device, self.num_agents
         rew, cut, p_in, e_el, e_az = gpu_step(self, actions)
         self._p_in_t = p_in

@@ -50,6 +50,28 @@ static inline bool hits_column(float px, float py, float pz,
     return (dmin < r) && z_ok && t_ok;
 }
 
+// step-kernel capacity guards (host asserts n_nodes/n_belt fit)
+#define NMAX 20
+#define NBMAX 12
+
+static inline void solar_pos(float latd, float dayv, float hour,
+                             thread float* el_d, thread float* az_d) {
+    // matches tandoor_mount_batch.solar_batch; az returned in DEGREES
+    const float PI_ = 3.14159265358979f;
+    float phi = latd * PI_ / 180.0f;
+    float delta = 0.40910518f * sin(2.0f*PI_*(284.0f+dayv)/365.0f);
+    float hh = (15.0f * (hour - 12.0f)) * PI_ / 180.0f;
+    float sinel = sin(phi)*sin(delta) + cos(phi)*cos(delta)*cos(hh);
+    sinel = clamp(sinel, -1.0f, 1.0f);
+    float elr = asin(sinel);
+    float cosaz = (sin(delta) - sinel*sin(phi))
+        / max(cos(elr)*cos(phi), 1e-9f);
+    float az = acos(clamp(cosaz, -1.0f, 1.0f));
+    if (hh > 0.0f) az = 2.0f*PI_ - az;
+    *el_d = elr * 180.0f / PI_;
+    *az_d = az * 180.0f / PI_;
+}
+
 kernel void mount_solve(
     device float*       vp_o   [[buffer(0)]],   // (B,21)
     device float*       Mt_o   [[buffer(1)]],   // (B,9)
@@ -523,6 +545,392 @@ kernel void tandoor_trace(
             wgt, memory_order_relaxed);
     }
 }
+
+// ==================================================================
+// THE FUSED STEP: everything between the mount and the trace, and
+// everything after it, as two B-thread kernels. Line-for-line
+// transcription of tandoor_gpu_step.gpu_step + the cut branch of
+// _gpu_full_step + _gpu_obs (which remain the torch reference,
+// verified by tandoor_fused_step.verify_fused with zero noise).
+//
+// st layout, per env (NS = 3N+1+4NB+34):
+//   [0..N) T   [N..2N) T_sub   [2N..3N) T_deep   [3N] T_halo
+//   [3N+1..) bread_E[NB] bread_t[NB] bread_C[NB] has_bread[NB]
+//   scalars at S0 = 3N+1+4NB:
+//   +0 p_act +1 p_set +2 p_dist +3 shutter +4 jammed +5 f_locked
+//   +6 form_time +7 decl_formed +8 load_timer +9 ep_rotis
+//   +10 ep_scorch +11 ep_spall +12 ep_return +13 ep_len
+//   +14 el_m +15 az_m +16 lost_ct +17 belt_prev +18 cloud
+//   +19 wind_g +20 e_az_prev +21 e_el_prev +22 spot_phi +23 spot_z
+//   +24 dni +25 wind +26 stowed
+//   scratch (pre -> post): +27 el0s +28 az0d +29 pot_prev +30 gate
+//   +31 decl_now +32 e_el +33 e_az
+//
+// sp layout (see tandoor_fused_step._step_params):
+//   0 dt 1 p0 2 RATE_AZ 3 RATE_EL 4 RATE_SPOT_PHI 5 RATE_SPOT_Z
+//   6 SPH_LO 7 SPH_HI 8 SPZ_LO 9 SPZ_HI 10 thr_g 11 jam_gain
+//   12 wall_shelter 13 sig_static 14 el_min 15 el_max 16 cosf0
+//   17 lid_leak 18 h_bread 19 roti_E 20 load_period 21 fcov
+//   22 Z_BAKE_LO 23 Z_CROWN 24 f_elbow 25 f_spot 26 f_wall
+//   27 T_COOK_LO 28 T_COOK_HI 29 R_SPH 30 Z_CPOT 31 M0 32 M1 33 M2
+//   34 f_nom 35 NL-1 36 lf0 37 lf_span 38 g_halo_out 39 c_halo
+//   40 SPOT_PHI0 41 SPOT_Z0 42 dt_h 43 T_AMB 44 c_cloud 45 c_windg
+//   46 c_bore 47 p_collapse 48 dt/900 49 dt/600 50 dt/300
+//   51 ap_area 52 a_tot 53 bread_area 54..60 level_frac[7]
+//   61.. node_area[N] heat_cap[N] cap_sub[N] cap_deep[N]
+//        g01[N] g12[N] g2s[N]
+// ip: 0 B 1 N 2 NB 3 NH 4 NS 5 OD
+// ==================================================================
+
+kernel void step_pre(
+    device float*       lv    [[buffer(0)]],   // (B,) FIRST: grid = B
+    device float*       st    [[buffer(1)]],
+    device const int*   act   [[buffer(2)]],   // (B,NH)
+    device const float* rn    [[buffer(3)]],   // (B,12) normals
+    device const float* ru    [[buffer(4)]],   // (B,16) uniforms
+    device const float* sp    [[buffer(5)]],
+    device const int*   ip    [[buffer(6)]],
+    device const float* aux   [[buffer(7)]],   // mount el/az
+    device const float* day   [[buffer(8)]],
+    device const float* lat   [[buffer(9)]],
+    device const float* mprm  [[buffer(10)]],  // [0] = hour pre-step
+    device float*       sigb  [[buffer(11)]],
+    device float*       dvec  [[buffer(12)]],  // (B,2)
+    device float*       off   [[buffer(13)]],  // (B,2) bore state
+    device float*       aim   [[buffer(14)]],  // (B,3)
+    device float*       per   [[buffer(15)]],  // (B,N) zeroed here
+    uint b [[thread_position_in_grid]])
+{
+    if ((int)b >= ip[0]) return;
+    const float PI_ = 3.14159265358979f;
+    const int N = ip[1], NB = ip[2], NH = ip[3], NS = ip[4];
+    device float* s = st + b*NS;
+    const int S0 = 3*N + 1 + 4*NB;
+    const float dt = sp[0];
+    device const int* a = act + b*NH;
+    device const float* rb = rn + b*12;
+    // ---- mount's sun (aux az is radians)
+    float el0 = aux[b*8+0];
+    float az0d = aux[b*8+1] * 180.0f / PI_;
+    // ---- potential BEFORE this step's motor action
+    float potp = min(fabs(s[S0+20]) + fabs(s[S0+21]), 4.0f);
+    // ---- motors + spot jogs
+    float r_az = (float)(clamp(a[3], 0, 6) - 3) / 3.0f * sp[2];
+    float r_el = (float)(clamp(a[4], 0, 6) - 3) / 3.0f * sp[3];
+    if (sp[24] > 0.5f) {
+        float r_ph = (float)(clamp(a[5], 0, 6) - 3) / 3.0f * sp[4];
+        float r_zz = (float)(clamp(a[6], 0, 6) - 3) / 3.0f * sp[5];
+        s[S0+22] = clamp(s[S0+22] + r_ph*PI_/180.0f*dt, sp[6], sp[7]);
+        s[S0+23] = clamp(s[S0+23] + r_zz*dt, sp[8], sp[9]);
+    }
+    s[S0+15] = s[S0+15] + r_az*dt + 0.02f*rb[0];
+    s[S0+14] = clamp(s[S0+14] + r_el*dt + 0.02f*rb[1],
+                     sp[14] - 2.0f, sp[15] + 1.0f);
+    float e_el = s[S0+14] - el0;
+    float e_az = (s[S0+15] - az0d) * cos(el0*PI_/180.0f);
+    // ---- heads, jam, servo
+    s[S0+1] = sp[1] * sp[54 + clamp(a[0], 0, 6)];
+    s[S0+3] = ((float)a[1] > sp[10]) ? 1.0f : 0.0f;
+    float want = ((float)a[2] > sp[10]) ? 1.0f : 0.0f;
+    bool jamming = (s[S0+4] < 0.5f) && (want > 0.5f);
+    s[S0+4] = want;
+    bool soft = want < 0.5f;
+    s[S0+6] += soft ? 1.0f : 0.0f;
+    float bias = 0.05f * (s[S0+24] - 400.0f) / 10.0f;   // prev dni
+    s[S0+2] = clamp(s[S0+2] + (bias - s[S0+2])*sp[48] + 1.2f*rb[2],
+                    -40.0f, 60.0f);
+    if (soft)
+        s[S0+0] += clamp(s[S0+1] + s[S0+2] - s[S0+0], -6.0f, 6.0f);
+    if (jamming) s[S0+5] = s[S0+0];
+    float decl = 23.44f * sin(2.0f*PI_*(284.0f + day[b])/365.0f);
+    s[S0+31] = decl;
+    if (soft) s[S0+7] = decl;
+    // ---- sun scalars, cloud/wind OU (ts already advanced host-side)
+    float ts = mprm[0] + sp[42];
+    float sinel = sin(el0*PI_/180.0f);
+    float am = 1.0f / max(sinel, 0.035f);
+    float clearw = (el0 > 2.0f)
+        ? 1353.0f * pow(0.7f, pow(am, 0.678f)) : 0.0f;
+    float cl = s[S0+18];
+    cl = cl - cl*sp[48] + sp[44]*rb[3];
+    if (ru[b*16+0] < sp[47]) cl -= 1.5f;
+    cl = clamp(cl, -3.0f, 0.25f);
+    s[S0+18] = cl;
+    float base_w = 2.5f
+        + 3.5f*sin(PI_*clamp((ts - 8.0f)/8.0f, 0.0f, 1.0f));
+    float wg = s[S0+19] - s[S0+19]*sp[49] + sp[45]*rb[4];
+    s[S0+19] = wg;
+    float wind = clamp((base_w + wg)*sp[12], 0.0f, 25.0f);
+    bool stw = ((s[S0+26] > 0.5f) || (wind > 16.0f))
+               && !(wind < 14.0f);
+    s[S0+26] = stw ? 1.0f : 0.0f;
+    s[S0+25] = wind;
+    float day_up = (el0 > 8.0f) ? 1.0f : 0.0f;
+    float cosf = day_up * sp[16];
+    float dni = clearw * exp(cl) * day_up * (stw ? 0.0f : 1.0f);
+    s[S0+24] = dni;
+    // ---- wind -> figure, jam-gated
+    float qw = 0.6f * wind * wind;
+    float gain = (want > 0.5f) ? sp[11] : 1.0f;
+    float p_eff = ((want > 0.5f) ? s[S0+5] : s[S0+0])
+                  + gain*qw*sign(rb[5]);
+    float sigw = gain * 0.88e-3f * pow(max(qw, 1e-9f)/15.0f, 0.6f);
+    float sigd = fabs(s[S0+7] - decl) * PI_/180.0f * 0.04f;
+    sigb[b] = sqrt(sp[13]*sp[13] + (0.7f*sigw)*(0.7f*sigw)
+                   + sigd*sigd);
+    off[b*2+0] += -off[b*2+0]*sp[50] + sp[46]*rb[6];
+    off[b*2+1] += -off[b*2+1]*sp[50] + sp[46]*rb[7];
+    // ---- trace inputs
+    lv[b] = clamp((p_eff/sp[1] - sp[36])/sp[37]*sp[35],
+                  0.0f, sp[35]);
+    dvec[b*2+0] = 2.0f*sp[34]*e_el*PI_/180.0f;
+    dvec[b*2+1] = 2.0f*sp[34]*e_az*PI_/180.0f;
+    float ph = s[S0+22], zt = s[S0+23];
+    float rt = sqrt(max(sp[29]*sp[29] - (zt - sp[30])*(zt - sp[30]),
+                        1e-4f)) * 0.999f;
+    float3 a1 = normalize(float3(rt*cos(ph) - sp[31],
+                                 rt*sin(ph) - sp[32], zt - sp[33]));
+    aim[b*3+0] = a1.x; aim[b*3+1] = a1.y; aim[b*3+2] = a1.z;
+    // ---- gate + scratch for post
+    s[S0+30] = dni * cosf * s[S0+3] * want;
+    s[S0+27] = el0; s[S0+28] = az0d; s[S0+29] = potp;
+    s[S0+32] = e_el; s[S0+33] = e_az;
+    for (int i = 0; i < N; i++) per[b*N + i] = 0.0f;
+}
+
+kernel void step_post(
+    device float*       rew   [[buffer(0)]],   // (B,) FIRST: grid = B
+    device float*       st    [[buffer(1)]],
+    device const float* per   [[buffer(2)]],   // (B,N) from trace
+    device const float* sp    [[buffer(3)]],
+    device const int*   ip    [[buffer(4)]],
+    device const float* rn    [[buffer(5)]],
+    device const float* ru    [[buffer(6)]],
+    device const float* day   [[buffer(7)]],
+    device const float* lat   [[buffer(8)]],
+    device const float* mprm  [[buffer(9)]],
+    device const float* off   [[buffer(10)]],  // bore, for obs
+    device float*       obs   [[buffer(11)]],  // (B,OD)
+    device float*       trc   [[buffer(12)]],
+    device float*       diag  [[buffer(13)]],  // (B,8)
+    uint b [[thread_position_in_grid]])
+{
+    if ((int)b >= ip[0]) return;
+    const float PI_ = 3.14159265358979f;
+    const float SIG = 5.67e-8f;
+    const int N = ip[1], NB = ip[2], NS = ip[4], OD = ip[5];
+    device float* s = st + b*NS;
+    const int S0 = 3*N + 1 + 4*NB;
+    device float* Tsub = s + N;
+    device float* Tdeep = s + 2*N;
+    device float* bE = s + 3*N + 1;
+    device float* bt_ = bE + NB;
+    device float* bC = bt_ + NB;
+    device float* hb = bC + NB;
+    device const float* pv = per + b*N;
+    device const float* NA = sp + 61;
+    device const float* HC = NA + N;
+    device const float* CS = HC + N;
+    device const float* CD_ = CS + N;
+    device const float* G01 = CD_ + N;
+    device const float* G12 = G01 + N;
+    device const float* G2S = G12 + N;
+    const float dt = sp[0];
+    const float gate = s[S0+30];
+    float Tv[NMAX], t4v[NMAX], qv[NMAX];
+    float p_in = 0.0f;
+    for (int i = 0; i < N; i++) {
+        Tv[i] = s[i];
+        t4v[i] = Tv[i]*Tv[i]*Tv[i]*Tv[i];
+        qv[i] = pv[i]*gate*0.85f;
+        p_in += pv[i];
+    }
+    p_in *= gate;
+    // ---- spot_bread: the loaf takes the beam directly
+    int kb = 0; float validc = 0.0f, q_direct = 0.0f;
+    if (sp[25] > 0.5f) {
+        float phs = s[S0+22];
+        kb = ((int)((phs + PI_)/(2.0f*PI_)*(float)NB)) % NB;
+        float zt = s[S0+23];
+        validc = (zt >= sp[22] && zt <= sp[23]) ? 1.0f : 0.0f;
+        float lit = (hb[kb] > 0.5f && validc > 0.5f) ? 1.0f : 0.0f;
+        float frb = clamp(bE[kb]/sp[19], 0.0f, 1.0f);
+        float alpha = 0.55f + 0.35f*frb;
+        float inc = pv[kb]*gate;
+        q_direct = lit*alpha*sp[21]*inc;
+        qv[kb] -= lit*0.85f*sp[21]*inc;
+        bE[kb] += q_direct*dt;
+    }
+    // ---- thermal (polar's copy)
+    float t4s = 0.0f;
+    for (int i = 0; i < N; i++) t4s += NA[i]*t4v[i];
+    float tc4 = t4s / sp[52];
+    float lid = (s[S0+8] < 4.0f) ? 1.0f : sp[17];
+    float ta4 = sp[43]*sp[43]*sp[43]*sp[43];
+    float q_ap = 0.75f*SIG*(tc4 - ta4)*sp[51]*lid;
+    float Th = s[3*N];
+    float q2sum = 0.0f;
+    for (int i = 0; i < N; i++) {
+        float q_exch = 0.85f*SIG*NA[i]*(tc4 - t4v[i]);
+        float q01 = G01[i]*(Tv[i] - Tsub[i]);
+        float q12 = G12[i]*(Tsub[i] - Tdeep[i]);
+        float q2s = G2S[i]*(Tdeep[i] - Th);
+        qv[i] = qv[i] + q_exch - q01;
+        Tsub[i] += (q01 - q12)*dt/CS[i];
+        Tdeep[i] += (q12 - q2s)*dt/CD_[i];
+        q2sum += q2s;
+    }
+    s[3*N] = Th + (q2sum - sp[38]*(Th - sp[43]))*dt/sp[39];
+    qv[NB+2] -= q_ap;
+    for (int k = 0; k < NB; k++) {
+        float qb = hb[k]*sp[18]*(Tv[k] - 400.0f);
+        qv[k] -= qb;
+        bE[k] += qb*dt;
+        bt_[k] += hb[k]*dt;
+    }
+    float dT_h = 0.0f;
+    for (int i = 0; i < N; i++) {
+        float dT = qv[i]*dt/HC[i];
+        s[i] = Tv[i] + dT;
+        if (i == NB) dT_h = dT;
+    }
+    float spall = (dT_h > 25.0f) ? 1.0f : 0.0f;
+    s[S0+11] += spall;
+    // ---- bread: char rate, ready waits for the cook's lean
+    float r = 0.0f;
+    float cooked_n = 0.0f, scorch_n = 0.0f, doughy_n = 0.0f;
+    bool pull = s[S0+8] >= sp[20];
+    for (int k = 0; k < NB; k++) {
+        float bT = s[k];
+        float cdot = max(bT - 700.0f, 0.0f)/6000.0f;
+        if (sp[25] > 0.5f && k == kb) {
+            float fkw = q_direct/max(sp[53], 1e-6f)/1000.0f;
+            cdot += max(fkw - 8.0f, 0.0f)/1000.0f*validc;
+        }
+        bC[k] += hb[k]*cdot*dt;
+        bool has = hb[k] > 0.5f;
+        bool ready = has && (bE[k] >= sp[19]);
+        bool ckd = ready && pull;
+        bool scd = has && (bC[k] >= 1.0f);
+        bool dgh = has && (bt_[k] > 300.0f) && !ready;
+        cooked_n += ckd ? 1.0f : 0.0f;
+        scorch_n += scd ? 1.0f : 0.0f;
+        doughy_n += dgh ? 1.0f : 0.0f;
+        if (ckd || scd || dgh) {
+            hb[k] = 0.0f; bE[k] = 0.0f; bt_[k] = 0.0f; bC[k] = 0.0f;
+        }
+    }
+    r += 5.0f*cooked_n - 5.0f*scorch_n - 0.5f*doughy_n - 0.5f*spall;
+    s[S0+9] += cooked_n;
+    s[S0+10] += scorch_n;
+    s[S0+8] += dt;
+    // ---- the cook loads the hottest empty bakeable bin
+    float best = -1e30f; int j = -1;
+    for (int k = 0; k < NB; k++) {
+        float bT = s[k];
+        if (hb[k] < 0.5f && bT >= sp[27] && bT <= sp[28]
+            && bT > best) { best = bT; j = k; }
+    }
+    bool can = (s[S0+8] >= sp[20]) && (j >= 0);
+    if (can) { hb[j] = 1.0f; s[S0+8] = 0.0f; r += 0.3f; }
+    // ---- preheat shaping on the hottest bin, below-lo gated
+    float bmax = -1e30f;
+    for (int k = 0; k < NB; k++) bmax = max(bmax, s[k]);
+    float below = (bmax < sp[27]) ? 1.0f : 0.0f;
+    r += 0.05f*clamp(bmax - s[S0+17], -5.0f, 5.0f)*below;
+    s[S0+17] = bmax;
+    r += -0.02f*((s[S0+4] < 0.5f) ? 1.0f : 0.0f);
+    // ---- Hashemi pointing shaping + lost counter
+    float e_el2 = s[S0+32], e_az2 = s[S0+33];
+    float potn = min(fabs(e_az2) + fabs(e_el2), 4.0f);
+    r += 0.1f*(s[S0+29] - potn);
+    s[S0+20] = e_az2; s[S0+21] = e_el2;
+    bool lost = (fabs(e_az2) + fabs(e_el2)) > 3.0f;
+    s[S0+16] = lost ? s[S0+16] + 1.0f : 0.0f;
+    bool cut = s[S0+16] >= 40.0f;
+    s[S0+12] += r;
+    s[S0+13] += 1.0f;
+    // ---- lost-sun truncation: ALWAYS COLD, charge-and-crash closed
+    float trv = 0.0f;
+    if (cut) {
+        float bmean = 0.0f;
+        for (int k = 0; k < NB; k++) bmean += s[k];
+        bmean /= (float)NB;
+        float give = 0.05f*max(min(bmean, sp[27]) - 350.0f, 0.0f);
+        float nb_ = 0.0f;
+        for (int k = 0; k < NB; k++) nb_ += hb[k];
+        give += 0.3f*nb_;
+        r -= give;
+        for (int i = 0; i < N; i++) {
+            float nt = 350.0f + (ru[b*16 + 1 + i] - 0.5f)*30.0f;
+            s[i] = nt; Tsub[i] = nt; Tdeep[i] = nt;
+        }
+        s[3*N] = 300.0f;
+        s[S0+9] = 0.0f; s[S0+10] = 0.0f; s[S0+11] = 0.0f;
+        s[S0+12] = 0.0f; s[S0+13] = 0.0f;
+        for (int k = 0; k < NB; k++) {
+            bE[k] = 0.0f; bt_[k] = 0.0f; hb[k] = 0.0f;
+        }
+        s[S0+1] = sp[1]; s[S0+0] = sp[1];
+        float el1, az1d;
+        solar_pos(lat[b], day[b], mprm[0] + sp[42], &el1, &az1d);
+        s[S0+14] = clamp(el1 + 0.3f*rn[b*12+10], sp[14], sp[15]);
+        s[S0+15] = az1d + 0.3f*rn[b*12+11];
+        s[S0+16] = 0.0f;
+        e_el2 = s[S0+14] - el1;
+        e_az2 = (s[S0+15] - az1d)*cos(el1*PI_/180.0f);
+        s[S0+21] = e_el2; s[S0+20] = e_az2;
+        float bm = -1e30f;
+        for (int k = 0; k < NB; k++) bm = max(bm, s[k]);
+        s[S0+17] = bm;
+        trv = 1.0f;
+    }
+    trc[b] = trv;
+    rew[b] = r;
+    // ---- obs (matches _gpu_obs column for column)
+    float hn = (mprm[0] + sp[42] - 8.0f)/8.0f;
+    device float* ob = obs + b*OD;
+    int o = 0;
+    ob[o++] = sin(PI_*hn);
+    ob[o++] = cos(PI_*hn);
+    ob[o++] = s[S0+24]/1000.0f;
+    for (int i = 0; i < N; i++) ob[o++] = s[i]/1000.0f;
+    if (sp[26] > 0.5f) {
+        float ms = 0.0f, md = 0.0f;
+        for (int k = 0; k < NB; k++) { ms += Tsub[k]; md += Tdeep[k]; }
+        ob[o++] = ms/(float)NB/1000.0f;
+        ob[o++] = md/(float)NB/1000.0f;
+        ob[o++] = s[3*N]/1000.0f;
+    }
+    ob[o++] = (s[S0+0] - sp[1])/60.0f;
+    ob[o++] = s[S0+3];
+    ob[o++] = s[S0+25]/10.0f;
+    ob[o++] = clamp(off[b*2+0]/0.1f, -2.0f, 2.0f);
+    ob[o++] = clamp(off[b*2+1]/0.1f, -2.0f, 2.0f);
+    ob[o++] = clamp(s[S0+8]/45.0f, 0.0f, 2.0f);
+    for (int k = 0; k < NB; k++) ob[o++] = bE[k]/sp[19];
+    for (int k = 0; k < NB; k++) ob[o++] = bC[k];
+    ob[o++] = p_in/6000.0f;
+    ob[o++] = s[S0+4];
+    ob[o++] = clamp(fabs(s[S0+7] - s[S0+31])/10.0f, 0.0f, 3.0f);
+    ob[o++] = clamp((e_el2 + 0.03f*rn[b*12+8])/0.5f, -3.0f, 3.0f);
+    ob[o++] = clamp((e_az2 + 0.03f*rn[b*12+9])/0.5f, -3.0f, 3.0f);
+    if (sp[24] > 0.5f) {
+        ob[o++] = (s[S0+22] - sp[40])/2.0f;
+        ob[o++] = (s[S0+23] - sp[41])/1.0f;
+        int kb2 = ((int)((s[S0+22] + PI_)/(2.0f*PI_)*(float)NB)) % NB;
+        for (int k = 0; k < NB; k++)
+            ob[o++] = (k == kb2) ? 1.0f : 0.0f;
+    }
+    diag[b*8+0] = p_in;
+    diag[b*8+1] = e_el2;
+    diag[b*8+2] = e_az2;
+    diag[b*8+3] = q_direct/max(sp[53], 1e-6f);
+    diag[b*8+4] = s[S0+25];
+    diag[b*8+5] = s[S0+24];
+    diag[b*8+6] = 0.0f;
+    diag[b*8+7] = 0.0f;
+}
 """
 
 
@@ -552,7 +960,7 @@ class MetalGeo:
                              day_t.contiguous(), lat_t.contiguous(),
                              prm_t, nB)
         return dict(vp=vp, Mt=Mt.view(B, 3, 3), Cd=Cd,
-                    Acan=Ac.view(B, 3, 3), scb=scb,
+                    Acan=Ac.view(B, 3, 3), scb=scb, aux=aux,
                     el=aux[:, 0], az=aux[:, 1], el_b=aux[:, 2],
                     beta_t=aux[:, 6])
 
