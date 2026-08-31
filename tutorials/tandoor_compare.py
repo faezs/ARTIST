@@ -31,6 +31,52 @@ ENVS = {"beamdown": TandoorEnv, "shed": TandoorShedEnv,
         "polar": TandoorPolarEnv}
 
 
+ENG_A = ((0.153, -0.0097, -0.0558, -0.1218),
+         (-0.0585, -0.014, -0.0174, 0.3172))
+
+
+def enguehard(env, B):
+    """Enguehard & Hatfield (JOSA A 11, 874, 1994) applied to the
+    optics chain as a segmented mirror: each actuated stage cancels
+    its LOCALLY measured error exactly (their 'apply the tilts
+    directly'), the compositional redundancy - our global piston, the
+    measured 1200:1 null direction mount+elbow - is resolved by
+    ASSIGNMENT down the block-triangular influence matrix: only the
+    mount can centre the duct relay, so it takes the encoder errors
+    deadbeat; the elbow takes the wall residual, with the mount's
+    still-uncancelled error FED FORWARD through the measured
+    influence rows so the spot never leaves the loaf while the mount
+    hunts. Scheduling (serve/advance/load) stays with the outer
+    controller - a static quadratic law cannot see time."""
+    from tandoor_polar_env import (SPOT_PHI0, SPOT_Z0, RATE_SPOT_PHI,
+                                   RATE_SPOT_Z)
+    import numpy as _np
+    a = heuristic(env, B)               # scheduler + throttle + gates
+    if env.N_HEADS != 7:
+        return a
+    # mount: keep the tuned P-jogs (deadbeat rings against backlash
+    # and head quantization - measured, not argued)
+    # elbow: feed the mount's residual forward through the MEASURED
+    # coupling rows, but with GEOMETRIC unit denominators - the aim
+    # coordinates ARE wall coordinates, gain 1; the measured elbow
+    # gains were bin-centroid artifacts (dividing by them overdrove
+    # the feed-forward 18x and lost 23% of the day)
+    st_ph = _np.radians(RATE_SPOT_PHI) * env.dt / 3.0
+    ph_des = env.spot_phi + (a[:, 5] - 3) * st_ph
+    z_des = env.spot_z + (a[:, 6] - 3) * (RATE_SPOT_Z * env.dt / 3.0)
+    Awp_az, Awp_el = ENG_A[0][0], ENG_A[0][1]
+    Awz_az, Awz_el = ENG_A[1][0], ENG_A[1][1]
+    dph_ff = -(Awp_az * env._e_az + Awp_el * env._e_el)
+    dz_ff = -(Awz_az * env._e_az + Awz_el * env._e_el)
+    ph_c = ph_des + _np.clip(dph_ff, -0.12, 0.12)
+    z_c = z_des + _np.clip(dz_ff, -0.06, 0.06)
+    a[:, 5] = _np.clip(_np.round(3 + (ph_c - env.spot_phi) / st_ph),
+                       0, 6)
+    a[:, 6] = _np.clip(_np.round(
+        3 + (z_c - env.spot_z) / (RATE_SPOT_Z * env.dt / 3.0)), 0, 6)
+    return a
+
+
 def heuristic(env, B):
     """Same policy class for every architecture, so the comparison stays
     about architecture: (a) THROTTLE - full focus while cold, progressive
