@@ -571,9 +571,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 # re-arms on the fresh cold pot, so a deliberate sun-loss
                 # farms it (+15% measured). Give it back at the cut -
                 # the potential telescopes to zero across the truncation.
-                belt_i = float(self.T[i, : self.n_belt].mean())
-                give = 0.05 * max(0.0, min(belt_i, T_COOK_LO) - 350.0)
-                give += 0.3 * float(self.has_bread[i].sum())
+                # in-flight load bonuses only (shaping refund died
+                # with the shaping)
+                give = 0.3 * float(self.has_bread[i].sum())
                 self.rewards[i] -= give
                 self.ep_return[i] -= give
                 # always cold on lost-sun truncation (no warm lottery)
@@ -1000,10 +1000,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # CHARGE-AND-CRASH closed (mirror of the numpy path): give
             # back the accrued preheat shaping and any load bonuses
             # still in flight before the state is overwritten
-            belt_pre = S.T[:, : self.n_belt].mean(1)
-            give = 0.05 * (belt_pre.clamp(max=T_COOK_LO) - 350.0)\
-                .clamp(min=0.0)
-            give = give + 0.3 * S.has_bread.float().sum(1)
+            # in-flight load bonuses only (the preheat-shaping refund
+            # died with the shaping)
+            give = 0.3 * S.has_bread.float().sum(1)
             rew = rew - give * cut.float()
             S.T = torch.where(cutf, newT, S.T)
             S.T_sub = torch.where(cutf, newT, S.T_sub)

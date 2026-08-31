@@ -305,10 +305,13 @@ def gpu_step(env, actions):
     S.load_timer = torch.where(can, torch.zeros_like(S.load_timer),
                                S.load_timer)
     rew = rew + 0.3 * loads
-    belt_max = belt_T.max(1).values
-    below = (belt_max < 453.0).float()
-    rew = rew + 0.05 * (belt_max - S.belt_prev).clamp(-5, 5) * below
-    S.belt_prev = belt_max.clone()
+    # NO preheat shaping (measured off): direct-flux baking cooks on
+    # a cold pot from minute one (12.7 naans/env in the first dawn
+    # hour, walls at 391 K) - the reward desert the shaping bridged
+    # no longer exists, and both candidate channels measured ~0.1
+    # sigma good-vs-random. Real economics only. belt_prev is kept
+    # as state for layout stability; nothing reads it.
+    S.belt_prev = belt_T.max(1).values.clone()
     rew = rew - 0.02 * (~S.jammed).float()
 
     # ---- Hashemi shaping + truncation + wrap

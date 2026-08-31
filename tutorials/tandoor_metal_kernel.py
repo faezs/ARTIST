@@ -862,10 +862,10 @@ kernel void step_post(
         s[S0+8] = 0.0f;
     }
     // ---- preheat shaping on the hottest bin, below-lo gated
+    // NO preheat shaping (measured off - numpy twins); belt_prev
+    // stays as state for layout stability, nothing reads it
     float bmax = -1e30f;
     for (int k = 0; k < NB; k++) bmax = max(bmax, s[k]);
-    float below = (bmax < sp[27]) ? 1.0f : 0.0f;
-    r += 0.05f*clamp(bmax - s[S0+17], -5.0f, 5.0f)*below;
     s[S0+17] = bmax;
     r += -0.02f*((s[S0+4] < 0.5f) ? 1.0f : 0.0f);
     // ---- Hashemi pointing shaping + lost counter
@@ -881,14 +881,11 @@ kernel void step_post(
     // ---- lost-sun truncation: ALWAYS COLD, charge-and-crash closed
     float trv = 0.0f;
     if (cut) {
-        float bmean = 0.0f;
-        for (int k = 0; k < NB; k++) bmean += s[k];
-        bmean /= (float)NB;
-        float give = 0.05f*max(min(bmean, sp[27]) - 350.0f, 0.0f);
+        // give back only the in-flight load bonuses (the preheat-
+        // shaping refund died with the shaping)
         float nb_ = 0.0f;
         for (int k = 0; k < NB; k++) nb_ += hb[k];
-        give += 0.3f*nb_;
-        r -= give;
+        r -= 0.3f*nb_;
         for (int i = 0; i < N; i++) {
             float nt = 350.0f + (ru[b*16 + 1 + i] - 0.5f)*30.0f;
             s[i] = nt; Tsub[i] = nt; Tdeep[i] = nt;

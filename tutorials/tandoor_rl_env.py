@@ -834,9 +834,8 @@ class TandoorEnv(pufferlib.PufferEnv):
         # a coin flip but magnitude is correctly silent). The clipped
         # magnitude delta IS the deadbanded form his rule needs in a
         # noisy-thermal env.
+        # NO preheat shaping (measured off - see the polar twin)
         belt_max = belt_T.max(1)
-        below = belt_max < T_COOK_LO
-        rew += 0.05 * np.clip(belt_max - self._belt_prev, -5, 5) * below
         self._belt_prev = belt_max.copy()
         # NO temperature penalty at all (user call): the 950 K
         # structure barrier followed the 690/640 taxes out the door.
