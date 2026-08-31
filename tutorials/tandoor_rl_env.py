@@ -750,6 +750,15 @@ class TandoorEnv(pufferlib.PufferEnv):
         # spot machine one bin of eight charges and the mean diluted
         # the only signal that teaches holding the aim 8x (Suarez:
         # difference rewards, but on the RIGHT channel).
+        # MEASURED (why magnitude-delta, not Suarez's sign(delta)):
+        # dawn charging, good policy: dT_max +0.90 K/step [p10 +0.31];
+        # random policy: -0.01 +- 0.15. 6-sigma separation, 90x reward
+        # ratio - his -0.95/-0.94 disease is absent. A +-1 sign reward
+        # would pay FULL scale for the sign of the random column's
+        # noise (bad behavior here is STASIS, deltas ~0, where sign is
+        # a coin flip but magnitude is correctly silent). The clipped
+        # magnitude delta IS the deadbanded form his rule needs in a
+        # noisy-thermal env.
         belt_max = belt_T.max(1)
         below = belt_max < T_COOK_LO
         rew += 0.05 * np.clip(belt_max - self._belt_prev, -5, 5) * below
