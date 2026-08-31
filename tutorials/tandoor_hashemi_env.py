@@ -1387,7 +1387,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                             slot=in_slot[0].cpu().numpy(),
                             desc=desc[0].cpu().numpy(),
                             through=through_b[0].cpu().numpy(),
-                            u=u, el=el, az=float(az), C=C_dish)
+                            u=u, el=el, az=float(az), C=C_dish,
+                            ub=ub, naim=naim, el_b=el_b)
         # into the pot via the SHARED polar binning; rigid map between the
         # frames: theirs (x,y,z) = (y_ours, -x_ours, z_ours - H_POT)
         return self._bin_pot(dy - off[:, 0:1], dz - off[:, 1:2],
@@ -1892,7 +1893,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                     pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]),
                                     (168, 150, 122, 255))
             # strap bearings + threaded-rod ties: dish back to the rail
-            el_r = np.radians(H["el"])
+            el_r = np.radians(H.get("el_b", H["el"]))
             dstrap = np.arcsin(np.clip(0.8*a / R_rail, -1, 1))
             Cd_ = np.asarray(H["C"])
             p_up = (hdir*np.sin(el_r) + zh_*np.cos(el_r))
@@ -1910,10 +1911,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # It stays FLAT because only a flat images perfectly under a
             # deviation that sweeps 90+el; a rigidly tracked powered
             # conic measured 1.3-3.5 m rms off-design.
-            nf = u + np.array([0., 0., 1.]); nf /= np.linalg.norm(nf)
+            ub_ = np.asarray(H.get("ub", u))
+            nf = ub_ + np.array([0., 0., 1.])
+            nf /= np.linalg.norm(nf)
             Pf = np.array([X_TOWER, 0., self.z_fold])
-            inc_ = np.radians(45.0 - 0.5*H["el"])
-            e_pa = u - (u @ nf)*nf
+            inc_ = np.arccos(np.clip(abs(ub_ @ nf), 0.0, 1.0))
+            e_pa = ub_ - (ub_ @ nf)*nf
             e_pa /= max(np.linalg.norm(e_pa), 1e-9)
             e_pr = np.cross(nf, e_pa)
             t = np.linspace(0, 2*np.pi, 41)
@@ -1936,15 +1939,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             ring([X_TOWER, 0, self.z_waist], 0.12, (235, 200, 90, 255), 14)
             # THE PRIMARY, drawn as built: rim, sagged rings and
             # meridians of the actual membrane, slot as a real notch.
-            el_r0 = np.radians(H["el"])
+            el_r0 = np.radians(H.get("el_b", H["el"]))
             p_upw = hdir*np.sin(el_r0) + zh_*np.cos(el_r0)
             s_dirw = -p_upw
-            e_ppw = np.cross(u, s_dirw)
+            naim_ = np.asarray(H.get("naim", u))
+            e_ppw = np.cross(naim_, s_dirw)
+            e_ppw /= max(np.linalg.norm(e_ppw), 1e-9)
             Cd_ = np.asarray(H["C"])
-            Ml = _align_np([0., 0., 1.], u)
+            Ml = _align_np([0., 0., 1.], naim_)
             r32 = self._mem0["r"].numpy()
             s32 = self._mem0["s"].numpy()
             def _slotted(qw):
+                if self.slotless:
+                    return False       # uncut dish: no notch to draw
                 qq = qw - Cd_
                 return (qq @ s_dirw) > self.slot_r0 and \
                     abs(qq @ e_ppw) < self.slot_w2
@@ -1967,10 +1974,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                     if _slotted(pts_[k]) or _slotted(pts_[k+1]):
                         continue
                     pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]), colm)
-            for sgn_ in (1.0, -1.0):
-                q0 = Cd_ + self.slot_r0*s_dirw + sgn_*self.slot_w2*e_ppw
-                q1 = Cd_ + a*s_dirw + sgn_*self.slot_w2*e_ppw
-                pr.draw_line_3d(v3(q0), v3(q1), (235, 190, 90, 255))
+            if not self.slotless:
+                for sgn_ in (1.0, -1.0):
+                    q0 = Cd_ + self.slot_r0*s_dirw \
+                        + sgn_*self.slot_w2*e_ppw
+                    q1 = Cd_ + a*s_dirw + sgn_*self.slot_w2*e_ppw
+                    pr.draw_line_3d(v3(q0), v3(q1), (235, 190, 90, 255))
             # every traced ray, additive; spill in red
             pr.begin_blend_mode(pr.BlendMode.BLEND_ADDITIVE)
             a_hi = int(4 + 20*dim)
