@@ -742,8 +742,7 @@ class TandoorEnv(pufferlib.PufferEnv):
             okm[sel, j[sel]] = False
             rew[sel] += 0.3
         self.load_timer[can] = 0.0
-        belt_mean = belt_T.mean(1)
-        # potential-based preheat shaping on the HOTTEST bin: reward
+            # potential-based preheat shaping on the HOTTEST bin: reward
         # its temperature RISE while it is below the band (policy-
         # invariant, telescopes to zero over any closed loop). The
         # mean-based version taught the old whole-belt pot; on the
@@ -763,16 +762,11 @@ class TandoorEnv(pufferlib.PufferEnv):
         below = belt_max < T_COOK_LO
         rew += 0.05 * np.clip(belt_max - self._belt_prev, -5, 5) * below
         self._belt_prev = belt_max.copy()
-        # STRUCTURE-LIMIT PENALTY ONLY. The old pair - a tax above
-        # 690 K and a quadratic centring the belt at 640 - made
-        # scorched = 0.000 the optimum: a trained policy never once
-        # risked the 730 K line in 1.4B steps, because we had priced
-        # the hot cadence out of existence. Bread economics already
-        # regulate the cooking band (+5 cooked vs -5 scorched at
-        # 730 K); the wall itself only has a REAL limit near masonry
-        # damage. Penalize that, and let the policy discover where the
-        # cook cadence optimum actually sits.
-        rew -= 0.10 * np.clip(belt_mean - 950.0, 0, None) / 10.0
+        # NO temperature penalty at all (user call): the 950 K
+        # structure barrier followed the 690/640 taxes out the door.
+        # Bread economics (+5 cooked / -5 scorched at 730 K) and the
+        # spall event are the only thermal regulators - the policy
+        # owns the hot cadence entirely.
 
         self.ep_return += rew
         self.ep_len += 1

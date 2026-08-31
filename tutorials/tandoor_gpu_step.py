@@ -252,7 +252,7 @@ def gpu_step(env, actions):
         lo_T.scatter_(1, kb[:, None],
                       torch.where(valid, 500.0, 560.0)[:, None])
     ok_ = (~S.has_bread) & (belt_T >= lo_T) & (belt_T <= 700.0)
-    can = (S.load_timer >= 45.0) & ok_.any(1)
+    can = (S.load_timer >= env.load_period) & ok_.any(1)
     j = torch.where(ok_, belt_T,
                     torch.full_like(belt_T, -1e30)).argmax(1)
     put = can[:, None] & (torch.nn.functional.one_hot(
@@ -261,12 +261,10 @@ def gpu_step(env, actions):
     S.load_timer = torch.where(can, torch.zeros_like(S.load_timer),
                                S.load_timer)
     rew = rew + 0.3 * can.float()
-    belt_mean = belt_T.mean(1)
     belt_max = belt_T.max(1).values
     below = (belt_max < 560.0).float()
     rew = rew + 0.05 * (belt_max - S.belt_prev).clamp(-5, 5) * below
     S.belt_prev = belt_max.clone()
-    rew = rew - 0.10 * (belt_mean - 950.0).clamp(min=0) / 10.0
     rew = rew - 0.02 * (~S.jammed).float()
 
     # ---- Hashemi shaping + truncation + wrap
