@@ -871,7 +871,7 @@ kernel void step_post(
     // ---- Hashemi pointing shaping + lost counter
     float e_el2 = s[S0+32], e_az2 = s[S0+33];
     float potn = min(fabs(e_az2) + fabs(e_el2), 4.0f);
-    r += 0.1f*(s[S0+29] - potn);
+    r += 1.0f*(s[S0+29] - potn);
     s[S0+20] = e_az2; s[S0+21] = e_el2;
     bool lost = (fabs(e_az2) + fabs(e_el2)) > 3.0f;
     s[S0+16] = lost ? s[S0+16] + 1.0f : 0.0f;

@@ -544,7 +544,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         pot_now = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
         wrapped = float(self.t_solar[0]) < t_before - 1.0
         if not wrapped:
-            shape = 0.1 * (pot_prev - pot_now)
+            shape = 1.0 * (pot_prev - pot_now)
             self.rewards[:] += shape.astype(np.float32)
             self.ep_return += shape
         # EARLY EXIT, as most RL envs do: 40 consecutive steps (10 min)

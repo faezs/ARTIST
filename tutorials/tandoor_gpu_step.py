@@ -318,7 +318,7 @@ def gpu_step(env, actions):
     e_el2 = S.el_m - el0s
     e_az2 = (S.az_m - az0d) * torch.cos(torch.deg2rad(el0s))
     pot_now = (e_az2.abs() + e_el2.abs()).clamp(max=4.0)
-    rew = rew + 0.1 * (pot_prev - pot_now)
+    rew = rew + 1.0 * (pot_prev - pot_now)
     S.e_az_prev, S.e_el_prev = e_az2, e_el2
     lost = (e_az2.abs() + e_el2.abs()) > 3.0
     S.lost_ct = torch.where(lost, S.lost_ct + 1,
