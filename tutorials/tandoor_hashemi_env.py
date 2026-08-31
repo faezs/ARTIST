@@ -1662,20 +1662,25 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                 (118, 102, 84, 255))
             pr.draw_line_3d(v3([wx, -2.2, Z_ROOF]), v3([wx, 2.2, Z_ROOF]),
                             (118, 102, 84, 255))
-        # THE EXISTING POT, drawn for real (ported from the beam-down):
-        # clay barrel sunk under the workfloor, neck to the mouth
-        pot_prof = []
-        for zz in np.linspace(0.0, H_POT, 14):
-            rr_ = R_POT if zz < H_POT - 0.25 else \
-                R_MOUTH + (R_POT - R_MOUTH) * (H_POT - zz) / 0.25
-            pot_prof.append((zz, rr_))
-            ring([0, 0, zz], rr_, (150, 118, 92, 255), 28)
-        for aa in np.linspace(0, 2*np.pi, 12, endpoint=False):
+        # THE EXISTING POT: a SPHERICAL SECTION, as built - the clay
+        # urn is the sphere through the coal-bed floor (r R_POT at
+        # z 0) and the cook's mouth (R_MOUTH at H_POT); the belly
+        # between them is over a metre across, far wider than the
+        # cook. z_c and R_S solve those two circles.
+        z_c = (R_MOUTH**2 - R_POT**2 + H_POT**2) / (2.0 * H_POT)
+        R_S = float(np.hypot(R_POT, z_c))
+        r_at = lambda zz: float(np.sqrt(max(
+            R_S*R_S - (zz - z_c)**2, 1e-6)))
+        pot_prof = [(zz, r_at(zz)) for zz in np.linspace(0., H_POT, 18)]
+        for zz, rr_ in pot_prof:
+            ring([0, 0, zz], rr_, (150, 118, 92, 255), 32)
+        for aa in np.linspace(0, 2*np.pi, 16, endpoint=False):
             pts_ = [np.array([r_*np.cos(aa), r_*np.sin(aa), zz])
                     for zz, r_ in pot_prof]
             for j in range(len(pts_) - 1):
                 pr.draw_line_3d(v3(pts_[j]), v3(pts_[j+1]),
                                 (128, 100, 78, 255))
+        t_lbls = []                      # (world pos, text, color)
         # hearth glow: the coal-bed spot breathing with temperature
         t_h = float(self.T[0, self.n_belt])
         if t_h > 450.0:
@@ -1694,20 +1699,27 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             a0 = -np.pi + 2 * np.pi * k / self.n_belt
             th_ = np.linspace(a0, a0 + 2 * np.pi / self.n_belt, 8)
             col = self._heat_color(self.T[0, k])
-            for zz in (z_lo + 0.15, 0.5 * (z_lo + z_hi), z_hi - 0.10):
+            for zz in np.linspace(z_lo + 0.06, z_hi - 0.05, 6):
+                rw = r_at(zz) * 0.995
                 for j in range(7):
                     pr.draw_line_3d(
-                        v3([-R_POT*np.sin(th_[j]), R_POT*np.cos(th_[j]),
-                            zz]),
-                        v3([-R_POT*np.sin(th_[j+1]),
-                            R_POT*np.cos(th_[j+1]), zz]), col)
+                        v3([-rw*np.sin(th_[j]), rw*np.cos(th_[j]), zz]),
+                        v3([-rw*np.sin(th_[j+1]), rw*np.cos(th_[j+1]),
+                            zz]), col)
+            am_ = a0 + np.pi / self.n_belt
+            rl_ = r_at(0.5 * (z_lo + z_hi)) * 1.02
+            t_lbls.append((np.array([-rl_*np.sin(am_),
+                                     rl_*np.cos(am_),
+                                     0.5 * (z_lo + z_hi)]),
+                           f"{self.T[0, k]:.0f}", col))
             # the ROTI slapped on this wall segment: a flat disc
             # pressed against the clay, browning as it cooks, blistering
             # past half-done, charring if the wall runs to scorch
             if self.has_bread[0, k]:
                 am = a0 + np.pi / self.n_belt
-                anchor = np.array([-0.955*R_POT*np.sin(am),
-                                   0.955*R_POT*np.cos(am),
+                r_an = r_at(0.5 * (z_lo + z_hi)) * 0.955
+                anchor = np.array([-r_an*np.sin(am),
+                                   r_an*np.cos(am),
                                    0.5*(z_lo + z_hi)])
                 nrm = -anchor * [1, 1, 0]        # inward wall normal
                 fr_ = min(float(self.bread_E[0, k]) / ROTI_ENERGY, 1.0)
@@ -1724,8 +1736,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # hearth (coal-bed spot the beam lands on) and crown
         ring([0, 0, 0.03], R_POT * 0.5,
              self._heat_color(self.T[0, self.n_belt]), 18)
-        ring([0, 0, H_POT - 0.12], R_POT * 0.93,
+        ring([0, 0, H_POT - 0.12], r_at(H_POT - 0.12) * 0.97,
              self._heat_color(self.T[0, self.n_belt + 2]), 22)
+        t_lbls.append((np.array([0., R_POT * 0.35, 0.06]),
+                       f"{self.T[0, self.n_belt]:.0f}",
+                       self._heat_color(self.T[0, self.n_belt])))
+        t_lbls.append((np.array([0., r_at(H_POT-0.12)*0.8,
+                                 H_POT - 0.10]),
+                       f"{self.T[0, self.n_belt + 2]:.0f}",
+                       self._heat_color(self.T[0, self.n_belt + 2])))
+        self._pot_lbls = t_lbls
         ring([R_POT, 0, Z_DUCT], R_DUCT_H, (120, 220, 235, 255), 18,
              ax="x")
         # ---- THE KITCHEN: the workfloor over the pit. Dough comes off
@@ -2090,6 +2110,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                             cb)
             pr.end_blend_mode()
         pr.end_mode_3d()
+        for wp, txt, col in getattr(self, "_pot_lbls", []):
+            sp = pr.get_world_to_screen(v3(wp), cam)
+            if 8 < sp.x < 960 and 8 < sp.y < HT - 12:
+                pr.draw_text(txt, int(sp.x) - 12, int(sp.y) - 6, 13,
+                             (col[0], col[1], col[2], 235))
         self._draw_bread_strip(pr, 1015, 26)
         self._draw_disturbances(pr, 1015, 120)
         hud = [f"dish f {self.f_nom:.1f} m orbits fixed fold at "
