@@ -142,6 +142,57 @@ PATCHES = [
             continue
         distribution = param['distribution']
 """),
+    (ROOT / "pufferl.py",
+     """            # Logging
+            profile('train_misc', epoch)
+            losses['policy_loss'] += pg_loss.item() / self.total_minibatches
+            losses['value_loss'] += v_loss.item() / self.total_minibatches
+            losses['entropy'] += entropy_loss.item() / self.total_minibatches
+            losses['old_approx_kl'] += old_approx_kl.item() / self.total_minibatches
+            losses['approx_kl'] += approx_kl.item() / self.total_minibatches
+            losses['clipfrac'] += clipfrac.item() / self.total_minibatches
+            losses['importance'] += ratio.mean().item() / self.total_minibatches
+""",
+     """            # Logging
+            profile('train_misc', epoch)
+            # tandoor patch: accumulate the epoch's losses ON DEVICE.
+            # Seven .item() reads per minibatch each drained the whole
+            # MPS queue - the dashboard's Train.Misc wall. One sync at
+            # epoch end (the explained_variance flush) reads them all.
+            losses.setdefault('_acc', []).append(torch.stack([
+                pg_loss.detach(), v_loss.detach(),
+                entropy_loss.detach(), old_approx_kl, approx_kl,
+                clipfrac, ratio.mean().detach()]))
+"""),
+    (ROOT / "pufferl.py",
+     """        losses['explained_variance'] = explained_var.item()
+""",
+     """        # tandoor patch: ONE sync flushes the whole epoch's losses
+        # (mean over minibatches == the stock sum of x/N)
+        _la = losses.pop('_acc', None)
+        if _la is not None:
+            _lv = torch.stack(_la).mean(0).cpu()
+            for _i, _k in enumerate((
+                    'policy_loss', 'value_loss', 'entropy',
+                    'old_approx_kl', 'approx_kl', 'clipfrac',
+                    'importance')):
+                losses[_k] = float(_lv[_i])
+        losses['explained_variance'] = explained_var.item()
+"""),
+    (ROOT / "pufferl.py",
+     """            adv = advantages[idx]
+            adv = compute_puff_advantage(mb_values, mb_rewards, mb_terminals,
+                ratio, adv, config['gamma'], config['gae_lambda'],
+                config['vtrace_rho_clip'], config['vtrace_c_clip'])
+            adv = mb_advantages
+""",
+     """            # tandoor patch: stock code recomputed the minibatch
+            # advantage into a temporary and rebound adv to
+            # mb_advantages on the very next line - the result was
+            # unused (the op writes only its output buffer, a fresh
+            # advanced-indexing copy). Dead work, removed.
+            adv = mb_advantages
+"""),
 ]
 
 for path, old, new in PATCHES:
