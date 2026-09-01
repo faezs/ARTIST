@@ -193,6 +193,19 @@ PATCHES = [
             # advanced-indexing copy). Dead work, removed.
             adv = mb_advantages
 """),
+    (ROOT / "pufferl.py",
+     """                self.terminals[batch_rows, l] = d.float()
+""",
+     """                # tandoor patch: truncations were dropped (the
+                # done_mask TODO) - a guillotine cut trained as a
+                # seamless transition bootstrapped through the fresh
+                # pot's value, financing the charge-and-crash valley.
+                # Store cuts as episode ends so the advantage pass
+                # stops at the boundary.
+                self.terminals[batch_rows, l] = (
+                    d.float() + torch.as_tensor(t).to(
+                        d.device).float()).clamp(max=1.0)
+"""),
 ]
 
 for path, old, new in PATCHES:

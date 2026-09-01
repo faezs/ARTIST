@@ -84,7 +84,12 @@ def _fast_evaluate(self):
             self.actions[batch_rows, l_py] = action
             self.logprobs[batch_rows, l_py] = logprob
             self.rewards[batch_rows, l_py] = r_c
-            self.terminals[batch_rows, l_py] = d.float()
+            # truncations count as episode ends: pufferl's TODO drops
+            # them, so a guillotine cut trained as a seamless
+            # transition bootstrapped through the fresh pot's value -
+            # the financing arm of the charge-and-crash valley
+            self.terminals[batch_rows, l_py] = \
+                (d.float() + t.float()).clamp(max=1.0)
             self.values[batch_rows, l_py] = value.flatten()
             l_py += 1
             if l_py >= config['bptt_horizon']:
