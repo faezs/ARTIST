@@ -650,9 +650,13 @@ class TandoorPolarEnv(TandoorEnv):
                 self.has_bread[ar_[place], j[place]] = True
                 rew[place] += 0.3
         self.load_timer[want] = 0.0
-        # NO preheat shaping (measured off - see the gpu twin):
-        # direct-flux baking pays real reward from the first dawn
-        # minutes; the desert the shaping bridged is gone
+        # BANDED-SUM preheat potential, REINSTATED (see the rl_env
+        # twin for the full why): beam-on must pay before the first
+        # cook or the policy retreats to a soft mirror
+        rew += 0.05 * np.clip(
+            np.minimum(belt_T, T_COOK_LO)
+            - np.minimum(T[:, : self.n_belt], T_COOK_LO),
+            -5, 5).sum(1)
         self._belt_prev = belt_T.max(1).copy()
         # no temperature penalty (user call; matches the twins - and
         # heed the old warning here: this method is a FULL OVERRIDE,

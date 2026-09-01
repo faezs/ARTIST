@@ -839,7 +839,20 @@ class TandoorEnv(pufferlib.PufferEnv):
         # a coin flip but magnitude is correctly silent). The clipped
         # magnitude delta IS the deadbanded form his rule needs in a
         # noisy-thermal env.
-        # NO preheat shaping (measured off - see the polar twin)
+        # BANDED-SUM preheat potential, REINSTATED. The removal was
+        # wrong (user data: old-reward runs reached 180-360/day at
+        # warm_frac 0; without shaping the policy collapsed into
+        # soft-retreat, form_minutes 243): 'the pot cooks from
+        # minute one' was measured under the HEURISTIC - circular
+        # for a fresh policy that has not learned jam/track/aim.
+        # Beam-on must pay BEFORE the first cook. Sum of sub-453
+        # rises over ALL bins: engagement rewarded row-wide, no
+        # single-cell fixation, per-bin clamp kills overshoot pay,
+        # telescopes exactly (in-step old/new T, no belt_prev).
+        rew += 0.05 * np.clip(
+            np.minimum(belt_T, T_COOK_LO)
+            - np.minimum(T[:, : self.n_belt], T_COOK_LO),
+            -5, 5).sum(1)
         belt_max = belt_T.max(1)
         self._belt_prev = belt_max.copy()
         # NO temperature penalty at all (user call): the 950 K

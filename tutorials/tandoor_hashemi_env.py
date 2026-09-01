@@ -574,9 +574,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 # re-arms on the fresh cold pot, so a deliberate sun-loss
                 # farms it (+15% measured). Give it back at the cut -
                 # the potential telescopes to zero across the truncation.
-                # in-flight load bonuses only (shaping refund died
-                # with the shaping)
-                give = 0.3 * float(self.has_bread[i].sum())
+                # exact potential of the wiped state + in-flight
+                # load bonuses (charge-and-crash closed)
+                give = 0.3 * float(self.has_bread[i].sum()) \
+                    + 0.05 * float(np.clip(
+                        np.minimum(self.T[i, : self.n_belt],
+                                   T_COOK_LO) - 350.0,
+                        0, None).sum())
                 self.rewards[i] -= give
                 self.ep_return[i] -= give
                 # always cold on lost-sun truncation (no warm lottery)
@@ -1007,9 +1011,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # CHARGE-AND-CRASH closed (mirror of the numpy path): give
             # back the accrued preheat shaping and any load bonuses
             # still in flight before the state is overwritten
-            # in-flight load bonuses only (the preheat-shaping refund
-            # died with the shaping)
-            give = 0.3 * S.has_bread.float().sum(1)
+            # exact potential of the wiped state + in-flight load
+            # bonuses (charge-and-crash closed)
+            give = 0.3 * S.has_bread.float().sum(1) \
+                + 0.05 * (S.T[:, : self.n_belt].clamp(max=T_COOK_LO)
+                          - 350.0).clamp(min=0.0).sum(1)
             rew = rew - give * cut.float()
             S.T = torch.where(cutf, newT, S.T)
             S.T_sub = torch.where(cutf, newT, S.T_sub)

@@ -863,9 +863,13 @@ kernel void step_post(
         }
         s[S0+8] = 0.0f;
     }
-    // ---- preheat shaping on the hottest bin, below-lo gated
-    // NO preheat shaping (measured off - numpy twins); belt_prev
-    // stays as state for layout stability, nothing reads it
+    // BANDED-SUM preheat potential, REINSTATED (numpy twins):
+    // sum of sub-453 rises over all bins, in-step old vs new
+    float shp = 0.0f;
+    for (int k = 0; k < NB; k++)
+        shp += clamp(min(s[k], sp[27]) - min(Tv[k], sp[27]),
+                     -5.0f, 5.0f);
+    r += 0.05f*shp;
     float bmax = -1e30f;
     for (int k = 0; k < NB; k++) bmax = max(bmax, s[k]);
     s[S0+17] = bmax;
@@ -883,10 +887,15 @@ kernel void step_post(
     // ---- lost-sun truncation: ALWAYS COLD, charge-and-crash closed
     float trv = 0.0f;
     if (cut) {
-        // give back only the in-flight load bonuses (the preheat-
-        // shaping refund died with the shaping)
+        // charge-and-crash closed EXACTLY: refund the potential of
+        // the state being wiped (Phi of cold reset ~ 0) plus the
+        // in-flight load bonuses
         float nb_ = 0.0f;
-        for (int k = 0; k < NB; k++) nb_ += hb[k];
+        for (int k = 0; k < NB; k++) {
+            nb_ += hb[k];
+            nb_ += (0.05f/0.3f)*max(min(s[k], sp[27]) - 350.0f,
+                                    0.0f);
+        }
         r -= 0.3f*nb_;
         for (int i = 0; i < N; i++) {
             float nt = 350.0f + (ru[b*16 + 1 + i] - 0.5f)*30.0f;
