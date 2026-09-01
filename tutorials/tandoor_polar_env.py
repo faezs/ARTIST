@@ -136,6 +136,15 @@ class TandoorPolarEnv(TandoorEnv):
         # per bin (shutter threshold semantics) says where the lean's
         # dough goes; obs gains has_bread so occupancy is visible
         self.load_ctrl = int(kwargs.pop("load_ctrl", 0))
+        # reward_div: normalize the TRAINER-facing reward channel
+        # (Suarez: divide by the known max - 900 naans is the
+        # solstice ceiling). Internal bookkeeping (ep_return, infos,
+        # refunds) stays in raw naan units so dashboards remain
+        # comparable. At 900 every realistic step reward sits deep
+        # inside the trainer's +-1 clamp, so a lean pulling N naans
+        # finally earns N times one naan instead of being censored
+        # to +1, and day-returns land O(1) where vf_clip 0.2 is sane.
+        self.reward_div = float(kwargs.pop("reward_div", 1.0))
         self.n_extra_nodes = N_LOWER
         ax_now = np.arctan2(0.278, 0.961)
         ax_tgt = np.arctan2(-H_DEPTH - Z_DUCT, R_DUCT_WALL)

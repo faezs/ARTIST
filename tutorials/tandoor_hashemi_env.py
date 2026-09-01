@@ -488,6 +488,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             if getattr(self._gpu, "fused", False):
                 self.truncations[:] = \
                     self._trunc_t.cpu().numpy() > 0.5
+            rd = getattr(self, "reward_div", 1.0)
+            if rd != 1.0:
+                self.rewards[:] = self.rewards / rd
             return (self.observations, self.rewards, self.terminals,
                     self.truncations, infos)
         B = self.num_agents
@@ -622,6 +625,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self.el_m = np.clip(el1 + self.rng.normal(0, 0.3, B),
                                 self.el_min_h, self.el_max_h)
             self.az_m = np.degrees(az1) + self.rng.normal(0, 0.3, B)
+        rd = getattr(self, "reward_div", 1.0)
+        if rd != 1.0:
+            # trainer-facing channel only; ep_return/infos stay raw
+            self.rewards[:] = self.rewards / rd
         return out
 
     # ------------------------------------------------------------ mount #
@@ -1153,6 +1160,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         numpy anywhere - the fast-collect loop's contract. Identical
         trajectory to the numpy wrapper (same core, same draws)."""
         obs, rew, infos = self._gpu_full_step(actions)
+        rd = getattr(self, "reward_div", 1.0)
+        if rd != 1.0:
+            rew = rew / rd
         if not hasattr(self, "_term_zeros"):
             self._term_zeros = torch.zeros(
                 self.num_agents, dtype=torch.float32,
