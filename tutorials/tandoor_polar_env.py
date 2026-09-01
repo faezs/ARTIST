@@ -153,6 +153,16 @@ class TandoorPolarEnv(TandoorEnv):
         # sweep turns it on for scoring density; local runs read
         # day-over stats.
         self.hourly_metric = int(kwargs.pop("hourly_metric", 0))
+        # sticky_k: the engagement heads (plenum level, shutter, jam)
+        # latch - their actions only take effect on ticks where
+        # tick % sticky_k == 0; in between the latched values reapply.
+        # Cooking needs multi-minute holds, and per-step sampling
+        # noise on these heads made cook events vanish from on-policy
+        # data (measured: 1-2 cooks per 32768 sampled agent-steps even
+        # from a policy that cooks 59/2h greedy). Motors stay
+        # per-step; a held setting persists across a guillotine cut
+        # (cuts never reset engagement) and resets at day-over.
+        self.sticky_k = int(kwargs.pop("sticky_k", 0))
         self.n_extra_nodes = N_LOWER
         ax_now = np.arctan2(0.278, 0.961)
         ax_tgt = np.arctan2(-H_DEPTH - Z_DUCT, R_DUCT_WALL)
@@ -450,6 +460,12 @@ class TandoorPolarEnv(TandoorEnv):
         self.f_locked = np.full(B, self.p0)     # pressure frozen at jam
         self.decl_formed = np.full(B, self._decl())
         self.form_time = np.zeros(B)            # steps spent soft today
+        # sticky-engagement latches, as raw action values: level 4 is
+        # level_frac 1.00 (p_set = p0), 6 > thr on shutter and jam -
+        # the reset state's own actions
+        self._hold_p = np.full(B, 4, dtype=np.int64)
+        self._hold_s = np.full(B, 6, dtype=np.int64)
+        self._hold_j = np.full(B, 6, dtype=np.int64)
 
     def _decl(self):
         return float(np.degrees(np.radians(23.44) * np.sin(
@@ -458,6 +474,16 @@ class TandoorPolarEnv(TandoorEnv):
     def step(self, actions):
         B = self.num_agents
         a = np.asarray(actions).reshape(B, 3)
+        if self.sticky_k > 1:
+            if self.tick % self.sticky_k == 0:
+                self._hold_p[:] = a[:, 0]
+                self._hold_s[:] = a[:, 1]
+                self._hold_j[:] = a[:, 2]
+            else:
+                a = a.copy()      # never mutate the caller's buffer
+                a[:, 0] = self._hold_p
+                a[:, 1] = self._hold_s
+                a[:, 2] = self._hold_j
         thr = 3.5 if self.wide_shutter else 0.5
         self.p_set = self.p0 * self.level_frac[
             np.clip(a[:, 0], 0, self.N_LEVELS - 1)]
@@ -724,6 +750,9 @@ class TandoorPolarEnv(TandoorEnv):
                 self.p_set[i] = self.p_act[i] = self.p0
                 self.f_locked[i] = self.p0
                 self.jammed[i] = True
+                self._hold_p[i] = 4
+                self._hold_s[i] = 6
+                self._hold_j[i] = 6
                 self.form_time[i] = 0.0
                 self.decl_formed[i] = self._decl()
                 self.p_dist[i] = 0.0

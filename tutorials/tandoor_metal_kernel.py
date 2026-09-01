@@ -553,7 +553,7 @@ kernel void tandoor_trace(
 // _gpu_full_step + _gpu_obs (which remain the torch reference,
 // verified by tandoor_fused_step.verify_fused with zero noise).
 //
-// st layout, per env (NS = 3N+1+4NB+34):
+// st layout, per env (NS = 3N+1+4NB+38):
 //   [0..N) T   [N..2N) T_sub   [2N..3N) T_deep   [3N] T_halo
 //   [3N+1..) bread_E[NB] bread_t[NB] bread_C[NB] has_bread[NB]
 //   scalars at S0 = 3N+1+4NB:
@@ -563,6 +563,9 @@ kernel void tandoor_trace(
 //   +14 el_m +15 az_m +16 lost_ct +17 belt_prev +18 cloud
 //   +19 wind_g +20 e_az_prev +21 e_el_prev +22 spot_phi +23 spot_z
 //   +34 day_rotis (cut-immune; day-over zeroes it host-side)
+//   +35 hold_p +36 hold_s +37 hold_j (sticky-engagement latches,
+//       raw action values; day-over resets them host-side, cuts
+//       leave them alone - cuts never reset engagement)
 //   +24 dni +25 wind +26 stowed
 //   scratch (pre -> post): +27 el0s +28 az0d +29 pot_prev +30 gate
 //   +31 decl_now +32 e_el +33 e_az
@@ -582,6 +585,7 @@ kernel void tandoor_trace(
 //   63.. node_area[N] heat_cap[N] cap_sub[N] cap_deep[N]
 //        g01[N] g12[N] g2s[N]
 // ip: 0 B 1 N 2 NB 3 NH 4 NS 5 OD 6 tick (host-written per step)
+//     7 sticky_k (engagement latch period; <=1 means off)
 // ==================================================================
 
 kernel void step_pre(
@@ -631,9 +635,23 @@ kernel void step_pre(
     float e_el = s[S0+14] - el0;
     float e_az = (s[S0+15] - az0d) * cos(el0*PI_/180.0f);
     // ---- heads, jam, servo
-    s[S0+1] = sp[1] * sp[54 + clamp(a[0], 0, 6)];
-    s[S0+3] = ((float)a[1] > sp[10]) ? 1.0f : 0.0f;
-    float want = ((float)a[2] > sp[10]) ? 1.0f : 0.0f;
+    // sticky engagement: heads 0-2 latch, fresh actions land only on
+    // ticks where tick % sticky_k == 0 (numpy twin: polar step)
+    int act0 = a[0], act1 = a[1], act2 = a[2];
+    if (ip[7] > 1) {
+        if ((ip[6] % ip[7]) == 0) {
+            s[S0+35] = (float)act0;
+            s[S0+36] = (float)act1;
+            s[S0+37] = (float)act2;
+        } else {
+            act0 = (int)s[S0+35];
+            act1 = (int)s[S0+36];
+            act2 = (int)s[S0+37];
+        }
+    }
+    s[S0+1] = sp[1] * sp[54 + clamp(act0, 0, 6)];
+    s[S0+3] = ((float)act1 > sp[10]) ? 1.0f : 0.0f;
+    float want = ((float)act2 > sp[10]) ? 1.0f : 0.0f;
     bool jamming = (s[S0+4] < 0.5f) && (want > 0.5f);
     s[S0+4] = want;
     bool soft = want < 0.5f;

@@ -32,7 +32,8 @@ _SCAL = ("p_act", "p_set", "p_dist", "shutter", "jammed", "f_locked",
          "az_m", "lost_ct", "belt_prev", "cloud", "wind_g",
          "e_az_prev", "e_el_prev", "spot_phi", "spot_z", "dni",
          "wind", "stowed", "el0s", "az0d", "pot_prev", "gate",
-         "decl_now", "e_el", "e_az", "day_rotis")
+         "decl_now", "e_el", "e_az", "day_rotis",
+         "hold_p", "hold_s", "hold_j")
 
 
 def _step_params(env):
@@ -116,7 +117,9 @@ class FusedState:
                   e_el_prev=e._e_el, spot_phi=e.spot_phi,
                   spot_z=e.spot_z,
                   dni=getattr(e, "dni", np.full(B, 700.0)),
-                  stowed=e.stowed, day_rotis=e.day_rotis)
+                  stowed=e.stowed, day_rotis=e.day_rotis,
+                  hold_p=e._hold_p, hold_s=e._hold_s,
+                  hold_j=e._hold_j)
         for k, v in sc.items():
             st[:, S0 + _SCAL.index(k)] = np.asarray(v, dtype=np.float64)
         self.st = torch.as_tensor(st, device=dev)
@@ -155,7 +158,8 @@ class FusedState:
         self.trunc = z(B)
         self.diag = z(B, 8)
         self.sp = torch.as_tensor(_step_params(e), device=dev)
-        self.ip = torch.tensor([B, N, NB, e.N_HEADS, self.NS, OD, 0],
+        self.ip = torch.tensor([B, N, NB, e.N_HEADS, self.NS, OD, 0,
+                                int(getattr(e, "sticky_k", 0))],
                                dtype=torch.int32, device=dev)
         L = e._pts_l.shape[0]
         self.tdims = torch.tensor([B, self.P, L, N],
@@ -314,6 +318,9 @@ def _day_over(env, F, infos):
     S.p_set.fill_(env.p0)
     S.p_act.fill_(env.p0)
     S.shutter.fill_(1.0)
+    S.hold_p.fill_(4.0)
+    S.hold_s.fill_(6.0)
+    S.hold_j.fill_(6.0)
     S.soil.copy_(0.90 + 0.08 * S.u(B))
     S.el_m.copy_((el1 + 0.3 * S.n(B)).clamp(env.el_min_h,
                                             env.el_max_h))

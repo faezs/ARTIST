@@ -1123,6 +1123,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.p_set = torch.full_like(S.p_set, self.p0)
             S.p_act = torch.full_like(S.p_act, self.p0)
             S.shutter = torch.ones_like(S.shutter)
+            S.hold_p = torch.full_like(S.hold_p, 4.0)
+            S.hold_s = torch.full_like(S.hold_s, 6.0)
+            S.hold_j = torch.full_like(S.hold_j, 6.0)
             S.soil = 0.90 + 0.08 * S.u(B)
             S.el_m = (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
                                                 self.el_max_h)

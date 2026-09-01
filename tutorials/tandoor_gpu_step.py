@@ -54,6 +54,9 @@ class GpuState:
         self.dni = f(getattr(e, "dni", np.full(e.num_agents, 700.0)))
         self.e_az_prev = f(e._e_az)
         self.e_el_prev = f(e._e_el)
+        self.hold_p = f(e._hold_p)
+        self.hold_s = f(e._hold_s)
+        self.hold_j = f(e._hold_j)
         self.node_area = f(e.node_area)[None, :]
         self.node_heat_cap = f(e.node_heat_cap)
         self.T_sub = f(e.T_sub); self.T_deep = f(e.T_deep)
@@ -116,10 +119,23 @@ def gpu_step(env, actions):
     e_az = (S.az_m - az0d) * torch.cos(torch.deg2rad(el0s))
 
     # ---- polar step: heads, jam, servo
+    # sticky engagement: heads 0-2 latch, fresh actions land only on
+    # ticks where tick % sticky_k == 0 (numpy twin: polar step)
+    a0, a1, a2 = a[:, 0], a[:, 1], a[:, 2]
+    k_st = int(getattr(env, "sticky_k", 0))
+    if k_st > 1:
+        if int(env.tick) % k_st == 0:
+            S.hold_p = a0.float()
+            S.hold_s = a1.float()
+            S.hold_j = a2.float()
+        else:
+            a0 = S.hold_p.long()
+            a1 = S.hold_s.long()
+            a2 = S.hold_j.long()
     thr_g = 3.5 if env.wide_shutter else 0.5
-    S.p_set = env.p0 * S.level_frac[a[:, 0].clamp(0, 6).long()]
-    S.shutter = (a[:, 1] > thr_g).float()
-    want_jam = a[:, 2] > thr_g
+    S.p_set = env.p0 * S.level_frac[a0.clamp(0, 6).long()]
+    S.shutter = (a1 > thr_g).float()
+    want_jam = a2 > thr_g
     jamming = (~S.jammed) & want_jam
     S.jammed = want_jam.clone()
     S.form_time = S.form_time + (~S.jammed).float()
