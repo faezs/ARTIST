@@ -682,6 +682,13 @@ class TandoorPolarEnv(TandoorEnv):
                 self.has_bread[ar_[place], j[place]] = True
                 rew[place] += 0.3
         self.load_timer[want] = 0.0
+        # HOLDING COST (user call): every in-flight loaf drips
+        # 0.3/loaves_per_load per step - the placement bonus is an
+        # advance repaid by dawdling, so slow-cooking bleeds and
+        # stuffing bins never pays. Boundary refunds stay at the full
+        # 0.3: the drip only makes crash-with-inflight MORE negative,
+        # so charge-and-crash remains over-closed.
+        rew -= (0.3 / self.loaves_per_load) * self.has_bread.sum(1)
         # BANDED-SUM preheat potential, REINSTATED (see the rl_env
         # twin for the full why): beam-on must pay before the first
         # cook or the policy retreats to a soft mirror

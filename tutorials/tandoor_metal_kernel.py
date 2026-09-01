@@ -881,6 +881,11 @@ kernel void step_post(
         }
         s[S0+8] = 0.0f;
     }
+    // HOLDING COST (numpy twins line for line): in-flight loaves
+    // drip 0.3/loaves_per_load per step
+    float hold_infl = 0.0f;
+    for (int k = 0; k < NB; k++) hold_infl += hb[k];
+    r -= (0.3f / sp[61]) * hold_infl;
     // BANDED-SUM preheat potential, REINSTATED (numpy twins):
     // sum of sub-453 rises over all bins, in-step old vs new
     float shp = 0.0f;

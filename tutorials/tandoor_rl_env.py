@@ -823,6 +823,9 @@ class TandoorEnv(pufferlib.PufferEnv):
                 self.has_bread[ar_[place], j[place]] = True
                 rew[place] += 0.3
         self.load_timer[want] = 0.0
+        # HOLDING COST (polar twin line for line): in-flight loaves
+        # drip 0.3/loaves_per_load per step
+        rew -= (0.3 / self.loaves_per_load) * self.has_bread.sum(1)
             # potential-based preheat shaping on the HOTTEST bin: reward
         # its temperature RISE while it is below the band (policy-
         # invariant, telescopes to zero over any closed loop). The

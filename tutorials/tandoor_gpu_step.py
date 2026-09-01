@@ -323,6 +323,10 @@ def gpu_step(env, actions):
     S.load_timer = torch.where(can, torch.zeros_like(S.load_timer),
                                S.load_timer)
     rew = rew + 0.3 * loads
+    # HOLDING COST (numpy twins line for line): in-flight loaves
+    # drip 0.3/loaves_per_load per step
+    rew = rew - (0.3 / env.loaves_per_load) \
+        * S.has_bread.float().sum(1)
     # BANDED-SUM preheat potential, REINSTATED (numpy twins line
     # for line; see rl_env for the why)
     rew = rew + 0.05 * (belt_T.clamp(max=453.0)
