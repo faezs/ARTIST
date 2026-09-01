@@ -575,8 +575,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 # farms it (+15% measured). Give it back at the cut -
                 # the potential telescopes to zero across the truncation.
                 # exact potential of the wiped state + in-flight
-                # load bonuses (charge-and-crash closed)
+                # load bonuses + accrued doneness (charge-and-crash
+                # closed)
                 give = 0.3 * float(self.has_bread[i].sum()) \
+                    + 2.0 * float(np.clip(
+                        self.bread_E[i] / self.roti_energy,
+                        0.0, 1.0).sum()) \
                     + 0.05 * float(np.clip(
                         np.minimum(self.T[i, : self.n_belt],
                                    T_COOK_LO) - 350.0,
@@ -1014,6 +1018,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # exact potential of the wiped state + in-flight load
             # bonuses (charge-and-crash closed)
             give = 0.3 * S.has_bread.float().sum(1) \
+                + 2.0 * (S.bread_E / self.roti_energy) \
+                .clamp(0.0, 1.0).sum(1) \
                 + 0.05 * (S.T[:, : self.n_belt].clamp(max=T_COOK_LO)
                           - 350.0).clamp(min=0.0).sum(1)
             rew = rew - give * cut.float()
@@ -1075,7 +1081,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._hr_mark = hr
         if float(self.t_solar[0]) >= 16.0:
             # end-of-day stuff-the-oven closed (mirror of numpy paths)
-            inflight = 0.3 * S.has_bread.float().sum(1)
+            inflight = 0.3 * S.has_bread.float().sum(1) \
+                + 2.0 * (S.bread_E / self.roti_energy) \
+                .clamp(0.0, 1.0).sum(1)
             rew = rew - inflight
             S.ep_return = S.ep_return - inflight
             infos.append({

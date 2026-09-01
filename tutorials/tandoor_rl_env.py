@@ -732,6 +732,10 @@ class TandoorEnv(pufferlib.PufferEnv):
         # sits there trading heat). At E -> E_r the driving gap is
         # T_wall - 400: the old baking-band condition to FINISH a
         # loaf is unchanged; fresh dough just drinks faster.
+        # DONENESS POTENTIAL, phi_old (polar twin line for line):
+        # in-oven doneness at step start, before any bread energy moves
+        phi_old = np.clip(self.bread_E / self.roti_energy,
+                          0.0, 1.0).sum(1)
         t_dough = T_AMB + 100.0 * np.clip(
             np.maximum(self.bread_E, 0.0) / self.roti_energy, 0.0, 1.0)
         q_b = self.has_bread * h_bread * (belt_T - t_dough)
@@ -826,6 +830,10 @@ class TandoorEnv(pufferlib.PufferEnv):
         # HOLDING COST (polar twin line for line): in-flight loaves
         # drip 0.3/loaves_per_load per step
         rew -= (0.3 / self.loaves_per_load) * self.has_bread.sum(1)
+        # DONENESS POTENTIAL (polar twin line for line): +2 per full
+        # loaf-equivalent of energy INTO dough, telescoped
+        rew += 2.0 * (np.clip(self.bread_E / self.roti_energy,
+                              0.0, 1.0).sum(1) - phi_old)
             # potential-based preheat shaping on the HOTTEST bin: reward
         # its temperature RISE while it is below the band (policy-
         # invariant, telescopes to zero over any closed loop). The
@@ -875,8 +883,11 @@ class TandoorEnv(pufferlib.PufferEnv):
         if day_over.any():
             # end-of-day stuff-the-oven closed: a loaf loaded in the
             # last minutes was paid +0.3 but can never cook - charge
-            # the bonus back when the day wipes it
-            inflight = 0.3 * self.has_bread[day_over].sum(1)
+            # the bonus back when the day wipes it (plus accrued
+            # doneness potential of the wiped dough)
+            inflight = 0.3 * self.has_bread[day_over].sum(1) \
+                + 2.0 * np.clip(self.bread_E[day_over]
+                                / self.roti_energy, 0.0, 1.0).sum(1)
             self.rewards[day_over] -= inflight.astype(np.float32)
             self.ep_return[day_over] -= inflight
             infos.append({

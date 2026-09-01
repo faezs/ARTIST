@@ -556,6 +556,12 @@ class TandoorPolarEnv(TandoorEnv):
                                         self.soil).numpy()
         gate = self.dni * cosf * self.shutter * self.jammed
         q_solar = per_dni * gate[:, None] * 0.85
+        # DONENESS POTENTIAL, phi_old: total in-oven doneness at step
+        # start, BEFORE any bread energy moves (direct beam below,
+        # wall exchange, pulls, placements). phi = sum clip(E/E_r,0,1)
+        # - empty bins are 0 (pulls zero bread_E with has_bread)
+        phi_old = np.clip(self.bread_E / self.roti_energy,
+                          0.0, 1.0).sum(1)
         if getattr(self, "spot_bread", 0):
             ph_, zt_ = self._spot_view
             ar = np.arange(len(ph_))
@@ -689,6 +695,15 @@ class TandoorPolarEnv(TandoorEnv):
         # 0.3: the drip only makes crash-with-inflight MORE negative,
         # so charge-and-crash remains over-closed.
         rew -= (0.3 / self.loaves_per_load) * self.has_bread.sum(1)
+        # DONENESS POTENTIAL (user call): +2 per full loaf-equivalent
+        # of energy INTO dough, paid the step the spot delivers it -
+        # the dense aim-at-the-roti channel the +5 was too far
+        # downstream to provide. Telescopes exactly: a pull drops phi
+        # by 1 (net +5-2 that step), scorch and boundary wipes refund
+        # accrued doneness. At full flux ~+0.05/loaf-step, it beats
+        # the -0.033 holding rent - cooking pays, dawdling bleeds.
+        rew += 2.0 * (np.clip(self.bread_E / self.roti_energy,
+                              0.0, 1.0).sum(1) - phi_old)
         # BANDED-SUM preheat potential, REINSTATED (see the rl_env
         # twin for the full why): beam-on must pay before the first
         # cook or the policy retreats to a soft mirror
@@ -728,7 +743,9 @@ class TandoorPolarEnv(TandoorEnv):
             # end-of-day stuff-the-oven closed: a loaf loaded in the
             # last minutes was paid +0.3 but can never cook - charge
             # the bonus back when the day wipes it
-            inflight = 0.3 * self.has_bread[day_over].sum(1)
+            inflight = 0.3 * self.has_bread[day_over].sum(1) \
+                + 2.0 * np.clip(self.bread_E[day_over]
+                                / self.roti_energy, 0.0, 1.0).sum(1)
             self.rewards[day_over] -= inflight.astype(np.float32)
             self.ep_return[day_over] -= inflight
             infos.append({

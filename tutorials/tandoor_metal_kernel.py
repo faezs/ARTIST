@@ -767,6 +767,11 @@ kernel void step_post(
         p_in += pv[i];
     }
     p_in *= gate;
+    // DONENESS POTENTIAL, phi_old (numpy twins line for line):
+    // in-oven doneness at step start, before any bread energy moves
+    float phi_old = 0.0f;
+    for (int k = 0; k < NB; k++)
+        phi_old += clamp(bE[k]/sp[19], 0.0f, 1.0f);
     // ---- spot_bread: the loaf takes the beam directly
     int kb = 0; float validc = 0.0f, q_direct = 0.0f;
     if (sp[25] > 0.5f) {
@@ -886,6 +891,12 @@ kernel void step_post(
     float hold_infl = 0.0f;
     for (int k = 0; k < NB; k++) hold_infl += hb[k];
     r -= (0.3f / sp[61]) * hold_infl;
+    // DONENESS POTENTIAL (numpy twins line for line): +2 per full
+    // loaf-equivalent of energy INTO dough, telescoped
+    float phi_new = 0.0f;
+    for (int k = 0; k < NB; k++)
+        phi_new += clamp(bE[k]/sp[19], 0.0f, 1.0f);
+    r += 2.0f*(phi_new - phi_old);
     // BANDED-SUM preheat potential, REINSTATED (numpy twins):
     // sum of sub-453 rises over all bins, in-step old vs new
     float shp = 0.0f;
@@ -916,6 +927,7 @@ kernel void step_post(
         float nb_ = 0.0f;
         for (int k = 0; k < NB; k++) {
             nb_ += hb[k];
+            nb_ += (2.0f/0.3f)*clamp(bE[k]/sp[19], 0.0f, 1.0f);
             nb_ += (0.05f/0.3f)*max(min(s[k], sp[27]) - 350.0f,
                                     0.0f);
         }

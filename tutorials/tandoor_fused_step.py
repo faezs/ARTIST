@@ -270,7 +270,8 @@ def _day_over(env, F, infos):
     from tandoor_mount_batch import solar_batch
     S, B, dev = F, env.num_agents, env.device
     N = env.n_nodes
-    inflight = 0.3 * S.has_bread.sum(1)
+    inflight = 0.3 * S.has_bread.sum(1) \
+        + 2.0 * (S.bread_E / env.roti_energy).clamp(0.0, 1.0).sum(1)
     rew = F.rew - inflight
     S.ep_return.sub_(inflight)
     infos.append({

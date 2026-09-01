@@ -200,6 +200,9 @@ def gpu_step(env, actions):
     gate = dni * cosf * S.shutter * S.jammed.float()
     q_solar = per * gate[:, None] * 0.85
     p_in = per.sum(1) * gate
+    # DONENESS POTENTIAL, phi_old (numpy twins line for line):
+    # in-oven doneness at step start, before any bread energy moves
+    phi_old = (S.bread_E / env.roti_energy).clamp(0.0, 1.0).sum(1)
     if getattr(env, "spot_bread", 0):
         from tandoor_polar_env import (SPOT_AREA, Z_BAKE_LO, Z_CROWN)
         import numpy as _np
@@ -327,6 +330,10 @@ def gpu_step(env, actions):
     # drip 0.3/loaves_per_load per step
     rew = rew - (0.3 / env.loaves_per_load) \
         * S.has_bread.float().sum(1)
+    # DONENESS POTENTIAL (numpy twins line for line): +2 per full
+    # loaf-equivalent of energy INTO dough, telescoped
+    rew = rew + 2.0 * ((S.bread_E / env.roti_energy)
+                       .clamp(0.0, 1.0).sum(1) - phi_old)
     # BANDED-SUM preheat potential, REINSTATED (numpy twins line
     # for line; see rl_env for the why)
     rew = rew + 0.05 * (belt_T.clamp(max=453.0)
