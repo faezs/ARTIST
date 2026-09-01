@@ -147,6 +147,12 @@ class TandoorPolarEnv(TandoorEnv):
         # finally earns N times one naan instead of being censored
         # to +1, and day-returns land O(1) where vf_clip 0.2 is sane.
         self.reward_div = float(kwargs.pop("reward_div", 1.0))
+        # hourly_metric: rotis_per_hour emission. OFF by default -
+        # the hour-boundary .mean() sync drains the whole async
+        # queue (measured: 315K -> 112.5K SPS on MPS). The Modal
+        # sweep turns it on for scoring density; local runs read
+        # day-over stats.
+        self.hourly_metric = int(kwargs.pop("hourly_metric", 0))
         self.n_extra_nodes = N_LOWER
         ax_now = np.arctan2(0.278, 0.961)
         ax_tgt = np.arctan2(-H_DEPTH - Z_DUCT, R_DUCT_WALL)
@@ -673,7 +679,9 @@ class TandoorPolarEnv(TandoorEnv):
         infos = []
         ts0 = float(self.t_solar[0])
         hr = int(ts0)
-        if hr > getattr(self, "_hr_mark", 8) and ts0 < 16.0:
+        if self.hourly_metric \
+                and hr > getattr(self, "_hr_mark", 8) \
+                and ts0 < 16.0:
             infos.append({"rotis_per_hour":
                           float(self.day_rotis.mean())
                           - getattr(self, "_hr_rotis", 0.0),

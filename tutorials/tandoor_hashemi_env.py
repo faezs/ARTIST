@@ -1063,7 +1063,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         infos = []
         ts0 = float(self.t_solar[0])
         hr = int(ts0)
-        if hr > getattr(self, "_hr_mark", 8) and ts0 < 16.0:
+        if getattr(self, "hourly_metric", 0) \
+                and hr > getattr(self, "_hr_mark", 8) \
+                and ts0 < 16.0:
             cur = float(S.day_rotis.mean())
             infos.append({"rotis_per_hour":
                           cur - getattr(self, "_hr_rotis", 0.0),
