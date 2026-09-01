@@ -27,7 +27,11 @@ def _fast_evaluate(self):
     config = self.config
     device = config['device']
     env = self.vecenv.envs[0] if hasattr(self.vecenv, 'envs') else None
-    if env is None or not hasattr(env, 'step_torch') or not env.gpu:
+    if (env is None or not hasattr(env, 'step_torch') or not env.gpu
+            or env.num_agents != self.total_agents):
+        # the fast path is single-block by design (8192 tandoors in
+        # ONE native vec env); a split vecenv (num_envs > 1) falls
+        # back to the stock loop instead of tripping LSTM shapes
         profile.end()
         return self._orig_evaluate()
 
