@@ -96,7 +96,7 @@ def gpu_step(env, actions):
     el0s = mnt["el"]                     # (B,) deg - per-env sun
     az0d = torch.rad2deg(mnt["az"])
     # potential BEFORE this step's motor action (see the numpy path)
-    pot_prev = (S.e_az_prev.abs() + S.e_el_prev.abs()).clamp(max=8.0)
+    pot_prev = (S.e_az_prev.abs() + S.e_el_prev.abs()).clamp(max=4.0)
     r_az = (a[:, 3].clamp(0, 6).float() - 3) / 3.0 * env.RATE_AZ
     r_el = (a[:, 4].clamp(0, 6).float() - 3) / 3.0 * env.RATE_EL
     if getattr(env, "elbow_aim", 0):
@@ -318,13 +318,13 @@ def gpu_step(env, actions):
     # ---- Hashemi shaping + truncation + wrap
     e_el2 = S.el_m - el0s
     e_az2 = (S.az_m - az0d) * torch.cos(torch.deg2rad(el0s))
-    pot_now = (e_az2.abs() + e_el2.abs()).clamp(max=8.0)
+    pot_now = (e_az2.abs() + e_el2.abs()).clamp(max=4.0)
     rew = rew + 1.0 * (pot_prev - pot_now)
     S.e_az_prev, S.e_el_prev = e_az2, e_el2
-    lost = (e_az2.abs() + e_el2.abs()) > 8.0
+    lost = (e_az2.abs() + e_el2.abs()) > 3.0
     S.lost_ct = torch.where(lost, S.lost_ct + 1,
                             torch.zeros_like(S.lost_ct))
-    cut = S.lost_ct >= 480
+    cut = S.lost_ct >= 40
 
     S.ep_return = S.ep_return + rew
     S.ep_len = S.ep_len + 1

@@ -615,7 +615,7 @@ kernel void step_pre(
     float el0 = aux[b*8+0];
     float az0d = aux[b*8+1] * 180.0f / PI_;
     // ---- potential BEFORE this step's motor action
-    float potp = min(fabs(s[S0+20]) + fabs(s[S0+21]), 8.0f);
+    float potp = min(fabs(s[S0+20]) + fabs(s[S0+21]), 4.0f);
     // ---- motors + spot jogs
     float r_az = (float)(clamp(a[3], 0, 6) - 3) / 3.0f * sp[2];
     float r_el = (float)(clamp(a[4], 0, 6) - 3) / 3.0f * sp[3];
@@ -876,12 +876,12 @@ kernel void step_post(
     r += -0.02f*((s[S0+4] < 0.5f) ? 1.0f : 0.0f);
     // ---- Hashemi pointing shaping + lost counter
     float e_el2 = s[S0+32], e_az2 = s[S0+33];
-    float potn = min(fabs(e_az2) + fabs(e_el2), 8.0f);
+    float potn = min(fabs(e_az2) + fabs(e_el2), 4.0f);
     r += 1.0f*(s[S0+29] - potn);
     s[S0+20] = e_az2; s[S0+21] = e_el2;
-    bool lost = (fabs(e_az2) + fabs(e_el2)) > 8.0f;
+    bool lost = (fabs(e_az2) + fabs(e_el2)) > 3.0f;
     s[S0+16] = lost ? s[S0+16] + 1.0f : 0.0f;
-    bool cut = s[S0+16] >= 480.0f;
+    bool cut = s[S0+16] >= 40.0f;
     s[S0+12] += r;
     s[S0+13] += 1.0f;
     // ---- lost-sun truncation: ALWAYS COLD, charge-and-crash closed

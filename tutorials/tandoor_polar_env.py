@@ -676,7 +676,11 @@ class TandoorPolarEnv(TandoorEnv):
         if hr > getattr(self, "_hr_mark", 8) and ts0 < 16.0:
             infos.append({"rotis_per_hour":
                           float(self.day_rotis.mean())
-                          - getattr(self, "_hr_rotis", 0.0)})
+                          - getattr(self, "_hr_rotis", 0.0),
+                          "rotis_per_day":
+                          float(self.day_rotis.mean()),
+                          "scorched":
+                          float(self.ep_scorch.mean())})
             self._hr_rotis = float(self.day_rotis.mean())
             self._hr_mark = hr
         if day_over.any():

@@ -248,7 +248,9 @@ def fused_full_step(env, actions):
         # metric (one device sync per sim-hour, 1/240 steps)
         cur = float(F.day_rotis.mean())
         infos.append({"rotis_per_hour":
-                      cur - getattr(env, "_hr_rotis", 0.0)})
+                      cur - getattr(env, "_hr_rotis", 0.0),
+                      "rotis_per_day": cur,
+                      "scorched": float(F.ep_scorch.mean())})
         env._hr_rotis = cur
         env._hr_mark = hr
     if ts0 >= 16.0:
