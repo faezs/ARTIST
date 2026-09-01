@@ -1055,13 +1055,21 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         else:
             self._trunc_live = False
         infos = []
+        ts0 = float(self.t_solar[0])
+        hr = int(ts0)
+        if hr > getattr(self, "_hr_mark", 8) and ts0 < 16.0:
+            cur = float(S.day_rotis.mean())
+            infos.append({"rotis_per_hour":
+                          cur - getattr(self, "_hr_rotis", 0.0)})
+            self._hr_rotis = cur
+            self._hr_mark = hr
         if float(self.t_solar[0]) >= 16.0:
             # end-of-day stuff-the-oven closed (mirror of numpy paths)
             inflight = 0.3 * S.has_bread.float().sum(1)
             rew = rew - inflight
             S.ep_return = S.ep_return - inflight
             infos.append({
-                "rotis_per_day": float(S.ep_rotis.mean()),
+                "rotis_per_day": float(S.day_rotis.mean()),
                 "scorched": float(S.ep_scorch.mean()),
                 "spall_events": float(S.ep_spall.mean()),
                 "form_minutes": float(S.form_time.mean() * self.dt / 60),
@@ -1096,8 +1104,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                    torch.full((B,), 300.0, device=dev))
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                        "ep_len", "bread_E", "bread_t", "bread_C",
-                       "form_time", "wind_g", "cloud", "p_dist"):
+                       "form_time", "wind_g", "cloud", "p_dist",
+                       "day_rotis"):
                 setattr(S, nm, torch.zeros_like(getattr(S, nm)))
+            self._hr_mark = 8
+            self._hr_rotis = 0.0
             S.has_bread = torch.zeros_like(S.has_bread)
             S.p_set = torch.full_like(S.p_set, self.p0)
             S.p_act = torch.full_like(S.p_act, self.p0)

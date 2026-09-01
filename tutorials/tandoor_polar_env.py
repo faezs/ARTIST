@@ -80,8 +80,10 @@ SPOT_Z0 = 0.5 * (Z_BAKE_LO + Z_CROWN)
 SPOT_PHI_RANGE = (SPOT_PHI0 - np.radians(110.0),
                   SPOT_PHI0 + np.radians(110.0))
 SPOT_Z_RANGE = (-2.05, -0.30)
-RATE_SPOT_PHI = 4.0    # deg/s of spot azimuth slew
-RATE_SPOT_Z = 0.04     # m/s of spot height slew
+RATE_SPOT_PHI = 0.5    # deg/s of spot slew: 7.5 deg/step, sixth-bin
+                       # resolution (4.0 teleported 60 deg/step -
+                       # more than a whole bin; aiming was bang-bang)
+RATE_SPOT_Z = 0.005    # m/s: 75 mm/step (was 600)
 R_DUCT_WALL = float(np.sqrt(R_SPH**2 - (Z_DUCT - Z_CPOT)**2))
 THROW = 3.5           # mirror -> duct mouth [m]
 
@@ -612,6 +614,7 @@ class TandoorPolarEnv(TandoorEnv):
         rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1) \
             - 0.5 * spall
         self.ep_rotis += cooked.sum(1)
+        self.day_rotis += cooked.sum(1)
         self.ep_scorch += scorched.sum(1)
         done_bread = cooked | scorched
         self.has_bread &= ~done_bread
@@ -664,6 +667,14 @@ class TandoorPolarEnv(TandoorEnv):
         self.truncations[:] = False
         self.rewards[:] = rew.astype(np.float32)
         infos = []
+        ts0 = float(self.t_solar[0])
+        hr = int(ts0)
+        if hr > getattr(self, "_hr_mark", 8) and ts0 < 16.0:
+            infos.append({"rotis_per_hour":
+                          float(self.day_rotis.mean())
+                          - getattr(self, "_hr_rotis", 0.0)})
+            self._hr_rotis = float(self.day_rotis.mean())
+            self._hr_mark = hr
         if day_over.any():
             # end-of-day stuff-the-oven closed: a loaf loaded in the
             # last minutes was paid +0.3 but can never cook - charge
@@ -672,7 +683,8 @@ class TandoorPolarEnv(TandoorEnv):
             self.rewards[day_over] -= inflight.astype(np.float32)
             self.ep_return[day_over] -= inflight
             infos.append({
-                "rotis_per_day": float(self.ep_rotis[day_over].mean()),
+                "rotis_per_day": float(
+                    self.day_rotis[day_over].mean()),
                 "scorched": float(self.ep_scorch[day_over].mean()),
                 "spall_events": float(self.ep_spall[day_over].mean()),
                 "form_minutes": float(
@@ -711,6 +723,7 @@ class TandoorPolarEnv(TandoorEnv):
                 self.bread_C[i] = 0.0     # fresh dough carries no char
                 self.load_timer[i] = 0.0
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
+                self.day_rotis[i] = 0.0
                 self.ep_spall[i] = 0.0
                 self.ep_return[i] = self.ep_len[i] = 0.0
         self.observations[:] = self._obs()

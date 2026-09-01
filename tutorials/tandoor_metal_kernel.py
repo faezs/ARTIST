@@ -562,6 +562,7 @@ kernel void tandoor_trace(
 //   +10 ep_scorch +11 ep_spall +12 ep_return +13 ep_len
 //   +14 el_m +15 az_m +16 lost_ct +17 belt_prev +18 cloud
 //   +19 wind_g +20 e_az_prev +21 e_el_prev +22 spot_phi +23 spot_z
+//   +34 day_rotis (cut-immune; day-over zeroes it host-side)
 //   +24 dni +25 wind +26 stowed
 //   scratch (pre -> post): +27 el0s +28 az0d +29 pot_prev +30 gate
 //   +31 decl_now +32 e_el +33 e_az
@@ -828,6 +829,7 @@ kernel void step_post(
     }
     r += 5.0f*cooked_n - 5.0f*scorch_n - 0.5f*spall;
     s[S0+9] += cooked_n;
+    s[S0+34] += cooked_n;    // day_rotis: cut-immune daily count
     s[S0+10] += scorch_n;
     s[S0+8] += dt;
     // ---- the lean's dough (numpy twins line for line): either the

@@ -45,6 +45,7 @@ class GpuState:
         self.load_timer = f(e.load_timer); self.has_bread = bl(e.has_bread)
         self.bread_E = f(e.bread_E); self.bread_t = f(e.bread_t)
         self.ep_rotis = f(e.ep_rotis); self.ep_scorch = f(e.ep_scorch)
+        self.day_rotis = f(e.day_rotis)
         self.ep_spall = f(e.ep_spall); self.ep_return = f(e.ep_return)
         self.ep_len = f(e.ep_len); self.soil = f(e.soil)
         self.el_m = f(e.el_m); self.az_m = f(e.az_m)
@@ -260,6 +261,7 @@ def gpu_step(env, actions):
     rew = rew + 5.0*cooked.float().sum(1) - 5.0*scorched.float().sum(1) \
         - 0.5*spall.float()
     S.ep_rotis = S.ep_rotis + cooked.float().sum(1)
+    S.day_rotis = S.day_rotis + cooked.float().sum(1)
     S.ep_scorch = S.ep_scorch + scorched.float().sum(1)
     done_b = cooked | scorched
     S.has_bread = S.has_bread & ~done_b

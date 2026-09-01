@@ -32,7 +32,7 @@ _SCAL = ("p_act", "p_set", "p_dist", "shutter", "jammed", "f_locked",
          "az_m", "lost_ct", "belt_prev", "cloud", "wind_g",
          "e_az_prev", "e_el_prev", "spot_phi", "spot_z", "dni",
          "wind", "stowed", "el0s", "az0d", "pot_prev", "gate",
-         "decl_now", "e_el", "e_az")
+         "decl_now", "e_el", "e_az", "day_rotis")
 
 
 def _step_params(env):
@@ -116,7 +116,7 @@ class FusedState:
                   e_el_prev=e._e_el, spot_phi=e.spot_phi,
                   spot_z=e.spot_z,
                   dni=getattr(e, "dni", np.full(B, 700.0)),
-                  stowed=e.stowed)
+                  stowed=e.stowed, day_rotis=e.day_rotis)
         for k, v in sc.items():
             st[:, S0 + _SCAL.index(k)] = np.asarray(v, dtype=np.float64)
         self.st = torch.as_tensor(st, device=dev)
@@ -241,7 +241,17 @@ def fused_full_step(env, actions):
                   F.diag, a32)
     env.tick += 1
     infos = []
-    if float(env.t_solar[0]) >= 16.0:
+    ts0 = float(env.t_solar[0])
+    hr = int(ts0)
+    if hr > getattr(env, "_hr_mark", 8) and ts0 < 16.0:
+        # rotis_per_hour: 8x denser scoring stream than the day-over
+        # metric (one device sync per sim-hour, 1/240 steps)
+        cur = float(F.day_rotis.mean())
+        infos.append({"rotis_per_hour":
+                      cur - getattr(env, "_hr_rotis", 0.0)})
+        env._hr_rotis = cur
+        env._hr_mark = hr
+    if ts0 >= 16.0:
         return _day_over(env, F, infos)
     env.terminals[:] = False
     return F.obs, F.rew, infos
@@ -257,7 +267,7 @@ def _day_over(env, F, infos):
     rew = F.rew - inflight
     S.ep_return.sub_(inflight)
     infos.append({
-        "rotis_per_day": float(S.ep_rotis.mean()),
+        "rotis_per_day": float(S.day_rotis.mean()),
         "scorched": float(S.ep_scorch.mean()),
         "spall_events": float(S.ep_spall.mean()),
         "form_minutes": float(S.form_time.mean() * env.dt / 60),
@@ -292,8 +302,11 @@ def _day_over(env, F, infos):
                                torch.full((B,), 300.0, device=dev)))
     for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                "ep_len", "bread_E", "bread_t", "bread_C",
-               "form_time", "wind_g", "cloud", "p_dist"):
+               "form_time", "wind_g", "cloud", "p_dist",
+               "day_rotis"):
         getattr(S, nm).zero_()
+    env._hr_mark = 8
+    env._hr_rotis = 0.0
     S.has_bread.zero_()
     S.p_set.fill_(env.p0)
     S.p_act.fill_(env.p0)

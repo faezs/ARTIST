@@ -551,6 +551,10 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.load_timer = np.zeros(B)
         self._belt_prev = self.T[:, : self.n_belt].max(1).copy()
         self.ep_rotis = np.zeros(B)
+        # cut-IMMUNE daily naan counter: cuts zero ep_rotis, so
+        # rotis_per_day under-reported; day_rotis only day-over
+        # zeroes it, and hourly deltas come off it
+        self.day_rotis = np.zeros(B)
         self.ep_scorch = np.zeros(B)
         self.ep_spall = np.zeros(B)
         self.T_sub = self.T.copy()
@@ -780,6 +784,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1)
         rew -= 0.5 * spall
         self.ep_rotis += cooked.sum(1)
+        self.day_rotis += cooked.sum(1)
         self.ep_scorch += scorched.sum(1)
         done_bread = cooked | scorched
         self.has_bread &= ~done_bread
@@ -891,6 +896,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                 self.bread_C[i] = 0.0     # fresh dough carries no char
                 self.load_timer[i] = 0.0
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
+                self.day_rotis[i] = 0.0
                 self.ep_spall[i] = 0.0
                 self._belt_prev[i] = self.T[i, : self.n_belt].max()
                 self.ep_return[i] = self.ep_len[i] = 0.0
