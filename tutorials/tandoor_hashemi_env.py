@@ -508,7 +508,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # motor update and pot_now after super().step() from the SAME
         # unchanged arrays - the shaping term had been identically zero
         # through every training run so far.)
-        pot_prev = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
+        pot_prev = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 8.0)
         r_az = (np.clip(a[:, 3], 0, 6) - 3) / 3.0 * self.RATE_AZ
         r_el = (np.clip(a[:, 4], 0, 6) - 3) / 3.0 * self.RATE_EL
         if self.elbow_aim:
@@ -541,7 +541,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # loses the sun in ~4 steps, power stays 0, every episode
         # returns the same -172, and approx_kl sits at 0.000.
         out = super().step(a[:, :3])
-        pot_now = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
+        pot_now = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 8.0)
         wrapped = float(self.t_solar[0]) < t_before - 1.0
         if not wrapped:
             shape = 1.0 * (pot_prev - pot_now)
@@ -553,9 +553,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # episode is TRUNCATED in place: fresh pot, counters zeroed,
         # carriage re-acquired, sun left where it is. Bootstrapped via
         # truncations, not terminals.
-        lost = (np.abs(self._e_az) + np.abs(self._e_el)) > 3.0
+        lost = (np.abs(self._e_az) + np.abs(self._e_el)) > 8.0
         self._lost_ct = np.where(lost, self._lost_ct + 1, 0)
-        cut = self._lost_ct >= 40
+        cut = self._lost_ct >= 480
         if cut.any() and not wrapped:
             from tandoor_mount_batch import solar_batch
             el1v, az1v, _ = solar_batch(
