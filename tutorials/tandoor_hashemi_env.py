@@ -1126,6 +1126,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.hold_p = torch.full_like(S.hold_p, 4.0)
             S.hold_s = torch.full_like(S.hold_s, 6.0)
             S.hold_j = torch.full_like(S.hold_j, 6.0)
+            # mirror numpy day-over: membrane jammed at p0, re-formed
+            # to the NEW day's declination (per-agent, kernel formula)
+            S.jammed = torch.ones_like(S.jammed)
+            S.f_locked = torch.full_like(S.f_locked, self.p0)
+            S.decl_formed = 23.44 * torch.sin(
+                2.0 * np.pi * (284.0 + S.day_v) / 365.0)
             S.soil = 0.90 + 0.08 * S.u(B)
             S.el_m = (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
                                                 self.el_max_h)

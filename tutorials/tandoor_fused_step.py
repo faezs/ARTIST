@@ -321,6 +321,16 @@ def _day_over(env, F, infos):
     S.hold_p.fill_(4.0)
     S.hold_s.fill_(6.0)
     S.hold_j.fill_(6.0)
+    # numpy day-over also resets the membrane (jammed at p0, formed
+    # to the NEW day's declination). Missing here, day_random carried
+    # yesterday's figure into the redrawn day: E|d decl| = 19 deg ->
+    # ~3.4x dawn optics blur, on the training path only (the parity
+    # harness never crosses a day-over; probes reset() to a matched
+    # decl). Per-agent decl, same formula as the kernel.
+    S.jammed.fill_(1.0)
+    S.f_locked.fill_(env.p0)
+    S.decl_formed.copy_(23.44 * torch.sin(
+        2.0 * np.pi * (284.0 + S.day_v) / 365.0))
     S.soil.copy_(0.90 + 0.08 * S.u(B))
     S.el_m.copy_((el1 + 0.3 * S.n(B)).clamp(env.el_min_h,
                                             env.el_max_h))
