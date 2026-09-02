@@ -222,7 +222,16 @@ def fused_full_step(env, actions):
     env.t_solar += env.dt / 3600.0
     a = actions if torch.is_tensor(actions) else \
         torch.as_tensor(np.asarray(actions), device=dev)
-    a32 = a.reshape(B, env.N_HEADS).to(device=dev, dtype=torch.int32)
+    # .contiguous() is LOAD-BEARING: sample_logits returns action.T, a
+    # non-contiguous (NH,B)-strided view; reshape((B,NH)) is a no-op on
+    # it and .to() preserves the transposed strides, so the megakernel
+    # (which reads act + b*NH assuming row-major) gets every agent's
+    # heads scrambled - motors read the wrong head, drift off-sun, and
+    # the whole sampled-rollout collect loop trains on garbage while
+    # greedy (contiguous argmax) looks fine. Cost measured: champion
+    # sampled 2213 guillotine cuts vs 0 with this line.
+    a32 = a.reshape(B, env.N_HEADS).to(
+        device=dev, dtype=torch.int32).contiguous()
     rn, ru = F.draw()
     lib.step_pre(F.lv, F.st, a32, rn, ru, F.sp, F.ip, aux, F.day_v,
                  F.lat_v, env._mnt_prm, F.sigb, F.dvec, F.off, F.aim,
