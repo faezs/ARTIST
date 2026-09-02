@@ -328,7 +328,7 @@ def gpu_step(env, actions):
     rew = rew + 0.3 * loads
     # HOLDING COST (numpy twins line for line): in-flight loaves
     # drip 0.3/loaves_per_load per step
-    rew = rew - (0.3 / max(env.loaves_per_load, 1)) \
+    rew = rew - (0.03 / max(env.loaves_per_load, 1)) \
         * S.has_bread.float().sum(1)
     # DONENESS POTENTIAL (numpy twins line for line): +2 per full
     # loaf-equivalent of energy INTO dough, telescoped

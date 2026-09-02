@@ -155,7 +155,7 @@ def ledger_reconstructs(steps=200):
         pot1 = np.minimum(np.abs(e._e_az) + np.abs(e._e_el), 4.0)
         recon = (5.0 * cooked - 5.0 * scorched - 0.5 * spalls
                  + 0.3 * loads
-                 - (0.3 / e.loaves_per_load) * e.has_bread.sum(1)
+                 - (0.03 / e.loaves_per_load) * e.has_bread.sum(1)
                  + 2.0 * (phi1 - phi0)
                  + pre
                  - 0.02 * (~e.jammed)
@@ -176,7 +176,7 @@ def clamp_headroom():
     refund_max = (0.05 * nb * (T_COOK_LO - 350.0)     # preheat
                   + 0.3 * nb                          # in-flight
                   + 2.0 * nb                          # doneness
-                  + 4.0 + 0.02 + (0.3 / e.loaves_per_load) * nb)
+                  + 4.0 + 0.02 + (0.03 / e.loaves_per_load) * nb)
     lean_max = 5.3 * e.loaves_per_load
     # catastrophe corner (measure-zero-ish): ALL loaves scorching on
     # the same step a charged belt is guillotined - scorch penalties

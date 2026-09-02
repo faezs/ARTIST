@@ -829,7 +829,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.load_timer[want] = 0.0
         # HOLDING COST (polar twin line for line): in-flight loaves
         # drip 0.3/loaves_per_load per step
-        rew -= (0.3 / max(self.loaves_per_load, 1)) \
+        rew -= (0.03 / max(self.loaves_per_load, 1)) \
             * self.has_bread.sum(1)
         # DONENESS POTENTIAL (polar twin line for line): +2 per full
         # loaf-equivalent of energy INTO dough, telescoped

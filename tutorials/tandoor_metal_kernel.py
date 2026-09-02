@@ -890,7 +890,7 @@ kernel void step_post(
     // drip 0.3/loaves_per_load per step
     float hold_infl = 0.0f;
     for (int k = 0; k < NB; k++) hold_infl += hb[k];
-    r -= (0.3f / max(sp[61], 1.0f)) * hold_infl;
+    r -= (0.03f / max(sp[61], 1.0f)) * hold_infl;
     // DONENESS POTENTIAL (numpy twins line for line): +2 per full
     // loaf-equivalent of energy INTO dough, telescoped
     float phi_new = 0.0f;

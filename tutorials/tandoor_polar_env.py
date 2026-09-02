@@ -694,7 +694,7 @@ class TandoorPolarEnv(TandoorEnv):
         # stuffing bins never pays. Boundary refunds stay at the full
         # 0.3: the drip only makes crash-with-inflight MORE negative,
         # so charge-and-crash remains over-closed.
-        rew -= (0.3 / max(self.loaves_per_load, 1)) \
+        rew -= (0.03 / max(self.loaves_per_load, 1)) \
             * self.has_bread.sum(1)
         # DONENESS POTENTIAL (user call): +2 per full loaf-equivalent
         # of energy INTO dough, paid the step the spot delivers it -
