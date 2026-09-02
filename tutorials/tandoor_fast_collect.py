@@ -70,6 +70,18 @@ def _fast_evaluate(self):
             logits, value = self.policy.forward_eval(o_device, state)
             action, logprob, _ = pufferlib.pytorch.sample_logits(logits)
 
+        # STORE THE OBS BEFORE STEPPING. step_torch returns the
+        # kernel's persistent obs buffer (FusedState.obs) - the very
+        # tensor o_device already points at - so a store after the
+        # step records obs_{t+1} against action_t. Measured on the
+        # champion: train-time ratio 0.32 mean / 240 max at
+        # minibatch 0, before any update - PPO clipped 97% of every
+        # minibatch and the rest pushed at random. Invisible for a
+        # near-uniform fresh policy, fatal once it sharpens.
+        batch_rows = slice(row0, row0 + B)
+        with torch.no_grad():
+            self.observations[batch_rows, l_py] = o_device
+
         profile('env', epoch)
         o_next, r, d, t, info = env.step_torch(action)
 
@@ -79,8 +91,6 @@ def _fast_evaluate(self):
                 self.lstm_h[0] = state['lstm_h']
                 self.lstm_c[0] = state['lstm_c']
             r_c = torch.clamp(r, -1, 1)
-            batch_rows = slice(row0, row0 + B)
-            self.observations[batch_rows, l_py] = o_device
             self.actions[batch_rows, l_py] = action
             self.logprobs[batch_rows, l_py] = logprob
             self.rewards[batch_rows, l_py] = r_c
