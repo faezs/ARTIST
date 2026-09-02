@@ -68,6 +68,10 @@ sys.argv = _argv
 _sim.DEVICE = torch.device("cpu")  # RL rollouts: small batched CPU tensors
 
 SIGMA = 5.67e-8
+# wall material presets: (k [W/mK], rho*cp [J/m3K]) - see TandoorRLEnv.__init__
+WALL_MATERIALS = {"clay": (0.9, 1900 * 880),
+                  "firebrick": (1.1, 2100 * 1000),
+                  "ifb": (0.25, 550 * 1000)}
 T_AMB = 300.0
 # the REAL bakery loads from 180 C (user): the gate is physical
 # permission, not judgment - economics (doughy, char, beam service)
@@ -117,12 +121,27 @@ class TandoorEnv(pufferlib.PufferEnv):
                  z_gap=2.6, r_pit=0.42, pivot_drop=1.6, a_mem=2.45,
                  wall_obs=None, insulation=0, load_period=45.0,
                  loaves_per_load=1, roti_kj=45.0, bread_area=0.05,
+                 wall="clay", k_wall=None, rc_wall=None,
                  buf=None):
         # design levers for the 900/day campaign (defaults = current).
         # Ground truth from the real oven: up to 9-10 loaves cook
         # SIMULTANEOUSLY, Afghani-naan sized (~120-140 kJ each, ~3x
         # the generic small roti this env grew up with).
         self.insulation = bool(insulation)
+        # WALL MATERIAL (floor + walls are one spherical shell): the
+        # liner (1.5 cm face), substrate (5 cm) and deep (10 cm) shells
+        # take k and rho*cp from the preset; the soil halo is unchanged.
+        #   clay      fired clay tandoor wall      k 0.9   rho*cp 1900*880
+        #   firebrick dense fireclay brick (ASTM   k 1.1   2100 kg/m3 x 1000
+        #             C27 medium duty, 1.0-1.3 W/mK at 400-800 C)
+        #   ifb       insulating firebrick (ASTM   k 0.25  550 kg/m3 x 1000
+        #             C155 group 23, 0.20-0.30 W/mK at 400-800 C)
+        # k_wall / rc_wall override the preset numerically.
+        self.wall = str(wall)
+        if self.wall not in WALL_MATERIALS:
+            raise ValueError(f"wall={wall!r}: choose from {sorted(WALL_MATERIALS)}")
+        self.k_wall = float(WALL_MATERIALS[self.wall][0] if k_wall is None else k_wall)
+        self.rc_wall = float(WALL_MATERIALS[self.wall][1] if rc_wall is None else rc_wall)
         self.load_period = float(load_period)
         self.loaves_per_load = int(loaves_per_load)
         self.roti_energy = float(roti_kj) * 1e3
@@ -474,7 +493,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         # backfill (k ~ 0.06 W/mK). We only need the SURFACE hot - the
         # liner reaches the cooking band in tens of minutes on ~5 kW, at
         # the price of less thermal buffering when clouds pass.
-        self.node_heat_cap = self.node_area * 1900 * 880 * 0.015
+        self.node_heat_cap = self.node_area * self.rc_wall * 0.015
         # THE WALL BEHIND THE LINER (thermal audit, thermal_audit.py):
         # the lumped 1.5 cm face + steady U=0.7 drain reached the cook
         # band in 0.78 h where true 1-D conduction takes 3.80 h - the
@@ -488,7 +507,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         # spreading resistance, not a slab to ambient. The halo
         # (~12 MJ/K, tau ~2 weeks) is the transient 3-D soil term: a
         # fresh pit loses ~2x what a seasoned one does.
-        K_CLAY, K_SOIL, RC = 0.9, 0.5, 1900 * 880
+        K_CLAY, K_SOIL, RC = self.k_wall, 0.5, self.rc_wall   # K_CLAY = the wall material's k
         a_tot = float(self.node_area.sum())
         r0 = float(np.sqrt(a_tot / (4 * np.pi)))
         rf1, rf2, rf3 = r0 + 0.015, r0 + 0.065, r0 + 0.165
