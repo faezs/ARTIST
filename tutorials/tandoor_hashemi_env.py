@@ -2712,8 +2712,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                      if self.beta_cap_z is not None else ""))
                  if self.slotless else
                  f"slot cut, obstruction {self.obstruction*100:.0f}%"]
+        hud_y0, hud_dy = (290, 19) if self.receiver == "focus" else (300, 22)
         for j, l in enumerate(hud):
-            pr.draw_text(l, 1015, 300 + 22*j, 15, (225, 225, 205, 255))
+            pr.draw_text(l, 1015, hud_y0 + hud_dy*j, 15, (225, 225, 205, 255))
         # the day so far, as line graphs - control is a TRAJECTORY:
         # the instantaneous numbers hid ramps, overshoot, and the
         # schedule's sign flip
