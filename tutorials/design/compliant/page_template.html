@@ -1,0 +1,71 @@
+<title>Tandoor Flexure Register</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#eef2f6;--paper:#ffffff;--ink:#14213d;--muted:#5b6b7f;--line:#c7d0da;--block:#1f3a5f;--blockink:#eaf0f7;--flex:#d9480f;--kin:#0e7490;--soft:#e3e9f0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ground:#0f1720;--paper:#ffffff;--ink:#e6edf3;--muted:#9fb0c3;--line:#2a3948;--block:#16283d;--blockink:#dbe6f2;--flex:#ff7a2f;--kin:#22b8cf;--soft:#172230}}
+:root[data-theme="dark"]{--ground:#0f1720;--paper:#ffffff;--ink:#e6edf3;--muted:#9fb0c3;--line:#2a3948;--block:#16283d;--blockink:#dbe6f2;--flex:#ff7a2f;--kin:#22b8cf;--soft:#172230}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans",system-ui,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 24px 64px}
+header{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;border-bottom:2px solid var(--ink);padding-bottom:16px}
+h1{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;font-weight:600;font-size:34px;letter-spacing:.01em;margin:0;text-wrap:balance}
+.lede{max-width:64ch;color:var(--muted);margin:8px 0 0}
+.legend{font-family:"IBM Plex Mono",monospace;font-size:12px;display:grid;gap:6px}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{width:22px;height:4px;border-radius:2px;display:inline-block}
+section{margin-top:40px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+h2{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:24px;margin:4px 0 6px;text-wrap:balance}
+.intro{max-width:66ch;margin:0 0 16px;color:var(--ink)}
+.plate{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);gap:0;border:1px solid var(--line);margin-top:16px;background:var(--soft)}
+.paper{background:var(--paper);padding:10px;overflow-x:auto}
+.block{background:var(--block);color:var(--blockink);padding:16px 18px;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.sheet{letter-spacing:.14em;font-size:11px;opacity:.8}
+.block h3{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:19px;margin:6px 0 4px;color:#fff;text-wrap:balance}
+.ref{font-size:11.5px;opacity:.85;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:10px}
+.tb{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-variant-numeric:tabular-nums}
+.tb .k{opacity:.7;white-space:nowrap}
+.tb .v{color:#fff}
+.note{font-family:"IBM Plex Sans",sans-serif;font-size:13px;margin:12px 0 0;opacity:.92;border-top:1px solid rgba(255,255,255,.18);padding-top:10px}
+footer{margin-top:48px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--muted);max-width:80ch}
+footer code{font-family:"IBM Plex Mono",monospace;font-size:12px}
+@media (max-width:900px){.plate{grid-template-columns:1fr}header{grid-template-columns:1fr}}
+a:focus-visible{outline:2px solid var(--kin);outline-offset:2px}
+</style>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Tandoor Flexure Register</h1>
+    <p class="lede">The compliant mechanisms designed for the three mirrors of the Hashemi-frame solar tandoor concentrator, drawn from their parametric dimensions: each plate shows the element undeflected and deflected by its pseudo-rigid-body model, with the title block carrying the numbers from the design memos.</p>
+  </div>
+  <div class="legend">
+    <span><i class="sw" style="background:#c2410c"></i> flexing element (the part that bends to do the job)</span>
+    <span><i class="sw" style="background:#0e7490"></i> kinematic centre, motion, load</span>
+    <span><i class="sw" style="background:#9ca3af"></i> ground, hatched; moving body, grey</span>
+  </div>
+</header>
+
+<section>
+  <div class="eyebrow">Mirror 1 · primary pumped-membrane dish, a = 2.10 m</div>
+  <h2>Pitch, figure and carriage on Hashemi's fixed-focus mount</h2>
+  <p class="intro">The dish orbits the focus at one focal length with its attitude slaved to a focus-centred arc. Sliding the fold's shadow off the dish needs a β/2 pitch the carriage does not have; correcting the sphere's off-axis astigmatism needs the rim to become a weak toroid. Both are flexures here. The rollers and tow-wire keep rolling parts only where a 6.6 m travel forces them.</p>
+  <!--PLATES_DISH-->
+</section>
+
+<section>
+  <div class="eyebrow">Mirror 2 · beam-down fold at the focus F</div>
+  <h2>One tilt degree of freedom at 90–300 suns</h2>
+  <p class="intro">The mirror hangs face-down at F inside a fixed hood; its normal bisects the incoming beam and the vertical, so the tilt is 45° − el_b/2 and the azimuth comes free from the carriage beam. The flexures sit on the back and never see the beam. Gravity preloads the chain, and the unpowered state is the parked, beam-dumped one.</p>
+  <!--PLATES_FOLD-->
+</section>
+
+<section>
+  <div class="eyebrow">Mirror 3 · M5 ellipsoidal relay, 43 facets</div>
+  <h2>Facets that hold 10 mrad through every thermal cycle</h2>
+  <p class="intro">Each facet stands on three folded bipod feet riding parallel-motion carriages: an exact constraint that is athermal by symmetry, adjusted by hard-contact detent screws so no held position depends on a stressed flexure. The design finding that changed the build: the facets must be pressed toroids, not rolled strips.</p>
+  <!--PLATES_M5-->
+</section>
+
+<footer>
+  <p>Source of every number: the three memos on branch <code>compliant-mechanisms</code> under <code>tutorials/design/compliant/</code> (primary_dish.md, beam_down_fold.md, m5_relay.md), designed against Howell, Magleby &amp; Olsen, <em>Handbook of Compliant Mechanisms</em> (Wiley 2013). Drawings generated by <code>prbm_figures.py</code> in the same directory; deflected shapes use uniform-curvature blades and fixed-guided cubic profiles. Plate 4's arch proportions are illustrative; all other dimensions are the designed ones.</p>
+</footer>
+</div>
