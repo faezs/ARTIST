@@ -369,7 +369,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     def __init__(self, *args, a_mem=2.10, g_orbit=5.0, z_waist=None,
                  z_m5=-0.10, el_min=12.0, r_mast=0.25, n_rays=1100,
                  fuse=1, gpu=0, beta_dev=0.0, slot_flaps=0,
-                 silvered=0, m5_scale=1.0, **kwargs):
+                 silvered=0, m5_scale=1.0, zone_c=0.0, **kwargs):
         # OPTICAL-EFFICIENCY levers (defaults = current machine):
         # beta_dev: off-axis deviation [deg] of the beam from retro.
         #   The primary is a SPHERE - it has no optical axis, so the
@@ -390,6 +390,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.slot_flaps = bool(slot_flaps)
         self.silvered = bool(silvered)
         self.m5_scale = float(m5_scale)
+        # ZONED MEMBRANE (Hashemi-frame short-f design): n_zones plenum
+        # zones at p_k = p0 * (1 - zone_c * (r_k/a)^2) (zone-centre radii)
+        # make the pumped membrane a paraboloid at fast f/D - the FvK
+        # solver's per-zone pressures (solve_membrane zone_edges). At
+        # a 2.10 m, T_pre 600 N/m, f 4.0: uniform 7.0 mrad slope rms;
+        # 5 zones zone_c 0.4 -> 0.50 mrad (scratchpad membrane_f4_T600).
+        # zone_c 0 (default) = uniform pressure, the stock membrane.
+        self.zone_c = float(zone_c)
         # fold_toroid: COMPLIANT SECONDARY. The fold becomes a weak
         # toroid whose meridian curvatures re-unify the sphere's
         # off-axis tangential/sagittal foci at the waist. The needed
@@ -724,20 +732,36 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # the tube walls. The parabolic f_fit IS the best-focus
         # estimator, so the pressure tracks it; the membrane still IS
         # the R = 2f sphere's section to ~2.6 mrad, reported below.
-        lo, hi = cfg.T_pre / (4 * f_design), cfg.T_pre / (0.4 * f_design)
+        # bracket to f/D ~0.7: at f 4.0 the membrane needs ~1250 Pa and
+        # the old 0.4 cap (1235 Pa) left it unfocused on the fold
+        K_z = int(getattr(self, "n_zones", 1) or 1)
+        if self.zone_c != 0.0 and K_z > 1:
+            _edges = np.linspace(0.0, a, K_z + 1)
+            _rc = 0.5 * (_edges[:-1] + _edges[1:])
+            _shape = 1.0 - self.zone_c * (_rc / a) ** 2
+
+            def _solve(p, n=400):
+                return _sim.solve_membrane(cfg, p * _shape, n=n,
+                                           zone_edges=_edges)
+        else:
+            def _solve(p, n=400):
+                return _sim.solve_membrane(cfg, p, n=n)
+        self._solve_membrane = _solve
+        lo, hi = cfg.T_pre / (4 * f_design), cfg.T_pre / (0.25 * f_design)
+        if self.zone_c != 0.0 and K_z > 1:
+            hi = hi * 3.0          # zoned law needs ~2.5x the uniform p0
         for _ in range(22):
             mid = 0.5 * (lo + hi)
-            m = _sim.solve_membrane(cfg, mid, n=400)
+            m = _solve(mid)
             if m["z0"] + m["f_fit"] > f_design:
                 lo = mid
             else:
                 hi = mid
         self.p0 = float(0.5 * (lo + hi))
-        self.R_sphere = _sphere_R(_sim.solve_membrane(cfg, self.p0, n=400))
+        self.R_sphere = _sphere_R(_solve(self.p0))
         cfg.dp = self.p0
         self.level_frac = np.array(self.LEVEL_FRAC)   # coude's wide dump
-        mems = [_sim.solve_membrane(cfg, self.p0 * fr, n=400)
-                for fr in self.level_frac]
+        mems = [_solve(self.p0 * fr) for fr in self.level_frac]
         self._mem0 = mems[4]
         self.f_nom = float(mems[4]["z0"] + mems[4]["f_fit"])
         self.X_TOWER_C = float(X_TOWER)
