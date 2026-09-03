@@ -90,3 +90,38 @@ spot 7-13 cm radius at F, duct radius 0.20 m, M5 patch 1.11 m today).
 - **Risks**: facet forming (spring-back, 15 dies) is the critical path;
   imported mirror sheet; standing water at z = -0.36 m; the waist lamp
   port in a 300-sun bore.
+
+### Beam-down fold at F ([beam_down_fold.md](beam_down_fold.md))
+- **Kinematics from the code**: mirror tilt = 45 deg - el_b/2; with the
+  deployed beta schedule the working tilt is 15-41 deg (26 deg range,
+  with a 26 deg seam slew twice a day). Azimuth is inherited from the
+  carriage bearing (beam azimuth = carriage azimuth by construction);
+  a compliant azimuth is ruled out with numbers (a 10 mm Ti torsion bar
+  for 240 deg/day would need ~3.5 m).
+- **Tilt dof**: two monolithic wire-EDM cross-axis flexural pivots
+  (Handbook A.1.10), Ti-6Al-4V blades 0.6 x 40 x 60 mm crossing in the
+  mirror face plane (remote centre, the spot does not walk); K 5.5 N m/rad,
+  neutral 33 deg, stops 13 / 42.5 deg; 200 MPa at the stop (0.25 sigma_y
+  at 120 C), unlimited fatigue life, centre shift 0.4-0.7 mm.
+- **Thermal**: the mirror hangs face-down at F inside a fixed hood on a
+  two-arm yoke, so the flexures on its back are never illuminated; the
+  hood rim is 40 mm of insulating firebrick that takes a lost-tracking
+  spot walk for 10 min. 6061-T6 billet mirror 0.36 x 0.44 m with integral
+  fins, protected silver: +35 K at 210 W passively, water jacket reserved
+  for the 9 kW optics upgrade; flexures at ambient +15 K. Ti-6Al-4V meets
+  the p. 7 stress-relaxation warning by margin; Inconel 718 is the fallback.
+- **Actuation and preload**: stepper + 2 mm lead screw on the cool yoke,
+  Invar pushrod, 0.07 mrad per full step; gravity preload (CoM offset)
+  gives 1.7-1.85 N m toward the park stop over the whole range: zero
+  backlash, deterministic unpowered state.
+- **Fail-safe**: solenoid-held compliant pawl in series with a watchdog
+  and a 200 C snap-disc; any break parks the mirror at 42.5 deg in 0.2 s;
+  the stop envelope keeps the beam >= 34 deg below horizontal; a
+  normally-open membrane vent is the machine-level energy kill.
+- **For the simulation**: bias 1 mrad open-loop / 0.3 closed-loop,
+  hysteresis <= 0.05 mrad, thermal drift 2-3 mrad open-loop (yoke bending
+  dominates, so the beam-centroid sensor is not optional), wind jitter
+  0.3-0.5 mrad, a discrete parked state, spot-walk timing.
+- **Open question**: the compliant design closes for a fold of radius
+  <= ~0.35 m, i.e. the fold AT the focus; the env's default 1.2 m flat
+  4.8 m before the focus is a bearing-and-counterweight job.
