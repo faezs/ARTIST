@@ -150,6 +150,12 @@ def elements_1R_wires(axis_point, axis_dir, cell_centre, half, gap, phis=(-45.0,
         dd = -np.cos(np.radians(ph))*rp + np.sin(np.radians(ph))*w
         out.append(dict(kind="wire", point=p, direction=dd, wrenches=[wire(p, dd)]))
     return out
+def blade_beam(point, direction, along, w, t):
+    """A blade as an FE element plus its three FACT constraint lines: plane spanned by `direction` (the blade's
+    length, spanning the gap) and `along` (its width direction), normal = direction x along."""
+    d = np.asarray(direction, float); d /= np.linalg.norm(d); a = np.asarray(along, float); a -= d*(a@d); a /= np.linalg.norm(a)
+    n = np.cross(d, a); p = np.asarray(point, float)
+    return dict(kind="blade_beam", point=p, direction=d, normal=n, w=w, t=t, wrenches=blade(p, n, a))
 def masked_block(block, mask):
     """drop the interface cells whose centres fall outside the bulk shape (mask: callable(xyz)->bool)"""
     for itf in block["interfaces"]:
@@ -164,20 +170,27 @@ def frame_fe(block, E, G, wire_d, gap, rho=4430.0):
     it joins (node DOF = body DOF via u = u0 + theta x r).  Returns the 6x6 stiffness of the top layer w.r.t.
     ground (bottom layer fixed) about the top layer's centre, its eigen-decomposition (softest direction first),
     and the compliant-to-stiff ratio.  Units: N, mm, rad."""
-    A = np.pi*wire_d**2/4; I = np.pi*wire_d**4/64; J = 2*I
-    def beam_k(L):
-        k = np.zeros((12, 12)); EA, EI, GJ = E*A/L, E*I, G*J/L
+    A_w = np.pi*wire_d**2/4; I_w = np.pi*wire_d**4/64; J_w = 2*I_w
+    def beam_k(L, A, I1, I2, J):
+        """3-D Euler-Bernoulli beam, local x along the element; I1 bends in the local x-y plane (displacement along
+        local y, rotation about local z), I2 in the local x-z plane.  For a blade: local y = blade normal, so
+        I1 = w t^3/12 (weak) and I2 = t w^3/12 (strong)."""
+        k = np.zeros((12, 12)); EA, GJ = E*A/L, G*J/L
         k[0,0]=k[6,6]=EA; k[0,6]=k[6,0]=-EA; k[3,3]=k[9,9]=GJ; k[3,9]=k[9,3]=-GJ
-        for (i1, i2, s) in ((1, 5, 1.0), (2, 4, -1.0)):   # bending in the two planes: dofs (v, theta_z) and (w, theta_y)
-            a, b, c, d = i1, i2, i1+6, i2+6
+        for (i1, i2, s, I) in ((1, 5, 1.0, I1), (2, 4, -1.0, I2)):
+            EI = E*I; a, b, c, d = i1, i2, i1+6, i2+6
             k[a,a]+=12*EI/L**3; k[a,b]+=s*6*EI/L**2; k[a,c]+=-12*EI/L**3; k[a,d]+=s*6*EI/L**2
             k[b,a]+=s*6*EI/L**2; k[b,b]+=4*EI/L; k[b,c]+=-s*6*EI/L**2; k[b,d]+=2*EI/L
             k[c,a]+=-12*EI/L**3; k[c,b]+=-s*6*EI/L**2; k[c,c]+=12*EI/L**3; k[c,d]+=-s*6*EI/L**2
             k[d,a]+=s*6*EI/L**2; k[d,b]+=2*EI/L; k[d,c]+=-s*6*EI/L**2; k[d,d]+=4*EI/L
         return k
-    def rot_to(d):                       # rotation matrix whose first column is the beam axis d
-        d = d/np.linalg.norm(d); t = np.cross(d, [0, 0, 1.0]) if abs(d[2]) < 0.9 else np.cross(d, [1.0, 0, 0]); t /= np.linalg.norm(t); n = np.cross(d, t)
-        return np.array([d, t, n]).T
+    def rot_to(d, n=None):               # rotation matrix: columns = local x (element axis), local y (normal if given), local z
+        d = d/np.linalg.norm(d)
+        if n is None:
+            t = np.cross(d, [0, 0, 1.0]) if abs(d[2]) < 0.9 else np.cross(d, [1.0, 0, 0]); t /= np.linalg.norm(t)
+        else:
+            t = np.asarray(n, float); t = t - d*(t@d); t /= np.linalg.norm(t)
+        return np.array([d, t, np.cross(d, t)]).T
     nL = len(block["layers"]); K = np.zeros((6*nL, 6*nL)); ax = block["stack_axis"]
     centres = []
     for (a_, b_) in block["layers"]:
@@ -186,16 +199,20 @@ def frame_fe(block, E, G, wire_d, gap, rho=4430.0):
         Tm = np.eye(6); rx = np.array([[0, r[2], -r[1]], [-r[2], 0, r[0]], [r[1], -r[0], 0]]); Tm[:3, 3:] = rx; return Tm
     for i, itf in enumerate(block["interfaces"]):
         for e in itf["elements"]:
-            if e["kind"] != "wire": continue
+            if e["kind"] not in ("wire", "blade_beam"): continue
             p, d = np.asarray(e["point"]), np.asarray(e["direction"])/np.linalg.norm(e["direction"])
+            if e["kind"] == "blade_beam":
+                w_, t_ = e["w"], e["t"]; A, I1, I2, J, nrm = w_*t_, w_*t_**3/12, t_*w_**3/12, w_*t_**3/3, e["normal"]
+            else:
+                A, I1, I2, J, nrm = A_w, I_w, I_w, J_w, None
             # the wire spans the gap between layers i and i+1 along its own direction: endpoints where it meets the layer faces
             g_if = itf.get("gap", gap)
             zf0, zf1 = block["layers"][i][1], block["layers"][i + 1][0]              # the wire spans the real gap between layer faces
             t0 = (zf0 - p[ax])/d[ax] if abs(d[ax]) > 1e-6 else 0.0; t1 = (zf1 - p[ax])/d[ax] if abs(d[ax]) > 1e-6 else 0.0
             n0, n1 = p + t0*d, p + t1*d; Lw = np.linalg.norm(n1 - n0)
             if Lw < 1e-6: continue
-            kk = beam_k(Lw)
-            R = rot_to(n1 - n0); T = np.zeros((12, 12)); T[:3, :3] = T[3:6, 3:6] = T[6:9, 6:9] = T[9:, 9:] = R.T
+            kk = beam_k(Lw, A, I1, I2, J)
+            R = rot_to(n1 - n0, nrm); T = np.zeros((12, 12)); T[:3, :3] = T[3:6, 3:6] = T[6:9, 6:9] = T[9:, 9:] = R.T
             kg = T.T @ kk @ T
             M0, M1 = rigid_map(n0 - centres[i]), rigid_map(n1 - centres[i+1])
             Tb = np.zeros((12, 12)); Tb[:6, :6] = M0; Tb[6:, 6:] = M1
