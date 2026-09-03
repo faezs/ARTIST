@@ -54,3 +54,39 @@ spot 7-13 cm radius at F, duct radius 0.20 m, M5 patch 1.11 m today).
 - **Risks**: PET creep and the film strain budget; the cross-axis PRBM
   at 36 deg is at the model's edge; rain pooling on a vented face-up dish.
 
+
+### M5 relay ([m5_relay.md](m5_relay.md), geometry in [m5_relay_geometry.py](m5_relay_geometry.py))
+- **Facets must be doubly curved**: at the code's conjugates (waist
+  4.0-5.1 m, duct 0.5-1.6 m, incidence 0-50 deg) the principal radii are
+  R_t 0.93-3.7 m / R_s 0.93-1.5 m; a single-curvature strip 0.30 m long
+  has 25-93 mrad RMS slope error, so the 43 facets (0.32 m hex) are
+  press-formed toroids in 15 die families at +-5% radius, in monolithic
+  1.5 mm anodised aluminium: a bonded Al/steel or glass/Al facet bends
+  19-46 mrad over a 40 K day, a monolithic one 0.1 mrad.
+- **Facet mount**: three identical feet, each one folded 0.5 mm 301/17-7PH
+  blank = a bipod of two 2.5 x 0.5 x 40 mm strips (constrains n and t,
+  free radially: 6 constraints, exact, athermal by symmetry) on a
+  parallel-motion carriage (two 12 x 0.5 x 60 mm blades, 12.2.4/A.1.4).
+  Worst permanent stress 375 MPa at the +-30 mrad range end, < 125 MPa
+  typical; buckling 129 N/leg vs 10 N; facet modes 300-900 Hz.
+- **Adjuster / latch**: M6x1 A4 screw in a brass nut on the carriage,
+  ball tip on a hardened pad, 40 N preload spring, 24-click detent:
+  0.28 mrad/click (0.5-0.9 mm at the duct), +-30 mrad, hex key from the
+  front through an 8 mm hole in the mirror; position is a hard contact,
+  no flexure holds a setting (the p.7 relaxation rule).
+- **Global steer**: the frame (~130 kg, galvanised RHS) on three
+  blade-plus-M20 feet: 0.17 mrad/click, +-10 mrad / +-12 mm (+-17 mm at
+  the duct) for pit settlement, corrected before any facet is touched.
+- **Build and align**: brackets set by a sweep template about the fW-fT
+  axis (+-5 mrad), dies swept from two-radius arc jigs, spring-back
+  calibrated with a 240 mm sag gauge; on site an LED at the waist and a
+  bull's-eye at the duct centre, one facet at a time, 10 min each,
+  click counts logged.
+- **For the simulation**: per-facet tilt N(0, 3 mrad), radius error
+  5-7%, 2 mrad waviness, fill factor 0.975-0.98, correlated thermal
+  drift 0.7 mrad, global tilt 1 mrad / shift 3 mm, soiling 0.95 -> 0.90;
+  expected cost 3-5%. The duct test at line 347 is positional only and
+  the near-vertex facets enter it at ~78 deg: add an angular cutoff.
+- **Risks**: facet forming (spring-back, 15 dies) is the critical path;
+  imported mirror sheet; standing water at z = -0.36 m; the waist lamp
+  port in a 300-sun bore.
