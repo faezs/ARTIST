@@ -163,14 +163,38 @@ def mount_batch(env, day, lat, hour, dev):
     hvec = hvec / hvec.norm(dim=-1, keepdim=True).clamp(min=1e-9)
     p_up = hvec * torch.sin(el_r)[:, None] \
         + zhat * torch.cos(el_r)[:, None]
-    nf = ub + zhat
+    focus = getattr(env, "receiver", "fold") == "focus"
+    if focus:
+        # beam-down AT the focus on the azimuth turntable: exit toward
+        # the WEST while the sun is east (sin az > 0), EAST while it is
+        # west, at env.exit_el above horizontal (frame: x north, y east)
+        el_e = float(np.radians(env.exit_el))
+        ey = torch.where(torch.sin(az) > 0, -torch.ones_like(el),
+                         torch.ones_like(el)) * np.cos(el_e)
+        e_ex = torch.stack([torch.zeros_like(el), ey,
+                            torch.full_like(el, np.sin(el_e))], -1)
+        nf = ub - e_ex
+    else:
+        nf = ub + zhat
     nf = nf / nf.norm(dim=-1, keepdim=True)
     cosi = (ub * nf).sum(-1).abs()
     e_par = ub - (ub * nf).sum(-1, keepdim=True) * nf
     e_par = e_par / e_par.norm(dim=-1, keepdim=True)
     e_prp = torch.linalg.cross(nf, e_par)
     e_pp = torch.linalg.cross(ub, -p_up)
-    vp = torch.stack([u, P_fold, -p_up, e_pp, nf, e_par, e_prp], 1)
+    if focus:
+        # per-env chain: M2 on the exit, the leg to the fixed M3, M3's
+        # trimmed normal, and M2's parent focal length (into scb[:,1])
+        P2 = P_fold + float(env.col_dist) * e_ex
+        P3 = torch.as_tensor(env.fc_P3, dtype=u.dtype, device=dev).expand(B, 3)
+        A2 = P3 - P2
+        A2 = A2 / A2.norm(dim=-1, keepdim=True)
+        n3 = A2 + zhat
+        n3 = n3 / n3.norm(dim=-1, keepdim=True)
+        f2 = 0.5 * float(env.col_dist) * (1.0 - (e_ex * A2).sum(-1))
+        vp = torch.stack([u, P_fold, e_ex, P2, nf, A2, n3], 1)
+    else:
+        vp = torch.stack([u, P_fold, -p_up, e_pp, nf, e_par, e_prp], 1)
     Mt = M.transpose(1, 2)
     mu = torch.einsum("bij,bj->bi", Mt, -u)
     Acan = _align_batch(C["yhat"], mu)
@@ -194,6 +218,8 @@ def mount_batch(env, day, lat, hour, dev):
         torch.full_like(el, env._sc1_base))
     rscale = torch.cos(torch.deg2rad(beta_t) / 2.0)
     el_ok = ((el >= env.el_min_h) & (el <= env.el_max_h)).to(u.dtype)
+    if focus:
+        slot = f2
     scb = torch.stack([cosi, slot, kt, ks, rscale, el_ok], -1)
     return dict(vp=vp, Mt=Mt, Cd=Cd, Acan=Acan, scb=scb,
                 el=el, az=az, el_b=el_b, u=u, ub=ub, naim=naim,

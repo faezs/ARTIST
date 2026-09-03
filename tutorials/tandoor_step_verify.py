@@ -26,13 +26,22 @@ BUNDLE = pathlib.Path(__file__).parent / "puffer_tandoor" \
 B, STEPS = 32, 120
 
 
+
+def _extra_kw():
+    """extra env kwargs from TANDOOR_EXTRA_KW (JSON), so the parity
+    gates can run alternative machines (e.g. receiver='focus')"""
+    import json, os
+    return json.loads(os.environ.get("TANDOOR_EXTRA_KW", "{}"))
+
 def _env(device):
     from tandoor_hashemi_env import TandoorHashemiEnv
     with contextlib.redirect_stdout(io.StringIO()):
-        e = TandoorHashemiEnv(num_agents=B, seed=99, wide_shutter=1,
+        _kw = dict(num_agents=B, seed=99, wide_shutter=1,
                               device=device, gpu=1, n_rays=64,
                               warm_frac=1.0, day_random=0,
                               lat_random=0)
+        _kw.update(_extra_kw())
+        e = TandoorHashemiEnv(**_kw)
         e.reset(seed=99)
     # deterministic everything
     e._det_trace = True

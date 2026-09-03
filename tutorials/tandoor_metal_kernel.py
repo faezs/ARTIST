@@ -189,14 +189,29 @@ kernel void mount_solve(
     float3 hv = -(ub - ub.z*zh);
     hv = hv / max(length(hv), 1e-9f);
     float3 pup = hv*sin(elbr) + zh*cos(elbr);
-    float3 nf = normalize(ub + zh);
+    // receiver at the focus (prm[42]): the beam-down M1 sends the
+    // beam along the tilted exit prm[43..45] instead of straight down
+    // receiver at the focus (prm[42]): M1 on the azimuth turntable exits
+    // toward the WEST while the sun is east (u.y > 0), EAST while west,
+    // at prm[43] rad above horizontal; M2 prm[44] along it; M3 fixed
+    // at prm[45..47] with its normal trimmed per leg (frame x N, y E)
+    const bool fc_on = prm[42] > 0.5f;
+    float fc_ey = ((u.y > 0.0f) ? -1.0f : 1.0f) * cos(prm[43]);
+    float3 fc_ex = float3(0.0f, fc_ey, sin(prm[43]));
+    float3 nf = fc_on ? normalize(ub - fc_ex) : normalize(ub + zh);
     float cosi = fabs(dot(ub, nf));
     float3 epar = normalize(ub - dot(ub, nf)*nf);
     float3 eprp = cross(nf, epar);
     float3 epp = cross(ub, -pup);
-    // vp rows: u, Pf, -pup, epp, nf, epar, eprp
+    // vp rows: u, Pf, -pup, epp, nf, epar, eprp  (focus: u, Pf, e, P2, nf, A2, n3)
     int vb = b*21;
-    float3 rows[7] = {u, Pf, -pup, epp, nf, epar, eprp};
+    float3 fc_P2 = Pf + prm[44]*fc_ex;
+    float3 fc_P3 = float3(prm[45], prm[46], prm[47]);
+    float3 fc_A2 = normalize(fc_P3 - fc_P2);
+    float3 fc_n3 = normalize(fc_A2 + zh);
+    float fc_f2 = 0.5f*prm[44]*(1.0f - dot(fc_ex, fc_A2));
+    float3 rows[7] = {u, Pf, fc_on ? fc_ex : -pup, fc_on ? fc_P2 : epp, nf,
+                      fc_on ? fc_A2 : epar, fc_on ? fc_n3 : eprp};
     for (int r = 0; r < 7; r++) {
         vp_o[vb + r*3+0] = rows[r].x;
         vp_o[vb + r*3+1] = rows[r].y;
@@ -254,7 +269,7 @@ kernel void mount_solve(
     float rscale = cos(bt*PI_/360.0f);
     float elok = (el >= prm[40] && el <= prm[41]) ? 1.0f : 0.0f;
     int sb2 = b*6;
-    scb_o[sb2+0] = cosi; scb_o[sb2+1] = slot;
+    scb_o[sb2+0] = cosi; scb_o[sb2+1] = fc_on ? fc_f2 : slot;
     scb_o[sb2+2] = kt;   scb_o[sb2+3] = ks;
     scb_o[sb2+4] = rscale; scb_o[sb2+5] = elok;
     aux_o[b*8+0] = el;
@@ -263,6 +278,51 @@ kernel void mount_solve(
     aux_o[b*8+3] = ub.x; aux_o[b*8+4] = ub.y; aux_o[b*8+5] = ub.z;
     aux_o[b*8+6] = bt;
     aux_o[b*8+7] = 0.0f;
+}
+
+// ---- receiver-at-focus helpers (transcribed from _geo_core_focus)
+static inline bool fc_blocked(float3 p, float3 u, float3 c, float r) {
+    float3 vc = c - p;
+    float ah = dot(vc, u);
+    float3 perp = vc - ah*u;
+    return (ah > 0.0f) && (length(perp) < r);
+}
+static inline float fc_seg_dist(float3 p, float3 u, float3 A, float3 B,
+                                thread float &t_out) {
+    float3 AB = B - A;
+    float c = dot(AB, AB);
+    float3 w0 = p - A;
+    float b = dot(u, AB), d = dot(w0, u), e = dot(w0, AB);
+    float den = max(c - b*b, 1e-9f);
+    float sseg = clamp((e - b*d)/den, 0.0f, 1.0f);
+    float t = max(sseg*b - d, 0.0f);
+    t_out = t;
+    return length(p + t*u - (A + sseg*AB));
+}
+static inline float fc_parab_hit(float3 h, float3 d, float3 Fp, float3 ax,
+                                 float f2, thread float3 &X,
+                                 thread float3 &n, thread bool &valid) {
+    float3 q = h - Fp;
+    float dA = dot(d, ax);
+    float qA = dot(q, ax) + 2.0f*f2;
+    float qa = 1.0f - dA*dA;
+    float qb = 2.0f*(dot(q, d) - qA*dA);
+    float qc = dot(q, q) - qA*qA;
+    float disc = qb*qb - 4.0f*qa*qc;
+    float sq = sqrt(max(disc, 0.0f));
+    float sgn = (qb < 0.0f) ? -1.0f : 1.0f;
+    float qq = -0.5f*(qb + sgn*sq);
+    float tA = (fabs(qa) > 1e-12f) ? qq/qa : 1e30f;
+    float tB = (fabs(qq) > 1e-12f) ? qc/qq : 1e30f;
+    tA = (tA > 1e-6f) ? tA : 1e30f;
+    tB = (tB > 1e-6f) ? tB : 1e30f;
+    float t = min(tA, tB);
+    X = h + t*d;
+    valid = (disc >= 0.0f) && (t < 1e8f) && ((qA + t*dA) > 0.0f);
+    float3 rad = X - Fp;
+    float3 nn = rad/max(length(rad), 1e-9f) - ax;
+    n = nn/max(length(nn), 1e-9f);
+    return t;
 }
 
 kernel void tandoor_trace(
@@ -341,6 +401,79 @@ kernel void tandoor_trace(
     float3 p = vmatT(p_loc, Mt + b*9) + CdV;
     float3 d = normalize(vmatT(d1, Mt + b*9));
 
+    // ==== shared outputs of the two receiver chains
+    bool sh_thr = false; float sh_w = 1.0f;
+    float3 sh_h3 = float3(0.0f), sh_d3 = float3(0.0f);
+    float sh_dy = 0.0f, sh_dz = 0.0f;
+    if (sc[106] > 0.5f) {
+    // ==== RECEIVER AT THE FOCUS (sc[106..138], _build_focus_chain):
+    // M1 flat AT F -> M2 off-axis paraboloid collimator (focus F) ->
+    // M3 flat at the wall line -> chase -> M4 off-axis paraboloid at the
+    // turn (focus = duct mouth) -> duct plane. Mirrors _geo_core_focus.
+    const float3 fc_F = Pf;
+    const float fc_rm1 = sc[110];
+    const float3 fc_Ps = float3(sc[107], sc[108], sc[109]);   // strut base
+    // per-env, per-step (the exit switches sides with the sun): the
+    // mount's rows 2,3,5,6 carry e, M2, the leg A2 and M3's normal;
+    // scb[1] carries M2's parent focal length
+    const float3 fc_P2 = epp;      // vp row 3
+    const float3 fc_A2 = epar;     // vp row 5
+    const float3 fc_n3 = eprp;     // vp row 6
+    const float fc_f2 = scb[sb+1], fc_r2 = sc[118];
+    const float3 fc_P3 = float3(sc[119], sc[120], sc[121]);
+    const float fc_r3 = sc[125], fc_rbore = sc[126];
+    const float3 fc_P4 = float3(sc[127], sc[128], sc[129]);
+    const float3 fc_F4 = float3(sc[130], sc[131], sc[132]);
+    const float fc_f4 = sc[133], fc_r4 = sc[134], fc_rstrut = sc[135];
+    const float fc_zbot = sc[136], fc_xchase = sc[137], fc_ychase = sc[138];
+    const float3 fc_zh = float3(0.0f, 0.0f, 1.0f);
+    bool fc_lit = !fc_blocked(p, ut, fc_F, fc_rm1)
+               && !fc_blocked(p, ut, fc_P2, fc_r2)
+               && !fc_blocked(p, ut, fc_P3, fc_r3);
+    float fc_ts; float fc_ds = fc_seg_dist(p, ut, fc_Ps, fc_F, fc_ts);
+    fc_lit = fc_lit && (fc_ds > fc_rstrut);
+    float fc_den = dot(d, nf);
+    float fc_denu = (fabs(fc_den) > 1e-9f) ? fc_den : 1e-9f;
+    float fc_t1 = dot(fc_F - p, nf) / fc_denu;
+    float3 fc_h1 = p + fc_t1*d;
+    float fc_rad1 = length(fc_h1 - fc_F);
+    float fc_tsg; float fc_dsg = fc_seg_dist(p, d, fc_Ps, fc_F, fc_tsg);
+    bool fc_graze = (fc_dsg < fc_rstrut) && (fc_tsg < fc_t1 - 0.10f);
+    float3 fc_vc2 = fc_P2 - p;
+    float fc_tp2 = dot(fc_vc2, d);
+    float fc_perp2 = length(fc_vc2 - fc_tp2*d);
+    fc_graze = fc_graze || ((fc_perp2 < fc_r2) && (fc_tp2 > 0.0f)
+                            && (fc_tp2 < fc_t1 - 0.10f));
+    bool fc_ok = fc_lit && !fc_graze && (fc_t1 > 0.0f) && (fc_rad1 < fc_rm1);
+    float3 fc_d2 = d - 2.0f*dot(d, nf)*nf;
+    float3 fc_h2, fc_n2; bool fc_v2;
+    fc_parab_hit(fc_h1, fc_d2, fc_F, fc_A2, fc_f2, fc_h2, fc_n2, fc_v2);
+    fc_ok = fc_ok && fc_v2 && (length(fc_h2 - fc_P2) < fc_r2);
+    float3 fc_d3 = fc_d2 - 2.0f*dot(fc_d2, fc_n2)*fc_n2;
+    float fc_den3 = dot(fc_d3, fc_n3);
+    float fc_denu3 = (fabs(fc_den3) > 1e-9f) ? fc_den3 : 1e-9f;
+    float fc_t3 = dot(fc_P3 - fc_h2, fc_n3) / fc_denu3;
+    float3 fc_h3 = fc_h2 + fc_t3*fc_d3;
+    fc_ok = fc_ok && (fc_t3 > 0.0f) && (length(fc_h3 - fc_P3) < fc_r3);
+    float3 fc_d4 = fc_d3 - 2.0f*dot(fc_d3, fc_n3)*fc_n3;
+    float fc_tg = (fc_zbot - fc_h3.z) / min(fc_d4.z, -1e-9f);
+    float fc_gx = fc_h3.x + fc_tg*fc_d4.x - fc_xchase;
+    float fc_gy = fc_h3.y + fc_tg*fc_d4.y - fc_ychase;
+    fc_ok = fc_ok && (fc_d4.z < -0.5f)
+                  && (sqrt(fc_gx*fc_gx + fc_gy*fc_gy) < fc_rbore);
+    float3 fc_h4, fc_n4; bool fc_v4;
+    fc_parab_hit(fc_h3, fc_d4, fc_F4, fc_zh, fc_f4, fc_h4, fc_n4, fc_v4);
+    fc_ok = fc_ok && fc_v4 && (length(fc_h4 - fc_P4) < fc_r4);
+    float3 fc_d5 = fc_d4 - 2.0f*dot(fc_d4, fc_n4)*fc_n4;
+    float fc_t5 = (sc[12] - fc_h4.x) / min(fc_d5.x, -1e-9f);
+    fc_ok = fc_ok && (fc_d5.x < -0.05f) && (fc_t5 < 4.0f);
+    fc_t5 = min(fc_t5, 4.0f);
+    float3 fc_h5 = fc_h4 + fc_t5*fc_d5;
+    sh_dy = fc_h5.y + off[b*2];
+    sh_dz = fc_h5.z - sc[11] + off[b*2+1];
+    sh_thr = fc_ok && (fc_t5 > 0.0f) && (sh_dy*sh_dy + sh_dz*sh_dz <= sc[13]*sc[13]);
+    sh_w = 1.0f; sh_h3 = fc_h5; sh_d3 = fc_d5;
+    } else {
     // ---- occlusion, closed form (post + tube), sun leg
     float px_ = p.x - sc[10], py_ = p.y, pz_ = p.z;
     bool lit = !( hits_column(px_,py_,pz_, ut.x,ut.y,ut.z,
@@ -471,18 +604,20 @@ kernel void tandoor_trace(
     float dy = h3.y + off[b*2];
     float dz = h3.z - sc[11] + off[b*2+1];
     bool thr = ok && (t3 > 0.0f) && (dy*dy + dz*dz <= sc[13]*sc[13]);
-    thr_o[tid] = thr ? w : 0.0f;
+    sh_thr = thr; sh_w = w; sh_h3 = h3; sh_d3 = d3; sh_dy = dy; sh_dz = dz;
+    }
+    thr_o[tid] = sh_thr ? sh_w : 0.0f;
     int o = tid*6;
-    out6[o+0] = h3.y;            out6[o+1] = h3.z - sc[11];
-    out6[o+2] = d3.x;            out6[o+3] = d3.y;
-    out6[o+4] = d3.z;            out6[o+5] = w;
+    out6[o+0] = sh_h3.y;         out6[o+1] = sh_h3.z - sc[11];
+    out6[o+2] = sh_d3.x;         out6[o+3] = sh_d3.y;
+    out6[o+4] = sh_d3.z;         out6[o+5] = sh_w;
 
     // ---- _bin_pot, transcribed: duct arrival -> pot node powers.
     // Frame map theirs = (y_ours, -x_ours, z_ours - H_POT):
     // pxp = h3.y, pyp = h3.z - Z_DUCT_ours; dirs (d3.y, -d3.x, d3.z).
     // Their constants: R_POT 0.42, Z_DUCT -0.86, H_POT 1.0,
     // n_belt 8, hearth = n_belt, crown = n_belt + 2.
-    if (thr) {
+    if (sh_thr) {
         // THE REAL PIT: spherical section, mouth R 0.26 at z 0,
         // coal-bed floor R 0.42 at z -2.44 (8 ft). Derived (mirrors
         // tandoor_polar_env): Z_CPOT, R_SPH, duct-wall radius.
@@ -490,8 +625,8 @@ kernel void tandoor_trace(
         const float ZC = -1.2422951f, RS = 1.2692112f;
         const float RDW = 1.2102675f;
         const int NB = 8;
-        float pxp = h3.y, pyp = h3.z - sc[11];
-        float dxw = d3.y, dyw = -d3.x, dzw = d3.z;
+        float pxp = sh_h3.y, pyp = sh_h3.z - sc[11];
+        float dxw = sh_d3.y, dyw = -sh_d3.x, dzw = sh_d3.z;
         float ox = pxp, oyv = -RDW, oz = pyp + ZD;
         if (sc[105] > 1.5f) {
             // CONCAVE ELBOW on its 2-DOF mount (duct_nozzle 2):
@@ -537,7 +672,7 @@ kernel void tandoor_trace(
         int node = (hitf || sz < -HD + 0.12f) ? NB
                    : (sz > -0.22f ? NB + 2
                       : (sz > -0.85f ? seg : NB + 3 + seg4));
-        float wgt = ray_pw[ip] * soil[b] * (thr ? w : 0.0f)
+        float wgt = ray_pw[ip] * soil[b] * (sh_thr ? sh_w : 0.0f)
                     * scb[sb+4] * scb[sb+5]
                     * (sc[105] > 0.5f ? 0.95f : 1.0f);
         atomic_fetch_add_explicit(

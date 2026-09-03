@@ -31,17 +31,26 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 STEPS = 80
 
 
+
+def _extra_kw():
+    """extra env kwargs from TANDOOR_EXTRA_KW (JSON), so the parity
+    gates can run alternative machines (e.g. receiver='focus')"""
+    import json, os
+    return json.loads(os.environ.get("TANDOOR_EXTRA_KW", "{}"))
+
 def build(cls, loaves, gates_open):
     from tandoor_hashemi_env import TandoorHashemiEnv
     from tandoor_mount_batch import solar_batch
     with contextlib.redirect_stdout(io.StringIO()):
-        e = TandoorHashemiEnv(
+        _kw = dict(
             num_agents=16, seed=7, wide_shutter=1, device="mps",
             gpu=1, n_rays=64, warm_frac=1.0, day_random=0,
             lat_random=0, wall_obs=1, beta_dev=36.0, beta_cap_z=10.6,
             silvered=1, duct_nozzle=2, spot_bread=1, roti_kj=130.0,
             bread_area=0.12, loaves_per_load=loaves, elbow_aim=1,
             load_ctrl=1, sticky_k=0)
+        _kw.update(_extra_kw())
+        e = TandoorHashemiEnv(**_kw)
         e.reset(seed=7)
     e._det_trace = True
     e.day_v[:] = 172
