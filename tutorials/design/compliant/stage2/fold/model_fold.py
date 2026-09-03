@@ -29,9 +29,9 @@ def log(*a):
 E, G, SY = 114e3, 44e3, 880.0          # Ti-6Al-4V, N/mm2 (yield at room T; 760 at 120 C used for the fraction)
 SY_T = 760.0
 SIG_ALLOW = 0.25*SY_T                  # brief_robustness R3: held-at-temperature flexure
-D_WIRE, GAP, T_LAYER = 1.2, 25.0, 12.0 # wire diameter, interface gap (= wire free length), rigid layer thickness
-CELL = 40.0                            # cell size across the interface
-NX, NY = 12, 4                         # cells across (x along the mirror's long axis, y along the tilt axis)
+D_WIRE, GAP, T_LAYER = 1.0, 40.0, 12.0 # wire diameter, interface gap (= wire free length), rigid layer thickness
+CELL = 100.0                           # cell size across the interface (few, long, oblique wires: actuator torque scales with n d^4 r^2 / L^3)
+NX, NY = 4, 2                          # cells across (x along the mirror's long axis, y along the tilt axis): 8 cells x 5 wires = 40 per interface, 8x the minimum
 RANGE_DEG, PARK_DEG, MIN_TILT_DEG = 27.0, 42.5, 15.0
 theta_if = 2*SIG_ALLOW*GAP/(E*D_WIRE)  # bending: sigma = E d theta / (2 L)
 N_IF = int(np.ceil(np.radians(RANGE_DEG)/theta_if))
@@ -57,14 +57,17 @@ K = fe["K"]                                    # 6x6 about the top layer centre 
 # frame_fe fixes the BOTTOM layer and condenses to the TOP; here the mirror hangs from the bottom and the yoke holds the top,
 # so by symmetry of the stack the same stiffness applies with the roles swapped (stiffness is a property of the stack).
 # Rotational stiffness about the true axis (y through F): transform the 6x6 from the top-layer centre to F.
-c_top = fe["centre"]; r = -c_top                # vector from the top-layer centre to F
+c_top = fe["centre"]; r = c_top                 # a rotation theta about F moves the top centre by theta x (c_top - F) = theta x r
 Tm = np.eye(6); rx = np.array([[0, r[2], -r[1]], [-r[2], 0, r[0]], [r[1], -r[0], 0]]); Tm[:3, 3:] = rx
 K_F = Tm.T @ K @ Tm                              # stiffness expressed at F
 K_theta = K_F[4, 4]/1e3                          # N m/rad about the y axis through F
+# cross-check: stiffness along the FE softest eigenvector, de-normalised (N m/rad about the actual rotation centre)
+Ls = float(np.max(blk["L"])); v = fe["softest"].copy(); v[3:] /= Ls; v /= np.linalg.norm(v[3:]) if np.linalg.norm(v[3:]) > 0 else 1.0
+K_soft = float(v @ fe["K"] @ v)/1e3
 ratio = 1/fe["ratio"]
 torque_range = K_theta*np.radians(RANGE_DEG)
 log(f"FE: compliant/stiff eigen-ratio {ratio:.2e}; softest direction {np.round(fe['softest'], 3)} (expect theta_y)")
-log(f"FE: rotational stiffness about the face-plane axis K_theta = {K_theta:.1f} N m/rad; torque to hold {RANGE_DEG} deg from park = {torque_range:.1f} N m")
+log(f"FE: rotational stiffness about the face-plane axis K_theta = {K_theta:.1f} N m/rad (along the softest mode: {K_soft:.1f}); torque to hold {RANGE_DEG} deg from park = {torque_range:.1f} N m; stored energy {0.5*K_theta*np.radians(RANGE_DEG)**2:.1f} J")
 # stiff-direction numbers at F: translational stiffness along x, y, z (N/mm) and rotational about x, z
 log(f"FE at F: k_x {K_F[0,0]:.0f} N/mm, k_y {K_F[1,1]:.0f}, k_z {K_F[2,2]:.0f}; K_thx {K_F[3,3]/1e3:.0f} N m/rad, K_thz {K_F[5,5]/1e3:.0f} N m/rad")
 # first mode of the compliant direction with the mirror's inertia about the axis
@@ -78,8 +81,8 @@ log(f"redundancy: interface 0 has {len(W0)} wires; with one removed rank {rank1}
 # stress and buckling of the most loaded wire: mirror weight 74 N shared by the bottom interface's wires (in tension when hanging)
 wires_if = n_wires//N_IF; F_axial = 74.0/wires_if
 A_w = np.pi*D_WIRE**2/4; sig_ax = F_axial/A_w
-Pcr = np.pi**2*E*(np.pi*D_WIRE**4/64)/(0.7*GAP)**2         # clamped-pinned column, worst case if a gust reverses the load
-log(f"wire axial load {F_axial:.2f} N -> {sig_ax:.2f} MPa (tension while hanging); buckling P_cr {Pcr:.1f} N -> SF {Pcr/max(F_axial,1e-6):.0f} if reversed by a 25 m/s gust on the hood (380 N / {wires_if} wires = {380/wires_if:.2f} N)")
+Pcr = np.pi**2*E*(np.pi*D_WIRE**4/64)/(0.7*GAP)**2         # clamped-pinned column; the hood, not the mirror, takes the wind (yoke-mounted), so reversal is a ~20 N gust on the sheltered mirror
+log(f"wire axial load {F_axial:.2f} N -> {sig_ax:.2f} MPa (tension while hanging); buckling P_cr {Pcr:.1f} N -> SF {Pcr/max(20.0/wires_if,1e-6):.0f} against a 20 N gust on the sheltered mirror reversing the load ({20.0/wires_if:.2f} N per wire)")
 # thermal: uniform +40 K on the Ti lattice: the wire lines meet the axis by construction; a uniform dilation about the block
 # centroid (z ~ Z0 + H/2) moves the intersection line by -(zc)*alpha*dT
 alpha = 8.6e-6; zc = Z0 + H/2; drift = zc*alpha*40
@@ -95,7 +98,7 @@ from mesh_export import Scene
 sc = Scene()
 LX, LY = NX*CELL, NY*CELL
 for i, (a, b) in enumerate(layers):
-    frame = cq.Workplane("XY").box(LX, LY, T_LAYER).translate((0, 0, 0.5*(a + b)))
+    frame = cq.Workplane("XY").box(LX + 70, LY + 70, T_LAYER).translate((0, 0, 0.5*(a + b)))   # frames overhang the cell grid to carry the oblique anchors
     for ix in range(NX):                                   # open the layer into a frame: pockets between the wire anchors
         for iy in range(NY):
             cx, cy = -LX/2 + (ix + 0.5)*CELL, -LY/2 + (iy + 0.5)*CELL
@@ -126,7 +129,7 @@ sc.write(os.path.join(OUT, "fold_saddle.json"))
 # ------------------------------------------------------------------ 2-D drawings: elevation (x-z) and plan
 fig, axs = plt.subplots(1, 2, figsize=(13, 5.2))
 ax = axs[0]
-for (a, b) in layers: ax.add_patch(plt.Rectangle((-LX/2, a), LX, b - a, fc="#9aa5b1", ec="#14213d", lw=0.8))
+for (a, b) in layers: ax.add_patch(plt.Rectangle((-LX/2 - 35, a), LX + 70, b - a, fc="#9aa5b1", ec="#14213d", lw=0.8))
 for seg in lines: ax.plot([seg[0][0], seg[1][0]], [seg[0][2], seg[1][2]], color="#d9480f", lw=0.4, alpha=0.6)
 ax.add_patch(plt.Rectangle((-220, 0), 440, 12, fc="#e5e7eb", ec="#14213d", lw=1.2))
 for k in range(-8, 9): ax.add_patch(plt.Rectangle((k*22 - 1, 12), 2, 28, fc="#9ca3af", ec="none"))

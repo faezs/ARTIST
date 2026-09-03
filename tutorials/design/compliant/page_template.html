@@ -1,5 +1,7 @@
 <title>Tandoor Flexure Register</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script><!--VIEWER_JS--></script>
 <style>
 :root{--ground:#eef2f6;--paper:#ffffff;--ink:#14213d;--muted:#5b6b7f;--line:#c7d0da;--block:#1f3a5f;--blockink:#eaf0f7;--flex:#d9480f;--kin:#0e7490;--soft:#e3e9f0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ground:#0f1720;--paper:#ffffff;--ink:#e6edf3;--muted:#9fb0c3;--line:#2a3948;--block:#16283d;--blockink:#dbe6f2;--flex:#ff7a2f;--kin:#22b8cf;--soft:#172230}}
@@ -18,6 +20,9 @@ h2{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:24
 .intro{max-width:66ch;margin:0 0 16px;color:var(--ink)}
 .plate{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);gap:0;border:1px solid var(--line);margin-top:16px;background:var(--soft)}
 .paper{background:var(--paper);padding:10px;overflow-x:auto}
+.paper3d{padding:0;position:relative;min-height:520px}
+.view3d{width:100%;height:520px}
+.hint{position:absolute;left:10px;bottom:8px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:#5b6b7f;background:rgba(255,255,255,.8);padding:2px 6px;border-radius:3px}
 .block{background:var(--block);color:var(--blockink);padding:16px 18px;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
 .sheet{letter-spacing:.14em;font-size:11px;opacity:.8}
 .block h3{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:19px;margin:6px 0 4px;color:#fff;text-wrap:balance}
@@ -35,7 +40,7 @@ a:focus-visible{outline:2px solid var(--kin);outline-offset:2px}
 <header>
   <div>
     <h1>Tandoor Flexure Register</h1>
-    <p class="lede">The compliant mechanisms designed for the three mirrors of the Hashemi-frame solar tandoor concentrator, synthesized by freedom and constraint topologies, with the first-pass catalogue elements below them; each plate shows the element undeflected and deflected by its pseudo-rigid-body model, with the title block carrying the numbers from the design memos.</p>
+    <p class="lede">The compliant mechanisms designed for the three mirrors of the Hashemi-frame solar tandoor concentrator, built as directionally compliant lattices at full scale (rotatable models), with the earlier FACT syntheses and first-pass catalogue elements below them; each plate shows the element undeflected and deflected by its pseudo-rigid-body model, with the title block carrying the numbers from the design memos.</p>
   </div>
   <div class="legend">
     <span><i class="sw" style="background:#c2410c"></i> flexing element (the part that bends to do the job)</span>
@@ -43,6 +48,13 @@ a:focus-visible{outline:2px solid var(--kin);outline-offset:2px}
     <span><i class="sw" style="background:#9ca3af"></i> ground, hatched; moving body, grey</span>
   </div>
 </header>
+
+<section>
+  <div class="eyebrow">Structures · directionally compliant lattices at full scale</div>
+  <h2>Second pass: the mechanism is the architecture of a block</h2>
+  <p class="intro">After Shaw, Sun, Portela, Barranco, Greer and Hopkins (2019): a block is sliced into rigid layers and every interface cell is bridged by flexure elements whose lines lie in the constraint space of the desired freedom, so each interface allows exactly that freedom and the stack multiplies the range. The screw-algebra check and a frame finite-element model give exactness, stiffness ratio, torque, modes, stress and thermal drift. Models are rotatable below.</p>
+  <!--PLATES_3D-->
+</section>
 
 <section>
   <div class="eyebrow">Synthesis · freedom and constraint topologies</div>

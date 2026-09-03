@@ -1,7 +1,7 @@
 """Assemble the drawing-register page: inline every plate SVG next to
 its title block. Run from tutorials/design/compliant; writes
 flexure_register.html into the given output dir."""
-import re, os, sys, html
+import re, os, sys, html, json
 OUT = sys.argv[1]; FIG = "figures"
 def svg(name):
     s = open(os.path.join(FIG, name) if not name.startswith("fact/") else name).read()
@@ -21,6 +21,22 @@ def plate(num, title, fig, ref, rows, note=""):
     {f'<p class="note">{note}</p>' if note else ''}
   </aside>
 </article>'''
+VIEWER_JS = open(os.path.join("3d", "viewer.js")).read()
+def plate3d(num, title, json_path, ref, rows, note=""):
+    model = open(json_path).read()
+    tb = "".join(f'<div class="k">{html.escape(k)}</div><div class="v">{v}</div>' for k, v in rows)
+    vid = f"view{num}"
+    return f'''<article class="plate" id="pl{num}">
+  <div class="paper paper3d"><div class="view3d" id="{vid}"></div><div class="hint">drag to orbit · shift-drag or right-drag to pan · wheel to zoom</div></div>
+  <aside class="block">
+    <div class="sheet">SHEET {num:02d} · 3-D</div>
+    <h3>{html.escape(title)}</h3>
+    <div class="ref">{html.escape(ref)}</div>
+    <div class="tb">{tb}</div>
+    {f'<p class="note">{note}</p>' if note else ''}
+  </aside>
+</article>
+<script>(function(){{ const model = {model}; const el = document.getElementById("{vid}"); const go = () => mountViewer(el, model, {{up:'z'}}); if (window.THREE) go(); else window.addEventListener('load', go); }})();</script>'''
 S = []
 S.append(plate(1, "Pitch stage: two cross-axis flexural pivots", "dish_cross_axis_pivot.svg", "Handbook A.1.10 cross-axis flexural pivot, p. 74; §11.1.2 revolute elements",
   [("part", "primary dish yoke, 2 pivots at ±0.8 m"), ("leaves", "300 × 2.0 × 150 mm, 17-7PH CH900"), ("stiffness", "272 N·m/rad per pivot"), ("range", "0–36° (neutral offset −18°)"),
@@ -76,5 +92,12 @@ C.append(cad(12, "Fold tilt pivot, wire-EDM monolith", "cad_fold_cross_axis_pivo
 C.append(cad(13, "Fold assembly, solids", "cad_fold_assembly.svg", [("mirror", "0.36 × 0.44 m elliptical 6061 plate, 12 mm, 17 integral fins"), ("pivots", "two 90 mm blocks on the back, in the face plane"), ("hood", "ring 0.66 m over the mirror on a two-arm yoke")]))
 C.append(cad(14, "Facet on its feet, from above and below", "cad_m5_facet_feet.svg", [("facet", "0.30 m, 1.5 mm, with the rib cross"), ("feet", "three bipods on parallel-motion carriages, M6 adjusters"), ("frame", "0.38 m sub-frame plate")]))
 C.append(cad(15, "Facet feet, underside", "cad_m5_feet_underside.svg", [("view", "from below: the three carriages, their blades and the bipod strips"), ("constraint", "each foot holds normal + tangent, free radially")]))
-page = open("page_template.html").read().replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
+D3 = []
+D3.append(plate3d(20, "Fold saddle: DCM block, one rotation about the face-plane axis", "stage2/fold/out/fold_saddle.json",
+  "Second pass. dcm_core stack: 4 interfaces x 40 oblique Ti wires, all meeting the y axis through F; frame FE for stiffness",
+  [("block", "400 x 200 x 220 mm, 5 open Ti frames, 4 gaps of 40 mm"), ("wires", "160 x d 1.0 mm Ti-6Al-4V, 5 per 100 mm cell"), ("check", "rank 5 per interface, stack DOF 1 about F's face-plane axis"),
+   ("range", "7.6 deg per interface at 190 MPa -> 30.6 deg; working 27 deg"), ("K_theta", "87 N m/rad; 41 N m at 27 deg; 9.7 J stored"), ("stiff dirs", "2.4-7.4 kN/mm; 65-88 kN m/rad; ratio 5e-5"),
+   ("first mode", "4.1 Hz with the 7.5 kg mirror"), ("redundancy", "one wire lost: 2.5 % stiffness, no new DOF"), ("thermal +40 K", "axis moves 0.06 mm, no tilt"), ("safe state", "neutral = park stop: power loss returns to park")],
+  "Orange lines are the wires; grey frames the rigid layers; the light plate with fins is the mirror, face down; the ring is the hood; teal is the tilt axis in the face plane."))
+page = open("page_template.html").read().replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
 open(os.path.join(OUT, "flexure_register.html"), "w").write(page); print("page:", os.path.getsize(os.path.join(OUT, "flexure_register.html"))//1024, "KB")
