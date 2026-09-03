@@ -61,6 +61,7 @@ Losses: film 0.88 with rim thinning, fold 0.95, M5 0.95, duct lip
 the optics directly; no lookup table anywhere.
 """
 
+import os
 import numpy as np
 import torch
 
@@ -2396,36 +2397,64 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # (the visible object), with the reflective CPC inner profile
         # drawn inside it - flared lip at the mouth, straight through
         # the slot band, expanding cone below the throat to M5.
-        pr.draw_line_3d(v3([X_TOWER, 0, self.z_tube[1] + 0.6]),
-                        v3([X_TOWER, 0, self.z_fold]), (160, 148, 126, 255))
-        r_out = self.r_tube + 0.05
-        for zz in np.linspace(Z_ROOF, self.z_tube[1] + 0.6, 10):
-            ring([X_TOWER, 0, zz], r_out, (150, 140, 120, 255), 14)
-        for zz in np.linspace(self.z_m5, Z_ROOF, 6):    # buried outer
-            ring([X_TOWER, 0, zz], self.r_m5 + 0.20, (120, 104, 88, 255),
-                 20)
-        # inner CPC profile (gold): the true Winston lip -> straight
-        # -> expanding cone; drawn from the same knots the trace uses
-        prof = []
-        for zk_, rk_ in reversed(self._cpc_knots):
-            prof.append((self.z_tube[1] + zk_, rk_))
-        for zz in np.linspace(self.z_tube[1], self.z_tube[0], 3):
-            prof.append((zz, self.r_tube_in))
-        for zz in np.linspace(self.z_tube[0], self.z_m5 + 0.35, 6):
-            prof.append((zz, self.r_tube_in
-                         + (self.r_m5 - self.r_tube_in)
-                         * (self.z_tube[0] - zz)
-                         / (self.z_tube[0] - self.z_m5)))
-        for zz, rr_ in prof:
-            ring([X_TOWER, 0, zz], rr_, (205, 175, 120, 255), 16)
-        for aa in (0, np.pi/2, np.pi, 3*np.pi/2):
-            pts_ = [np.array([X_TOWER + r_*np.cos(aa), r_*np.sin(aa), zz])
-                    for zz, r_ in prof]
-            for k in range(len(pts_) - 1):
-                pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]),
-                                (205, 175, 120, 255))
+        if self.receiver == "focus":
+            # THE FOCUS-RECEIVER CHAIN, drawn as built: the wall tower up
+            # to M3, the chase of radius r_bore down to the turn, M4 at
+            # the turn throwing into the built duct mouth, and the strut
+            # from the tower up to F (the post).
+            P3_, P4_, F4_ = self.fc_P3, self.fc_P4, self.fc_F4
+            Ps_, Ff_ = self.fc_Ps, self.F_focus
+            colt = (160, 148, 126, 255)
+            pr.draw_line_3d(v3([X_TOWER, 0, self.z_deck]), v3(P3_), colt)
+            for zz in np.linspace(self.z_deck, P3_[2], 6):     # wall tower
+                ring([X_TOWER, 0, zz], 0.25, (150, 140, 120, 255), 12)
+            for zz in np.linspace(P4_[2], P3_[2], 12):         # the chase
+                ring([X_TOWER, 0, zz], self.r_bore, (120, 104, 88, 255), 20)
+            for aa in (0, np.pi/2, np.pi, 3*np.pi/2):
+                pr.draw_line_3d(v3([X_TOWER + self.r_bore*np.cos(aa),
+                                    self.r_bore*np.sin(aa), P3_[2]]),
+                                v3([X_TOWER + self.r_bore*np.cos(aa),
+                                    self.r_bore*np.sin(aa), P4_[2]]),
+                                (120, 104, 88, 255))
+            n4_ = (F4_ - P4_) / max(np.linalg.norm(F4_ - P4_), 1e-9) \
+                + np.array([0., 0., 1.])
+            n4_ /= max(np.linalg.norm(n4_), 1e-9)
+            disc(P4_, n4_, self.r_m4, (160, 220, 240, 235), 20)  # M4
+            pr.draw_line_3d(v3(P4_), v3(F4_), (120, 220, 235, 200))
+            pr.draw_line_3d(v3(Ps_), v3(Ff_), colt)               # strut
+            for zz in np.linspace(self.z_deck, Ff_[2], 4):     # post rings
+                ring([Ff_[0], 0, zz], 0.12, (150, 140, 120, 255), 10)
+        else:
+            pr.draw_line_3d(v3([X_TOWER, 0, self.z_tube[1] + 0.6]),
+                            v3([X_TOWER, 0, self.z_fold]), (160, 148, 126, 255))
+            r_out = self.r_tube + 0.05
+            for zz in np.linspace(Z_ROOF, self.z_tube[1] + 0.6, 10):
+                ring([X_TOWER, 0, zz], r_out, (150, 140, 120, 255), 14)
+            for zz in np.linspace(self.z_m5, Z_ROOF, 6):    # buried outer
+                ring([X_TOWER, 0, zz], self.r_m5 + 0.20, (120, 104, 88, 255),
+                     20)
+            # inner CPC profile (gold): the true Winston lip -> straight
+            # -> expanding cone; drawn from the same knots the trace uses
+            prof = []
+            for zk_, rk_ in reversed(self._cpc_knots):
+                prof.append((self.z_tube[1] + zk_, rk_))
+            for zz in np.linspace(self.z_tube[1], self.z_tube[0], 3):
+                prof.append((zz, self.r_tube_in))
+            for zz in np.linspace(self.z_tube[0], self.z_m5 + 0.35, 6):
+                prof.append((zz, self.r_tube_in
+                             + (self.r_m5 - self.r_tube_in)
+                             * (self.z_tube[0] - zz)
+                             / (self.z_tube[0] - self.z_m5)))
+            for zz, rr_ in prof:
+                ring([X_TOWER, 0, zz], rr_, (205, 175, 120, 255), 16)
+            for aa in (0, np.pi/2, np.pi, 3*np.pi/2):
+                pts_ = [np.array([X_TOWER + r_*np.cos(aa), r_*np.sin(aa), zz])
+                        for zz, r_ in prof]
+                for k in range(len(pts_) - 1):
+                    pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]),
+                                    (205, 175, 120, 255))
         # fenced no-build ring the dish sweeps over
-        ring([X_TOWER, 0, H_POT + 0.02], self.g_orbit + self.cfg.a,
+        ring([self.X_TOWER_C, 0, H_POT + 0.02], self.g_orbit + self.cfg.a,
              (150, 130, 190, 255), 72)
         if H is not None:
             u = H["u"]
@@ -2441,18 +2470,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             hdir = -(u - u[2]*zh_)
             hdir = hdir / max(np.linalg.norm(hdir), 1e-9)
             e_s = np.cross(zh_, hdir)
-            Pf_ = np.array([X_TOWER, 0., self.z_fold])
-            z_beam = Z_ROOF + 0.10
+            Pf_ = np.array([self.X_TOWER_C, 0., self.z_fold])
+            z_beam = self.z_deck + 0.10
             colc = (150, 140, 120, 255)
             arc = lambda e_: Pf_ + R_rail*(np.cos(e_)*hdir
                                            - np.sin(e_)*zh_)
             # fixed ring rail on posts (roof stubs south, courtyard north)
-            ring([X_TOWER, 0, z_beam - 0.05], R_ring, (120, 104, 88, 255),
+            ring([self.X_TOWER_C, 0, z_beam - 0.05], R_ring, (120, 104, 88, 255),
                  48)
             for aa in np.linspace(0, 2*np.pi, 12, endpoint=False):
-                fx = X_TOWER + R_ring*np.cos(aa); fy = R_ring*np.sin(aa)
+                fx = self.X_TOWER_C + R_ring*np.cos(aa); fy = R_ring*np.sin(aa)
                 pr.draw_line_3d(v3([fx, fy, z_beam-0.05]),
-                                v3([fx, fy, Z_ROOF]), (104, 92, 76, 255))
+                                v3([fx, fy, self.z_deck]), (104, 92, 76, 255))
             # rotating beam through the collar on the mast, wheels at rim
             for sgn in (1.0, -1.0):
                 pr.draw_line_3d(v3(Pf_*[1,1,0] + [0,0,z_beam]),
@@ -2460,7 +2489,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                    + sgn*R_ring*hdir), colc)
                 wp = Pf_*[1,1,0] + [0,0,z_beam] + sgn*R_ring*hdir
                 ring(wp - [0,0,0.06], 0.10, (200,180,140,255), 10)
-            ring([X_TOWER, 0, z_beam], 0.22, colc, 12)     # the collar
+            ring([self.X_TOWER_C, 0, z_beam], 0.22, colc, 12)   # the collar
             # two A-frames on the beam holding the arc rail
             for rA in (2.9, 4.4):
                 eA = np.arccos(np.clip(rA / R_rail, -1, 1))
@@ -2492,37 +2521,76 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             pr.draw_sphere(v3(arc(e_lo) - 0.15*zh_), 0.14,
                            (110, 110, 120, 255))
 
-            # the FIXED fold: the true ELLIPTICAL plate (semi-major
-            # r_fold/cos i along the beam) on a visible two-axis yoke.
-            # It stays FLAT because only a flat images perfectly under a
-            # deviation that sweeps 90+el; a rigidly tracked powered
-            # conic measured 1.3-3.5 m rms off-design.
-            ub_ = np.asarray(H.get("ub", u))
-            nf = ub_ + np.array([0., 0., 1.])
-            nf /= np.linalg.norm(nf)
-            Pf = np.array([X_TOWER, 0., self.z_fold])
-            inc_ = np.arccos(np.clip(abs(ub_ @ nf), 0.0, 1.0))
-            e_pa = ub_ - (ub_ @ nf)*nf
-            e_pa /= max(np.linalg.norm(e_pa), 1e-9)
-            e_pr = np.cross(nf, e_pa)
-            t = np.linspace(0, 2*np.pi, 41)
-            for sc_ in (1.0, 0.55):
-                fr = [Pf + sc_*self.r_fold*(np.cos(x)/np.cos(inc_)*e_pa
-                                            + np.sin(x)*e_pr) for x in t]
-                for k in range(40):
+            if self.receiver == "focus":
+                # RECEIVER AT THE FOCUS: M1 (steerable flat) at F, M2 the
+                # collimating off-axis paraboloid on the exit (turntable:
+                # west while the sun is east, east while west), the
+                # collimated leg to M3 on the wall line, M3 turning it
+                # into the chase. Per-env exit as the mount computes it.
+                ub_ = np.asarray(H.get("ub", u))
+                el_e = np.radians(self.exit_el)
+                side = -1.0 if u[1] > 0 else 1.0
+                e_ = np.array([0.0, side*np.cos(el_e), np.sin(el_e)])
+                Ff = self.F_focus
+                P2_ = Ff + self.col_dist*e_
+                A2_ = self.fc_P3 - P2_
+                A2_ /= max(np.linalg.norm(A2_), 1e-9)
+                nf = ub_ - e_
+                nf /= max(np.linalg.norm(nf), 1e-9)
+                n2_ = e_ - A2_
+                n2_ /= max(np.linalg.norm(n2_), 1e-9)
+                n3_ = A2_ + np.array([0., 0., 1.])
+                n3_ /= max(np.linalg.norm(n3_), 1e-9)
+                inc_ = np.arccos(np.clip(abs(ub_ @ nf), 0.0, 1.0))
+                e_pa = ub_ - (ub_ @ nf)*nf
+                e_pa /= max(np.linalg.norm(e_pa), 1e-9)
+                e_pr = np.cross(nf, e_pa)
+                t = np.linspace(0, 2*np.pi, 25)
+                fr = [Ff + self.r_m1*(np.cos(x)/max(np.cos(inc_), 0.2)*e_pa
+                                     + np.sin(x)*e_pr) for x in t]
+                for k in range(24):
                     pr.draw_line_3d(v3(fr[k]), v3(fr[k+1]),
-                                    (235, 110, 110, 255))
-            pr.draw_line_3d(v3(Pf), v3(Pf + 0.7*nf), (235, 110, 110, 255))
-            # yoke: yaw collar on the post, pitch trunnions to the rim
-            ring(Pf - np.array([0, 0, 0.35]), 0.30,
-                 (200, 180, 140, 255), 14)
-            for sgn_ in (1.0, -1.0):
-                tr = Pf + sgn_*1.05*self.r_fold*e_pr
-                pr.draw_line_3d(v3(tr), v3(Pf - np.array([0, 0, 0.35])
-                                           + sgn_*0.30*e_pr),
-                                (200, 180, 140, 255))
-            # waist marker: the fixed point the whole design pivots on
-            ring([X_TOWER, 0, self.z_waist], 0.12, (235, 200, 90, 255), 14)
+                                    (235, 110, 110, 255))          # M1
+                disc(P2_, n2_, self.col_radius, (235, 160, 90, 230), 20)  # M2
+                disc(self.fc_P3, n3_, self.r_m3, (200, 140, 235, 230), 20)  # M3
+                pr.draw_line_3d(v3(Ff), v3(P2_), (235, 200, 90, 200))
+                pr.draw_line_3d(v3(P2_), v3(self.fc_P3), (235, 200, 90, 200))
+                pr.draw_line_3d(v3(self.fc_P3), v3(self.fc_P4), (235, 200, 90, 120))
+                # turntable ring under M1/M2 and the F marker
+                ring(Ff - np.array([0, 0, 0.30]), 0.35, (200, 180, 140, 255), 14)
+                ring(Ff, 0.12, (235, 200, 90, 255), 14)
+            else:
+                # the FIXED fold: the true ELLIPTICAL plate (semi-major
+                # r_fold/cos i along the beam) on a visible two-axis yoke.
+                # It stays FLAT because only a flat images perfectly under a
+                # deviation that sweeps 90+el; a rigidly tracked powered
+                # conic measured 1.3-3.5 m rms off-design.
+                ub_ = np.asarray(H.get("ub", u))
+                nf = ub_ + np.array([0., 0., 1.])
+                nf /= np.linalg.norm(nf)
+                Pf = np.array([X_TOWER, 0., self.z_fold])
+                inc_ = np.arccos(np.clip(abs(ub_ @ nf), 0.0, 1.0))
+                e_pa = ub_ - (ub_ @ nf)*nf
+                e_pa /= max(np.linalg.norm(e_pa), 1e-9)
+                e_pr = np.cross(nf, e_pa)
+                t = np.linspace(0, 2*np.pi, 41)
+                for sc_ in (1.0, 0.55):
+                    fr = [Pf + sc_*self.r_fold*(np.cos(x)/np.cos(inc_)*e_pa
+                                                + np.sin(x)*e_pr) for x in t]
+                    for k in range(40):
+                        pr.draw_line_3d(v3(fr[k]), v3(fr[k+1]),
+                                        (235, 110, 110, 255))
+                pr.draw_line_3d(v3(Pf), v3(Pf + 0.7*nf), (235, 110, 110, 255))
+                # yoke: yaw collar on the post, pitch trunnions to the rim
+                ring(Pf - np.array([0, 0, 0.35]), 0.30,
+                     (200, 180, 140, 255), 14)
+                for sgn_ in (1.0, -1.0):
+                    tr = Pf + sgn_*1.05*self.r_fold*e_pr
+                    pr.draw_line_3d(v3(tr), v3(Pf - np.array([0, 0, 0.35])
+                                               + sgn_*0.30*e_pr),
+                                    (200, 180, 140, 255))
+                # waist marker: the fixed point the whole design pivots on
+                ring([X_TOWER, 0, self.z_waist], 0.12, (235, 200, 90, 255), 14)
             # THE PRIMARY, drawn as built: rim, sagged rings and
             # meridians of the actual membrane, slot as a real notch.
             el_r0 = np.radians(H.get("el_b", H["el"]))
@@ -2596,7 +2664,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                     continue
                 col = cb if th[i] else cd
                 pr.draw_line_3d(v3(dish[i]), v3(fold[i]), col)
-                pr.draw_line_3d(v3(fold[i]), v3(m5[i]), col)
+                if self.receiver == "focus":
+                    # M1 -> M2 (desc) -> M3 (leg meets M3's plane) -> M4 (m5) -> duct
+                    h2_ = H["desc"][i]
+                    dn_ = float(A2_ @ n3_)
+                    t3_ = float((self.fc_P3 - h2_) @ n3_) / (dn_ if abs(dn_) > 1e-9 else 1e-9)
+                    h3_ = h2_ + t3_*A2_
+                    pr.draw_line_3d(v3(fold[i]), v3(h2_), col)
+                    pr.draw_line_3d(v3(h2_), v3(h3_), col)
+                    pr.draw_line_3d(v3(h3_), v3(m5[i]), col)
+                else:
+                    pr.draw_line_3d(v3(fold[i]), v3(m5[i]), col)
                 pr.draw_line_3d(v3(m5[i]), v3(duct[i]), col)
             lr = getattr(self, "_last_rays", None)
             if lr is not None:
@@ -2617,15 +2695,23 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                              (col[0], col[1], col[2], 235))
         self._draw_bread_strip(pr, 1015, 26)
         self._draw_disturbances(pr, 1015, 120)
-        hud = [f"dish f {self.f_nom:.1f} m orbits fixed fold at "
+        if self.receiver == "focus":
+            side_ = "E" if (H is not None and H["u"][1] < 0) else "W"
+            hud = [f"dish f {self.f_nom:.1f} m hinged at F, {self.post_offset:.1f} m N of wall",
+                   f"F z {self.z_fold:.1f}  M1 r {self.r_m1:.2f}  M2 r {self.col_radius:.2f} @{self.col_dist:.2f}",
+                   f"M3 r {self.r_m3:.1f} z {self.fc_P3[2]:.1f}  chase r {self.r_bore:.1f}  M4 r {self.r_m4:.1f}",
+                   f"exit {side_}-up {self.exit_el:.0f} deg, leg {self.leg_tilt:.0f} deg, shadow "
+                   f"{self.obstruction*100:.0f}%"]
+        else:
+          hud = [f"dish f {self.f_nom:.1f} m orbits fixed fold at "
                f"g {self.g_orbit:.1f} m",
-               f"fold r {self.r_fold:.2f} m  waist z {self.z_waist:.1f}"
-               f" m  M5 r {self.r_m5:.2f} m",
-               ("uncut dish, beta schedule"
-                + (f" cap {self.beta_cap_z:.1f} m"
-                   if self.beta_cap_z is not None else ""))
-               if self.slotless else
-               f"slot cut, obstruction {self.obstruction*100:.0f}%"]
+                 f"fold r {self.r_fold:.2f} m  waist z {self.z_waist:.1f}"
+                 f" m  M5 r {self.r_m5:.2f} m",
+                 ("uncut dish, beta schedule"
+                  + (f" cap {self.beta_cap_z:.1f} m"
+                     if self.beta_cap_z is not None else ""))
+                 if self.slotless else
+                 f"slot cut, obstruction {self.obstruction*100:.0f}%"]
         for j, l in enumerate(hud):
             pr.draw_text(l, 1015, 300 + 22*j, 15, (225, 225, 205, 255))
         # the day so far, as line graphs - control is a TRAJECTORY:
@@ -2658,13 +2744,26 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                       [(h_["rew"], (140, 220, 140, 255), "r/step"),
                        (h_["ret"], (200, 160, 240, 255), "ret/100")],
                       tspan=tsp, fmt=".1f")
-        pr.draw_text("EXACT: dish -> FIXED 2-axis fold -> waist -> FIXED "
-                     "ellipsoid M5 -> native air inlet -> pot.",
-                     20, HT-72, 16, (150, 200, 160, 255))
-        pr.draw_text("Nothing below the fold ever moves. Sealed below the "
-                     "roof deck; open air above it, inside the fence.",
-                     20, HT-50, 16, (150, 200, 160, 255))
+        if self.receiver == "focus":
+            foot1 = ("EXACT: dish -> M1 AT the focus -> M2 collimator -> M3 "
+                     "on the wall -> chase -> M4 at the turn -> duct -> pot.")
+            foot2 = ("M1+M2 turn with the sun (west while it is east, east "
+                     "while west); dish square to the sun, hinged at F.")
+        else:
+            foot1 = ("EXACT: dish -> FIXED 2-axis fold -> waist -> FIXED "
+                     "ellipsoid M5 -> native air inlet -> pot.")
+            foot2 = ("Nothing below the fold ever moves. Sealed below the "
+                     "roof deck; open air above it, inside the fence.")
+        pr.draw_text(foot1, 20, HT-72, 16, (150, 200, 160, 255))
+        pr.draw_text(foot2, 20, HT-50, 16, (150, 200, 160, 255))
         pr.draw_text("left-drag orbit  right-drag pan  wheel zoom  R reset",
                      20, HT-26, 16, (140, 140, 155, 255))
         pr.end_drawing()
+        snap = os.environ.get("TANDOOR_RENDER_SNAP")
+        if snap:
+            # export_image takes the path as given (take_screenshot prepends
+            # the working directory and silently fails on absolute paths)
+            img = pr.load_image_from_screen()
+            pr.export_image(img, snap)
+            pr.unload_image(img)
         return None
