@@ -22,7 +22,7 @@ slots = core.cut(blade1).cut(blade2)
 pivot = blk.cut(slots)
 # split the head from the foot at the sides so only the blades connect them
 for sx in (-1, 1):
-    pivot = pivot.cut(cq.Workplane("XY").box(2, T + 4, B - 24).translate((sx*(B/2 - 7), 0, 0)))
+    pivot = pivot.cut(cq.Workplane("XY").box(14, T + 4, B - 24).translate((sx*(B/2 - 6), 0, 0)))
 svg(pivot, "cad_fold_cross_axis_pivot.svg")
 
 # 2. dish pitch stage: two leaf pivots (leaves 300 x 2 x 150) on a yoke, 1.6 m apart
@@ -51,14 +51,17 @@ for (fx, fy) in ((-110, -110), (110, -110), (0, 120)):
     asm = asm.union(cq.Workplane("XY").circle(3).extrude(22).translate((fx, fy + 14, 8)))  # M6 adjuster
 frame = cq.Workplane("XY").box(380, 380, 10).translate((0, 0, -5))
 svg(asm.union(frame), "cad_m5_facet_feet.svg", d=(1, -1.3, 0.9), w=640)
+svg(asm, "cad_m5_feet_underside.svg", d=(1, -1.2, -0.8), w=640)
 
-# 4. bistable cosine arch wind trip on its drag plate
+# 4. bistable cosine arch wind trip: closed thick profile (span 200, rise 12, t 0.8), posts, a 300 mm drag plate above
 import math
-pts = [(x, 12*(1 - math.cos(2*math.pi*x/200))/2) for x in range(0, 201, 5)]
-arch = cq.Workplane("XZ").spline(pts).offset2D(0.4).extrude(25)
-posts = cq.Workplane("XY").box(12, 25, 14).translate((0, 12, 0)).union(cq.Workplane("XY").box(12, 25, 14).translate((200, 12, 0)))
-plate = cq.Workplane("XY").box(500, 500, 3).translate((100, 12, 60))
-svg(arch.union(posts).union(plate), "cad_dish_wind_trip.svg", d=(1, -1.2, 0.6), w=600)
+top = [(x, 12*(1 - math.cos(2*math.pi*x/200))/2 + 0.4) for x in range(0, 201, 4)]
+bot = [(x, 12*(1 - math.cos(2*math.pi*x/200))/2 - 0.4) for x in range(200, -1, -4)]
+arch = cq.Workplane("XZ").polyline(top + bot).close().extrude(25)
+posts = cq.Workplane("XY").box(14, 25, 16).translate((0, 12, 0)).union(cq.Workplane("XY").box(14, 25, 16).translate((200, 12, 0)))
+stem = cq.Workplane("XY").box(6, 6, 40).translate((100, 12, 32))
+plate = cq.Workplane("XY").box(300, 300, 3).translate((100, 12, 54))
+svg(arch.union(posts).union(stem).union(plate), "cad_dish_wind_trip.svg", d=(1, -1.4, 0.5), w=600)
 
 # 5. fold assembly: finned mirror plate (360 x 440 x 12) face-down on two pivot blocks in a two-arm yoke under a hood ring
 mirror = cq.Workplane("XY").ellipse(220, 180).extrude(12)

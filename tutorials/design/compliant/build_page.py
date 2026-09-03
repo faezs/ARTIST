@@ -4,7 +4,7 @@ flexure_register.html into the given output dir."""
 import re, os, sys, html
 OUT = sys.argv[1]; FIG = "figures"
 def svg(name):
-    s = open(os.path.join(FIG, name)).read()
+    s = open(os.path.join(FIG, name) if not name.startswith("fact/") else name).read()
     s = s[s.index("<svg"):]
     s = re.sub(r'<svg([^>]*?)\swidth="[^"]*"\sheight="[^"]*"', r'<svg\1', s, count=1)
     s = s.replace("<svg", '<svg style="width:100%;height:auto;display:block"', 1)
@@ -53,5 +53,28 @@ S.append(plate(9, "Facet on three bipod feet", "m5_facet_feet.svg", "Handbook §
   [("facet", "1.5 mm anodised Al, pressed toroid, 0.32 m hex, ×43"), ("feet", "129, each one folded 0.5 mm 301 blank"), ("strips", "2.5 × 0.5 × 40 mm bipod"),
    ("constraint", "normal + tangent held, radial free: exact, athermal"), ("stress", "62 / 125 / 375 MPa at 5 / 10 / 30 mrad"), ("thermal tilt", "0.02 mrad per mount")],
   "Rolled single-curvature strips would carry 25–93 mrad of slope error; the facets must be pressed toroids."))
-page = open("page_template.html").read().replace("<!--PLATES_DISH-->", "\n".join(S[:4])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7])).replace("<!--PLATES_M5-->", "\n".join(S[7:]))
+FACT = []
+def fact(num, title, fig, ref, rows, note=""):
+    return plate(num, title, "fact/figures/" + fig, ref, rows, note)
+FACT.append(fact(1, "Fold tilt: remote axis in the mirror face plane", "fact_fold_remote_axis.svg", "Freedom space: 1 rotation. Constraint space: every line meeting the axis (Hopkins, Handbook ch. 6)",
+  [("elements", "5 wire flexures"), ("arrangement", "two A-frames standing across the axis, apexes on it; one diagonal stay through F"), ("check", "rank 5, 1 DOF left: rotation about the face-plane axis"),
+   ("why", "the axis is material-free, so it sits in the reflective plane at the focal spot"), ("caught", "A-frames in planes containing the axis share the axis line: rank 3")],
+  "The first-pass cross-axis blades put a pivot block at each end of the axis; this puts nothing there."))
+FACT.append(fact(2, "Dish pitch: constraint planes, stages in series", "fact_dish_pitch_series.svg", "Freedom space: 1 rotation about the pitch axis through the CG. Constraint space: lines meeting the axis, realised as blade planes",
+  [("one stage", "two blade planes containing the axis: 6 lines, rank 5"), ("series", "two identical stages about one axis through an intermediate body: still 1 DOF, double range"),
+   ("principle", "the butterfly / RCC-series pivots (CSEM ±15°, LAFP ±90°) extend range exactly this way"), ("load", "blades keep the capacity wires cannot")]))
+FACT.append(fact(3, "Facet mount: three tangential wires, three screws", "fact_facet_tangential_wires.svg", "Freedom space: tip + tilt + piston. Constraint space: every line in the facet plane",
+  [("flexure", "3 wires tangential to a 130 mm circle, in the facet plane"), ("check", "rank 3: exactly the three adjusted freedoms left; in-plane motions and spin held"),
+   ("adjusters", "3 screw contacts along the normal take those 3 freedoms: 6 constraints, 0 DOF, adjustable"), ("thermal", "radial expansion only bends the wires; symmetric, no tilt")],
+  "Replaces three bipod-and-carriage assemblies per facet with three wires and three screws."))
+C = []
+def cad(num, title, fig, rows, note=""):
+    return plate(num, title, fig, "Parametric solid, cadquery 2.8; isometric line render, hidden lines removed; dimensions as designed", rows, note)
+C.append(cad(10, "Pitch stage, solids", "cad_dish_pitch_stage.svg", [("yoke", "1.8 m beam between the two leaf pivots"), ("pivots", "leaves 300 × 2.0 × 150 mm crossing at 90°"), ("above", "rim attachment stub")]))
+C.append(cad(11, "Wind trip, solids", "cad_dish_wind_trip.svg", [("arch", "span 200, rise 12, t 0.8 mm (illustrative proportions)"), ("plate", "0.25 m² drag plate on a stem"), ("posts", "clamped ends")]))
+C.append(cad(12, "Fold tilt pivot, wire-EDM monolith", "cad_fold_cross_axis_pivot.svg", [("block", "90 × 90 × 40 mm Ti-6Al-4V"), ("blades", "0.6 mm, crossing at 90°; head carried by the blades alone"), ("cut", "wire-EDM slots from one billet")]))
+C.append(cad(13, "Fold assembly, solids", "cad_fold_assembly.svg", [("mirror", "0.36 × 0.44 m elliptical 6061 plate, 12 mm, 17 integral fins"), ("pivots", "two 90 mm blocks on the back, in the face plane"), ("hood", "ring 0.66 m over the mirror on a two-arm yoke")]))
+C.append(cad(14, "Facet on its feet, from above and below", "cad_m5_facet_feet.svg", [("facet", "0.30 m, 1.5 mm, with the rib cross"), ("feet", "three bipods on parallel-motion carriages, M6 adjusters"), ("frame", "0.38 m sub-frame plate")]))
+C.append(cad(15, "Facet feet, underside", "cad_m5_feet_underside.svg", [("view", "from below: the three carriages, their blades and the bipod strips"), ("constraint", "each foot holds normal + tangent, free radially")]))
+page = open("page_template.html").read().replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
 open(os.path.join(OUT, "flexure_register.html"), "w").write(page); print("page:", os.path.getsize(os.path.join(OUT, "flexure_register.html"))//1024, "KB")
