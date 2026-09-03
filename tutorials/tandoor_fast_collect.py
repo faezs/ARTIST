@@ -57,6 +57,23 @@ def _fast_evaluate(self):
     # the stock path expects.
     l_py = 0
     row0 = 0
+    # PUFFERL ROW CONVENTION: row l holds obs_l, action_l, V(obs_l) AND
+    # the reward/done that ARRIVED with obs_l, i.e. produced by action
+    # l-1 (compute_puff_advantage reads rewards[:, t+1] and
+    # terminals[:, t+1] for action t; pufferl's own loop stores the
+    # recv'd r/d beside the recv'd obs). Storing action l's OWN reward
+    # at row l credited every action with the next action's reward and
+    # put a guillotine cut's terminal one row early, so the cut action
+    # itself was bootstrapped through the fresh pot's value: measured
+    # on run 178846843942 ep60, cut-action advantage +0.08 misaligned
+    # vs -0.14 aligned - the 'finish the loss fast' credit behind the
+    # late-day azimuth slam that collapsed that run at 460M steps.
+    # The pair is carried across horizons and epochs on the env.
+    r_prev = getattr(env, '_r_prev', None)
+    dn_prev = getattr(env, '_dn_prev', None)
+    if r_prev is None:
+        r_prev = torch.zeros(B, device=device)
+        dn_prev = torch.zeros(B, device=device)
     free = self.total_agents
     self.full_rows = 0
     while self.full_rows < self.segments:
@@ -90,17 +107,17 @@ def _fast_evaluate(self):
             if config['use_rnn']:
                 self.lstm_h[0] = state['lstm_h']
                 self.lstm_c[0] = state['lstm_c']
-            r_c = torch.clamp(r, -1, 1)
             self.actions[batch_rows, l_py] = action
             self.logprobs[batch_rows, l_py] = logprob
-            self.rewards[batch_rows, l_py] = r_c
-            # truncations count as episode ends: pufferl's TODO drops
-            # them, so a guillotine cut trained as a seamless
-            # transition bootstrapped through the fresh pot's value -
-            # the financing arm of the charge-and-crash valley
-            self.terminals[batch_rows, l_py] = \
-                (d.float() + t.float()).clamp(max=1.0)
+            # previous action's reward/done beside this row's obs (see
+            # the row-convention note above); truncations count as
+            # episode ends - pufferl's TODO drops them, which would
+            # bootstrap a cut through the fresh pot's value
+            self.rewards[batch_rows, l_py] = r_prev
+            self.terminals[batch_rows, l_py] = dn_prev
             self.values[batch_rows, l_py] = value.flatten()
+            r_prev = torch.clamp(r, -1, 1)
+            dn_prev = (d.float() + t.float()).clamp(max=1.0)
             l_py += 1
             if l_py >= config['bptt_horizon']:
                 row0 = free
@@ -120,6 +137,8 @@ def _fast_evaluate(self):
                     self.stats[k].append(v)
 
     env._obs_t = o_device
+    env._r_prev = r_prev
+    env._dn_prev = dn_prev
     profile('eval_misc', epoch)
     self.free_idx = self.total_agents
     self.ep_indices = torch.arange(self.total_agents, device=device,
