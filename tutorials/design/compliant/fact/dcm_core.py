@@ -46,10 +46,10 @@ def elements_nR_point(point, cell_centre, k=3):
         out.append(dict(kind="wire", point=q, direction=q - P, wrenches=[wire(P, q - P)]))
     return out
 # ---- lattice builder ---------------------------------------------------------------------------------
-def dcm_block(cells, cell, stack_axis, n_layers, element_fn):
+def dcm_block(cells, cell, stack_axis, n_layers, element_fn, origin=(0.0, 0.0, 0.0)):
     """cells: (nx, ny, nz) counts; cell: size [mm]; stack_axis: 0/1/2; n_layers: rigid layers along that axis.
     Returns dict(layers=[(lo, hi)...], interfaces=[{cells:[centres], elements:[...]}], ...)"""
-    n = np.array(cells); L = n*cell; lo = -L/2
+    n = np.array(cells); L = n*cell; lo = -L/2 + np.asarray(origin, float)
     layer_t = L[stack_axis]/n_layers
     layers = [(lo[stack_axis] + i*layer_t, lo[stack_axis] + (i+1)*layer_t) for i in range(n_layers)]
     interfaces = []
@@ -117,26 +117,25 @@ if __name__ == "__main__":
 # Supplementary rules (Shaw et al. 2019, Supp. Figs 7-9): the tool joins a cell's two rigid bodies with the
 # MINIMUM number of independent wire elements lying in the constraint space.  For 1R that is five wires
 # meeting the axis: three non-concurrent lines in one plane through the axis, two in another (Supp. Fig. 7d).
-def elements_1R_wires(axis_point, axis_dir, cell_centre, half, gap):
+def elements_1R_wires(axis_point, axis_dir, cell_centre, half, gap, phis=(-45.0, 0.0, 45.0)):
+    """Minimal five-wire 1R cell (Supp. Fig. 7d/8a): every line meets the axis.  Plane A contains the axis and the
+    cell centre; plane B is plane A rotated 60 deg about the axis.  Lines are taken OBLIQUE to the axis (angles
+    `phis` from the radial direction, within the plane) so each wire has a strong axial component: with purely
+    radial wires the ideal rank is still 5 but the axial and roll stiffness are weak and the frame FE shows a
+    parasitic soft mode (found on the fold saddle).  Three lines in A at different offsets, two in B."""
     a, w = np.asarray(axis_point, float), np.asarray(axis_dir, float)/np.linalg.norm(axis_dir); c = np.asarray(cell_centre, float)
     rad = c - a; rad -= w*(rad@w); rn = np.linalg.norm(rad)
     if rn < 1e-9: rad = np.cross(w, [1, 0, 0]) if abs(w[0]) < 0.9 else np.cross(w, [0, 1, 0]); rn = np.linalg.norm(rad)
-    rad /= rn; side = np.cross(w, rad)
-    out = []
-    # plane A: contains the axis and the cell centre (spanned by w, rad): three lines meeting the axis at different points
-    for (s_w, s_r) in ((-0.35, 1.0), (0.0, 1.0), (0.35, 1.0)):
-        p = c + s_w*half*w; d = -(p - a)                       # line from p toward the axis point directly "below" it
-        d = d - w*(d@w) + (0.6*half)*w*np.sign(s_w + 1e-9)*0.0  # keep it in plane A (radial + axial mix)
-        d = d/np.linalg.norm(d) + 0.5*w*s_w/abs(s_w + 1e-9) if False else d/np.linalg.norm(d)
-        # tilt each line differently along the axis so the three are not concurrent: mix radial and axial directions
-        tilt = (s_w*1.5)*w; dd = rad*(-1.0) + tilt; dd /= np.linalg.norm(dd)
+    rad /= rn; side = np.cross(w, rad); out = []
+    for k, ph in enumerate(phis):                      # plane A (w, rad)
+        p = c + (k - 1)*0.3*half*w; dd = -np.cos(np.radians(ph))*rad + np.sin(np.radians(ph))*w
         out.append(dict(kind="wire", point=p, direction=dd, wrenches=[wire(p, dd)]))
-    # plane B: through the axis, rotated by 60 deg about it: two lines meeting the axis
-    rb = np.cos(np.radians(60))*rad + np.sin(np.radians(60))*side
-    for s_w in (-0.3, 0.3):
-        p = c + 0.4*half*rb*0 + s_w*half*w + 0.3*half*side   # a point of the cell off plane A
-        # line from p meeting the axis: direction toward the axis point at parameter (p - a).w
-        foot = a + w*((p - a)@w); dd = foot - p; dd = dd/np.linalg.norm(dd) + 0.8*s_w/abs(s_w)*w*0.0; dd /= np.linalg.norm(dd)
+    rb = np.cos(np.radians(60))*rad + np.sin(np.radians(60))*side   # plane B (w, rb): radial direction rotated 60 deg about the axis
+    for k, ph in enumerate((-35.0, 35.0)):
+        p = c + 0.25*half*side + (k - 0.5)*0.4*half*w
+        # a line through p meeting the axis, lying in the plane through the axis and p: radial direction of p is (p - foot)
+        foot = a + w*((p - a)@w); rp = p - foot; rp /= np.linalg.norm(rp)
+        dd = -np.cos(np.radians(ph))*rp + np.sin(np.radians(ph))*w
         out.append(dict(kind="wire", point=p, direction=dd, wrenches=[wire(p, dd)]))
     return out
 def masked_block(block, mask):
