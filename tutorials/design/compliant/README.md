@@ -18,6 +18,22 @@ from the designers' own knowledge and are marked as such.
 | beam-down fold at the focus F | [beam_down_fold.md](beam_down_fold.md) | ~40 deg tilt tracking the sun's elevation at 90-300 suns; fail-safe dump |
 | M5 ellipsoidal relay, 43 rolled facets | [m5_relay.md](m5_relay.md) | per-facet tip/tilt/piston held to 10 mrad through daily thermal cycling |
 
+## Stage 2: full-scale directionally compliant structures
+
+The second pass ([stage2/README.md](stage2/README.md)) replaces the
+first memos' discrete pivots with three lattice structures designed by
+FACT/DCM at full scale: the dish pitch stage as a 2 m row of 24
+cross-axis blades ([stage2/dish/memo_dish.md](stage2/dish/memo_dish.md)),
+the fold saddle as a five-frame Ti wire lattice on the mirror's back
+with a virtual axis in the face plane through F
+([stage2/fold/memo_fold.md](stage2/fold/memo_fold.md)), and the M5
+facet pad as a six-wire, three-contact exact-constraint mount
+([stage2/m5/memo_m5.md](stage2/m5/memo_m5.md)). Each has a model
+script that prints its FACT rank checks, frame-FE stiffness, stress,
+buckling and modes, and writes the 3-D model shown on the drawing
+register page. The method and its validation against the DCM paper's
+examples are in [fact/README.md](fact/README.md).
+
 Requirements in the memos are taken from the environment model
 (`tutorials/tandoor_hashemi_env.py`, `tutorials/tandoor_mount_batch.py`)
 and from the optical budget measured on it (delivered power 4.5-6 kW,
