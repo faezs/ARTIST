@@ -62,6 +62,18 @@ def dcm_block(cells, cell, stack_axis, n_layers, element_fn, origin=(0.0, 0.0, 0
                 cents.append(c); els += element_fn(c, cell/2)
         interfaces.append(dict(z=z_if, cells=cents, elements=els))
     return dict(layers=layers, interfaces=interfaces, L=L, lo=lo, stack_axis=stack_axis)
+def dcm_stack(layers, nx, ny, cell, element_fn, centre_xy=(0.0, 0.0), stack_axis=2):
+    """Explicit stack: `layers` = [(z_lo, z_hi), ...] rigid layers along z; interfaces at the gap centres; each interface
+    tiled with nx x ny cells of size `cell` centred on centre_xy; element_fn(cell_centre, half, gap) -> elements."""
+    L = np.array([nx*cell, ny*cell, layers[-1][1] - layers[0][0]]); lo = np.array([centre_xy[0] - L[0]/2, centre_xy[1] - L[1]/2, layers[0][0]])
+    interfaces = []
+    for k in range(len(layers) - 1):
+        gap = layers[k + 1][0] - layers[k][1]; z_if = layers[k][1] + gap/2; els, cents = [], []
+        for a in range(nx):
+            for b in range(ny):
+                c = np.array([lo[0] + (a + 0.5)*cell, lo[1] + (b + 0.5)*cell, z_if]); cents.append(c); els += element_fn(c, cell/2, gap)
+        interfaces.append(dict(z=z_if, gap=gap, cells=cents, elements=els))
+    return dict(layers=list(layers), interfaces=interfaces, L=L, lo=lo, stack_axis=stack_axis)
 def check_block(block, desired_twists, label):
     per = []
     for k, itf in enumerate(block["interfaces"]):
@@ -152,15 +164,17 @@ def frame_fe(block, E, G, wire_d, gap, rho=4430.0):
     it joins (node DOF = body DOF via u = u0 + theta x r).  Returns the 6x6 stiffness of the top layer w.r.t.
     ground (bottom layer fixed) about the top layer's centre, its eigen-decomposition (softest direction first),
     and the compliant-to-stiff ratio.  Units: N, mm, rad."""
-    A = np.pi*wire_d**2/4; I = np.pi*wire_d**4/64; J = 2*I; L = gap
-    k = np.zeros((12, 12)); EA, EI, GJ = E*A/L, E*I, G*J/L
-    k[0,0]=k[6,6]=EA; k[0,6]=k[6,0]=-EA; k[3,3]=k[9,9]=GJ; k[3,9]=k[9,3]=-GJ
-    for (i1, i2, s) in ((1, 5, 1.0), (2, 4, -1.0)):   # bending in the two planes: dofs (v, theta_z) and (w, theta_y)
-        a, b, c, d = i1, i2, i1+6, i2+6
-        k[a,a]+=12*EI/L**3; k[a,b]+=s*6*EI/L**2; k[a,c]+=-12*EI/L**3; k[a,d]+=s*6*EI/L**2
-        k[b,a]+=s*6*EI/L**2; k[b,b]+=4*EI/L; k[b,c]+=-s*6*EI/L**2; k[b,d]+=2*EI/L
-        k[c,a]+=-12*EI/L**3; k[c,b]+=-s*6*EI/L**2; k[c,c]+=12*EI/L**3; k[c,d]+=-s*6*EI/L**2
-        k[d,a]+=s*6*EI/L**2; k[d,b]+=2*EI/L; k[d,c]+=-s*6*EI/L**2; k[d,d]+=4*EI/L
+    A = np.pi*wire_d**2/4; I = np.pi*wire_d**4/64; J = 2*I
+    def beam_k(L):
+        k = np.zeros((12, 12)); EA, EI, GJ = E*A/L, E*I, G*J/L
+        k[0,0]=k[6,6]=EA; k[0,6]=k[6,0]=-EA; k[3,3]=k[9,9]=GJ; k[3,9]=k[9,3]=-GJ
+        for (i1, i2, s) in ((1, 5, 1.0), (2, 4, -1.0)):   # bending in the two planes: dofs (v, theta_z) and (w, theta_y)
+            a, b, c, d = i1, i2, i1+6, i2+6
+            k[a,a]+=12*EI/L**3; k[a,b]+=s*6*EI/L**2; k[a,c]+=-12*EI/L**3; k[a,d]+=s*6*EI/L**2
+            k[b,a]+=s*6*EI/L**2; k[b,b]+=4*EI/L; k[b,c]+=-s*6*EI/L**2; k[b,d]+=2*EI/L
+            k[c,a]+=-12*EI/L**3; k[c,b]+=-s*6*EI/L**2; k[c,c]+=12*EI/L**3; k[c,d]+=-s*6*EI/L**2
+            k[d,a]+=s*6*EI/L**2; k[d,b]+=2*EI/L; k[d,c]+=-s*6*EI/L**2; k[d,d]+=4*EI/L
+        return k
     def rot_to(d):                       # rotation matrix whose first column is the beam axis d
         d = d/np.linalg.norm(d); t = np.cross(d, [0, 0, 1.0]) if abs(d[2]) < 0.9 else np.cross(d, [1.0, 0, 0]); t /= np.linalg.norm(t); n = np.cross(d, t)
         return np.array([d, t, n]).T
@@ -175,11 +189,12 @@ def frame_fe(block, E, G, wire_d, gap, rho=4430.0):
             if e["kind"] != "wire": continue
             p, d = np.asarray(e["point"]), np.asarray(e["direction"])/np.linalg.norm(e["direction"])
             # the wire spans the gap between layers i and i+1 along its own direction: endpoints where it meets the layer faces
-            zf0, zf1 = block["layers"][i][1] - 0.5*gap, block["layers"][i][1] + 0.5*gap   # (rigid layers end gap/2 short of the interface plane)
+            g_if = itf.get("gap", gap)
+            zf0, zf1 = block["layers"][i][1], block["layers"][i + 1][0]              # the wire spans the real gap between layer faces
             t0 = (zf0 - p[ax])/d[ax] if abs(d[ax]) > 1e-6 else 0.0; t1 = (zf1 - p[ax])/d[ax] if abs(d[ax]) > 1e-6 else 0.0
             n0, n1 = p + t0*d, p + t1*d; Lw = np.linalg.norm(n1 - n0)
             if Lw < 1e-6: continue
-            kk = k.copy()*(L/Lw)          # crude length scaling of the axial/torsion terms; bending rescaled below
+            kk = beam_k(Lw)
             R = rot_to(n1 - n0); T = np.zeros((12, 12)); T[:3, :3] = T[3:6, 3:6] = T[6:9, 6:9] = T[9:, 9:] = R.T
             kg = T.T @ kk @ T
             M0, M1 = rigid_map(n0 - centres[i]), rigid_map(n1 - centres[i+1])

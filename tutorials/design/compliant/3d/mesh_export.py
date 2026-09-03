@@ -12,4 +12,4 @@ class Scene:
                                    v=[[round(v.x, 1), round(v.y, 1), round(v.z, 1)] for v in verts], f=tris))
         return self
     def write(self, path):
-        json.dump(dict(parts=self.parts), open(path, "w"), separators=(",", ":")); print("wrote", path, os.path.getsize(path)//1024, "KB", sum(len(p["f"]) for p in self.parts), "tris")
+        json.dump(dict(parts=self.parts), open(path, "w"), separators=(",", ":")); print("wrote", path, os.path.getsize(path)//1024, "KB", sum(len(p.get("f", [])) for p in self.parts), "tris,", sum(len(p.get("lines", [])) for p in self.parts), "lines")

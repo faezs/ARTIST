@@ -9,6 +9,13 @@ function mountViewer(el, model, opt) {
   const group = new THREE.Group(); if ((opt.up || 'z') === 'z') group.rotation.x = -Math.PI / 2; scene.add(group);
   let minB = new THREE.Vector3(Infinity, Infinity, Infinity), maxB = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
   model.parts.forEach(p => {
+    if (p.lines) {                       // line-segment parts (lattice wires, axes): cheap to ship and draw
+      const pos = new Float32Array(p.lines.length * 6);
+      p.lines.forEach((s, i) => { pos.set([s[0][0], s[0][1], s[0][2], s[1][0], s[1][1], s[1][2]], 6 * i); });
+      const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); lg.computeBoundingBox();
+      minB.min(lg.boundingBox.min); maxB.max(lg.boundingBox.max);
+      const ls = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: new THREE.Color(p.color) })); ls.name = p.name; group.add(ls); return;
+    }
     const g = new THREE.BufferGeometry(); const pos = new Float32Array(p.v.length * 3);
     p.v.forEach((v, i) => { pos[3 * i] = v[0]; pos[3 * i + 1] = v[1]; pos[3 * i + 2] = v[2]; });
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(p.f.flat()); g.computeVertexNormals(); g.computeBoundingBox();
