@@ -555,7 +555,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  z_m5=-0.10, el_min=12.0, r_mast=0.25, n_rays=1100,
                  fuse=1, gpu=0, beta_dev=0.0, slot_flaps=0,
                  silvered=0, m5_scale=1.0, zone_c=0.0,
-                 receiver="fold", exit_el=20.0,
+                 receiver="fold", cut_penalty=0.0, exit_el=20.0,
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, r_m4=1.3,
@@ -605,6 +605,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # through 74-78%, shadow ~10% (M2 5%, M3+strut), 184 MJ/8h vs the
         # stock 147; Metal == torch reference 0/120 mismatches, 3e-6 W.
         self.receiver = str(receiver)
+        # fixed truncation penalty (raw reward units) on top of the exact
+        # potential refund: a lost sun is a failure, not a free exit to a
+        # fresh pot (runs 178846843942/178847731389 collapsed through the
+        # last-hour cut being cheaper than holding unfinishable loaves)
+        self.cut_penalty = float(cut_penalty)
         if self.receiver not in ("fold", "focus"):
             raise ValueError(f"receiver={receiver!r}: 'fold' or 'focus'")
         # exit of the beam-down M1: on the azimuth turntable with M2 -
@@ -815,8 +820,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                         np.minimum(self.T[i, : self.n_belt],
                                    T_COOK_LO) - 350.0,
                         0, None).sum())
-                self.rewards[i] -= give
-                self.ep_return[i] -= give
+                self.rewards[i] -= give + self.cut_penalty
+                self.ep_return[i] -= give + self.cut_penalty
                 # always cold on lost-sun truncation (no warm lottery)
                 self.T[i] = 350.0
                 self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
@@ -1335,7 +1340,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 .clamp(0.0, 1.0).sum(1) \
                 + 0.05 * (S.T[:, : self.n_belt].clamp(max=T_COOK_LO)
                           - 350.0).clamp(min=0.0).sum(1)
-            rew = rew - give * cut.float()
+            rew = rew - (give + self.cut_penalty) * cut.float()
             S.T = torch.where(cutf, newT, S.T)
             S.T_sub = torch.where(cutf, newT, S.T_sub)
             S.T_deep = torch.where(cutf, newT, S.T_deep)

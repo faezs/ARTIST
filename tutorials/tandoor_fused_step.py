@@ -45,7 +45,7 @@ def _step_params(env):
     dt = float(env.dt)
     M = env._noz2["M"] if getattr(env, "_noz2", None) else (0.0,) * 3
     N = env.n_nodes
-    sp = np.zeros(63 + 7 * N, dtype=np.float32)
+    sp = np.zeros(64 + 7 * N, dtype=np.float32)
     sp[0:11] = [dt, env.p0, env.RATE_AZ, env.RATE_EL, RATE_SPOT_PHI,
                 RATE_SPOT_Z, SPOT_PHI_RANGE[0], SPOT_PHI_RANGE[1],
                 SPOT_Z_RANGE[0], SPOT_Z_RANGE[1],
@@ -74,10 +74,11 @@ def _step_params(env):
     sp[54:61] = env.level_frac
     sp[61] = env.loaves_per_load
     sp[62] = float(getattr(env, "load_ctrl", 0))
+    sp[63] = float(getattr(env, "cut_penalty", 0.0))   # fixed cut penalty (raw)
     for i, v in enumerate((env.node_area, env.node_heat_cap,
                            env.cap_sub, env.cap_deep, env.g01,
                            env.g12, env.g2s)):
-        sp[63 + i * N:63 + (i + 1) * N] = v
+        sp[64 + i * N:64 + (i + 1) * N] = v
     return sp
 
 

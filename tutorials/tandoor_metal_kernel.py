@@ -884,7 +884,7 @@ kernel void step_post(
     device float* bC = bt_ + NB;
     device float* hb = bC + NB;
     device const float* pv = per + b*N;
-    device const float* NA = sp + 63;
+    device const float* NA = sp + 64;   // sp[63] = fixed cut penalty
     device const float* HC = NA + N;
     device const float* CS = HC + N;
     device const float* CD_ = CS + N;
@@ -1066,7 +1066,7 @@ kernel void step_post(
             nb_ += (0.05f/0.3f)*max(min(s[k], sp[27]) - 350.0f,
                                     0.0f);
         }
-        r -= 0.3f*nb_;
+        r -= 0.3f*nb_ + sp[63];   // + fixed truncation penalty
         for (int i = 0; i < N; i++) {
             float nt = 350.0f + (ru[b*16 + 1 + i] - 0.5f)*30.0f;
             s[i] = nt; Tsub[i] = nt; Tdeep[i] = nt;
