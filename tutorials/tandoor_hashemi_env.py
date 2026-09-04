@@ -2822,6 +2822,42 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             pr.draw_line_3d(v3(Ps_), v3(Ff_), colt)               # strut
             for zz in np.linspace(self.z_deck, Ff_[2], 4):     # post rings
                 ring([Ff_[0], 0, zz], 0.12, (150, 140, 120, 255), 10)
+        elif self.receiver == "cass":
+            # THE CASSEGRAIN CHAIN, drawn as built: the straight bore of
+            # radius r_bore from the tower top down to the turn at the
+            # wall base, the ellipsoid M4 patch at the turn (foci F2 up
+            # the bore and the built duct mouth), the duct, and the F
+            # post: a horizontal arm from the north tower (out of the
+            # bore) to F (cass) or to the bearing Q = F - d A (greg).
+            P4_, F4_, Ff_ = self.cs_P4, self.cs_F4, self.F_focus
+            F2_, n4_, Ps_ = self.cs_F2, self.cs_n4, self.cs_Ps
+            colt = (160, 148, 126, 255)
+            ax_ = P4_ - Ff_
+            Lb_ = max(np.linalg.norm(ax_), 1e-9)
+            ax_ = ax_ / Lb_
+            e1_ = np.cross(ax_, [0., 1., 0.])
+            e1_ /= max(np.linalg.norm(e1_), 1e-9)
+            e2_ = np.cross(ax_, e1_)
+            tt_ = np.linspace(0, 2*np.pi, 21)
+            zdk_ = self.z_deck
+            # bore rings from the deck crossing down to M4
+            t_deck = (zdk_ - Ff_[2]) / ax_[2] if abs(ax_[2]) > 1e-6 else 0.0
+            for tb_ in np.linspace(max(t_deck, 0.0), Lb_, 12):
+                cb_ = Ff_ + tb_*ax_
+                ptsb = [cb_ + self.r_bore*(np.cos(x)*e1_ + np.sin(x)*e2_) for x in tt_]
+                for k in range(20):
+                    pr.draw_line_3d(v3(ptsb[k]), v3(ptsb[k+1]), (120, 104, 88, 255))
+            for aa in (0, np.pi/2, np.pi, 3*np.pi/2):
+                off_ = self.r_bore*(np.cos(aa)*e1_ + np.sin(aa)*e2_)
+                pr.draw_line_3d(v3(Ff_ + max(t_deck, 0.0)*ax_ + off_),
+                                v3(P4_ + off_), (120, 104, 88, 255))
+            disc(P4_, n4_, self.r_m4, (160, 220, 240, 235), 20)     # M4 (ellipsoid patch)
+            pr.draw_line_3d(v3(P4_), v3(F4_), (120, 220, 235, 200))
+            pr.draw_sphere(v3(F2_), 0.06, (120, 220, 235, 255))       # F2
+            Q_ = Ff_ - self.d_strip*self.cs_A if self.sec_side == "greg" else Ff_
+            pr.draw_line_3d(v3(Ps_), v3(Q_), colt)                    # the arm
+            for zz in np.linspace(self.z_deck, Ps_[2], 6):            # north tower
+                ring([Ps_[0], 0, zz], 0.20, (150, 140, 120, 255), 12)
         else:
             pr.draw_line_3d(v3([X_TOWER, 0, self.z_tube[1] + 0.6]),
                             v3([X_TOWER, 0, self.z_fold]), (160, 148, 126, 255))
@@ -2957,6 +2993,51 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 # turntable ring under M1/M2 and the F marker
                 ring(Ff - np.array([0, 0, 0.30]), 0.35, (200, 180, 140, 255), 14)
                 ring(Ff, 0.12, (235, 200, 90, 255), 14)
+            elif self.receiver == "cass":
+                # THE ROTATING STRIP: a patch of the conic with foci F and
+                # F2 (hyperboloid before F for cass, ellipsoid beyond F
+                # for greg), turned about the F-F2 axis to sit under the
+                # dish's cone. Rows along the meridian (polar window),
+                # columns across the strip width. Points from F: r(u) =
+                # (c^2-a^2)/(a + c u.A) [cass] or (a^2-c^2)/(a - c u.A) [greg].
+                ub_ = np.asarray(H.get("ub", u))
+                Ff, A_ = self.F_focus, self.cs_A
+                a_h, c_h = self.cs_a, self.cs_c
+                greg_ = self.sec_side == "greg"
+                sd_ = ub_ if greg_ else -ub_
+                m_ = sd_ - (sd_ @ A_)*A_                     # the meridian
+                m_ /= max(np.linalg.norm(m_), 1e-9)
+                m2_ = np.cross(A_, m_)
+                th_ = np.radians(np.linspace(self.strip_th_lo, self.strip_th_hi, 9))
+                rows_ = []
+                for th in th_:
+                    ca_, sa_ = np.cos(th), np.sin(th)
+                    r0_ = ((a_h*a_h - c_h*c_h) / max(a_h - c_h*ca_, 1e-6)) if greg_ \
+                        else ((c_h*c_h - a_h*a_h) / max(a_h + c_h*ca_, 1e-6))
+                    rho_ = r0_*sa_
+                    dphi = min(0.5*self.w_strip / max(rho_, 1e-6), np.pi)
+                    row_ = []
+                    for ph in np.linspace(-dphi, dphi, 7):
+                        u_ = ca_*A_ + sa_*(np.cos(ph)*m_ + np.sin(ph)*m2_)
+                        r_ = ((a_h*a_h - c_h*c_h) / max(a_h - c_h*(u_ @ A_), 1e-6)) if greg_ \
+                            else ((c_h*c_h - a_h*a_h) / max(a_h + c_h*(u_ @ A_), 1e-6))
+                        row_.append(Ff + r_*u_)
+                    rows_.append(row_)
+                for i_ in range(len(rows_)):
+                    for j_ in range(6):
+                        pr.draw_line_3d(v3(rows_[i_][j_]), v3(rows_[i_][j_+1]), (200, 140, 235, 255))
+                    if i_ + 1 < len(rows_):
+                        for j_ in range(7):
+                            pr.draw_line_3d(v3(rows_[i_][j_]), v3(rows_[i_+1][j_]), (200, 140, 235, 255))
+                # the F-F2 axis (faint), the F marker, the strip's bearing ring on the axis
+                pr.draw_line_3d(v3(Ff), v3(self.cs_P4), (235, 200, 90, 90))
+                ring(Ff, 0.12, (235, 200, 90, 255), 14)
+                Qb_ = Ff - (self.d_strip if greg_ else 0.35)*A_
+                e1b = np.cross(A_, [0., 1., 0.]); e1b /= max(np.linalg.norm(e1b), 1e-9)
+                e2b = np.cross(A_, e1b)
+                rb_ = [Qb_ + 0.30*(np.cos(x)*e1b + np.sin(x)*e2b) for x in np.linspace(0, 2*np.pi, 15)]
+                for k in range(14):
+                    pr.draw_line_3d(v3(rb_[k]), v3(rb_[k+1]), (200, 180, 140, 255))
             else:
                 # the FIXED fold: the true ELLIPTICAL plate (semi-major
                 # r_fold/cos i along the beam) on a visible two-axis yoke.
@@ -3093,7 +3174,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                              (col[0], col[1], col[2], 235))
         self._draw_bread_strip(pr, 1015, 26)
         self._draw_disturbances(pr, 1015, 120)
-        if self.receiver == "focus":
+        if self.receiver == "cass":
+            tilt_ = np.degrees(np.arccos(np.clip(-self.cs_A[2], -1, 1)))
+            hud = [f"dish f {self.f_nom:.1f} m hinged at F, {self.post_offset:.1f} m N of wall",
+                   f"{'ellipsoid' if self.sec_side == 'greg' else 'hyperboloid'} strip d {self.d_strip:.1f} m, foci F & F2, mag {self.cs_mag:.1f}",
+                   f"bore r {self.r_bore:.1f}, {tilt_:.0f} deg; F2 {self.u_f2:.1f} m up; M4 ellipsoid r {self.r_m4:.1f}",
+                   f"strip {self.strip_th_lo:.0f}-{self.strip_th_hi:.0f} deg x {self.w_strip:.1f} m, shadow "
+                   f"{self.obstruction*100:.0f}%"]
+        elif self.receiver == "focus":
             side_ = "E" if (H is not None and H["u"][1] < 0) else "W"
             hud = [f"dish f {self.f_nom:.1f} m hinged at F, {self.post_offset:.1f} m N of wall",
                    f"F z {self.z_fold:.1f}  M1 r {self.r_m1:.2f}  M2 r {self.col_radius:.2f} @{self.col_dist:.2f}",
@@ -3110,7 +3198,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                      if self.beta_cap_z is not None else ""))
                  if self.slotless else
                  f"slot cut, obstruction {self.obstruction*100:.0f}%"]
-        hud_y0, hud_dy = (290, 19) if self.receiver == "focus" else (300, 22)
+        hud_y0, hud_dy = (290, 19) if self.receiver in ("focus", "cass") else (300, 22)
         for j, l in enumerate(hud):
             pr.draw_text(l, 1015, hud_y0 + hud_dy*j, 15, (225, 225, 205, 255))
         # the day so far, as line graphs - control is a TRAJECTORY:
@@ -3143,7 +3231,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                       [(h_["rew"], (140, 220, 140, 255), "r/step"),
                        (h_["ret"], (200, 160, 240, 255), "ret/100")],
                       tspan=tsp, fmt=".1f")
-        if self.receiver == "focus":
+        if self.receiver == "cass":
+            foot1 = ("EXACT: dish -> rotating conic strip at the focus (foci F, F2) "
+                     "-> straight bore -> ellipsoid M4 at the turn -> duct -> pot.")
+            foot2 = ("The strip turns about the F-F2 axis with the sun; nothing else "
+                     "moves. Dish square to the sun, hinged at F; F post from the north.")
+        elif self.receiver == "focus":
             foot1 = ("EXACT: dish -> M1 AT the focus -> M2 collimator -> M3 "
                      "on the wall -> chase -> M4 at the turn -> duct -> pot.")
             foot2 = ("M1+M2 turn with the sun (west while it is east, east "
