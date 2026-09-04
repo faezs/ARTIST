@@ -537,6 +537,253 @@ def _geo_core_focus(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
             lit, in_slot, graze, rad1, p, h1, h4, h5, h2m)
 
 
+def _hyp_hit(h, d, O, A, a_h, c_h):
+    """Ray (h + t d) vs the F-side sheet of the two-sheet hyperboloid with
+    centre O, axis A (unit, F -> F2), semi-axes a_h (along A) and
+    b^2 = c^2 - a^2. Returns (t, hit, normal, valid); the F sheet is
+    z = (X-O).A < 0. Smallest positive root on that sheet."""
+    w = h - O
+    z0 = (w * A).sum(-1)
+    dz = (d * A).sum(-1)
+    wd = (w * d).sum(-1)
+    ww = (w * w).sum(-1)
+    b2 = c_h * c_h - a_h * a_h
+    qa = c_h * c_h * dz * dz - a_h * a_h
+    qb = 2.0 * (c_h * c_h * z0 * dz - a_h * a_h * wd)
+    qc = c_h * c_h * z0 * z0 - a_h * a_h * ww - a_h * a_h * b2
+    disc = qb * qb - 4.0 * qa * qc
+    sq = torch.sqrt(disc.clamp(min=0.0))
+    sgn = torch.where(qb >= 0, torch.ones_like(qb), -torch.ones_like(qb))
+    qq = -0.5 * (qb + sgn * sq)
+    qa_s = torch.where(qa.abs() > 1e-12, qa, torch.full_like(qa, 1e-12))
+    qq_s = torch.where(qq.abs() > 1e-12, qq, torch.full_like(qq, 1e-12))
+    tA = qq / qa_s
+    tB = qc / qq_s
+    big = torch.full_like(tA, 1e9)
+    def _sheet_ok(t):
+        X = h + t[..., None] * d
+        return (t > 1e-6) & (((X - O) * A).sum(-1) < 0)
+    tA = torch.where(_sheet_ok(tA), tA, big)
+    tB = torch.where(_sheet_ok(tB), tB, big)
+    t = torch.minimum(tA, tB)
+    valid = (disc >= 0) & (t < 1e8)
+    X = h + t[..., None] * d
+    zz = ((X - O) * A).sum(-1, keepdim=True)
+    n = c_h * c_h * zz * A - a_h * a_h * (X - O)
+    n = n / n.norm(dim=-1, keepdim=True).clamp(min=1e-12)
+    # orient toward the incoming ray
+    n = torch.where((n * d).sum(-1, keepdim=True) > 0, -n, n)
+    return t, X, n, valid
+
+
+def _ellip_hit(h, d, O, A, a_e, c_e):
+    """Ray (h + t d) vs the ellipsoid of revolution with centre O, axis A
+    (unit), semi-major a_e, focal half-distance c_e. Returns the FAR
+    positive root (the mirror patch sits on the far wall beyond the
+    near focus), the hit, the inward normal oriented against d, valid."""
+    w = h - O
+    z0 = (w * A).sum(-1)
+    dz = (d * A).sum(-1)
+    wd = (w * d).sum(-1)
+    ww = (w * w).sum(-1)
+    a2, c2 = a_e * a_e, c_e * c_e
+    b2 = a2 - c2
+    qa = a2 - c2 * dz * dz
+    qb = 2.0 * (a2 * wd - c2 * z0 * dz)
+    qc = a2 * ww - c2 * z0 * z0 - a2 * b2
+    disc = qb * qb - 4.0 * qa * qc
+    sq = torch.sqrt(disc.clamp(min=0.0))
+    qa_s = torch.where(qa.abs() > 1e-12, qa, torch.full_like(qa, 1e-12))
+    t1 = (-qb - sq) / (2.0 * qa_s)
+    t2 = (-qb + sq) / (2.0 * qa_s)
+    t = torch.maximum(t1, t2)
+    valid = (disc >= 0) & (t > 1e-6)
+    X = h + t[..., None] * d
+    wX = X - O
+    zz = (wX * A).sum(-1, keepdim=True)
+    n = a2 * wX - c2 * zz * A
+    n = n / n.norm(dim=-1, keepdim=True).clamp(min=1e-12)
+    n = torch.where((n * d).sum(-1, keepdim=True) > 0, -n, n)
+    return t, X, n, valid
+
+
+def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
+                   Mt, Cd, dvec, off, vp, sc, scb,
+                   ellM, ellS, ellC, V0t):
+    """CASSEGRAIN receiver (user design 2026-09-04): dish -> a rotating
+    STRIP of the hyperboloid with foci F (the dish focus) and F2 (the
+    mirror image of the duct mouth in a flat M4 at the turn) -> straight
+    bore from the tower top to the wall base -> M4 (flat) -> duct plane
+    -> pot. The strip turns about the F-F2 axis with the dish's azimuth
+    (a surface of revolution: both foci stay put) and spans the polar
+    window [th_lo, th_hi] about that axis. Geometry from sc[106..138]
+    (see _build_cass_chain). Stock tuple with reinterpreted slots:
+    rad1 = 0 inside the strip / 1 outside, ok_pre_tube = after the
+    membrane-crossing test, ok_post_tube = after the bore gates,
+    h1 = strip hit, h2 = M4 hit, h3 = duct-plane hit, desc = strip hit."""
+    csr_frac_c, csr_sig_c = sc[20], sc[21]
+    i0 = lv.long().clamp(0, pts_l.shape[0] - 2)
+    fr = (lv - i0.float())[:, None, None]
+    p_loc = (1 - fr) * pts_l[i0] + fr * pts_l[i0 + 1]
+    n_loc = (1 - fr) * nrm_l[i0] + fr * nrm_l[i0 + 1]
+    n_loc = n_loc / n_loc.norm(dim=-1, keepdim=True)
+    tq = us.clamp(0, 1) * 64.0
+    ti = tq.long().clamp(max=63)
+    tf = tq - ti.float()
+    sun_t = sc[38:103]
+    th_sun = sun_t[ti] * (1 - tf) + sun_t[ti + 1] * tf
+    psi = 2.0 * np.pi * upick
+    e_ang = th_sun * torch.cos(psi) + de * sigb[:, None]
+    u_ang = th_sun * torch.sin(psi) + du * sigb[:, None]
+    R = artist_utils.rotate_distortions(
+        e=e_ang[:, None, :], u=u_ang[:, None, :],
+        device=du.device)
+    canon = torch.zeros(4, device=du.device, dtype=du.dtype)
+    canon[1] = 1.0
+    v = (R @ canon.expand(du.shape[0], 1, du.shape[1], 4)
+         .unsqueeze(-1)).squeeze(-1)[:, 0]
+    inc3 = (Acan @ v[..., :3, None]).squeeze(-1)
+    inc4 = torch.cat([inc3, torch.zeros_like(inc3[..., :1])], -1)
+    n4l = torch.cat([n_loc, torch.zeros_like(n_loc[..., :1])], -1)
+    d43 = reflect(inc4, n4l)
+    org3 = p_loc
+    ut, Pf = vp[:, 0], vp[:, 1]
+    p = org3 @ Mt + Cd
+    d = d43[..., :3] @ Mt
+    d = d / d.norm(dim=-1, keepdim=True)
+    # ---- table
+    arm_n = sc[107]                       # north arm length (post root = F + arm_n x)
+    r_strip, d_strip, a_h, c_h = sc[108], sc[109], sc[110], sc[111]
+    O, A = sc[112:115], sc[115:118]
+    th_lo, th_hi, w_strip = sc[118], sc[119], sc[120]
+    P4, F4 = sc[121:124], sc[124:127]
+    Oe, Ae, a_e, c_e = sc[127:130], sc[130:133], sc[133], sc[134]
+    r_m4, r_bore, r_strut = sc[135], sc[136], sc[137]
+    f_dish, a_dish, z_deck, r_hole = sc[138], sc[139], sc[140], sc[141]
+    F = Pf                                # (B,1,3) per env
+    xhat = torch.tensor([1.0, 0.0, 0.0], device=p.device, dtype=p.dtype)
+    Ps = F + arm_n * xhat
+    greg = sc[106] > 2.5
+    side = torch.where(greg, torch.ones_like(d_strip), -torch.ones_like(d_strip))
+    Hc = F + side * d_strip * ut          # strip centre on the dish axis (before/beyond F)
+    # arm end: F for cass (the strip intercepts the cone before F); for
+    # greg a bearing on the axis d_strip up the anti-sun side, F - d A,
+    # outside both the cone and the beam
+    Qarm = (F - d_strip * A) if bool(greg) else F
+    def _blocked(center, rad):
+        vc = center - p
+        ahead = (vc * ut).sum(-1) > 0
+        perp = vc - (vc * ut).sum(-1, keepdim=True) * ut
+        return ahead & (perp.norm(dim=-1) < rad)
+    # ---- shadows on the sun leg: the strip (as a sphere) and the arm
+    lit = ~_blocked(Hc, r_strip)
+    rho_l = torch.sqrt(org3[..., 0] ** 2 + org3[..., 1] ** 2)
+    lit = lit & (rho_l > r_hole)
+    ds, _ = _ray_seg_dist(p, ut, Ps, Qarm)
+    lit = lit & (ds > r_strut)
+    in_slot = torch.zeros_like(lit)
+    # ---- the strip: hyperboloid hit on the F sheet, before F
+    if bool(greg):
+        # ellipsoid beyond F: the first surface crossing AFTER the ray
+        # passes F (both roots lie on the closed surface)
+        tF = ((F - p) * d).sum(-1)
+        w_ = p - O
+        z0_ = (w_ * A).sum(-1); dz_ = (d * A).sum(-1)
+        wd_ = (w_ * d).sum(-1); ww_ = (w_ * w_).sum(-1)
+        a2_, c2_ = a_h * a_h, c_h * c_h
+        b2_ = a2_ - c2_
+        qa_ = a2_ - c2_ * dz_ * dz_
+        qb_ = 2.0 * (a2_ * wd_ - c2_ * z0_ * dz_)
+        qc_ = a2_ * ww_ - c2_ * z0_ * z0_ - a2_ * b2_
+        disc_ = qb_ * qb_ - 4.0 * qa_ * qc_
+        sq_ = torch.sqrt(disc_.clamp(min=0.0))
+        qa_s_ = torch.where(qa_.abs() > 1e-12, qa_, torch.full_like(qa_, 1e-12))
+        ta_ = (-qb_ - sq_) / (2.0 * qa_s_)
+        tb_ = (-qb_ + sq_) / (2.0 * qa_s_)
+        big_ = torch.full_like(ta_, 1e9)
+        ta_ = torch.where(ta_ > tF, ta_, big_)
+        tb_ = torch.where(tb_ > tF, tb_, big_)
+        t1 = torch.minimum(ta_, tb_)
+        v1 = (disc_ >= 0) & (t1 < 1e8)
+        h1 = p + t1[..., None] * d
+        wX_ = h1 - O
+        zz_ = (wX_ * A).sum(-1, keepdim=True)
+        nh = a2_ * wX_ - c2_ * zz_ * A
+        nh = nh / nh.norm(dim=-1, keepdim=True).clamp(min=1e-12)
+        nh = torch.where((nh * d).sum(-1, keepdim=True) > 0, -nh, nh)
+    else:
+        t1, h1, nh, v1 = _hyp_hit(p, d, O, A, a_h, c_h)
+    rel = h1 - F
+    rn = rel.norm(dim=-1).clamp(min=1e-9)
+    cth = (rel * A).sum(-1) / rn
+    th = torch.arccos(cth.clamp(-1, 1))
+    # azimuth about A: the strip's meridian follows the dish (-ut)
+    def _azvec(x):
+        return x - (x * A).sum(-1, keepdim=True) * A
+    av_h = _azvec(rel)
+    av_s = _azvec(side * ut)
+    cosd = (av_h * av_s).sum(-1) / (av_h.norm(dim=-1) * av_s.norm(dim=-1)).clamp(min=1e-9)
+    rho = av_h.norm(dim=-1)
+    arc = torch.arccos(cosd.clamp(-1, 1)) * rho
+    # near the axis the meridian azimuth is degenerate: a hit within the
+    # strip's half-width of the axis is covered whatever its azimuth
+    on_strip = v1 & (th >= th_lo) & (th <= th_hi) & ((arc < 0.5 * w_strip) | (rho < 0.5 * w_strip))
+    rad1 = torch.where(on_strip, torch.zeros_like(th), torch.ones_like(th))
+    # the dish->strip leg grazing the arm
+    dsg, tsg = _ray_seg_dist(p, d, Ps, Qarm)
+    graze = (dsg < r_strut) & (tsg < t1 - 0.05)
+    ok = lit & ~graze & on_strip
+    d2 = d - 2.0 * (d * nh).sum(-1, keepdim=True) * nh
+    # ---- the reflected leg must clear the membrane (ideal paraboloid,
+    # vertex Cd, axis ut, focal length f_dish) and the arm
+    l0 = torch.einsum("bnk,bjk->bnj", h1 - Cd, Mt)
+    dl = torch.einsum("bnk,bjk->bnj", d2, Mt)
+    qa = dl[..., 0] ** 2 + dl[..., 1] ** 2
+    qb = 2.0 * (l0[..., 0] * dl[..., 0] + l0[..., 1] * dl[..., 1]) - 4.0 * f_dish * dl[..., 2]
+    qc = l0[..., 0] ** 2 + l0[..., 1] ** 2 - 4.0 * f_dish * l0[..., 2]
+    disc = qb * qb - 4.0 * qa * qc
+    sq = torch.sqrt(disc.clamp(min=0.0))
+    qa_s = torch.where(qa.abs() > 1e-12, qa, torch.full_like(qa, 1e-12))
+    tm = (-qb - sq) / (2.0 * qa_s)
+    tp = (-qb + sq) / (2.0 * qa_s)
+    def _dish_block(t):
+        X = l0 + t[..., None] * dl
+        rr = torch.sqrt(X[..., 0] ** 2 + X[..., 1] ** 2)
+        return (disc >= 0) & (t > 1e-3) & (rr < a_dish) & (rr > r_hole)
+    crossing = _dish_block(tm) | _dish_block(tp)
+    dsa, tsa = _ray_seg_dist(h1, d2, Ps, Qarm)
+    crossing = crossing | ((dsa < r_strut) & (tsa > 0))
+    ok = ok & ~crossing
+    ok_pre_tube = ok
+    # ---- the bore: a straight cylinder of radius r_bore about the axis
+    # F -> P4; gates at the deck plane and at M4's plane
+    axis = P4 - F
+    axis = axis / axis.norm(dim=-1, keepdim=True)
+    def _axis_dist(X):
+        w = X - F
+        return (w - (w * axis).sum(-1, keepdim=True) * axis).norm(dim=-1)
+    tdeck = (z_deck - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
+    hdeck = h1 + tdeck[..., None] * d2
+    t4, h4, n4, v4 = _ellip_hit(h1, d2, Oe, Ae, a_e, c_e)
+    ok = ok & (d2[..., 2] < -0.2) & (_axis_dist(hdeck) < r_bore)
+    ok_post_tube = ok
+    # ---- M4: ellipsoid patch at the turn (foci F2 and the duct mouth)
+    ok = ok & v4 & ((h4 - P4).norm(dim=-1) < r_m4)
+    d5 = d2 - 2.0 * (d2 * n4).sum(-1, keepdim=True) * n4
+    # ---- the duct plane x = r_pot (the built mouth), as the stock chain
+    r_pot_c, z_duct_c, r_duct_c = sc[12], sc[11], sc[13]
+    t5 = (r_pot_c - h4[..., 0]) / d5[..., 0].clamp(max=-1e-9)
+    ok = ok & (d5[..., 0] < -0.05) & (t5 < 4.0)
+    t5 = t5.clamp(max=4.0)
+    h5 = h4 + t5[..., None] * d5
+    dy = h5[..., 1] + off[:, 0:1]
+    dz = h5[..., 2] - z_duct_c + off[:, 1:2]
+    through_b = ok & (t5 > 0) & (dy ** 2 + dz ** 2 <= r_duct_c ** 2)
+    w_ray = torch.ones_like(t1)
+    return (through_b, w_ray, dy, dz, d5, ok, ok_pre_tube, ok_post_tube,
+            lit, in_slot, graze, rad1, p, h1, h4, h5, h1)
+
+
 class TandoorHashemiEnv(TandoorCoudeEnv):
     #: level, shutter, jam - plus Hashemi's TWO DC MOTORS (fig 14/17):
     #: the azimuth roller on the ring rail and the elevation tow-wire.
@@ -556,6 +803,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  fuse=1, gpu=0, beta_dev=0.0, slot_flaps=0,
                  silvered=0, m5_scale=1.0, zone_c=0.0,
                  receiver="fold", cut_penalty=0.0, exit_el=20.0,
+                 d_strip=0.8, strip_th_lo=15.0, strip_th_hi=75.0,
+                 w_strip=1.0, r_strip=0.55, arm_north=3.0, u_f2=1.5,
+                 sec_side="cass", r_hole=0.0,
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, r_m4=1.3,
@@ -610,8 +860,31 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # fresh pot (runs 178846843942/178847731389 collapsed through the
         # last-hour cut being cheaper than holding unfinishable loaves)
         self.cut_penalty = float(cut_penalty)
-        if self.receiver not in ("fold", "focus"):
-            raise ValueError(f"receiver={receiver!r}: 'fold' or 'focus'")
+        if self.receiver not in ("fold", "focus", "cass"):
+            raise ValueError(f"receiver={receiver!r}: 'fold', 'focus' or 'cass'")
+        # CASSEGRAIN receiver (user design 2026-09-04): receiver='cass'
+        # replaces M1+M2+M3 by ONE rotating strip of the hyperboloid whose
+        # foci are F and the mirror image of the duct mouth in a flat M4
+        # at the turn; the beam converges down a straight bore from the
+        # tower top to the wall base. d_strip: strip distance from F on
+        # the dish axis [m]; strip_th_lo/hi: polar window about the F-F2
+        # axis [deg]; w_strip: azimuthal width [m]; r_strip: shadow
+        # radius [m]; arm_north: the F post arrives horizontally from a
+        # north tower this far beyond F (out of the bore).
+        self.d_strip, self.w_strip, self.r_strip = float(d_strip), float(w_strip), float(r_strip)
+        self.strip_th_lo, self.strip_th_hi = float(strip_th_lo), float(strip_th_hi)
+        self.arm_north = float(arm_north)
+        self.u_f2 = float(u_f2)       # F2 this far before M4 up the bore; M4 = ellipsoid (F2, duct mouth)
+        # sec_side: 'cass' = hyperboloid strip BEFORE F (dish side, convex);
+        # 'greg' = ellipsoid strip BEYOND F (sun side, concave): the rays
+        # pass F, diverge and re-converge to F2. Same foci, same bore.
+        self.sec_side = str(sec_side)
+        # r_hole: central hole in the membrane (classic Cassegrain: the
+        # converging beam passes the primary through it; the centre is
+        # in the secondary's shadow anyway)
+        self.r_hole = float(r_hole)
+        if self.sec_side not in ("cass", "greg"):
+            raise ValueError("sec_side: 'cass' or 'greg'")
         # exit of the beam-down M1: on the azimuth turntable with M2 -
         # toward the WEST while the sun is east, toward the EAST while it
         # is west (always the anti-sun side, above the dish's cone), at
@@ -919,6 +1192,55 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                              float(X_TOWER), 0.0])
         assert len(self._fc_table) == 33
 
+    def _build_cass_chain(self):
+        """Cassegrain chain geometry. F = (X_TOWER_C, 0, z_fold). M4 is a
+        flat at P4 = (X_TOWER, 0, z_turn) folding the bore axis (F -> P4)
+        into the duct toward F4 = (R_POT, 0, Z_DUCT); the hyperboloid's
+        second focus F2 is the mirror image of F4 in M4, i.e. P4 plus the
+        bore direction times |F4 - P4|. Strip: the F sheet at d_strip
+        from F (a = c - d_strip). Packed into sc[106..138]."""
+        F = np.array([self.X_TOWER_C, 0.0, self.z_fold])
+        z_turn = float(Z_DUCT) if self.z_turn is None else float(self.z_turn)
+        P4 = np.array([float(X_TOWER), 0.0, z_turn])
+        F4 = np.array([float(R_POT), 0.0, float(Z_DUCT)])
+        A_in = P4 - F
+        A_in = A_in / np.linalg.norm(A_in)
+        L_out = np.linalg.norm(F4 - P4)
+        # F2 sits u_f2 before M4 up the bore; M4 is the ellipsoid patch
+        # with foci F2 and the duct mouth F4 through P4 (demagnification
+        # L_out / u_f2 of the F2 image)
+        F2 = P4 - A_in * self.u_f2
+        Oe = 0.5 * (F2 + F4)
+        c_e = 0.5 * np.linalg.norm(F4 - F2)
+        Ae = (F4 - F2) / (2.0 * c_e)
+        a_e = 0.5 * (np.linalg.norm(P4 - F2) + L_out)
+        n4 = (F2 - P4) / np.linalg.norm(F2 - P4) + (F4 - P4) / L_out
+        n4 = n4 / np.linalg.norm(n4)
+        c_h = 0.5 * np.linalg.norm(F2 - F)
+        O = 0.5 * (F + F2)
+        A = (F2 - F) / (2.0 * c_h)
+        if self.sec_side == "cass":
+            a_h = c_h - self.d_strip          # hyperboloid, F sheet d before F
+            assert a_h > 0.0, "d_strip must be < the focal separation"
+        else:
+            a_h = c_h + self.d_strip          # ellipsoid, near vertex d beyond F
+        # the F post: a horizontal arm from a north tower arm_north
+        # beyond F (out of the bore, above the dish at low sun)
+        Ps = np.array([self.X_TOWER_C + self.arm_north, 0.0, self.z_fold])
+        self.F_focus, self.cs_F2, self.cs_O, self.cs_A = F, F2, O, A
+        self.cs_a, self.cs_c, self.cs_P4, self.cs_n4, self.cs_F4 = float(a_h), float(c_h), P4, n4, F4
+        self.cs_Ps = Ps
+        self.cs_mag = float((2.0 * c_h - self.d_strip) / self.d_strip)
+        self.cs_demag = float(L_out / self.u_f2)
+        self.cs_Oe, self.cs_Ae, self.cs_ae, self.cs_ce = Oe, Ae, float(a_e), float(c_e)
+        self._fc_table = ([2.0 if self.sec_side == "cass" else 3.0, self.arm_north, self.r_strip, self.d_strip, float(a_h), float(c_h)]
+                          + list(O) + list(A)
+                          + [np.radians(self.strip_th_lo), np.radians(self.strip_th_hi), self.w_strip]
+                          + list(P4) + list(F4) + list(Oe) + list(Ae) + [float(a_e), float(c_e)]
+                          + [self.r_m4, self.r_bore, self.r_strut, float(self.f_nom), float(self.a_mem),
+                             float(self.z_deck), self.r_hole])
+        assert len(self._fc_table) == 36
+
     def _build_optics(self):
         # coude's own _build_optics would build its lookup table; we want
         # only the polar scaffolding underneath it (cfg, thermal hooks).
@@ -950,7 +1272,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # dish-crossing band: the dish plane crosses the post axis for
         # el > acos(a/g); the waist sits at its centre, tube around it
         el_x = np.degrees(np.arccos(np.clip(a / g, 0, 1)))
-        if self.receiver == "focus":
+        if self.receiver in ("focus", "cass"):
             el_x = 89.0        # the strut is beside the dish: no crossing, no slot bound
         self.el_x = float(el_x)
         # SLOTLESS: with beta_dev >= el_max - el_x the beam elevation
@@ -961,7 +1283,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             raise ValueError("duct_nozzle=1 is cpu-path only; the "
                              "kernel implements mode 2 (concave)")
         self.slotless = (self.beta_dev >= (self.el_max_h - el_x)
-            or self.beta_cap_z is not None or self.receiver == "focus")
+            or self.beta_cap_z is not None or self.receiver in ("focus", "cass"))
         if self.slotless:
             print(f"  [hashemi] SLOTLESS: beta_dev {self.beta_dev:.0f}"
                   f" deg keeps beam el <= {self.el_max_h - self.beta_dev:.0f}"
@@ -976,7 +1298,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # lever delta = z_fold - z_w, and obstruction = (delta/f)^2 -
         # this is the direct answer to "the secondary is pretty shit".
         # z_waist=None keeps the old band-centre behaviour.
-        if self.receiver == "focus":
+        if self.receiver in ("focus", "cass"):
             self.z_waist = self.z_fold - 0.05     # M1 sits AT the focus
         elif self.z_waist is None or self.z_waist <= 0:
             self.z_waist = 0.5 * (z_x[0] + z_x[1])
@@ -1037,12 +1359,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._mem0 = mems[4]
         self.f_nom = float(mems[4]["z0"] + mems[4]["f_fit"])
         self.X_TOWER_C = float(X_TOWER) + (
-            self.post_offset if self.receiver == "focus" else 0.0)
+            self.post_offset if self.receiver in ("focus", "cass") else 0.0)
 
         # -- apertures, from the beam itself
         self.r_fold = a * delta / self.f_nom * 1.08 + 0.06
         if self.receiver == "focus":
             self.r_fold = self.r_m1
+        if self.receiver == "cass":
+            self.r_fold = self.r_strip
+            self.r_m1 = 0.5            # ladder gate: rad1 is 0/1 for cass
         self.obstruction = (self.r_fold / a) ** 2
         if self.receiver == "focus":
             self.obstruction += (self.col_radius / a) ** 2
@@ -1126,6 +1451,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._loss_chain = ((0.94 * 0.96 ** 4 * 0.97) if self.silvered
                                 else (0.88 * 0.95 ** 4 * 0.96))
             self._build_focus_chain()
+        if self.receiver == "cass":
+            # film x strip x M4 x duct lip: two mirrors, straight bore
+            self._loss_chain = ((0.94 * 0.96 ** 2 * 0.97) if self.silvered
+                                else (0.88 * 0.95 ** 2 * 0.96))
+            self._build_cass_chain()
         rho_r = 1.0 - 0.10 * (rr / a) ** 4
         cell = np.pi * (a ** 2) * (1 - 0.05 ** 2) / NR
         # beta's cosine tax cos(beta_t/2) is charged PER STEP via
@@ -1198,7 +1528,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              self.csr_frac, 15e-3] + cpc_flat
             + list(self._sun_table)
             + [0.0, 0.0, float(self.duct_nozzle)]
-            + (self._fc_table if self.receiver == "focus" else [0.0] * 33),
+            + (self._fc_table if self.receiver in ("focus", "cass") else [0.0] * 33),   # cass: 35
             dtype=torch.float32, device=dev)
         self._sc1_base = float(self._sc_base[1])
         prm = np.zeros(48, dtype=np.float32)
@@ -1282,6 +1612,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._geo = _geo_core_focus
             self._geo_ref = _geo_core_focus
             self._geo_is_fused = False
+        if self.receiver == "cass":
+            # torch reference only (no Metal port yet): ladder/design use
+            self._geo = _geo_core_cass
+            self._geo_ref = _geo_core_cass
+            self._geo_is_fused = False
+            self._metal = None
         pk = 0.9 * np.pi * a * a * 0.88 * (1 - self.obstruction)
         print(f"  [hashemi] dish {np.pi*a*a:.1f} m2 SPHERE R="
               f"{self.R_sphere:.1f} m (f=R/2={self.R_sphere/2:.2f}, "
@@ -1796,7 +2132,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         naim = mnt["naim"][0].cpu().numpy()
         el_b = float(mnt["el_b"][0])
         C_dish = mnt["Cd"][0].cpu().numpy()
-        if self.render_mode == "human" and self.receiver == "focus":
+        if self.render_mode == "human" and self.receiver in ("focus", "cass"):
             ok1 = lit & ~graze & (rad1 < self.r_m1)
             self._ladder = dict(
                 shadow=1.0 - float(lit[0].float().mean()),
