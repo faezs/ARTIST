@@ -4,7 +4,7 @@ flexure_register.html into the given output dir."""
 import re, os, sys, html, json
 OUT = sys.argv[1]; FIG = "figures"
 def svg(name):
-    s = open(os.path.join(FIG, name) if not name.startswith("fact/") else name).read()
+    s = open(os.path.join(FIG, name) if not name.startswith(("fact/", "stage2/")) else name).read()
     s = s[s.index("<svg"):]
     s = re.sub(r'<svg([^>]*?)\swidth="[^"]*"\sheight="[^"]*"', r'<svg\1', s, count=1)
     s = s.replace("<svg", '<svg style="width:100%;height:auto;display:block"', 1)
@@ -105,23 +105,28 @@ def legend(json_path):
     parts = _json.load(open(json_path))["parts"]
     return "Legend: " + "; ".join(f'<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;background:{p.get("color","#888")}"></span> {html.escape(p["name"])}' for p in parts)
 
-D3.append(plate3d(21, "Dish pitch stage: a 2 m distributed cross-axis blade bearing", "stage2/dish/out/dish_pitch.json",
+D3.append(plate(21, 'Fold saddle: engineering views', 'stage2/fold/out/fold_saddle_views.svg', 'isometric (1, -0.9, 0.45), detail of the lower two interfaces, plan, front, side', [('shows', 'five Ti frames with their windows, 160 oblique wires in four 40 mm gaps, the mirror plate face-down below, the hood ring and yoke frame as context'), ('axis', 'teal dashed: the tilt axis in the face plane through F; nothing of the structure lies on it'), ('side view', "each interface's wires cross in X pairs: the two plane families of the 1R cell")], "Hidden-line projection of the same CadQuery model as the plate above (3d/cad_views.py): solid = visible edges, dashed = hidden, lighter orange = wires behind a frame, lighter grey = context parts. Each view carries its own scale bar."))
+D3.append(plate3d(22, "Dish pitch stage: a 2 m distributed cross-axis blade bearing", "stage2/dish/out/dish_pitch.json",
   "Second pass. 12 cells x 2 blades 17-7PH crossing ON the pitch axis through the CG; blade beams in the frame FE match the PRBM 2EI/L",
   [("row", "yoke beam 40 x 60 below, rim carrier 40 x 60 above, 85 mm gap, 1.98 m along the axis"), ("blades", "24 x 150 x 0.8 mm, 120 mm at +-45 deg, 165 mm pitch"), ("check", "rank 5 / DOF 1: rotation about the crossing line"),
    ("range", "38 deg from neutral at 0.30 sigma_y; working +-18 deg at 213 MPa = 0.14 sigma_y"), ("K_theta", "261 N m/rad; 82 N m at 18 deg; actuator 512 N m = 640 N on the 0.8 m lever"), ("stiff dirs", "2.4 MN/mm across, 7.6 MN/mm along; ratio 9e-9"),
    ("buckling", "P_cr 3.57 kN per blade: SF 52 working, 12.5 survival"), ("first mode", "0.19 Hz free on the blades (140 kg dish); tens of Hz on the locked screw"), ("redundancy", "one blade lost: 4.2 % stiffness, no new DOF"), ("thermal +40 K", "axis stays on the crossing line; 1.0 mm Al/steel relief at the rim bolts")],
   legend("stage2/dish/out/dish_pitch.json")))
-D3.append(plate3d(22, "M5 facet pad: six tangential wires, three contacts, one spring", "stage2/m5/out/m5_pad.json",
+D3.append(plate(23, 'Dish pitch stage: engineering views', 'stage2/dish/out/dish_pitch_views.svg', 'isometric (1, -0.8, 0.5), detail of three cells, plan, front (end view), side; rim backing omitted', [('shows', 'the yoke beam below and the rim carrier above, 24 blades in 12 cells crossing on the teal pitch axis'), ('end view', 'the blade X between the two 40 x 60 beams across the 85 mm gap'), ('scale', 'the 2 m side view and the 160 mm end view each carry their own bar')], "Hidden-line projection of the same CadQuery model as the plate above (3d/cad_views.py): solid = visible edges, dashed = hidden, lighter orange = wires behind a frame, lighter grey = context parts. Each view carries its own scale bar."))
+D3.append(plate3d(24, "M5 facet pad: six tangential wires, three contacts, one spring", "stage2/m5/out/m5_pad.json",
   "Second pass. Exact-constraint adjustable mount: the wires leave tip, tilt and piston (rank 3), the screw contacts take them (rank 6)",
   [("wires", "6 x Ti-6Al-4V d 1.0 x 65 mm, pairs 6 mm apart at three stations, r 100 mm"), ("contacts", "3 x M6 fine adjusters, ball tips on the same circle; 120 N Inconel coil preload"), ("check", "wires: rank 3 / DOF 3 (tip, tilt, piston); with contacts rank 6 / DOF 0"),
    ("window", "+-15 mrad, +-2 mm held 20 yr at 121-162 MPa = 0.17-0.22 sigma_y(200 C)"), ("in-plane", "each wire 1.4 kN/mm axial; 49 N gust moves the facet 12 um"), ("buckling", "8.2 N per wire vs P_cr 27 N: SF 3.3"),
    ("preload", "120 N vs 49 N suction: SF 2.4; piston changes it +-20 N"), ("redundancy", "one wire lost: rank unchanged"), ("thermal +40 K", "Al vs Ti 0.058 mm radial at 4.7 MPa in the wires; symmetric, no tilt")],
   legend("stage2/m5/out/m5_pad.json")))
-D3.append(plate3d(23, "M5 patch: 43 toroid facets on the pit truss, world frame", "stage2/m5/out/m5_patch.json",
+D3.append(plate(25, 'M5 facet pad: engineering views', 'stage2/m5/out/m5_pad_views.svg', 'isometric (1, -0.9, 0.55), detail of one station, plan, front, side', [('shows', 'the 0.32 m hex facet with its boss ring, three Ti post pairs, six tangential wires (orange) and three M6 adjusters (purple) between the posts'), ('plan', 'the three wire pairs tangent to the 100 mm station circle, the tip/tilt axes through the pad centre')], "Hidden-line projection of the same CadQuery model as the plate above (3d/cad_views.py): solid = visible edges, dashed = hidden, lighter orange = wires behind a frame, lighter grey = context parts. Each view carries its own scale bar."))
+D3.append(plate3d(26, "M5 patch: 43 toroid facets on the pit truss, world frame", "stage2/m5/out/m5_patch.json",
   "m5_relay_geometry.py facets (0.32 m hex, R_t 0.97-3.72 m, R_s 0.94-1.48 m, incidence 8.9-50.9 deg) with the waist fW above and the duct fT beside",
   [("patch", "r 1.11 m about V0 (1.25, 0, -0.10) m; projected x -0.06..1.97 m"), ("foci", "fW (1.25, 0, 4.606), fT (0.42, 0, 0.14)"), ("truss", "rectangular base with diagonals; thermal centre at the chief-ray facet (x ~ 0.74 m); radial-free feet"),
-   ("per facet", "one pad of SHEET 22; 10 mrad budget; 49 N hatch-open wind"), ("open", "5 south facets inside the modelled pot sphere; 51 deg incidence at the edge")],
+   ("per facet", "one pad of SHEET 24; 10 mrad budget; 49 N hatch-open wind"), ("open", "5 south facets inside the modelled pot sphere; 51 deg incidence at the edge")],
   legend("stage2/m5/out/m5_patch.json")))
+
+D3.append(plate(27, 'M5 patch: engineering views', 'stage2/m5/out/m5_patch_views.svg', 'isometric (1, -0.9, 0.6), plan, front, side, world frame in mm', [('shows', '43 hex facets with their pads on posts from the pit truss base; the dashed teal lines run to the waist focus fW above and the duct focus fT beside'), ('plan', 'the patch footprint x -0.06..1.97 m, y +-1.1 m, denser toward the east where incidence reaches 51 deg')], "Hidden-line projection of the same CadQuery model as the plate above (3d/cad_views.py): solid = visible edges, dashed = hidden, lighter orange = wires behind a frame, lighter grey = context parts. Each view carries its own scale bar."))
 
 page = open("page_template.html").read().replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
 open(os.path.join(OUT, "flexure_register.html"), "w").write(page); print("page:", os.path.getsize(os.path.join(OUT, "flexure_register.html"))//1024, "KB")

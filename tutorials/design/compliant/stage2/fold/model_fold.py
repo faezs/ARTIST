@@ -122,7 +122,7 @@ for k, itf in enumerate(blk["interfaces"]):
         p, d = np.asarray(e["point"]), np.asarray(e["direction"])/np.linalg.norm(e["direction"])
         t0, t1 = (zf0 - p[2])/d[2], (zf1 - p[2])/d[2]
         lines.append([list(np.round(p + t0*d, 1)), list(np.round(p + t1*d, 1))])
-sc.parts.append(dict(name="lattice wires (Ti-6Al-4V, d 1.2 mm)", color="#d9480f", lines=lines))
+sc.parts.append(dict(name=f"lattice wires (Ti-6Al-4V, d {D_WIRE:g} mm)", color="#d9480f", lines=lines))
 sc.parts.append(dict(name="tilt axis (in the face plane, through F)", color="#0e7490", lines=[[[-300, 0, 0], [300, 0, 0]]]))
 sc.write(os.path.join(OUT, "fold_saddle.json"))
 

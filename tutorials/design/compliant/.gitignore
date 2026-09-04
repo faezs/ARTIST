@@ -1,2 +1,3 @@
 resources/*
 !resources/README.md
+stage2/*/out/*.png
