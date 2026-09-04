@@ -471,6 +471,50 @@ class TandoorPolarEnv(TandoorEnv):
         return float(np.degrees(np.radians(23.44) * np.sin(
             2 * np.pi * (284 + self.day) / 365)))
 
+    def _night_cool_np(self, mask):
+        """Numpy twin of TandoorHashemiEnv._night_cool_torch: yesterday's
+        pot through night_hours with the lumped wall model, lid on, no
+        sun, no bread; explicit Euler at dt_night."""
+        idx = np.nonzero(mask)[0]
+        if idx.size == 0:
+            return
+        hours = float(getattr(self, "night_hours", 16.0))
+        dt = float(getattr(self, "dt_night", 60.0))
+        n = int(round(hours * 3600.0 / dt))
+        area = np.asarray(self.node_area, dtype=np.float64)
+        asum = area.sum()
+        mouth = float(np.pi * R_MOUTH ** 2 * self.lid_leak)
+        T = self.T[idx].astype(np.float64)
+        Ts = self.T_sub[idx].astype(np.float64)
+        Td = self.T_deep[idx].astype(np.float64)
+        Th = np.asarray(self.T_halo, dtype=np.float64)[idx]
+        g01 = np.asarray(self.g01, dtype=np.float64)
+        g12 = np.asarray(self.g12, dtype=np.float64)
+        g2s = np.asarray(self.g2s, dtype=np.float64)
+        cap = np.asarray(self.node_heat_cap, dtype=np.float64)
+        cs = np.asarray(self.cap_sub, dtype=np.float64)
+        cd = np.asarray(self.cap_deep, dtype=np.float64)
+        ch = float(np.asarray(self.c_halo, dtype=np.float64).mean())
+        gout = float(np.asarray(self.g_halo_out, dtype=np.float64).mean())
+        k_ap = self.n_belt + 2
+        for _ in range(n):
+            t4 = T ** 4
+            tcav4 = (area * t4).sum(1, keepdims=True) / asum
+            q = 0.85 * SIGMA * area * (tcav4 - t4)
+            q01 = g01 * (T - Ts)
+            q12 = g12 * (Ts - Td)
+            q2s = g2s * (Td - Th[:, None])
+            q = q - q01
+            q[:, k_ap] -= 0.75 * SIGMA * (tcav4[:, 0] - T_AMB ** 4) * mouth
+            T = T + q * dt / cap
+            Ts = Ts + (q01 - q12) * dt / cs
+            Td = Td + (q12 - q2s) * dt / cd
+            Th = Th + (q2s.sum(1) - gout * (Th - T_AMB)) * dt / ch
+        self.T[idx] = T
+        self.T_sub[idx] = Ts
+        self.T_deep[idx] = Td
+        self.T_halo[idx] = Th
+
     def step(self, actions):
         B = self.num_agents
         a = np.asarray(actions).reshape(B, 3)
@@ -759,18 +803,22 @@ class TandoorPolarEnv(TandoorEnv):
                 "episode_return": float(self.ep_return[day_over].mean()),
                 "episode_length": float(self.ep_len[day_over].mean()),
             })
+            night = bool(getattr(self, "night_carry", 0))
+            if night:
+                self._night_cool_np(day_over)
             for i in np.nonzero(day_over)[0]:
                 self.t_solar[i] = 8.0
-                warm_i = self.rng.random() < self.warm_frac
-                if warm_i:
-                    self.T[i] = self.rng.uniform(465, 505)
-                else:
-                    self.T[i] = 350.0
-                self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
-                self.T_sub[i] = self.T[i].copy()
-                self.T_deep[i] = self.T[i].copy()
-                self.T_halo[i] = (self.rng.uniform(395, 415)
-                                  if warm_i else 300.0)
+                if not night:
+                    warm_i = self.rng.random() < self.warm_frac
+                    if warm_i:
+                        self.T[i] = self.rng.uniform(465, 505)
+                    else:
+                        self.T[i] = 350.0
+                    self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
+                    self.T_sub[i] = self.T[i].copy()
+                    self.T_deep[i] = self.T[i].copy()
+                    self.T_halo[i] = (self.rng.uniform(395, 415)
+                                      if warm_i else 300.0)
                 self._belt_prev[i] = self.T[i, : self.n_belt].mean()
                 self.p_set[i] = self.p_act[i] = self.p0
                 self.f_locked[i] = self.p0

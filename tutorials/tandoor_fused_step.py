@@ -307,17 +307,22 @@ def _day_over(env, F, infos):
     el1, az1r, _ = solar_batch(S.lat_v, S.day_v,
                                torch.full_like(S.day_v, 8.0))
     az1d = torch.rad2deg(az1r)
-    warm = (S.u(B) < env.warm_frac)
-    newT = torch.where(
-        warm[:, None],
-        (465.0 + 40.0 * S.u(B))[:, None].expand(B, N),
-        torch.full((B, N), 350.0, device=dev)) \
-        + (S.u(B, N) - 0.5) * 30.0
-    S.T.copy_(newT)
-    S.T_sub.copy_(newT)
-    S.T_deep.copy_(newT)
-    S.T_halo.copy_(torch.where(warm, 395.0 + 20.0 * S.u(B),
-                               torch.full((B,), 300.0, device=dev)))
+    if getattr(env, "night_carry", False):
+        # yesterday's pot through the night with the wall model (in
+        # place on the packed state); warm_frac seeds only the first day
+        env._night_cool_torch(S)
+    else:
+        warm = (S.u(B) < env.warm_frac)
+        newT = torch.where(
+            warm[:, None],
+            (465.0 + 40.0 * S.u(B))[:, None].expand(B, N),
+            torch.full((B, N), 350.0, device=dev)) \
+            + (S.u(B, N) - 0.5) * 30.0
+        S.T.copy_(newT)
+        S.T_sub.copy_(newT)
+        S.T_deep.copy_(newT)
+        S.T_halo.copy_(torch.where(warm, 395.0 + 20.0 * S.u(B),
+                                   torch.full((B,), 300.0, device=dev)))
     for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                "ep_len", "bread_E", "bread_t", "bread_C",
                "form_time", "wind_g", "cloud", "p_dist",

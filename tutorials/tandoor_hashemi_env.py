@@ -806,6 +806,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  d_strip=0.8, strip_th_lo=15.0, strip_th_hi=75.0,
                  w_strip=1.0, r_strip=0.55, arm_north=3.0, u_f2=1.5,
                  sec_side="cass", r_hole=0.0,
+                 night_carry=0, night_hours=16.0, dt_night=60.0,
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, r_m4=1.3,
@@ -883,6 +884,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # converging beam passes the primary through it; the centre is
         # in the secondary's shadow anyway)
         self.r_hole = float(r_hole)
+        # NIGHT CARRY-OVER (user, 2026-09-04: "warm_frac should be set by
+        # the insulation type"): with night_carry the day-over does not
+        # draw a warm/cold pot; yesterday's pot cools through night_hours
+        # with the SAME wall model the day uses (lid on, no sun, dt_night
+        # explicit Euler), so the dawn state is whatever the insulation
+        # leaves and the seasoned regime emerges over consecutive days.
+        # warm_frac then only seeds the very first day of a rollout.
+        self.night_carry = bool(night_carry)
+        self.night_hours = float(night_hours)
+        self.dt_night = float(dt_night)
         if self.sec_side not in ("cass", "greg"):
             raise ValueError("sec_side: 'cass' or 'greg'")
         # exit of the beam-down M1: on the azimuth turntable with M2 -
@@ -1191,6 +1202,49 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                           + [float(f4), self.r_m4, self.r_strut, float(P4[2]),
                              float(X_TOWER), 0.0])
         assert len(self._fc_table) == 33
+
+    def _night_cool_torch(self, S):
+        """Yesterday's pot through the night: the day's lumped wall model
+        (face nodes, substrate, deep clay, soil halo; radiative exchange
+        in the cavity; lidded mouth) with no sun and no bread, explicit
+        Euler at dt_night for night_hours. Twin of the numpy
+        _night_cool_np in tandoor_polar_env."""
+        from tandoor_rl_env import SIGMA, T_AMB
+        from tandoor_polar_env import R_MOUTH
+        n = int(round(self.night_hours * 3600.0 / self.dt_night))
+        dt = float(self.dt_night)
+        dev = S.T.device
+        def tt(x):
+            return torch.as_tensor(np.asarray(x, dtype=np.float32), device=dev)
+        # the wall parameters live on the env (FusedState packs them into
+        # the kernel's sp block; GpuState mirrors them) - read the env's
+        area, cap = tt(self.node_area), tt(self.node_heat_cap)
+        g01, g12, g2s = tt(self.g01), tt(self.g12), tt(self.g2s)
+        cs, cd = tt(self.cap_sub), tt(self.cap_deep)
+        ch = float(np.asarray(self.c_halo, dtype=np.float64).mean())
+        gout = float(np.asarray(self.g_halo_out, dtype=np.float64).mean())
+        asum = area.sum()
+        mouth = float(np.pi * R_MOUTH ** 2 * self.lid_leak)
+        T, Ts, Td, Th = S.T, S.T_sub, S.T_deep, S.T_halo
+        k_ap = self.n_belt + 2
+        for _ in range(n):
+            t4 = T ** 4
+            tcav4 = (area * t4).sum(1, keepdim=True) / asum
+            q = 0.85 * SIGMA * area * (tcav4 - t4)
+            q01 = g01 * (T - Ts)
+            q12 = g12 * (Ts - Td)
+            q2s = g2s * (Td - Th[:, None])
+            q = q - q01
+            q[:, k_ap] = q[:, k_ap] - 0.75 * SIGMA * (tcav4[:, 0] - T_AMB ** 4) * mouth
+            T = T + q * dt / cap
+            Ts = Ts + (q01 - q12) * dt / cs
+            Td = Td + (q12 - q2s) * dt / cd
+            Th = Th + (q2s.sum(1) - gout * (Th - T_AMB)) * dt / ch
+        # in place: FusedState fields are views into the packed state
+        S.T.copy_(T)
+        S.T_sub.copy_(Ts)
+        S.T_deep.copy_(Td)
+        S.T_halo.copy_(Th)
 
     def _build_cass_chain(self):
         """Cassegrain chain geometry. F = (X_TOWER_C, 0, z_fold). M4 is a
@@ -1764,16 +1818,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             el1, az1r, _ = solar_batch(S.lat_v, S.day_v,
                                        torch.full_like(S.day_v, 8.0))
             az1d = torch.rad2deg(az1r)
-            warm = (S.u(B) < self.warm_frac)
-            S.T = torch.where(
-                warm[:, None],
-                (465.0 + 40.0 * S.u(B))[:, None].expand(B, self.n_nodes),
-                torch.full((B, self.n_nodes), 350.0, device=dev)) \
-                + (S.u(B, self.n_nodes) - 0.5) * 30.0
-            S.T_sub = S.T.clone()
-            S.T_deep = S.T.clone()
-            S.T_halo = torch.where(warm, 395.0 + 20.0 * S.u(B),
-                                   torch.full((B,), 300.0, device=dev))
+            if self.night_carry:
+                self._night_cool_torch(S)
+            else:
+                warm = (S.u(B) < self.warm_frac)
+                S.T = torch.where(
+                    warm[:, None],
+                    (465.0 + 40.0 * S.u(B))[:, None].expand(B, self.n_nodes),
+                    torch.full((B, self.n_nodes), 350.0, device=dev)) \
+                    + (S.u(B, self.n_nodes) - 0.5) * 30.0
+                S.T_sub = S.T.clone()
+                S.T_deep = S.T.clone()
+                S.T_halo = torch.where(warm, 395.0 + 20.0 * S.u(B),
+                                       torch.full((B,), 300.0, device=dev))
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                        "ep_len", "bread_E", "bread_t", "bread_C",
                        "form_time", "wind_g", "cloud", "p_dist",
