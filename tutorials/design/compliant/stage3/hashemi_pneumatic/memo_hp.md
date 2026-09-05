@@ -83,9 +83,43 @@ So the actuators are:
   Hopkins's sense (§4.4.2): its commanded curvature is the input. Pumping water between two side chambers, a
   pressure difference of 0.1-0.2 bar, gives 3.4-6.8 kN m of couple at any section and holds with a closed valve
   (`water_stem.py`). One degree of elevation moves the back ring 72 mm, the stem's tip travel.
-- **four pretensioned tendons** to winches on the deck: linear actuators outside the actuation space, kept
-  because they give the gust stiffness the stem alone lacks at full reach. Their force parts are what the
-  solver had to police.
+- **no deck tendons.** They were linear actuators outside the actuation space, kept for gust stiffness; the
+  fine stage of §3a makes that stiffness unnecessary, and without them the roof is the dish's sweep alone.
+  (§4 records what the tendon solver found; it stays as the method for any future line.)
+
+## 3a. The fine stage: milliradian accuracy from exact constraint
+
+The coarse stage cannot point to a milliradian in wind: the stem alone holds 1.7 mrad at 9 m/s and its
+error grows with the square of the wind speed. Hopkins's serial synthesis (ch. 2, Fig. 2.7 steps 3-4) is
+the remedy: a second stage in series with its own intermediate freedom space. Intermediate space 1 is the
+sphere of rotations about F (the bridle and stem, the whole sky, milliradians). Intermediate space 2 is
+3 DOF Type 1 about the dish's vertex (§3.4.1, Fig. 3.37): the two rotations in the dish's back plane and
+the translation along its axis, that is tip, tilt and focus. Their DOFs sum to 6, the system's, so the chain
+is not underconstrained (p. 36). The fine stage does what a flexure is uniquely good at: it has no friction,
+no backlash and no stick-slip, so it can be commanded and held to microradians, and it is stiff in every
+direction it constrains.
+
+Constraint space of 3 DOF Type 1: every line in the plane and a torque normal to it (Fig. 3.38). The stage:
+
+| element | value |
+|---|---|
+| constraints | three 12 mm 17-7PH rods 0.9 m long, tangential in the back plane at r 1.4 m: one line each, m = 3, exact; radial growth of the aluminium dish against the steel frame (0.62 mm at 40 K) only bends them (5 MPa) |
+| actuators | three sealed water columns normal to the plane at r 1.6 m, 120 deg apart, rolling-diaphragm or edge-welded-bellows cylinders: displacement actuators (§4.4.2) whose lines lie in this type's actuation space, the box of lines normal to the plane (Fig. 4.3); locked, they are three more constraint lines: rank 6, DOF 0 |
+| FACT checks | rods alone rank 3, DOF 3, exactly tip, tilt and the normal translation (`interface_freedom`); reciprocal products with those three: 0; with the columns: rank 6 |
+| range | ±20 mrad tip and tilt, ±32 mm of focus: rod end offset 28 mm, S-bend stress 249 MPa = 0.17 σ_y; Euler SF 11 on the in-plane loads |
+| stiffness, locked | 77 MN m/rad about the vertex, 60 MN/m in focus (20 MN/m per column at 0.5 GPa effective bulk modulus) |
+| wind on the locked stage | drag asymmetry torque 315 N m at 9 m/s: 4 µrad; 2.4 kN m at 25 m/s: 32 µrad; columns carry 0.25-1.9 kN each |
+| metering | 1 mL moves a column 0.10 mm, 62 µrad of tilt; a 10 mL/s pump slews 0.62 mrad/s; a closed valve holds with no power |
+| thermal | 21 mL of water expansion per column over 40 K is 1.3 mrad of slow drift, taken out by the loop; or a matched reservoir cancels it |
+| focus | the piston trims the vertex onto the true focal circle R/2 = 4.10 m against the env's 4.0 m orbit (§7) |
+
+Accuracy budget: the coarse error (1.7 mrad at 9 m/s, slow) sits inside the fine range with a factor of ten;
+a loop on the beam centroid at the tube's waist corrects it at a few hertz; the residual is the coarse error
+divided by the loop's rejection plus the locked stage's 4 µrad, of order 0.2 mrad in a 9 m/s wind and
+microradians when the air is still. Above about 18 m/s the coarse error leaves the fine range: survival, not
+cooking. The stage is the M5 facet pad of stage 2 scaled up, with water columns in place of screws; it is
+where the earlier flexure work belongs, at the accuracy end of the machine, not in the tracking pivot.
+
 
 ## 4. Why lines from below cannot hold the dish, and what the solver found
 
@@ -116,22 +150,21 @@ a dish-fixed attachment sweeps 220° of azimuth relative to the ground in a day.
 ## 5. Loads, stiffness and robustness over the year
 
 Statics: an LP at each of 59 positions for gravity and eight wind directions, tensions unilateral above 300 N,
-the stem's shear, axial force, couples and torsion bounded by its wrinkling moment (π/2)p r³ = 80 kN m,
+the stem's shear, axial force, couples and torsion bounded by its wrinkling moment (π/2)p r³ = 126 kN m,
 torsional wrinkling √2 π p r³, and the hoop thrust. Stiffness: K = Σ k w wᵀ over the lines plus the stem's tip
 stiffness transported to F; the compliance twist under the wind wrench gives the pointing.
 
 | quantity | 9 m/s | 25 m/s |
 |---|---|---|
-| load cases without equilibrium | 0 of 531 | 0 of 531 |
-| stem base moment needed, incl. its own drag | 8.4 kN m, SF 9.6 | 45.7 kN m, SF 1.8 |
-| largest line tension (8 mm rope, MBL 38 kN) | 1.0 kN | 5.0 kN, SF 7.6 |
-| transverse pointing error about F | 0.38 mrad | |
-| translation of F (parasitic, the spot walk on the strip) | 0.1 mm | |
-| smallest transverse rotational stiffness | 7.1 MN m/rad | |
-| first rotational mode, 60 kg head | 13.3 Hz | |
-| stem tip travel to make the 9 m/s shear (vine curl) | 92 mm | |
-| clearances over the year: bridle-strip, tendon-stem, tendon-tube | 0.14, 0.37, 1.09 m | |
-| any single line lost | rank 6 remains | |
+| load cases without equilibrium (stem r 1.0 m at 0.8 bar, no tendons) | 0 of 531 | 0 of 531 |
+| stem base moment needed, incl. its own drag, against M_w 126 kN m | 7.4 kN m, SF 17 | 44.7 kN m, SF 2.8 |
+| largest bridle tension (8 mm rope, MBL 38 kN) | 1.7 kN | 6.4 kN, SF 5.9 |
+| coarse pointing error about F | 1.7 mrad | outside the fine range above ~18 m/s |
+| translation of F (parasitic) | 0.1 mm | |
+| fine stage, locked: pointing under the drag asymmetry | 4 µrad | 32 µrad |
+| coarse first mode, 60 kg head | 10 Hz | |
+| clearance bridle-strip over the year | 0.14 m | |
+| any single bridle wire lost | rank 3 remains: the pivot holds | |
 
 The machine stays deployed at 25 m/s. Venting remains the fallback: the stem folds, the dish lies face-up on the
 deck around the root, the bridle and tendons slack.
@@ -156,11 +189,14 @@ job the stem and tendons do here, without a rail.
 
 ## 8. Open
 
-- Tendon anchors at x 9-11 m are beyond the parapet the earlier machine assumed at 7.1 m; the roof or a frame
-  on it must reach, or the solver is rerun with the anchor set the site allows.
+- Roof: with the tendons gone the machine needs the dish's sweep, 9.2 by 7.8 m for the 4.2 m dish at f 4.1,
+  of which 5.8 m north of the wall; at the same f/D a 3.0 m dish needs 6.5 by 5.6 m and a 2.1 m dish 4.6 by
+  3.9 m, and the structure scales with it at constant pressure.
+- The fine stage's water columns: cylinder type, seals without stiction, the metering pump and valves, and
+  the beam-centroid sensor at the waist are the next design.
 - The bridle-strip clearance of 0.14 m is tight; r 3.4 on the outrigger would give more at the cost of a bigger
   ring.
-- The stem fabric at 80 kN/m hoop is heavy coated polyester in two plies; the reel that everts and retracts it
-  is unproven at this diameter.
+- The stem at r 1.0 m and 0.8 bar carries 80 kN/m hoop: coated polyester in two plies; the reel that everts and
+  retracts a 2 m hose is unproven.
 - The slot and its flaps, the strip's winter behaviour and the orbit radius belong to the optics fork.
 - The turgor pump loop, its valves and the pointing controller are the next design.

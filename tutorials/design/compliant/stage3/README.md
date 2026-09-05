@@ -5,7 +5,10 @@ automatic; the structural dual of Hashemi's machine, the assembly below the prim
 same stem and skin at every scale. The machine it applies to is the Cassegrain-receiver Hashemi machine on
 nix-support (f 4.05, orbit 4 m about F, hyperboloid strip, vertical beam to the ellipsoid M4).
 
-- `hashemi_pneumatic/memo_hp.md`: the mount as a freedom, actuation and constraint topology (Hopkins 2010):
+- `hashemi_pneumatic/memo_hp.md`: the mount as a freedom, actuation and constraint topology (Hopkins 2010), coarse-fine:
+  a fine exact-constraint flexure stage (three tangential rods + three water columns, `fine_stage.py`) holds the
+  dish to microradians behind the pneumatic coarse stage; no deck tendons, so the roof is the dish's sweep.
+  Coarse stage:
   freedom space the sphere of rotations about F; constraints four wires through F from an outrigger ring
   (Hashemi's near method puts F on the focal tube through the slot); actuation by pure couples from a flexing
   water-filled stem, plus four pretensioned tendons routed by a clearance solver in the DCM paper's style.

@@ -54,7 +54,7 @@ def tip_point(p, r_ring=R_RING):
     # back ring point farthest from the beam column, 0.15 m behind the membrane vertex along -s
     V = p["V"]; s = p["s"]
     e = np.array([1.0, 0.0, 0.0]) - s*s[0]; e /= np.linalg.norm(e)
-    return V - 0.15*s + r_ring*e
+    return V - 0.65*s + r_ring*e            # the back frame hub, 0.65 m behind the vertex (the fine stage sits between)
 
 def main():
   global ROOT, WINCH
