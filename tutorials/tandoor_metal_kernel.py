@@ -362,6 +362,7 @@ kernel void tandoor_trace(
     device const float* aim    [[buffer(25)]],  // (B,3) elbow aim dirs
     device const float* scb    [[buffer(26)]],  // (B,6) cosi,slot,kt,ks,rs,ok
     device const float* lfp    [[buffer(27)]],  // [0] loaf half-size (m): the footprint comes from the trace
+    device const float* fct    [[buffer(28)]],  // (B,40) PER-ENV receiver table (cass): _fc_table + r_duct
     uint tid [[thread_position_in_grid]])
 {
     const int B = dims[0], P = dims[1], L = dims[2];
@@ -488,21 +489,25 @@ kernel void tandoor_trace(
     // ellipsoid beyond F, 'greg') -> straight bore -> M4 (ellipsoid
     // patch, or a flat when a_e = 0) -> duct plane. Mirrors
     // _geo_core_cass line for line; cs_ locals.
-    const bool cs_greg = sc[106] > 2.5f;
+    // the receiver table is PER ENV (design_rand: one design per agent):
+    // row b of fct mirrors sc[106..144] + r_duct, so this block reads
+    // cs_tab[k] where the torch twin reads fct[:, k]
+    device const float* cs_tab = fct + b*40;
+    const bool cs_greg = cs_tab[0] > 2.5f;
     const float3 cs_F = Pf;
-    const float cs_armn = sc[107], cs_rstrip = sc[108], cs_d = sc[109];
-    const float cs_a = sc[110], cs_c = sc[111];
-    const float3 cs_O = float3(sc[112], sc[113], sc[114]);
-    const float3 cs_A = float3(sc[115], sc[116], sc[117]);
-    const float cs_thlo = sc[118], cs_thhi = sc[119], cs_w = sc[120];
-    const float3 cs_P4 = float3(sc[121], sc[122], sc[123]);
-    const float3 cs_Oe = float3(sc[127], sc[128], sc[129]);
-    const float3 cs_Ae = float3(sc[130], sc[131], sc[132]);
-    const float cs_ae = sc[133], cs_ce = sc[134];
-    const float cs_rm4 = sc[135], cs_rbore = sc[136], cs_rstrut = sc[137];
-    const float cs_fd = sc[138], cs_ad = sc[139], cs_zdeck = sc[140];
-    const float cs_rhole = sc[141], cs_wslot = sc[142], cs_wk = sc[143];
-    const float cs_slotel = sc[144];
+    const float cs_armn = cs_tab[1], cs_rstrip = cs_tab[2], cs_d = cs_tab[3];
+    const float cs_a = cs_tab[4], cs_c = cs_tab[5];
+    const float3 cs_O = float3(cs_tab[6], cs_tab[7], cs_tab[8]);
+    const float3 cs_A = float3(cs_tab[9], cs_tab[10], cs_tab[11]);
+    const float cs_thlo = cs_tab[12], cs_thhi = cs_tab[13], cs_w = cs_tab[14];
+    const float3 cs_P4 = float3(cs_tab[15], cs_tab[16], cs_tab[17]);
+    const float3 cs_Oe = float3(cs_tab[21], cs_tab[22], cs_tab[23]);
+    const float3 cs_Ae = float3(cs_tab[24], cs_tab[25], cs_tab[26]);
+    const float cs_ae = cs_tab[27], cs_ce = cs_tab[28];
+    const float cs_rm4 = cs_tab[29], cs_rbore = cs_tab[30], cs_rstrut = cs_tab[31];
+    const float cs_fd = cs_tab[32], cs_ad = cs_tab[33], cs_zdeck = cs_tab[34];
+    const float cs_rhole = cs_tab[35], cs_wslot = cs_tab[36], cs_wk = cs_tab[37];
+    const float cs_slotel = cs_tab[38], cs_rduct = cs_tab[39];
     const float cs_side = cs_greg ? 1.0f : -1.0f;
     const float3 cs_Ps = cs_F + float3(cs_armn, 0.0f, 0.0f);
     const float3 cs_Q = cs_greg ? (cs_F - cs_d*cs_A) : cs_F;
@@ -668,7 +673,7 @@ kernel void tandoor_trace(
     float3 cs_h5 = cs_h4 + cs_t5*cs_d5;
     sh_dy = cs_h5.y + off[b*2];
     sh_dz = cs_h5.z - sc[11] + off[b*2+1];
-    sh_thr = cs_ok && (cs_t5 > 0.0f) && (sh_dy*sh_dy + sh_dz*sh_dz <= sc[13]*sc[13]);
+    sh_thr = cs_ok && (cs_t5 > 0.0f) && (sh_dy*sh_dy + sh_dz*sh_dz <= cs_rduct*cs_rduct);
     sh_w = 1.0f; sh_h3 = cs_h5; sh_d3 = cs_d5;
     } else {
     // ---- occlusion, closed form (post + tube), sun leg
@@ -1082,12 +1087,14 @@ kernel void step_post(
     device float*       trc   [[buffer(12)]],
     device float*       diag  [[buffer(13)]],  // (B,8)
     device const int*   act   [[buffer(14)]],  // (B,NH) load-mask heads
+    device const float* dsn   [[buffer(15)]],  // (B,ND) per-env design obs (unit box, 2u-1)
     uint b [[thread_position_in_grid]])
 {
     if ((int)b >= ip[0]) return;
     const float PI_ = 3.14159265358979f;
     const float SIG = 5.67e-8f;
     const int N = ip[1], NB = ip[2], NS = ip[4], OD = ip[5];
+    const int ND = ip[8];
     device float* s = st + b*NS;
     const int S0 = 3*N + 1 + 4*NB;
     device float* Tsub = s + N;
@@ -1353,6 +1360,7 @@ kernel void step_post(
     }
     if (sp[62] > 0.5f)
         for (int k = 0; k < NB; k++) ob[o++] = hb[k];
+    for (int k = 0; k < ND; k++) ob[o++] = dsn[b*ND + k];
     diag[b*8+0] = p_in;
     diag[b*8+1] = e_el2;
     diag[b*8+2] = e_az2;
@@ -1399,7 +1407,7 @@ class MetalGeo:
 
     def __call__(self, pts_l, nrm_l, lv, du, de, upick, us, sigb,
                  Acan, Mt, Cd, dvec, off, vp, sc, ellM, ellS, ellC,
-                 V0t, ray_pw, soil, n_nodes, aim, scb):
+                 V0t, ray_pw, soil, n_nodes, aim, scb, fct=None):
         B, P = du.shape
         L = pts_l.shape[0]
         dev = du.device
@@ -1419,9 +1427,17 @@ class MetalGeo:
                                dtype=torch.float32, device=dev)
             self._lfp = lfp
         c = lambda t: t.contiguous()
+        if fct is None:
+            # no per-env table given: every row is the shared static block
+            row = torch.zeros(40, dtype=torch.float32, device=dev)
+            k = min(39, max(0, int(sc.shape[0]) - 106))
+            row[:k] = sc[106:106 + k]
+            row[39] = sc[13]
+            fct = row[None, :].expand(B, -1)
         self.lib.tandoor_trace(
             thr, out6, c(pts_l), c(nrm_l), c(lv), c(du), c(de), c(upick),
             c(sigb), c(dvec.reshape(B, -1)[:, :2]), c(off), c(vp), c(sc),
             c(Acan), c(Mt), c(Cd), c(ellM), c(ellS), c(ellC), c(V0t),
-            dims, c(ray_pw), c(soil), per, c(us), c(aim), c(scb), lfp)
+            dims, c(ray_pw), c(soil), per, c(us), c(aim), c(scb), lfp,
+            c(fct))
         return thr.view(B, P), out6.view(B, P, 6), per

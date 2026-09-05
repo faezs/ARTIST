@@ -162,8 +162,9 @@ class FusedState:
         self.trunc = z(B)
         self.diag = z(B, 8)
         self.sp = torch.as_tensor(_step_params(e), device=dev)
+        nd = int(getattr(e, "_design_obs", np.zeros((B, 0))).shape[1])
         self.ip = torch.tensor([B, N, NB, e.N_HEADS, self.NS, OD, 0,
-                                int(getattr(e, "sticky_k", 0))],
+                                int(getattr(e, "sticky_k", 0)), nd],
                                dtype=torch.int32, device=dev)
         L = e._pts_l.shape[0]
         self.tdims = torch.tensor([B, self.P, L, N + e.n_belt],
@@ -253,10 +254,10 @@ def fused_full_step(env, actions):
                       mnt["vp"], env._sc_base, mnt["Acan"], mnt["Mt"],
                       mnt["Cd"], env.ell_M, env.ell_S, env.ell_ctr_t,
                       env._V0t, F.tdims, env._ray_pw, F.soil, F.per,
-                      us, F.aim, mnt["scb"], F.lfp)
+                      us, F.aim, mnt["scb"], F.lfp, env._fct)
     lib.step_post(F.rew, F.st, F.per, F.sp, F.ip, rn, ru, F.day_v,
                   F.lat_v, env._mnt_prm, F.off, F.obs, F.trunc,
-                  F.diag, a32)
+                  F.diag, a32, env._dsn_t)
     env.tick += 1
     infos = []
     ts0 = float(env.t_solar[0])

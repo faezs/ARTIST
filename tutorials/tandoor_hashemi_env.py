@@ -569,7 +569,8 @@ def _hyp_hit(h, d, O, A, a_h, c_h):
     valid = (disc >= 0) & (t < 1e8)
     X = h + t[..., None] * d
     zz = ((X - O) * A).sum(-1, keepdim=True)
-    n = c_h * c_h * zz * A - a_h * a_h * (X - O)
+    # per-env (B,1) semi-axes: the vector terms need a trailing axis
+    n = (c_h * c_h)[..., None] * zz * A - (a_h * a_h)[..., None] * (X - O)
     n = n / n.norm(dim=-1, keepdim=True).clamp(min=1e-12)
     # orient toward the incoming ray
     n = torch.where((n * d).sum(-1, keepdim=True) > 0, -n, n)
@@ -601,7 +602,7 @@ def _ellip_hit(h, d, O, A, a_e, c_e):
     X = h + t[..., None] * d
     wX = X - O
     zz = (wX * A).sum(-1, keepdim=True)
-    n = a2 * wX - c2 * zz * A
+    n = a2[..., None] * wX - c2[..., None] * zz * A
     n = n / n.norm(dim=-1, keepdim=True).clamp(min=1e-12)
     n = torch.where((n * d).sum(-1, keepdim=True) > 0, -n, n)
     return t, X, n, valid
@@ -609,7 +610,7 @@ def _ellip_hit(h, d, O, A, a_e, c_e):
 
 def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
                    Mt, Cd, dvec, off, vp, sc, scb,
-                   ellM, ellS, ellC, V0t):
+                   ellM, ellS, ellC, V0t, fct=None):
     """CASSEGRAIN receiver (user design 2026-09-04): dish -> a rotating
     STRIP of the hyperboloid with foci F (the dish focus) and F2 (the
     mirror image of the duct mouth in a flat M4 at the turn) -> straight
@@ -652,26 +653,36 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     p = org3 @ Mt + Cd
     d = d43[..., :3] @ Mt
     d = d / d.norm(dim=-1, keepdim=True)
-    # ---- table
-    arm_n = sc[107]                       # north arm length (post root = F + arm_n x)
-    r_strip, d_strip, a_h, c_h = sc[108], sc[109], sc[110], sc[111]
-    O, A = sc[112:115], sc[115:118]
-    th_lo, th_hi, w_strip = sc[118], sc[119], sc[120]
-    P4, F4 = sc[121:124], sc[124:127]
-    Oe, Ae, a_e, c_e = sc[127:130], sc[130:133], sc[133], sc[134]
-    r_m4, r_bore, r_strut = sc[135], sc[136], sc[137]
-    f_dish, a_dish, z_deck, r_hole, w_slot = sc[138], sc[139], sc[140], sc[141], sc[142]
-    strip_wk, slot_el = sc[143], sc[144]
+    # ---- table: PER-ENV design rows fct (B,40) = _fc_table + r_duct
+    # (design_rand: every agent its own receiver), or the shared static
+    # block sc[106..144] + sc[13] broadcast to every env. Scalars are
+    # (B,1) columns against the (B,P) ray tensors; vectors (B,1,3).
+    Bn = p.shape[0]
+    if fct is None:
+        fct = torch.cat([sc[106:145], sc[13:14]])[None, :].expand(Bn, -1)
+    g = lambda k: fct[:, k, None]
+    v3 = lambda k: fct[:, k:k + 3][:, None, :]
+    arm_n = g(1)                          # north arm length (post root = F + arm_n x)
+    r_strip, d_strip, a_h, c_h = g(2), g(3), g(4), g(5)
+    O, A = v3(6), v3(9)
+    th_lo, th_hi, w_strip = g(12), g(13), g(14)
+    P4, F4 = v3(15), v3(18)
+    Oe, Ae, a_e, c_e = v3(21), v3(24), g(27), g(28)
+    r_m4, r_bore, r_strut = g(29), g(30), g(31)
+    f_dish, a_dish, z_deck, r_hole, w_slot = g(32), g(33), g(34), g(35), g(36)
+    strip_wk, slot_el = g(37), g(38)
+    r_duct = g(39)
+    greg = bool(fct[0, 0] > 2.5)          # the receiver TYPE is global
+    m4_flat = float(fct[0, 27]) <= 0.0    # so is m4_mode (a_e = 0: flat)
     F = Pf                                # (B,1,3) per env
     xhat = torch.tensor([1.0, 0.0, 0.0], device=p.device, dtype=p.dtype)
-    Ps = F + arm_n * xhat
-    greg = sc[106] > 2.5
-    side = torch.where(greg, torch.ones_like(d_strip), -torch.ones_like(d_strip))
-    Hc = F + side * d_strip * ud          # strip centre on the dish axis (before/beyond F)
+    Ps = F + arm_n[..., None] * xhat
+    side = 1.0 if greg else -1.0
+    Hc = F + side * d_strip[..., None] * ud   # strip centre on the dish axis (before/beyond F)
     # arm end: F for cass (the strip intercepts the cone before F); for
     # greg a bearing on the axis d_strip up the anti-sun side, F - d A,
     # outside both the cone and the beam
-    Qarm = (F - d_strip * A) if bool(greg) else F
+    Qarm = (F - d_strip[..., None] * A) if greg else F
     def _blocked(center, rad):
         vc = center - p
         ahead = (vc * ut).sum(-1) > 0
@@ -699,7 +710,7 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     ds, _ = _ray_seg_dist(p, ut, Ps, Qarm)
     lit = lit & (ds > r_strut)
     # ---- the strip: hyperboloid hit on the F sheet, before F
-    if bool(greg):
+    if greg:
         # ellipsoid beyond F: the first surface crossing AFTER the ray
         # passes F (both roots lie on the closed surface)
         tF = ((F - p) * d).sum(-1)
@@ -724,7 +735,7 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
         h1 = p + t1[..., None] * d
         wX_ = h1 - O
         zz_ = (wX_ * A).sum(-1, keepdim=True)
-        nh = a2_ * wX_ - c2_ * zz_ * A
+        nh = a2_[..., None] * wX_ - c2_[..., None] * zz_ * A
         nh = nh / nh.norm(dim=-1, keepdim=True).clamp(min=1e-12)
         nh = torch.where((nh * d).sum(-1, keepdim=True) > 0, -nh, nh)
     else:
@@ -743,7 +754,7 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     arc = torch.arccos(cosd.clamp(-1, 1)) * rho
     # near the axis the meridian azimuth is degenerate: a hit within the
     # strip's half-width of the axis is covered whatever its azimuth
-    w_loc = torch.where(strip_wk > 0, strip_wk * rn, torch.full_like(rn, float(w_strip)))
+    w_loc = torch.where(strip_wk > 0, strip_wk * rn, w_strip.expand_as(rn))
     on_strip = v1 & (th >= th_lo) & (th <= th_hi) & ((arc < 0.5 * w_loc) | (rho < 0.5 * w_loc))
     rad1 = torch.where(on_strip, torch.zeros_like(th), torch.ones_like(th))
     # the dish->strip leg grazing the arm
@@ -781,7 +792,7 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
         return (w - (w * axis).sum(-1, keepdim=True) * axis).norm(dim=-1)
     tdeck = (z_deck - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
     hdeck = h1 + tdeck[..., None] * d2
-    if float(a_e) > 0.0:
+    if not m4_flat:
         t4, h4, n4, v4 = _ellip_hit(h1, d2, Oe, Ae, a_e, c_e)
     else:
         # flat M4: plane through P4 with normal Ae
@@ -796,15 +807,16 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     # ---- M4: ellipsoid patch (foci F2, duct mouth) or flat at the turn
     ok = ok & v4 & ((h4 - P4).norm(dim=-1) < r_m4)
     d5 = d2 - 2.0 * (d2 * n4).sum(-1, keepdim=True) * n4
-    # ---- the duct plane x = r_pot (the built mouth), as the stock chain
-    r_pot_c, z_duct_c, r_duct_c = sc[12], sc[11], sc[13]
+    # ---- the duct plane x = r_pot (the built mouth), as the stock chain;
+    # the mouth radius is the per-env design's (fct[39])
+    r_pot_c, z_duct_c = sc[12], sc[11]
     t5 = (r_pot_c - h4[..., 0]) / d5[..., 0].clamp(max=-1e-9)
     ok = ok & (d5[..., 0] < -0.05) & (t5 < 4.0)
     t5 = t5.clamp(max=4.0)
     h5 = h4 + t5[..., None] * d5
     dy = h5[..., 1] + off[:, 0:1]
     dz = h5[..., 2] - z_duct_c + off[:, 1:2]
-    through_b = ok & (t5 > 0) & (dy ** 2 + dz ** 2 <= r_duct_c ** 2)
+    through_b = ok & (t5 > 0) & (dy ** 2 + dz ** 2 <= r_duct ** 2)
     w_ray = torch.ones_like(t1)
     return (through_b, w_ray, dy, dz, d5, ok, ok_pre_tube, ok_post_tube,
             lit, in_slot, graze, rad1, p, h1, h4, h5, h1)
@@ -998,6 +1010,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # parked loaf is distinguishable from a cold empty bin
             self.N_HEADS += 8
             self.N_EXTRA_OBS += 8
+        # design_rand: RL THE DESIGN. Every agent runs its own receiver
+        # design (uniform in DESIGN_BOX, seeded) and sees it in obs as
+        # unit-box coordinates (2u-1), so one policy is conditioned on
+        # the design and its critic reads out V(design); rotis-by-design
+        # is the design sensitivity WITH the controller in the loop.
+        self.design_rand = int(kwargs.pop("design_rand", 0))
+        self.design_seed = int(kwargs.pop("design_seed", 1234))
+        if self.design_rand:
+            self.N_EXTRA_OBS += self.N_DESIGN
         # beta_cap_z: hard cap (meters) on the TOP OF THE DISH RIM.
         # beta becomes a per-step SCHEDULE: full beta_dev when the sun
         # is high, tapered exactly as much as the cap demands when it
@@ -1056,6 +1077,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             cols.append(oh)
         if getattr(self, "load_ctrl", 0):
             cols.append(self.has_bread.astype(np.float64))
+        if getattr(self, "design_rand", 0):
+            cols.append(self._design_obs)
         return np.concatenate(cols, axis=1)
 
     def step(self, actions):
@@ -1701,6 +1724,86 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         prm[41] = self.el_max_h
         self._mnt_prm = torch.tensor(prm, device=dev)
         self._finish_trace_build(a, g, f_design)
+        self._build_design_table()
+
+    # ------------------------------------------------------ design #
+    #: the design box (name, lo, hi) sampled per agent by design_rand
+    DESIGN_BOX = (("d_strip", 0.4, 1.2), ("u_f2", 2.0, 6.0),
+                  ("r_m4", 0.6, 1.6), ("r_bore", 0.5, 1.2),
+                  ("w_slot", 0.4, 1.0), ("r_hole", 0.3, 0.8),
+                  ("strip_th_hi", 70.0, 125.0), ("strip_wk", 0.8, 1.8),
+                  ("r_duct", 0.15, 0.30))
+    N_DESIGN = 9
+
+    def _design_row(self):
+        """One receiver table row: _fc_table (39) + the duct mouth."""
+        if self.receiver == "cass":
+            return list(self._fc_table) + [float(self.r_duct)]
+        return [0.0] * 39 + [float(self.r_duct)]
+
+    def _build_design_table(self):
+        """The per-env receiver table _fct (B,40) the cores read (Metal
+        buffer 28, torch fct=): the built design in every row, or with
+        design_rand one design point per agent, uniform in DESIGN_BOX
+        (r_strip tied to the strip footprint). _design_obs (B,N_DESIGN)
+        is the unit-box coordinate 2u-1 the policy sees."""
+        B = self.num_agents
+        if self.receiver != "cass" or not getattr(self, "design_rand", 0):
+            rows = np.tile(np.asarray(self._design_row(), dtype=np.float32),
+                           (B, 1))
+            self._design_u = np.zeros((B, 0))
+        else:
+            rng = np.random.default_rng(self.design_seed)
+            u = rng.uniform(size=(B, self.N_DESIGN))
+            self._design_u = u
+            nominal = {k: getattr(self, k) for k, _, _ in self.DESIGN_BOX}
+            nominal["r_strip"] = self.r_strip
+            rows = np.zeros((B, 40), dtype=np.float32)
+            for b in range(B):
+                for (k, lo, hi), ub in zip(self.DESIGN_BOX, u[b]):
+                    setattr(self, k, float(lo + ub * (hi - lo)))
+                self.r_strip = 0.5 * self.strip_wk * self.d_strip * 1.3
+                self._build_cass_chain()
+                rows[b] = self._design_row()
+            for k, vv in nominal.items():
+                setattr(self, k, vv)
+            self._build_cass_chain()
+        self._fct = torch.as_tensor(rows, dtype=torch.float32,
+                                    device=self.device)
+        self._design_obs = 2.0 * self._design_u - 1.0
+        nd = self._design_obs.shape[1]
+        self._dsn_t = torch.as_tensor(
+            self._design_obs if nd else np.zeros((B, 1)),
+            dtype=torch.float32, device=self.device)
+
+    def design_points(self):
+        """The per-agent designs as a dict of (B,) arrays (design_rand)."""
+        return {k: lo + self._design_u[:, i] * (hi - lo)
+                for i, (k, lo, hi) in enumerate(self.DESIGN_BOX)}
+
+    DESIGN_KEYS = ("d_strip", "u_f2", "r_m4", "r_bore", "w_slot", "r_hole",
+                   "strip_th_lo", "strip_th_hi", "strip_wk", "w_strip",
+                   "r_strip", "r_duct", "slot_el", "m4_mode")
+
+    def set_design(self, **kw):
+        """Re-build the receiver chain in place for a new design point
+        (the simulator as the design tool): only the static table's
+        receiver block and the duct mouth change, so no membrane solve,
+        no mount rebuild - a few ms, and the next step traces it."""
+        assert self.receiver == "cass", "set_design: receiver='cass' only"
+        for k, v in kw.items():
+            if k not in self.DESIGN_KEYS:
+                raise KeyError(f"set_design: unknown key {k!r}")
+            setattr(self, k, v if k == "m4_mode" else float(v))
+        self.r_fold = self.r_strip
+        self.obstruction = (self.r_fold / float(self.a_mem)) ** 2
+        self._build_cass_chain()
+        dev = self._sc_base.device
+        tail = torch.tensor(self._fc_table, dtype=torch.float32, device=dev)
+        self._sc_base = torch.cat([self._sc_base[:106], tail])
+        self._sc_base[13] = float(self.r_duct)
+        self._build_design_table()
+        return self
 
     def _mount(self, day_t, lat_t, hour, pnt=None):
         """Mount solve dispatch: the Metal kernel when present (one
@@ -1989,7 +2092,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  * self.n_belt).long() % self.n_belt,
                 self.n_belt).float()] if self.elbow_aim else [])
           + ([S.has_bread.float()] if getattr(self, "load_ctrl", 0)
-             else []),
+             else [])
+          + ([self._dsn_t] if getattr(self, "design_rand", 0) else []),
             1)
         return obs, rew, infos
 
@@ -2067,7 +2171,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                     self._V0t)
             _, _, per = self._metal(*args, self._ray_pw, soil,
                                     self.n_nodes,
-                                    self._aim_dirs(B, dev), scb)
+                                    self._aim_dirs(B, dev), scb,
+                                    fct=self._fct)
             return per
         # no Metal on this device (CUDA/CPU): the fused torch graph
         # with broadcast-shaped per-env geometry, binned identically
@@ -2076,6 +2181,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 Cd[:, None, :], dvec, off,
                 mnt["vp"][:, :, None, :], sc, scb,
                 self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
+        if self.receiver == "cass":
+            args = args + (self._fct,)
         out = self._geo(*args)
         (through_b, w_ray, dy, dz, d3) = out[:5]
         through = through_b.float() * w_ray
@@ -2255,13 +2362,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                      dtype=torch.float32, device=dev)
             thr, out6, per = self._metal(*args, self._ray_pw,
                                          soil_t, self.n_nodes,
-                                         self._aim_dirs(B, dev), scb)
+                                         self._aim_dirs(B, dev), scb,
+                                         fct=self._fct)
             return per.cpu()
         args = (self._pts_l, self._nrm_l, lv_t, du, de, upick, us,
                 sigb_t, Acan_t.view(B, 1, 3, 3), Mt,
                 Cd[:, None, :], dvec, off,
                 mnt["vp"][:, :, None, :], sc, scb,
                 self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
+        if self.receiver == "cass":
+            args = args + (self._fct,)
         try:
             out = self._geo(*args)
         except Exception as ex:
