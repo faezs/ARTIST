@@ -1105,18 +1105,26 @@ kernel void step_post(
         phi_old += clamp(bE[k]/sp[19], 0.0f, 1.0f);
     // ---- spot_bread: the loaf takes the beam directly
     int kb = 0; float validc = 0.0f, q_direct = 0.0f;
+    float qsp[16];                     // per-loaf beam power (NB <= 16)
+    for (int k = 0; k < 16; k++) qsp[k] = 0.0f;
     if (sp[25] > 0.5f) {
         float phs = s[S0+22];
         kb = ((int)((phs + PI_)/(2.0f*PI_)*(float)NB)) % NB;
         float zt = s[S0+23];
         validc = (zt >= sp[22] && zt <= sp[23]) ? 1.0f : 0.0f;
-        float lit = (hb[kb] > 0.5f && validc > 0.5f) ? 1.0f : 0.0f;
-        float frb = clamp(bE[kb]/sp[19], 0.0f, 1.0f);
-        float alpha = 0.55f + 0.35f*frb;
-        float inc = pv[kb]*gate;
-        q_direct = lit*alpha*sp[21]*inc;
-        qv[kb] -= lit*0.85f*sp[21]*inc;
-        bE[kb] += q_direct*dt;
+        // every loaded loaf takes the beam landing on its bin (twin of
+        // gpu_step): the footprint the optics put on the belt bakes
+        for (int k = 0; k < NB; k++) {
+            float lit_k = (hb[k] > 0.5f && validc > 0.5f) ? 1.0f : 0.0f;
+            float frb_k = clamp(bE[k]/sp[19], 0.0f, 1.0f);
+            float alpha_k = 0.55f + 0.35f*frb_k;
+            float inc_k = pv[k]*gate;
+            float q_k = lit_k*alpha_k*sp[21]*inc_k;
+            qv[k] -= lit_k*0.85f*sp[21]*inc_k;
+            bE[k] += q_k*dt;
+            qsp[k] = q_k;
+            q_direct += q_k;
+        }
     }
     // ---- thermal (polar's copy)
     float t4s = 0.0f;
@@ -1165,8 +1173,8 @@ kernel void step_post(
     for (int k = 0; k < NB; k++) {
         float bT = s[k];
         float cdot = max(bT - 800.0f, 0.0f)/6000.0f;
-        if (sp[25] > 0.5f && k == kb) {
-            float fkw = q_direct/max(sp[53], 1e-6f)/1000.0f;
+        if (sp[25] > 0.5f) {
+            float fkw = qsp[k]/max(sp[53], 1e-6f)/1000.0f;
             cdot += max(fkw - 8.0f, 0.0f)/1000.0f*validc;
         }
         bC[k] += hb[k]*cdot*dt;

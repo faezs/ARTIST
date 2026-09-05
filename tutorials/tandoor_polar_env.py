@@ -613,15 +613,20 @@ class TandoorPolarEnv(TandoorEnv):
                    * self.n_belt).astype(int)) % self.n_belt
             valid = ((np.asarray(zt_) >= Z_BAKE_LO)
                      & (np.asarray(zt_) <= Z_CROWN))
-            lit = (self.has_bread[ar, kb] & valid).astype(float)
-            fr = np.clip(self.bread_E[ar, kb] / self.roti_energy, 0, 1)
-            alpha = 0.55 + 0.35 * fr          # dough browns, absorbs
             fcov = min(self.bread_area / SPOT_AREA, 1.0)
-            inc = per_dni[ar, kb] * gate      # beam arriving at the bin
-            q_direct = lit * alpha * fcov * inc
-            q_solar[ar, kb] -= lit * 0.85 * fcov * inc
-            self.bread_E[ar, kb] += q_direct * self.dt
+            # every loaded loaf takes the beam landing on ITS bin (twin
+            # of gpu_step / the kernel): the optics' footprint bakes
+            nb = self.n_belt
+            lit_b = (self.has_bread[:, :nb] & valid[:, None]).astype(float)
+            fr_b = np.clip(self.bread_E[:, :nb] / self.roti_energy, 0, 1)
+            alpha_b = 0.55 + 0.35 * fr_b      # dough browns, absorbs
+            inc_b = per_dni[:, :nb] * gate[:, None]
+            q_b = lit_b * alpha_b * fcov * inc_b
+            q_solar[:, :nb] -= lit_b * 0.85 * fcov * inc_b
+            self.bread_E[:, :nb] += q_b * self.dt
+            q_direct = q_b.sum(1)
             self._spot_bin = (kb, valid)
+            self._spot_q = q_b
             self._spot_flux = q_direct / max(self.bread_area, 1e-6)
             self._spot_kb = kb
         self.p_in = per_dni.sum(1) * gate
@@ -679,12 +684,9 @@ class TandoorPolarEnv(TandoorEnv):
         if getattr(self, "spot_bread", 0) and \
                 getattr(self, "_spot_flux", None) is not None:
             kbc, validc = self._spot_bin
-            arc = np.arange(len(kbc))
-            fkw = self._spot_flux / 1000.0
-            addc = np.zeros_like(c_dot)
-            addc[arc, kbc] = np.clip(fkw - 8.0, 0, None) / 1000.0 \
-                * validc
-            c_dot = c_dot + addc
+            fkw_b = self._spot_q / max(self.bread_area, 1e-6) / 1000.0
+            c_dot = c_dot + np.clip(fkw_b - 8.0, 0, None) / 1000.0 \
+                * validc[:, None]
         self.bread_C += self.has_bread * c_dot * self.dt
         ready = self.has_bread & (self.bread_E >= self.roti_energy)
         # ONE lean event: pull and load share the opening (see the

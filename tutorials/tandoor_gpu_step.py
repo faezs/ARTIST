@@ -210,19 +210,25 @@ def gpu_step(env, actions):
         kb = (((S.spot_phi + _np.pi) / (2 * _np.pi)
                * env.n_belt).long()) % env.n_belt
         valid = (S.spot_z >= Z_BAKE_LO) & (S.spot_z <= Z_CROWN)
-        kb1 = kb[:, None]
-        lit = (S.has_bread.gather(1, kb1).squeeze(1)
-               & valid).float()
-        frb = (S.bread_E.gather(1, kb1).squeeze(1)
-               / env.roti_energy).clamp(0, 1)
-        alpha = 0.55 + 0.35 * frb
         fcov = min(env.bread_area / SPOT_AREA, 1.0)
-        inc = per.gather(1, kb1).squeeze(1) * gate
-        q_direct = lit * alpha * fcov * inc
-        q_solar.scatter_add_(1, kb1,
-                             (-lit * 0.85 * fcov * inc)[:, None])
-        S.bread_E.scatter_add_(1, kb1, (q_direct * dt)[:, None])
+        # EVERY loaded loaf takes the beam landing on ITS bin (2026-09-06):
+        # the footprint the optics put on the belt - focused on one bin,
+        # defocused by the level head over several, swept by the spot
+        # heads - is what bakes, and each loaf chars on its own share.
+        # The old rule fed only the aimed bin's loaf, so a spread beam
+        # heated walls next to the loaves it was lighting. Spreading is
+        # the network's behaviour through the mirror, not a knob.
+        nb = env.n_belt
+        lit_b = (S.has_bread[:, :nb] & valid[:, None]).float()
+        frb_b = (S.bread_E[:, :nb] / env.roti_energy).clamp(0, 1)
+        alpha_b = 0.55 + 0.35 * frb_b
+        inc_b = per[:, :nb] * gate[:, None]
+        q_b = lit_b * alpha_b * fcov * inc_b
+        q_solar[:, :nb] = q_solar[:, :nb] - lit_b * 0.85 * fcov * inc_b
+        S.bread_E[:, :nb] = S.bread_E[:, :nb] + q_b * dt
+        q_direct = q_b.sum(1)
         env._spot_bin_t = (kb, valid)
+        env._spot_q_t = q_b
         env._spot_flux_t = q_direct / max(env.bread_area, 1e-6)
 
     # ---- thermal / bread / reward (polar's copy, 950 K structure term)
@@ -264,12 +270,9 @@ def gpu_step(env, actions):
     c_dot = (belt_T - 800.0).clamp(min=0) / 6000.0
     if getattr(env, "spot_bread", 0):
         kbc, validc = env._spot_bin_t
-        fkw = env._spot_flux_t / 1000.0
-        addc = torch.zeros_like(c_dot)
-        addc.scatter_(1, kbc[:, None],
-                      ((fkw - 8.0).clamp(min=0) / 1000.0
-                       * validc.float())[:, None])
-        c_dot = c_dot + addc
+        # per-loaf beam flux: each loaf chars on its own share
+        fkw_b = env._spot_q_t / max(env.bread_area, 1e-6) / 1000.0
+        c_dot = c_dot + (fkw_b - 8.0).clamp(min=0) / 1000.0 * validc.float()[:, None]
     S.bread_C = S.bread_C + S.has_bread.float() * c_dot * dt
     ready = S.has_bread & (S.bread_E >= env.roti_energy)
     # ONE lean event: pull and load share the opening (post-increment
