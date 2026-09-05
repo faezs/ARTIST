@@ -103,8 +103,13 @@ D3.append(plate3d(20, "Fold saddle: DCM block, one rotation about the face-plane
 
 def legend(json_path):
     import json as _json
-    parts = _json.load(open(json_path))["parts"]
-    return "Legend: " + "; ".join(f'<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;background:{p.get("color","#888")}"></span> {html.escape(p["name"])}' for p in parts)
+    parts = _json.load(open(json_path))["parts"]; seen = []
+    for p in parts:
+        key = re.sub(r"(\s+(\d+|[A-Z]\d+))+\s*$", "", p["name"])
+        for s in seen:
+            if s[0] == key: s[2] += 1; break
+        else: seen.append([key, p.get("color", "#888"), 1])
+    return "Legend: " + "; ".join(f'<span style="display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;background:{c}"></span> {html.escape(k)}{f" ({n})" if n > 1 else ""}' for k, c, n in seen)
 
 D3.append(plate(21, 'Fold saddle: engineering views', 'stage2/fold/out/fold_saddle_views.svg', 'isometric (1, -0.9, 0.45), detail of the lower two interfaces, plan, front, side', [('shows', 'five Ti frames with their windows, 160 oblique wires in four 40 mm gaps, the mirror plate face-down below, the hood ring and yoke frame as context'), ('axis', 'teal dashed: the tilt axis in the face plane through F; nothing of the structure lies on it'), ('side view', "each interface's wires cross in X pairs: the two plane families of the 1R cell")], "Hidden-line projection of the same CadQuery model as the plate above (3d/cad_views.py): solid = visible edges, dashed = hidden, lighter orange = wires behind a frame, lighter grey = context parts. Each view carries its own scale bar."))
 D3.append(plate3d(22, "Dish pitch stage: a 2 m distributed cross-axis blade bearing", "stage2/dish/out/dish_pitch.json",
