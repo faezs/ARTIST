@@ -833,6 +833,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  sec_side="cass", r_hole=0.5,
                  night_carry=0, night_hours=16.0, dt_night=60.0, r_duct=None,
                  w_slot=0.7, strip_wk=1.1, slot_el=54.0,
+                 lost_deg=3.0, enc_clamp=3.0,
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, r_m4=1.3,
@@ -920,6 +921,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # slot_el > 0: mirrored flaps close the slot while the sun is below
         # slot_el deg (the dish only reaches the bore above ~54 deg)
         self.slot_el = float(slot_el)
+        # POINTING: lost_deg is the |e_az|+|e_el| threshold (deg) behind
+        # the 40-step guillotine; enc_clamp the +-clamp of the pointing
+        # encoders (units of 0.5 deg, so 3 = blind beyond 1.5 deg). The
+        # cass run 178862753223 learned a deliberate 1-2 deg azimuth
+        # offset (spot steering, 9 m/rad on that machine) right under
+        # the 3 deg cliff and blind beyond 1.5 - noise walked it over.
+        self.lost_deg = float(lost_deg)
+        self.enc_clamp = float(enc_clamp)
         # NIGHT CARRY-OVER (user, 2026-09-04: "warm_frac should be set by
         # the insulation type"): with night_carry the day-over does not
         # draw a warm/cold pot; yesterday's pot cools through night_hours
@@ -1019,10 +1028,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         enc = np.stack([
             np.clip((self._e_el + self.rng.normal(0, 0.03,
                                                   self.num_agents)) / 0.5,
-                    -3, 3),
+                    -self.enc_clamp, self.enc_clamp),
             np.clip((self._e_az + self.rng.normal(0, 0.03,
                                                   self.num_agents)) / 0.5,
-                    -3, 3)], axis=1)
+                    -self.enc_clamp, self.enc_clamp)], axis=1)
         cols = [base, enc]
         if self.elbow_aim:
             from tandoor_polar_env import SPOT_PHI0, SPOT_Z0
@@ -1123,7 +1132,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # episode is TRUNCATED in place: fresh pot, counters zeroed,
         # carriage re-acquired, sun left where it is. Bootstrapped via
         # truncations, not terminals.
-        lost = (np.abs(self._e_az) + np.abs(self._e_el)) > 3.0
+        lost = (np.abs(self._e_az) + np.abs(self._e_el)) > self.lost_deg
         self._lost_ct = np.where(lost, self._lost_ct + 1, 0)
         cut = self._lost_ct >= 40
         if cut.any() and not wrapped:
@@ -1928,8 +1937,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # ---- obs, one assembly + one copy
         ts = torch.full((B,), float(self.t_solar[0]), device=dev)
         h = (ts - 8.0) / 8.0
-        enc_el = ((e_el + 0.03 * S.n(B)) / 0.5).clamp(-3, 3)
-        enc_az = ((e_az + 0.03 * S.n(B)) / 0.5).clamp(-3, 3)
+        enc_el = ((e_el + 0.03 * S.n(B)) / 0.5).clamp(-self.enc_clamp, self.enc_clamp)
+        enc_az = ((e_az + 0.03 * S.n(B)) / 0.5).clamp(-self.enc_clamp, self.enc_clamp)
         obs = torch.cat([
             torch.stack([torch.sin(np.pi * h), torch.cos(np.pi * h),
                          S.dni / 1000.0], 1),

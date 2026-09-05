@@ -348,7 +348,7 @@ def gpu_step(env, actions):
     pot_now = (e_az2.abs() + e_el2.abs()).clamp(max=4.0)
     rew = rew + 1.0 * (pot_prev - pot_now)
     S.e_az_prev, S.e_el_prev = e_az2, e_el2
-    lost = (e_az2.abs() + e_el2.abs()) > 3.0
+    lost = (e_az2.abs() + e_el2.abs()) > float(getattr(env, 'lost_deg', 3.0))
     S.lost_ct = torch.where(lost, S.lost_ct + 1,
                             torch.zeros_like(S.lost_ct))
     cut = S.lost_ct >= 40
