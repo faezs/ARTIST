@@ -34,8 +34,10 @@ put one block at F with struts to the dish; it shaded 2.9 % and its
 blades were overloaded by the crosswind's moment, and the memo keeps
 both faults beside the correction. Read organ by organ the machine is
 a heliotropic bowl flower with an inferior ovary; sheets 34-44 on the
-register show the mount and the flower. The pneumatic pass below is
-kept as the record.
+register show the mount and the flower. [stage3/setup_sim](stage3/setup_sim/memo.md)
+simulates the machine setting itself up as an inflatable fork (Warp
+soft-body kernels, sheet 45). The pneumatic pass below is kept as the
+record.
 
 ### Earlier: the pneumatic mount
 

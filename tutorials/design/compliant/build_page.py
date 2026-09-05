@@ -238,5 +238,44 @@ CORR = """<table class="corr"><tr><th>organ</th><th>in the plant</th><th>in the 
 <tr><td>a smaller roof</td><td>1.5 m</td><td>6.5 x 5.6 m</td><td>170 urad per mL</td><td>same t/L: same range, same stress, same wind SF</td></tr>
 <tr><td>a small roof</td><td>1.05 m</td><td>4.6 x 3.9 m</td><td>496 urad per mL</td><td>same; lighter on its blades (weight ~L^3, buckling ~L^2)</td></tr>
 </table>"""
-page = open("page_template.html").read().replace("<!--PLATES_MOUNT-->", "\n".join(MOUNT)).replace("<!--PLATES_FLOWER-->", "\n".join(FLOWER)).replace("<!--FLOWER_TABLE-->", CORR).replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
+
+ANIM_JS = open(os.path.join("3d", "anim.js")).read()
+def plate_anim(num, title, json_path, ref, rows, note=""):
+    anim = open(json_path).read()
+    tb = "".join(f'<div class="k">{html.escape(k)}</div><div class="v">{v}</div>' for k, v in rows)
+    vid = f"anim{num}"
+    return f'''<article class="plate" id="pl{num}">
+  <div class="paper paper3d"><div class="view3d" id="{vid}"></div><div class="hint">plays on load · drag to orbit · shift-drag to pan · wheel to zoom · slider to scrub</div></div>
+  <aside class="block">
+    <div class="sheet">SHEET {num:02d} · SIMULATION</div>
+    <h3>{html.escape(title)}</h3>
+    <div class="ref">{html.escape(ref)}</div>
+    <div class="tb">{tb}</div>
+    {f'<p class="note">{note}</p>' if note else ''}
+  </aside>
+</article>
+<script>(function(){{ const anim = {anim}; const el = document.getElementById("{vid}"); const go = () => mountAnim(el, anim); if (window.THREE) go(); else window.addEventListener('load', go); }})();</script>'''
+def setup_rows(log_path, anim_path):
+    import json as _json
+    L = _json.load(open(log_path)); An = _json.load(open(anim_path)); T = An["t_setup"]
+    setup = [l for l in L if l["t"] <= T]; track = [l for l in L if l["t"] > T]; end = setup[-1]
+    t_axis = next((l["t"] for l in setup if abs(l["z_axis"] - 4.868) < 0.05), None)
+    mus = max(max(l["muscles"]) for l in L)
+    def mean(k, S): return sum(l[k] for l in S)/max(1, len(S))
+    return [("what runs", f"{An['n_particles']} particles, {len(An['tris'])//3} membrane triangles, {An['n_frames']} frames at {1/An['dt']:.0f} fps: two posts r 0.6 m, two arms r 0.4 m, two counterweight tubes r 0.3 m, all closed fabric tubes; the head (100 kg) a spring truss on the arms' caps; trunnions as hinges on the axis through F"),
+            ("stow", "posts 1.05 m, cradle face-up on its stubs under the axis, tanks empty; nothing is placed by hand"),
+            ("posts", f"grow at the blower's rate from t {0.08*T:.0f} s with feedback on the axis height: axis at F's height (env z 9.87) at t {t_axis:.0f} s" if t_axis else f"grow from t {0.08*T:.0f} s; axis at {end['z_axis'] + 5:.2f} m at the end of setup"),
+            ("arms and water", f"arms and counterweight tubes grow {0.42*T:.0f}-{0.66*T:.0f} s; 91 L of water pumped into each counterweight tube {0.6*T:.0f}-{0.74*T:.0f} s (its walls carry the mass)"),
+            ("turn", f"a double-acting pneumatic strut per side from the deck ring (10 kN cap, the jack's geometry: lever 0.75-0.94 m) turns the cradle from el 90 to the morning sun {0.74*T:.0f}-{0.98*T:.0f} s; strut peak {mus/1e3:.1f} kN"),
+            ("arrives", f"at t {T:.0f} s the vertex is {end['err']:.2f} m from F - 4 s and the dish axis {end['point']:.1f} deg from the sun"),
+            ("tracks", f"sun {An['h0']:.0f}-{An['h1']:.0f} h over {An['t_day']:.0f} s: vertex error mean {mean('err', track):.2f} m; the cradle (coarse stage) points {mean('coarse', track):.1f} deg from the sun on average, max {max(l.get('coarse', 0) for l in track):.1f} deg") if track else ("tracks", "no tracking phase in this run"),
+            ("to microradians", f"the flexure fine stage between frame and dish (three tangential rods, rank 3: tip, tilt, focus; three water columns on the normals, commanded from the dish-axis error and the focal distance) holds the dish {mean('point', [l for l in track if l['t'] > T + 0.15*An['t_day']])*17.45:.2f} mrad from the sun on average while the inflated fork wanders by degrees; columns within +-{max(max(abs(v) for v in l['fine_mm']) for l in L):.0f} mm of their +-32 mm. The residual here is the simulation's loop and float precision; the microradians are the locked stage's 90 MN m/rad and 62 urad per mL of sheets 38-39, closed on the beam centroid at the tube's waist") if track and 'fine_mm' in L[0] else ("to microradians", "the flexure fine stage of sheets 38-39 rides between frame and dish"),
+            ("pressure", f"the tubes' hoop strain reads {mean('p_eq', L) if False else ''}{max(max(l['p_eq']) for l in L)/1e3:.0f} kPa at most (2 % over-volume prestress); Coad's crushing and buckling forces and McFarland's collapse moment give SF 9 / 1.8 / 1.0 (post / arm / counterweight tube) at 40 kPa and double at the design's 80 kPa (inflated_beam.py)"),
+            ("solver", "Gauss-Seidel XPBD in NVIDIA Warp kernels (graph-coloured constraints), tension-only membrane springs, one volume constraint per closed tube (the pressure), long-range attachments for growth, deck contact; warp.sim's own XPBD (Jacobi, unnormalised) and an averaged-Jacobi version both failed on this net, which is recorded in the memo")]
+SETUP = []
+SETUP.append(plate_anim(45, "The machine sets itself up: posts rise, arms and counterweights grow, water fills, the cradle turns to the sun, then tracks", "stage3/setup_sim/out/setup_anim.json",
+  "3-D soft-body simulation of the inflatable fork: the FACT mount with the hose as its frame. Posts, arms and counterweight tubes are fabric tubes grown like everting vine robots (Blumenschein 2019, Coad 2021); the trunnion blocks are the hinges on the axis through F; a double-acting pneumatic strut per side sets the elevation, the deck ring the azimuth; the flexure fine stage (sheets 38-39) rides on it",
+  setup_rows("stage3/setup_sim/out/setup_log.json", "stage3/setup_sim/out/setup_anim.json"),
+  "Blue membranes: posts, arms, counterweight tubes. Yellow: the dish; dark truss: the back frame; green: the fine stage's tangential rods; brown: its water columns. Orange: the axle bodies and cranks on the elevation axis; red: the struts; blue spheres: the water. Purple: F. Orange ring: the vertex's ideal position F - 4 s for the current sun; dashed teal: the sun line. Deck at env z 5.0."))
+page = open("page_template.html").read().replace("<!--PLATES_SETUP-->", "\n".join(SETUP)).replace("<!--ANIM_JS-->", ANIM_JS).replace("<!--PLATES_MOUNT-->", "\n".join(MOUNT)).replace("<!--PLATES_FLOWER-->", "\n".join(FLOWER)).replace("<!--FLOWER_TABLE-->", CORR).replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
 open(os.path.join(OUT, "flexure_register.html"), "w").write(page); print("page:", os.path.getsize(os.path.join(OUT, "flexure_register.html"))//1024, "KB")

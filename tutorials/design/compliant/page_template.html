@@ -2,6 +2,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script><!--VIEWER_JS--></script>
+<script><!--ANIM_JS--></script>
 <style>
 :root{--ground:#eef2f6;--paper:#ffffff;--ink:#14213d;--muted:#5b6b7f;--line:#c7d0da;--block:#1f3a5f;--blockink:#eaf0f7;--flex:#d9480f;--kin:#0e7490;--soft:#e3e9f0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ground:#0f1720;--paper:#ffffff;--ink:#e6edf3;--muted:#9fb0c3;--line:#2a3948;--block:#16283d;--blockink:#dbe6f2;--flex:#ff7a2f;--kin:#22b8cf;--soft:#172230}}
@@ -52,6 +53,13 @@ a:focus-visible{outline:2px solid var(--kin);outline-offset:2px}
     <span><i class="sw" style="background:#9ca3af"></i> ground, hatched; moving body, grey</span>
   </div>
 </header>
+
+<section>
+  <div class="eyebrow">Setup · the machine erects itself and tracks · soft-body simulation</div>
+  <h2>How it sets itself up</h2>
+  <p class="intro">The brief's first line was a water hose for the frame, actuated like a vine robot, so that setup and tracking are automatic. This is that machine running: the FACT mount of the next section with the hose as its frame, as a 3-D soft-body simulation in NVIDIA Warp. Two fabric posts on the deck ring, two fabric arms and two counterweight tubes on the cradle are pressurised and grown from stubs the way an everting vine grows; water is pumped into the counterweight tubes; a pneumatic strut per side turns the cradle about the flexure trunnions on the axis through F to the morning sun and follow it through the day, while the deck ring turns the azimuth. Nothing is placed by hand. The first attempt at this section, a single vine stem from a root on the deck with a bridle to F (the second pass), failed in the simulation for a geometric reason the memo records: one stem from a fixed root cannot give the head both its place on the sphere about F and its sun-pointing attitude, because the two are coupled through the stem's curvature; the fork's rotation about the axis through F gives both at once. The vine-robot theses and the inflated-beam collapse models the tubes are checked against are in the memo; the tracking data feeds a Koopman model (pykoopman) for the controller that replaces the hand-tuned loops.</p>
+  <!--PLATES_SETUP-->
+</section>
 
 <section>
   <div class="eyebrow">The mount · synthesized by FACT · third pass</div>

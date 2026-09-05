@@ -13,6 +13,17 @@ checks; `geometry.py` is the member list that `model.py` draws and `synth.py`/`s
 `flower_organs.py` recolours the model organ by organ and writes the botanical drawing; sheets 34-44 on the
 register. The pneumatic passes below are kept as the record of how it got there.
 
+## The machine sets itself up: `setup_sim/`
+
+The inflatable fork as a 3-D soft-body simulation (NVIDIA Warp kernels): the FACT mount with the hose as its
+frame. Posts, arms and counterweight tubes are closed fabric tubes grown from stubs like everting vine robots,
+water is pumped into the counterweights, a double-acting pneumatic strut per side turns the cradle about the
+flexure trunnions on the axis through F, the deck ring turns the azimuth; the head lands on the sphere about F
+pointing at the sun and follows it. `setup_sim.py` (simulation), `inflated_beam.py` (Coad's buckling and crushing
+forces, McFarland's collapse moment), `koopman_fit.py` (pykoopman model of the tracking), `render_gif.py`,
+`memo.md` (including why the second pass's single stem cannot give the head both its place and its attitude);
+sheet 45 on the register.
+
 ## Earlier: the pneumatic mount
 
 The brief of 2026-09-05: a water hose for the frame, actuated like a vine robot so setup and tracking are

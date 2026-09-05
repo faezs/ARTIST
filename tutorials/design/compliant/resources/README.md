@@ -15,3 +15,13 @@ Mattress Panels.zip", Yang et al. 2025) was not downloaded. The FACT
 synthesis itself has no separate download on that page; its algebra
 is in Hopkins's papers and our port `../fact/fact_core.py` /
 `../fact/dcm_core.py`.
+
+## Added 2026-09-06 (setup simulation)
+
+- `blumenschein_2019_soft_growing_robots_thesis.pdf`: L. H. Blumenschein, *Design and modeling of soft growing robots*, Stanford 2019 (stacks.stanford.edu, druid nm099kn3764). Ch. 2 growth force P A and the Lockhart-Ortega turgor law; ch. 4 actuator routing.
+- `coad_2021_vine_robots_thesis.pdf`: M. M. Coad, *Design, modeling, and control of vine robots for exploration of unknown environments*, Stanford 2021 (druid ky237km2272). 4.3.2-4.3.3 inflated-beam axial buckling and crushing, curved-beam bending.
+- `vine_collapse_own_weight_2025.pdf`: McFarland and McGuinness, *Modeling collapse of steered vine robots under their own weight*, arXiv 2510.25727. Collapse moment P pi D^3/8, tail tension, inflated supports.
+- `vine_steerability_2025.pdf` (arXiv 2510.22504), `vine_parallel_sim_2025.pdf` (Gao, Chen, Bhovad, Wang, Kingston, Blumenschein, arXiv 2509.15180: fast parallel simulation of growth, bending, actuation and contact).
+- `vine_simulator_icra.pdf` and `Vine_Simulator/` (git clone of charm-lab/Vine_Simulator, Julia): Jitosho, Agharese, Okamura, Manchester, a rigid-link dynamics simulator for vine robots with growth as a rate constraint.
+- `bruder_2019_koopman_mpc_soft_robots.pdf`: Bruder, Gillespie, Remy, Vasudevan, *Modeling and control of soft robots using the Koopman operator and model predictive control*, RSS 2019 (arXiv 1902.02827). Software: `pykoopman` (installed in `.venv-sim`), `pyelastica` (installed, unused so far).
+- The simulation venv is `.venv-sim/` (uv; warp-lang 1.8.1 for warp.sim's ModelBuilder API and the kernels, pykoopman, pyelastica, numpy, scipy, imageio, matplotlib). Not tracked.

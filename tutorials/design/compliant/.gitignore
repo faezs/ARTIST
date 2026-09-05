@@ -4,3 +4,5 @@ stage2/*/out/*.png
 stage3/*/out/*.png
 stage3/*/out/*.npy
 stage3/*/out/*.log
+.venv-sim/
+stage3/*/out/*.gif
