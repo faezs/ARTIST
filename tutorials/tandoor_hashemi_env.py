@@ -1343,7 +1343,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.cs_a, self.cs_c, self.cs_P4, self.cs_n4, self.cs_F4 = float(a_h), float(c_h), P4, n4, F4
         self.cs_Ps = Ps
         self.cs_mag = float((2.0 * c_h - self.d_strip) / self.d_strip)
-        self.cs_demag = float(L_out / self.u_f2)
+        # a flat M4 (u_f2 = 0) neither magnifies nor demagnifies
+        self.cs_demag = float(L_out / self.u_f2) if self.u_f2 > 0.0 else 1.0
         self.cs_Oe, self.cs_Ae, self.cs_ae, self.cs_ce = Oe, Ae, float(a_e), float(c_e)
         self._fc_table = ([2.0 if self.sec_side == "cass" else 3.0, self.arm_north, self.r_strip, self.d_strip, float(a_h), float(c_h)]
                           + list(O) + list(A)
