@@ -129,21 +129,20 @@ D3.append(plate3d(26, "M5 patch: 43 toroid facets on the pit truss, world frame"
 D3.append(plate(27, 'M5 patch: engineering views', 'stage2/m5/out/m5_patch_views.svg', 'isometric (1, -0.9, 0.6), plan, front, side, world frame in mm', [('shows', '43 hex facets with their pads on posts from the pit truss base; the dashed teal lines run to the waist focus fW above and the duct focus fT beside'), ('plan', 'the patch footprint x -0.06..1.97 m, y +-1.1 m, denser toward the east where incidence reaches 51 deg')], "Hidden-line projection of the same CadQuery model as the plate above (3d/cad_views.py): solid = visible edges, dashed = hidden, lighter orange = wires behind a frame, lighter grey = context parts. Each view carries its own scale bar."))
 
 
-D3.append(plate3d(28, "Cassegrain Hashemi machine on the pneumatic mount (equinox noon)", "stage3/hashemi_pneumatic/out/hp_equinox_noon.json",
-  "Stage 3. The nix-support machine as configured (f 4.05, R 8.2, orbit 4 m about F at 9.87 m, hole 0.5, slot 0.7, hyperboloid strip 0.8 m under F, vertical beam to the ellipsoid M4); the mount is the dual of Hashemi's rod: pushed from below",
-  [("optics", "untouched: the other fork's design; nothing of the mount enters the beam"), ("rod", "vine hose r 0.30 m at 0.15-0.17 bar, everted from a reel at the root (x 2.5, 1.25 m north of the wall line); 0.84-5.58 m over the year, tilt 2-58 deg, 1.15 m clear of the beam column"),
-   ("tendons", "three deck winches at r 7 m steer the dish on its orbit sphere; three short tendons from a rod collar to the 2.4 m back ring hold attitude: 0.8 mrad at 9 m/s"), ("forces", "worst rod thrust 3.3 kN (summer 6:30, rod at full reach); Euler at 5.58 m 13.4 kN: SF 4; position 24 mm under a 750 N gust = 88 mm at F2, inside M4"),
-   ("F support", "the env's arm from a tower 3 m north pierces the membrane at 13 of 59 sun positions; drawn as context. Pneumatic option: two inflated masts at y = +-5.2 m outside the sweep, a cable through F, a south guy"),
-   ("setup / storm", "inflate: the rod grows from the reel and lifts the dish off the deck; vent: it lies face-up around the root")],
-  legend("stage3/hashemi_pneumatic/out/hp_equinox_noon.json")))
-D3.append(plate(29, "Pneumatic mount: equinox noon, engineering views", "stage3/hashemi_pneumatic/out/hp_equinox_noon_views.svg", "isometric from the south-west, detail of the root and rod, plan, front, side; env frame, mm",
-  [("shows", "dish at x 3.3 m, z 6.4 m tilted 60 deg to the south sun; beam rim -> strip -> F2 -> down the column; rod from the root; deck tendons; masts and suspension"), ("slot", "open (el > 54 deg): the keyhole toward the sun side")],
-  "Hidden-line projection of the CadQuery model (3d/cad_views.py). Light grey parts are context: deck, wall, column, pot, reel, and the env's own arm and tower."))
-D3.append(plate(30, "Summer noon and an equinox morning", "stage3/hashemi_pneumatic/out/hp_summer_noon_views.svg", "summer noon, el 83 deg: the dish under F with the beam through its hole and slot; the rod nearly vertical, 0.9 m",
-  [("morning sheet", "stage3/hashemi_pneumatic/out/hp_morning_views.svg: el 38 deg ESE, the dish 3.5 m west of F, the rod at 5 m reach"), ("both", "the same rod, reel and winches; only the everted length and the tendon lengths change")],
-  "The morning sheet is committed beside this one; the page carries the summer one."))
-D3.append(plate(31, "The orbit the mount serves", "stage3/hashemi_pneumatic/out/hp_sweep_views.svg", "rim positions and rod lines at nine hours of an equinox day; vertex x 0.1-4.5 m, |y| to 3.9 m, z 5.9-9.0 m over the year",
-  [("sweep", "rim to x 5.7 m north and |y| 4.5 m east-west: the masts at +-5.2 m clear it, a tower at x 4.25 does not"), ("root", "one fixed point on the deck serves the whole year: this is what a rail and carriage did")],
-  "Rims drawn thin; rods as lines from the root."))
+D3.append(plate3d(28, "The dish mount as a freedom, actuation and constraint topology (equinox noon)", "stage3/hashemi_pneumatic/out/hp2_equinox_noon.json",
+  "Stage 3. The nix-support Cassegrain Hashemi machine, optics untouched; the mount designed by Hopkins's FACT process and checked over 59 Quetta sun positions",
+  [("freedom space", "the sphere of rotations about F (3 DOF, Fig. 2.2 of the thesis); the tracking pair at any instant is 2 DOF Type 1"), ("constraints", "four 8 mm wires from an outrigger ring r 3.2 m to the spigot at F: lines of the constraint space, rank 3, one redundant; 0.14 m clear of the strip all year"),
+   ("ground", "Hashemi's near method: the focal tube through the slot carries the strip and the bridle apex; the env's north tower pierces the membrane at 13 of 59 positions"), ("actuation", "pure couples: the flexing stem r 0.80 m at 1.0 bar clamped to the back ring, turgor by pumping water between side chambers; four pretensioned tendons to deck anchors chosen by the clearance solver (44 of 828 lines survive the year)"),
+   ("wind", "9 m/s: 0 infeasible of 531 cases, stem SF 9.6, 0.38 mrad, F moves 0.1 mm, first mode 13 Hz; 25 m/s: stays deployed, stem SF 1.8, rope SF 7.6"), ("water", "2 m in the root: +16 kN m of wrinkling moment, 4 t of ballast = the 25 m/s overturning demand, slosh 0.75 Hz")],
+  legend("stage3/hashemi_pneumatic/out/hp2_equinox_noon.json")))
+D3.append(plate(29, "Equinox noon, engineering views", "stage3/hashemi_pneumatic/out/hp2_equinox_noon_views.svg", "isometric from the south-west, detail of the tube, strip, bridle apex and stem clamp; plan, front, side; env frame, mm",
+  [("shows", "beam rim -> strip -> F2 down the tube; bridle wires (blue) meeting F; stem from the root; tendons to the far deck anchors"), ("slot", "open above 54 deg: the keyhole toward the sun")],
+  "Hidden-line projection of the CadQuery model (3d/cad_views.py). Light grey: deck, wall, column, pot, root housing."))
+D3.append(plate(30, "Summer noon and equinox morning", "stage3/hashemi_pneumatic/out/hp2_summer_noon_views.svg", "summer noon, el 83 deg: the dish under F with the tube through its slot, the stem short and upright",
+  [("morning sheet", "stage3/hashemi_pneumatic/out/hp2_morning_views.svg: el 38 deg ESE, the dish 3.5 m west of F, the stem at 5 m reach"), ("both", "same lines, same anchors; only lengths change")],
+  "The morning sheet is committed beside this one."))
+D3.append(plate(31, "Equinox day: rims, stem axes and bridle lines", "stage3/hashemi_pneumatic/out/hp2_sweep_views.svg", "nine hours; every bridle line meets F, every stem axis leaves one root",
+  [("orbit", "vertex x 0.1-4.5 m, |y| to 3.9 m, z 5.9-9.0 m over the year; rim to x 5.7 m and |y| 4.5 m"), ("why it matters", "the dish-fixed attachments sweep 220 deg of azimuth relative to the ground in a day: any tendon route must be checked at every hour, which is what the solver does")],
+  "Rims drawn thin; bridle in blue, stem axes dark."))
 page = open("page_template.html").read().replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
 open(os.path.join(OUT, "flexure_register.html"), "w").write(page); print("page:", os.path.getsize(os.path.join(OUT, "flexure_register.html"))//1024, "KB")

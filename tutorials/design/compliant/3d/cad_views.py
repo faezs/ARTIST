@@ -55,6 +55,15 @@ CONFIG = {
                        bounds_exclude=("sun", "env's", "guy", "suspension"), context=("deck", "wall", "column", "pot", "reel", "env's"), detail=None),
     "hp_sweep": dict(title="The orbit the mount serves: rim positions and rod lines through an equinox day", iso=(-1.0, -1.0, 0.7),
                      bounds_exclude=("sun", "env's", "guy", "suspension"), context=("deck", "wall", "column", "pot", "env's"), detail=None),
+    "hp2_equinox_noon": dict(title="Screw-designed mount, equinox noon: bridle through F, flexing stem, antagonist tendons, focal tube",
+                             iso=(-1.0, -1.0, 0.55), bounds_exclude=("sun",), context=("deck", "wall", "column", "pot", "root"),
+                             detail=(-500, 4500, -3500, 3500, 5000, 10200), detail_label="detail: focal tube and strip, bridle apex at F, stem clamp, outrigger ring"),
+    "hp2_summer_noon": dict(title="Screw-designed mount, summer noon: the tube through the slot, the stem short and upright", iso=(-1.0, -1.0, 0.55),
+                            bounds_exclude=("sun",), context=("deck", "wall", "column", "pot", "root"), detail=None),
+    "hp2_morning": dict(title="Screw-designed mount, equinox 9 h: the stem flexed at full reach, bridle still through F", iso=(-1.0, -1.0, 0.55),
+                        bounds_exclude=("sun",), context=("deck", "wall", "column", "pot", "root"), detail=None),
+    "hp2_sweep": dict(title="Equinox day: rims, stem axes and bridle lines, all converging on F", iso=(-1.0, -1.0, 0.7),
+                      bounds_exclude=("sun",), context=("deck", "wall", "column", "pot"), detail=None),
 }
 DASHED = ("axis", "axes", "foci", "sun direction", "env's")          # line parts drawn dashed in their own colour, never hidden
 

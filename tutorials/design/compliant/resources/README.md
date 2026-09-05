@@ -7,6 +7,7 @@ no licence stated, so the files stay untracked (`../.gitignore`).
 |---|---|---|---|
 | `dcm_supplementary_software.zip` -> `dcm_supplementary_software/` | https://github.com/jonathanbhopkins/Computationally-Efficient-Design-of-Directionally-Compliant-Metamaterials (raw `Supplementary Software.zip`, master) | 725 KB | Shaw et al. 2019 DCM design tool: `MaterialDesignGUI.m` (the design functions), `MaterialDesignGUI.fig`, `images.mat`; the UCLA software page's "Software Tool for Designing Directionally Compliant Metamaterials" points at the same three files |
 | `dcm_repo_README.md` | same repository | 1 KB | the repository's README |
+| `hopkins_2010_FACT_thesis.pdf` | https://dspace.mit.edu/handle/1721.1/62511 (fetched 2026-09-05 at the user's request) | 38.9 MB, 195 pp. | Hopkins, Design of flexure-based motion stages via Freedom, Actuation and Constraint Topologies, MIT PhD 2010: the FACT chart (50 types), the design process (Fig. 2.7), serial synthesis, actuation spaces and the twist-wrench stiffness matrix (ch. 4), Appendix B actuation-space code |
 | `fact_matlab_tool.zip` -> `fact_matlab_tool/` | https://flexible.seas.ucla.edu/software, "MATLAB TOOL-Final.zip" | 4.96 MB | NOT the FACT/DCM code: the sequential-metamaterial (alternating Poisson's ratio) GUI of Farzaneh et al. 2022 (`Metamaterial.m`, `Metamaterial_results.m`, `data.mat`, `Readme.pdf`; also at github.com/aminfno/Metamaterial) |
 
 The other archive on the UCLA page ("Designing Compliant-mechanism
