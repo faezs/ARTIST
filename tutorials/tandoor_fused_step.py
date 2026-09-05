@@ -151,7 +151,8 @@ class FusedState:
         self.sigb = z(B)
         self.dvec = z(B, 2)
         self.aim = z(B, 3)
-        self.per = z(B, N)
+        self.per = z(B, N + e.n_belt)       # N nodes, then the loaf columns
+        self.lfp = torch.tensor([float(np.sqrt(e.bread_area) / 2.0)], dtype=torch.float32, device=dev)
         self.P = len(e._hx)
         self.thr = z(B * self.P)
         self.out6 = z(B * self.P, 6)
@@ -165,7 +166,7 @@ class FusedState:
                                 int(getattr(e, "sticky_k", 0))],
                                dtype=torch.int32, device=dev)
         L = e._pts_l.shape[0]
-        self.tdims = torch.tensor([B, self.P, L, N],
+        self.tdims = torch.tensor([B, self.P, L, N + e.n_belt],
                                   dtype=torch.int32, device=dev)
         self.zero_noise = False
         self._rn0 = z(B, 12)
@@ -252,7 +253,7 @@ def fused_full_step(env, actions):
                       mnt["vp"], env._sc_base, mnt["Acan"], mnt["Mt"],
                       mnt["Cd"], env.ell_M, env.ell_S, env.ell_ctr_t,
                       env._V0t, F.tdims, env._ray_pw, F.soil, F.per,
-                      us, F.aim, mnt["scb"])
+                      us, F.aim, mnt["scb"], F.lfp)
     lib.step_post(F.rew, F.st, F.per, F.sp, F.ip, rn, ru, F.day_v,
                   F.lat_v, env._mnt_prm, F.off, F.obs, F.trunc,
                   F.diag, a32)

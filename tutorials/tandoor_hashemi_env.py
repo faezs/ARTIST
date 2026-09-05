@@ -1727,6 +1727,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             try:
                 from tandoor_metal_kernel import MetalGeo
                 self._metal = MetalGeo()
+                self._metal.loaf_h = float(np.sqrt(self.bread_area) / 2.0)
                 print("  [hashemi] megakernel active (Metal, 1 thread/ray)")
             except Exception as ex:
                 print(f"  [hashemi] megakernel unavailable ({ex}); "
@@ -2202,7 +2203,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         el, az, u_np = _sim.solar_position(self.lat, self.day,
                                            float(self.t_solar[0]))
         if not (self.el_min_h <= el <= self.el_max_h):
-            return torch.zeros(B, self.n_nodes)
+            return torch.zeros(B, self.n_nodes + self.n_belt)
         lv = np.clip((np.asarray(p_eff) / self.p0 - self.level_frac[0])
                      / (self.level_frac[-1] - self.level_frac[0])
                      * (self.N_LEVELS - 1), 0, self.N_LEVELS - 1)

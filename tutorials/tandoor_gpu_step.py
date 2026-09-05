@@ -199,6 +199,8 @@ def gpu_step(env, actions):
     per = env._metal_trace(p_eff, sigma_b, S.bore, S.soil,
                            e_el, e_az, mnt)
     gate = dni * cosf * S.shutter * S.jammed.float()
+    per_loaf = per[:, env.n_nodes:env.n_nodes + env.n_belt]
+    per = per[:, :env.n_nodes]
     q_solar = per * gate[:, None] * 0.85
     p_in = per.sum(1) * gate
     # DONENESS POTENTIAL, phi_old (numpy twins line for line):
@@ -210,21 +212,19 @@ def gpu_step(env, actions):
         kb = (((S.spot_phi + _np.pi) / (2 * _np.pi)
                * env.n_belt).long()) % env.n_belt
         valid = (S.spot_z >= Z_BAKE_LO) & (S.spot_z <= Z_CROWN)
-        fcov = min(env.bread_area / SPOT_AREA, 1.0)
-        # EVERY loaded loaf takes the beam landing on ITS bin (2026-09-06):
-        # the footprint the optics put on the belt - focused on one bin,
-        # defocused by the level head over several, swept by the spot
-        # heads - is what bakes, and each loaf chars on its own share.
-        # The old rule fed only the aimed bin's loaf, so a spread beam
-        # heated walls next to the loaves it was lighting. Spreading is
-        # the network's behaviour through the mirror, not a knob.
+        # EVERY loaded loaf takes the TRACED beam power on its own patch
+        # (2026-09-06): the loaf columns after the nodes hold the rays
+        # that struck each bin's loaf square, so the footprint - focused,
+        # defocused by the level head, swept by the spot heads - is the
+        # optics' own. Spreading is the network's behaviour, not a knob.
         nb = env.n_belt
-        lit_b = (S.has_bread[:, :nb] & valid[:, None]).float()
+        valid = torch.ones_like(valid)
+        lit_b = S.has_bread[:, :nb].float()
         frb_b = (S.bread_E[:, :nb] / env.roti_energy).clamp(0, 1)
         alpha_b = 0.55 + 0.35 * frb_b
-        inc_b = per[:, :nb] * gate[:, None]
-        q_b = lit_b * alpha_b * fcov * inc_b
-        q_solar[:, :nb] = q_solar[:, :nb] - lit_b * 0.85 * fcov * inc_b
+        inc_b = per_loaf * gate[:, None]
+        q_b = lit_b * alpha_b * inc_b
+        q_solar[:, :nb] = q_solar[:, :nb] - lit_b * 0.85 * inc_b
         S.bread_E[:, :nb] = S.bread_E[:, :nb] + q_b * dt
         q_direct = q_b.sum(1)
         env._spot_bin_t = (kb, valid)

@@ -443,10 +443,25 @@ class TandoorPolarEnv(TandoorEnv):
                 strike=torch.stack([sx[0], sy[0], sz[0]],
                                    -1).cpu().numpy(),
                 through=through[0].cpu().numpy())
-        out = torch.zeros(B * self.n_nodes, device=self.device)
-        out.index_put_((self._env_off + node.reshape(-1),), w,
-                       accumulate=True)
-        return out.reshape(B, self.n_nodes).cpu()
+        # THE LOAF PATCH (2026-09-06, the footprint comes from the trace):
+        # the bin's loaf is a square of half-size sqrt(bread_area)/2 on
+        # the wall at the bake row's mid-height; rays striking it are the
+        # loaf's, accumulated in n_belt loaf columns after the nodes
+        NB = self.n_belt; N = self.n_nodes
+        zb = 0.5 * (Z_BAKE_LO + Z_CROWN)
+        rb = float(np.sqrt(max(R_SPH**2 - (zb - Z_CPOT)**2, 1e-6)))
+        hl = float(np.sqrt(self.bread_area) / 2.0)
+        phk = -np.pi + (seg.float() + 0.5) * (2 * np.pi / NB)
+        dph = phi - phk
+        dph = dph - 2 * np.pi * torch.floor((dph + np.pi) / (2 * np.pi))
+        onloaf = (node < NB) & (dph.abs() * rb < hl) & ((sz - zb).abs() < hl)
+        off2 = (torch.arange(B, device=self.device) * (N + NB))[:, None] \
+            .expand(B, node.reshape(B, -1).shape[1]).reshape(-1)
+        out = torch.zeros(B * (N + NB), device=self.device)
+        out.index_put_((off2 + node.reshape(-1),), w, accumulate=True)
+        out.index_put_((off2 + N + seg.reshape(-1),),
+                       w * onloaf.reshape(-1).float(), accumulate=True)
+        return out.reshape(B, N + NB).cpu()
 
     # -------------------------------------------------------------- step #
     def _reset_state(self):
@@ -599,6 +614,8 @@ class TandoorPolarEnv(TandoorEnv):
             per_dni = self._trace_power(p_eff, sigma_b, self.bore,
                                         self.soil).numpy()
         gate = self.dni * cosf * self.shutter * self.jammed
+        per_loaf = per_dni[:, self.n_nodes:self.n_nodes + self.n_belt]
+        per_dni = per_dni[:, :self.n_nodes]
         q_solar = per_dni * gate[:, None] * 0.85
         # DONENESS POTENTIAL, phi_old: total in-oven doneness at step
         # start, BEFORE any bread energy moves (direct beam below,
@@ -613,16 +630,16 @@ class TandoorPolarEnv(TandoorEnv):
                    * self.n_belt).astype(int)) % self.n_belt
             valid = ((np.asarray(zt_) >= Z_BAKE_LO)
                      & (np.asarray(zt_) <= Z_CROWN))
-            fcov = min(self.bread_area / SPOT_AREA, 1.0)
-            # every loaded loaf takes the beam landing on ITS bin (twin
-            # of gpu_step / the kernel): the optics' footprint bakes
+            # every loaded loaf takes the TRACED beam power on its own
+            # patch (the loaf columns): the footprint is the trace's
             nb = self.n_belt
-            lit_b = (self.has_bread[:, :nb] & valid[:, None]).astype(float)
+            valid = np.ones_like(valid, dtype=bool)
+            lit_b = self.has_bread[:, :nb].astype(float)
             fr_b = np.clip(self.bread_E[:, :nb] / self.roti_energy, 0, 1)
             alpha_b = 0.55 + 0.35 * fr_b      # dough browns, absorbs
-            inc_b = per_dni[:, :nb] * gate[:, None]
-            q_b = lit_b * alpha_b * fcov * inc_b
-            q_solar[:, :nb] -= lit_b * 0.85 * fcov * inc_b
+            inc_b = per_loaf * gate[:, None]
+            q_b = lit_b * alpha_b * inc_b
+            q_solar[:, :nb] -= lit_b * 0.85 * inc_b
             self.bread_E[:, :nb] += q_b * self.dt
             q_direct = q_b.sum(1)
             self._spot_bin = (kb, valid)

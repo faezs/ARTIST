@@ -361,6 +361,7 @@ kernel void tandoor_trace(
     device const float* us     [[buffer(24)]],  // (B*P) sun-table u
     device const float* aim    [[buffer(25)]],  // (B,3) elbow aim dirs
     device const float* scb    [[buffer(26)]],  // (B,6) cosi,slot,kt,ks,rs,ok
+    device const float* lfp    [[buffer(27)]],  // [0] loaf half-size (m): the footprint comes from the trace
     uint tid [[thread_position_in_grid]])
 {
     const int B = dims[0], P = dims[1], L = dims[2];
@@ -874,6 +875,22 @@ kernel void tandoor_trace(
         atomic_fetch_add_explicit(
             (device atomic_float*)&per_dni[b*dims[3] + node],
             wgt, memory_order_relaxed);
+        // THE LOAF PATCH (2026-09-06, the footprint comes from the trace):
+        // the bin's loaf is a square of half-size lfp[0] on the wall at
+        // the bake row's mid-height; a ray that strikes it is the
+        // loaf's, accumulated in the NB loaf columns after the nodes
+        const float ZB = -0.535f;
+        const int Nn = dims[3] - NB;
+        float rb = sqrt(max(RS*RS - (ZB - ZC)*(ZB - ZC), 1e-6f));
+        float phk = -M_PI_F + ((float)seg + 0.5f) * (2.0f*M_PI_F/(float)NB);
+        float dph = phi - phk;
+        dph = dph - 2.0f*M_PI_F*floor((dph + M_PI_F)/(2.0f*M_PI_F));
+        bool onloaf = (node < NB) && (fabs(dph)*rb < lfp[0])
+                      && (fabs(sz - ZB) < lfp[0]);
+        if (onloaf)
+            atomic_fetch_add_explicit(
+                (device atomic_float*)&per_dni[b*dims[3] + Nn + seg],
+                wgt, memory_order_relaxed);
     }
 }
 
@@ -1046,7 +1063,7 @@ kernel void step_pre(
     s[S0+30] = dni * cosw * s[S0+3] * want;
     s[S0+27] = el0; s[S0+28] = az0d; s[S0+29] = potp;
     s[S0+32] = e_el; s[S0+33] = e_az;
-    for (int i = 0; i < N; i++) per[b*N + i] = 0.0f;
+    for (int i = 0; i < N + NB; i++) per[b*(N + NB) + i] = 0.0f;   // nodes + loaf columns
 }
 
 kernel void step_post(
@@ -1079,7 +1096,7 @@ kernel void step_post(
     device float* bt_ = bE + NB;
     device float* bC = bt_ + NB;
     device float* hb = bC + NB;
-    device const float* pv = per + b*N;
+    device const float* pv = per + b*(N + NB);   // N nodes, then NB loaf columns
     device const float* NA = sp + 66;   // sp[63] cut penalty, sp[64] lost_deg, sp[65] enc_clamp
     device const float* HC = NA + N;
     device const float* CS = HC + N;
@@ -1112,15 +1129,16 @@ kernel void step_post(
         kb = ((int)((phs + PI_)/(2.0f*PI_)*(float)NB)) % NB;
         float zt = s[S0+23];
         validc = (zt >= sp[22] && zt <= sp[23]) ? 1.0f : 0.0f;
-        // every loaded loaf takes the beam landing on its bin (twin of
-        // gpu_step): the footprint the optics put on the belt bakes
+        // every loaded loaf takes the TRACED beam power on its own patch
+        // (pv[N+k], the loaf columns): the footprint is the trace's
+        validc = 1.0f;
         for (int k = 0; k < NB; k++) {
-            float lit_k = (hb[k] > 0.5f && validc > 0.5f) ? 1.0f : 0.0f;
+            float lit_k = (hb[k] > 0.5f) ? 1.0f : 0.0f;
             float frb_k = clamp(bE[k]/sp[19], 0.0f, 1.0f);
             float alpha_k = 0.55f + 0.35f*frb_k;
-            float inc_k = pv[k]*gate;
-            float q_k = lit_k*alpha_k*sp[21]*inc_k;
-            qv[k] -= lit_k*0.85f*sp[21]*inc_k;
+            float inc_k = pv[N + k]*gate;
+            float q_k = lit_k*alpha_k*inc_k;
+            qv[k] -= lit_k*0.85f*inc_k;
             bE[k] += q_k*dt;
             qsp[k] = q_k;
             q_direct += q_k;
@@ -1387,17 +1405,23 @@ class MetalGeo:
         dev = du.device
         thr = torch.empty(B * P, dtype=torch.float32, device=dev)
         out6 = torch.empty(B * P, 6, dtype=torch.float32, device=dev)
-        per = torch.zeros(B, n_nodes, dtype=torch.float32, device=dev)
+        NBL = 8                                   # loaf columns after the nodes
+        per = torch.zeros(B, n_nodes + NBL, dtype=torch.float32, device=dev)
         key = (B, P, L, n_nodes, dev)
         dims = self._dims.get(key)
         if dims is None:
-            dims = torch.tensor([B, P, L, n_nodes],
+            dims = torch.tensor([B, P, L, n_nodes + NBL],
                                 dtype=torch.int32, device=dev)
             self._dims[key] = dims
+        lfp = getattr(self, "_lfp", None)
+        if lfp is None or lfp.device != dev:
+            lfp = torch.tensor([float(getattr(self, "loaf_h", 0.1732))],
+                               dtype=torch.float32, device=dev)
+            self._lfp = lfp
         c = lambda t: t.contiguous()
         self.lib.tandoor_trace(
             thr, out6, c(pts_l), c(nrm_l), c(lv), c(du), c(de), c(upick),
             c(sigb), c(dvec.reshape(B, -1)[:, :2]), c(off), c(vp), c(sc),
             c(Acan), c(Mt), c(Cd), c(ellM), c(ellS), c(ellC), c(V0t),
-            dims, c(ray_pw), c(soil), per, c(us), c(aim), c(scb))
+            dims, c(ray_pw), c(soil), per, c(us), c(aim), c(scb), lfp)
         return thr.view(B, P), out6.view(B, P, 6), per
