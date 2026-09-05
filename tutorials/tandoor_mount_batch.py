@@ -133,7 +133,7 @@ def _consts(env, dev, dtype):
     return c
 
 
-def mount_batch(env, day, lat, hour, dev):
+def mount_batch(env, day, lat, hour, dev, pnt=None):
     """The full per-step mount solve for (B,) days/lats at shared
     hour. Returns per-env geometry the trace consumes:
     vp (B,7,3), Mt (B,3,3), Cd (B,3), Acan (B,3,3),
@@ -141,20 +141,35 @@ def mount_batch(env, day, lat, hour, dev):
     el (B,) deg, el_b (B,) deg, u (B,3)."""
     el, az, s = solar_batch(lat, day, hour)
     u = torch.stack([s[:, 1], s[:, 0], s[:, 2]], -1)
-    u = u / u.norm(dim=-1, keepdim=True)
+    u = u / u.norm(dim=-1, keepdim=True)          # the SUN direction
     B = u.shape[0]
+    # THE POINTING IS REAL (2026-09-06): the dish frame, the carriage
+    # position and the beam-down normal come from the MOUNT's pointing
+    # (pnt = [el_m, az_m] deg per env, the motors' state); only the
+    # incident rays come from the sun. Before this the dish was always
+    # traced square to the sun and the pointing error was optically
+    # inert inside the 3 deg guillotine. pnt=None keeps the old law.
+    if pnt is not None:
+        elm = torch.deg2rad(pnt[:, 0].to(u.dtype))
+        azm = torch.deg2rad(pnt[:, 1].to(u.dtype))
+        um = torch.stack([torch.cos(elm) * torch.cos(azm),
+                          torch.cos(elm) * torch.sin(azm),
+                          torch.sin(elm)], -1)
+        um = um / um.norm(dim=-1, keepdim=True)
+    else:
+        um = u
     beta_t = beta_now_batch(env, el)
     C = _consts(env, dev, u.dtype)
     zhat = C["zhat"].expand_as(u)
-    ax = torch.linalg.cross(zhat, u)
+    ax = torch.linalg.cross(zhat, um)
     axn = ax.norm(dim=-1, keepdim=True)
     ax = torch.where(axn > 1e-6, ax / axn.clamp(min=1e-9), ax)
-    ub = _rot_about_axis(u, ax, torch.deg2rad(beta_t))
-    ub = torch.where(axn > 1e-6, ub, u)
+    ub = _rot_about_axis(um, ax, torch.deg2rad(beta_t))
+    ub = torch.where(axn > 1e-6, ub, um)
     ub = ub / ub.norm(dim=-1, keepdim=True)
     P_fold = C["Pf"].expand(B, 3)
     Cd = P_fold - env.g_orbit * ub
-    naim = u + ub
+    naim = um + ub
     naim = naim / naim.norm(dim=-1, keepdim=True)
     M = _align_batch(C["zhat"], naim)
     el_b = torch.rad2deg(torch.arcsin(ub[:, 2].clamp(-1, 1)))
@@ -194,9 +209,12 @@ def mount_batch(env, day, lat, hour, dev):
         f2 = 0.5 * float(env.col_dist) * (1.0 - (e_ex * A2).sum(-1))
         vp = torch.stack([u, P_fold, e_ex, P2, nf, A2, n3], 1)
     else:
-        vp = torch.stack([u, P_fold, -p_up, e_pp, nf, e_par, e_prp], 1)
+        # row 2 carries the DISH axis for the Cassegrain (its strip
+        # follows the mount), -p_up for the stock chain
+        row2 = um if getattr(env, "receiver", "fold") == "cass" else -p_up
+        vp = torch.stack([u, P_fold, row2, e_pp, nf, e_par, e_prp], 1)
     Mt = M.transpose(1, 2)
-    mu = torch.einsum("bij,bj->bi", Mt, -u)
+    mu = torch.einsum("bij,bj->bi", Mt, -u)            # incident = the sun
     Acan = _align_batch(C["yhat"], mu)
     # toroid powers (0 unless fold_toroid), slot flag, cosine tax
     kt = torch.zeros(B, dtype=u.dtype, device=dev)

@@ -83,6 +83,7 @@ kernel void mount_solve(
     device const float* lat    [[buffer(7)]],
     device const float* prm    [[buffer(8)]],   // params + shadow tables
     device const int*   nB     [[buffer(9)]],
+    device const float* pnt    [[buffer(10)]],  // (B,2) el_m, az_m deg; < -900 = square to the sun
     uint b [[thread_position_in_grid]])
 {
     if ((int)b >= nB[0]) return;
@@ -106,6 +107,13 @@ kernel void mount_solve(
     if (hh > 0.0f) az = 2.0f*PI_ - az;
     float3 u = float3(cos(elr)*cos(az), cos(elr)*sin(az), sinel);
     u = normalize(u);          // ENU swapped: x=north comp = cos*cos
+    // THE POINTING IS REAL: the dish frame from the mount (pnt), the
+    // incident rays from the sun (u). Matches mount_batch.
+    float3 um = u;
+    if (pnt[b*2] > -900.0f) {
+        float elm = pnt[b*2] * PI_ / 180.0f, azm = pnt[b*2+1] * PI_ / 180.0f;
+        um = normalize(float3(cos(elm)*cos(azm), cos(elm)*sin(azm), sin(elm)));
+    }
     // ---- signed beta schedule (matches beta_now_batch)
     float lo = max(el - (el_x - 1.0f), 0.0f);
     float bp = clamp(beta_dev, lo, max(beta_dev, lo));
@@ -149,19 +157,19 @@ kernel void mount_solve(
     }
     // ---- orbit frames (matches mount_batch)
     float3 zh = float3(0.0f, 0.0f, 1.0f);
-    float3 ax = cross(zh, u);
+    float3 ax = cross(zh, um);
     float axn = length(ax);
     float3 ub;
     if (axn > 1e-6f) {
         float3 axu = ax / axn;
         float br = bt * PI_ / 180.0f;
         float cb = cos(br), sb = sin(br);
-        ub = u*cb + cross(axu, u)*sb + axu*dot(axu, u)*(1.0f-cb);
-    } else { ub = u; }
+        ub = um*cb + cross(axu, um)*sb + axu*dot(axu, um)*(1.0f-cb);
+    } else { ub = um; }
     ub = normalize(ub);
     float3 Pf = float3(xtw, 0.0f, z_fold);
     float3 Cdv = Pf - g_orb * ub;
-    float3 naim = normalize(u + ub);
+    float3 naim = normalize(um + ub);
     // R: zhat -> naim (Rodrigues with guards)
     float3 vv = cross(zh, naim);
     float cc = dot(zh, naim);
@@ -210,7 +218,7 @@ kernel void mount_solve(
     float3 fc_A2 = normalize(fc_P3 - fc_P2);
     float3 fc_n3 = normalize(fc_A2 + zh);
     float fc_f2 = 0.5f*prm[44]*(1.0f - dot(fc_ex, fc_A2));
-    float3 rows[7] = {u, Pf, fc_on ? fc_ex : -pup, fc_on ? fc_P2 : epp, nf,
+    float3 rows[7] = {u, Pf, fc_on ? fc_ex : ((prm[48] > 0.5f) ? um : -pup), fc_on ? fc_P2 : epp, nf,
                       fc_on ? fc_A2 : epar, fc_on ? fc_n3 : eprp};
     for (int r = 0; r < 7; r++) {
         vp_o[vb + r*3+0] = rows[r].x;
@@ -497,7 +505,8 @@ kernel void tandoor_trace(
     const float cs_side = cs_greg ? 1.0f : -1.0f;
     const float3 cs_Ps = cs_F + float3(cs_armn, 0.0f, 0.0f);
     const float3 cs_Q = cs_greg ? (cs_F - cs_d*cs_A) : cs_F;
-    const float3 cs_Hc = cs_F + cs_side*cs_d*ut;
+    const float3 cs_ud = sdir;                     // the dish axis (mount row 2)
+    const float3 cs_Hc = cs_F + cs_side*cs_d*cs_ud;
     // ---- sun leg: the strip (sphere), the hole, the open slot, the arm
     bool cs_lit = !fc_blocked(p, ut, cs_Hc, cs_rstrip);
     float cs_rhol = sqrt(p_loc.x*p_loc.x + p_loc.y*p_loc.y);
@@ -576,7 +585,7 @@ kernel void tandoor_trace(
     float cs_rn = max(length(cs_rel), 1e-9f);
     float cs_th = acos(clamp(dot(cs_rel, cs_A)/cs_rn, -1.0f, 1.0f));
     float3 cs_avh = cs_rel - dot(cs_rel, cs_A)*cs_A;
-    float3 cs_sdr = cs_side*ut;
+    float3 cs_sdr = cs_side*cs_ud;
     float3 cs_avs = cs_sdr - dot(cs_sdr, cs_A)*cs_A;
     float cs_cosd = dot(cs_avh, cs_avs)/max(length(cs_avh)*length(cs_avs), 1e-9f);
     float cs_rho = length(cs_avh);
@@ -1338,7 +1347,7 @@ class MetalGeo:
         self._dims = {}
         self._mbuf = {}
 
-    def mount(self, day_t, lat_t, prm_t, B):
+    def mount(self, day_t, lat_t, prm_t, B, pnt=None):
         """The mount solve as ONE kernel launch: B threads, each env
         computes its own sun, beta schedule and frames in registers.
         Returns the same dict contract as tandoor_mount_batch."""
@@ -1349,12 +1358,14 @@ class MetalGeo:
             z = lambda n: torch.empty(B, n, dtype=torch.float32,
                                       device=dev)
             bufs = (z(21), z(9), z(3), z(9), z(6), z(8),
-                    torch.tensor([B], dtype=torch.int32, device=dev))
+                    torch.tensor([B], dtype=torch.int32, device=dev),
+                    torch.full((B, 2), -999.0, dtype=torch.float32, device=dev))
             self._mbuf[key] = bufs
-        vp, Mt, Cd, Ac, scb, aux, nB = bufs
+        vp, Mt, Cd, Ac, scb, aux, nB, nopnt = bufs
+        pnt_t = nopnt if pnt is None else pnt.to(torch.float32).contiguous()
         self.lib.mount_solve(vp, Mt, Cd, Ac, scb, aux,
                              day_t.contiguous(), lat_t.contiguous(),
-                             prm_t, nB)
+                             prm_t, nB, pnt_t)
         return dict(vp=vp, Mt=Mt.view(B, 3, 3), Cd=Cd,
                     Acan=Ac.view(B, 3, 3), scb=scb, aux=aux,
                     el=aux[:, 0], az=aux[:, 1], el_b=aux[:, 2],

@@ -647,7 +647,8 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     n4l = torch.cat([n_loc, torch.zeros_like(n_loc[..., :1])], -1)
     d43 = reflect(inc4, n4l)
     org3 = p_loc
-    ut, Pf = vp[:, 0], vp[:, 1]
+    ut, Pf = vp[:, 0], vp[:, 1]           # ut = the SUN direction (shadows)
+    ud = vp[:, 2]                          # the DISH axis (the strip follows it)
     p = org3 @ Mt + Cd
     d = d43[..., :3] @ Mt
     d = d / d.norm(dim=-1, keepdim=True)
@@ -666,7 +667,7 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     Ps = F + arm_n * xhat
     greg = sc[106] > 2.5
     side = torch.where(greg, torch.ones_like(d_strip), -torch.ones_like(d_strip))
-    Hc = F + side * d_strip * ut          # strip centre on the dish axis (before/beyond F)
+    Hc = F + side * d_strip * ud          # strip centre on the dish axis (before/beyond F)
     # arm end: F for cass (the strip intercepts the cone before F); for
     # greg a bearing on the axis d_strip up the anti-sun side, F - d A,
     # outside both the cone and the beam
@@ -736,7 +737,7 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     def _azvec(x):
         return x - (x * A).sum(-1, keepdim=True) * A
     av_h = _azvec(rel)
-    av_s = _azvec(side * ut)
+    av_s = _azvec(side * ud)
     cosd = (av_h * av_s).sum(-1) / (av_h.norm(dim=-1) * av_s.norm(dim=-1)).clamp(min=1e-9)
     rho = av_h.norm(dim=-1)
     arc = torch.arccos(cosd.clamp(-1, 1)) * rho
@@ -833,7 +834,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  sec_side="cass", r_hole=0.5,
                  night_carry=0, night_hours=16.0, dt_night=60.0, r_duct=None,
                  w_slot=0.7, strip_wk=1.1, slot_el=54.0,
-                 lost_deg=3.0, enc_clamp=3.0,
+                 lost_deg=3.0, enc_clamp=3.0, m4_mode="relay",
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, r_m4=1.3,
@@ -929,6 +930,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # the 3 deg cliff and blind beyond 1.5 - noise walked it over.
         self.lost_deg = float(lost_deg)
         self.enc_clamp = float(enc_clamp)
+        # m4_mode: 'relay' = the image F2 sits u_f2 up the bore and M4 (foci
+        # F2, mouth) demagnifies it onto the mouth; 'field' (user,
+        # 2026-09-06) = the image sits ON M4 (F2 = P4) and M4 is a FIELD
+        # mirror with foci at F and the mouth: it images the strip onto
+        # the mouth, so every ray passes a ~10 cm pupil there and an
+        # actuated M4 steers the spot in the pot without losing rays
+        self.m4_mode = str(m4_mode)
+        if self.m4_mode not in ("relay", "field"):
+            raise ValueError("m4_mode: 'relay' or 'field'")
         # NIGHT CARRY-OVER (user, 2026-09-04: "warm_frac should be set by
         # the insulation type"): with night_carry the day-over does not
         # draw a warm/cold pot; yesterday's pot cools through night_hours
@@ -1318,7 +1328,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         A_in = A_in / np.linalg.norm(A_in)
         L_out = np.linalg.norm(F4 - P4)
         A_out = (F4 - P4) / L_out
-        if self.u_f2 > 0.0:
+        if self.m4_mode == "field":
+            # image ON M4: hyperboloid foci (F, P4); M4 ellipsoid foci (F, F4)
+            F2 = P4.copy()
+            Oe = 0.5 * (F + F4)
+            c_e = 0.5 * np.linalg.norm(F4 - F)
+            Ae = (F4 - F) / (2.0 * c_e)
+            a_e = 0.5 * (np.linalg.norm(P4 - F) + L_out)
+            n4 = (F - P4) / np.linalg.norm(F - P4) + A_out
+            n4 = n4 / np.linalg.norm(n4)
+        elif self.u_f2 > 0.0:
             # F2 sits u_f2 before M4 up the bore; M4 is the ellipsoid patch
             # with foci F2 and the duct mouth F4 through P4 (demagnification
             # L_out / u_f2 of the F2 image)
@@ -1654,7 +1673,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             + (self._fc_table if self.receiver in ("focus", "cass") else [0.0] * 33),   # cass: 35
             dtype=torch.float32, device=dev)
         self._sc1_base = float(self._sc_base[1])
-        prm = np.zeros(48, dtype=np.float32)
+        prm = np.zeros(49, dtype=np.float32)
+        prm[48] = 1.0 if self.receiver == "cass" else 0.0   # mount row 2 = dish axis
         if self.receiver == "focus":
             prm[42] = 1.0
             prm[43] = np.radians(self.exit_el)
@@ -1682,16 +1702,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._mnt_prm = torch.tensor(prm, device=dev)
         self._finish_trace_build(a, g, f_design)
 
-    def _mount(self, day_t, lat_t, hour):
+    def _mount(self, day_t, lat_t, hour, pnt=None):
         """Mount solve dispatch: the Metal kernel when present (one
         launch, B threads), the batched torch solve otherwise."""
         if self._metal is not None:
             self._mnt_prm[0] = float(hour)
             return self._metal.mount(day_t, lat_t, self._mnt_prm,
-                                     day_t.shape[0])
+                                     day_t.shape[0], pnt=pnt)
         from tandoor_mount_batch import mount_batch
         return mount_batch(self, day_t, lat_t, float(hour),
-                           day_t.device)
+                           day_t.device, pnt=pnt)
 
     def _finish_trace_build(self, a, g, f_design):
         dev = self.device
@@ -2207,8 +2227,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                 device=dev)
         lat_t = torch.as_tensor(self.lat_v, dtype=torch.float32,
                                 device=dev)
+        pnt_np = torch.as_tensor(np.stack([np.asarray(self.el_m, dtype=np.float32),
+                                           np.asarray(self.az_m, dtype=np.float32)], 1),
+                                 device=dev)
         mnt = mount_batch(self, day_t, lat_t,
-                          float(self.t_solar[0]), dev)
+                          float(self.t_solar[0]), dev, pnt=pnt_np)
         Mt = mnt["Mt"].contiguous()
         Cd = mnt["Cd"].contiguous()
         Acan_t = mnt["Acan"].contiguous()

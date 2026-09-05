@@ -220,7 +220,8 @@ def fused_full_step(env, actions):
     lib = env._metal.lib
     env._mnt_prm[0] = float(env.t_solar[0])
     F.ip[6] = int(env.tick)          # the cook's hash clock
-    mnt = env._metal.mount(F.day_v, F.lat_v, env._mnt_prm, B)
+    mnt = env._metal.mount(F.day_v, F.lat_v, env._mnt_prm, B,
+                           pnt=torch.stack([F.el_m, F.az_m], 1))
     aux = mnt["aux"]
     env.t_solar += env.dt / 3600.0
     a = actions if torch.is_tensor(actions) else \
