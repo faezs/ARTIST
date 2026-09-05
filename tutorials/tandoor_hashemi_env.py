@@ -659,7 +659,8 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     P4, F4 = sc[121:124], sc[124:127]
     Oe, Ae, a_e, c_e = sc[127:130], sc[130:133], sc[133], sc[134]
     r_m4, r_bore, r_strut = sc[135], sc[136], sc[137]
-    f_dish, a_dish, z_deck, r_hole = sc[138], sc[139], sc[140], sc[141]
+    f_dish, a_dish, z_deck, r_hole, w_slot = sc[138], sc[139], sc[140], sc[141], sc[142]
+    strip_wk, slot_el = sc[143], sc[144]
     F = Pf                                # (B,1,3) per env
     xhat = torch.tensor([1.0, 0.0, 0.0], device=p.device, dtype=p.dtype)
     Ps = F + arm_n * xhat
@@ -679,9 +680,23 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     lit = ~_blocked(Hc, r_strip)
     rho_l = torch.sqrt(org3[..., 0] ** 2 + org3[..., 1] ** 2)
     lit = lit & (rho_l > r_hole)
+    # the slot meridian: the world vertical's in-plane component in the
+    # dish frame, downhill side (where the vertical through F pierces a
+    # tilted dish); slot half-width w_slot/2 from r_hole to the rim
+    zl = torch.einsum("k,bjk->bj", torch.tensor([0.0, 0.0, 1.0], device=p.device, dtype=p.dtype), Mt)   # (B,3)
+    sl = -zl[:, :2]
+    sl = sl / sl.norm(dim=-1, keepdim=True).clamp(min=1e-9)
+    sl = sl[:, None, :]
+    el_sun = torch.arcsin(ut[..., 2].clamp(-1, 1))            # (B,1)
+    slot_open = (w_slot > 0) & (el_sun > slot_el)
+    def _in_slot(xy):
+        along = (xy * sl).sum(-1)
+        perp = xy[..., 0] * sl[..., 1] - xy[..., 1] * sl[..., 0]
+        return slot_open & (along > 0) & (perp.abs() < 0.5 * w_slot)
+    in_slot = _in_slot(org3[..., :2])
+    lit = lit & ~in_slot
     ds, _ = _ray_seg_dist(p, ut, Ps, Qarm)
     lit = lit & (ds > r_strut)
-    in_slot = torch.zeros_like(lit)
     # ---- the strip: hyperboloid hit on the F sheet, before F
     if bool(greg):
         # ellipsoid beyond F: the first surface crossing AFTER the ray
@@ -727,7 +742,8 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     arc = torch.arccos(cosd.clamp(-1, 1)) * rho
     # near the axis the meridian azimuth is degenerate: a hit within the
     # strip's half-width of the axis is covered whatever its azimuth
-    on_strip = v1 & (th >= th_lo) & (th <= th_hi) & ((arc < 0.5 * w_strip) | (rho < 0.5 * w_strip))
+    w_loc = torch.where(strip_wk > 0, strip_wk * rn, torch.full_like(rn, float(w_strip)))
+    on_strip = v1 & (th >= th_lo) & (th <= th_hi) & ((arc < 0.5 * w_loc) | (rho < 0.5 * w_loc))
     rad1 = torch.where(on_strip, torch.zeros_like(th), torch.ones_like(th))
     # the dish->strip leg grazing the arm
     dsg, tsg = _ray_seg_dist(p, d, Ps, Qarm)
@@ -749,7 +765,7 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     def _dish_block(t):
         X = l0 + t[..., None] * dl
         rr = torch.sqrt(X[..., 0] ** 2 + X[..., 1] ** 2)
-        return (disc >= 0) & (t > 1e-3) & (rr < a_dish) & (rr > r_hole)
+        return (disc >= 0) & (t > 1e-3) & (rr < a_dish) & (rr > r_hole) & ~_in_slot(X[..., :2])
     crossing = _dish_block(tm) | _dish_block(tp)
     dsa, tsa = _ray_seg_dist(h1, d2, Ps, Qarm)
     crossing = crossing | ((dsa < r_strut) & (tsa > 0))
@@ -764,10 +780,19 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
         return (w - (w * axis).sum(-1, keepdim=True) * axis).norm(dim=-1)
     tdeck = (z_deck - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
     hdeck = h1 + tdeck[..., None] * d2
-    t4, h4, n4, v4 = _ellip_hit(h1, d2, Oe, Ae, a_e, c_e)
+    if float(a_e) > 0.0:
+        t4, h4, n4, v4 = _ellip_hit(h1, d2, Oe, Ae, a_e, c_e)
+    else:
+        # flat M4: plane through P4 with normal Ae
+        den4 = (d2 * Ae).sum(-1)
+        t4 = ((P4 - h1) * Ae).sum(-1) / torch.where(
+            den4.abs() > 1e-9, den4, torch.full_like(den4, 1e-9))
+        h4 = h1 + t4[..., None] * d2
+        n4 = Ae.expand_as(d2)
+        v4 = t4 > 0
     ok = ok & (d2[..., 2] < -0.2) & (_axis_dist(hdeck) < r_bore)
     ok_post_tube = ok
-    # ---- M4: ellipsoid patch at the turn (foci F2 and the duct mouth)
+    # ---- M4: ellipsoid patch (foci F2, duct mouth) or flat at the turn
     ok = ok & v4 & ((h4 - P4).norm(dim=-1) < r_m4)
     d5 = d2 - 2.0 * (d2 * n4).sum(-1, keepdim=True) * n4
     # ---- the duct plane x = r_pot (the built mouth), as the stock chain
@@ -803,10 +828,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  fuse=1, gpu=0, beta_dev=0.0, slot_flaps=0,
                  silvered=0, m5_scale=1.0, zone_c=0.0,
                  receiver="fold", cut_penalty=0.0, exit_el=20.0,
-                 d_strip=0.8, strip_th_lo=15.0, strip_th_hi=75.0,
-                 w_strip=1.0, r_strip=0.55, arm_north=3.0, u_f2=1.5,
-                 sec_side="cass", r_hole=0.0,
-                 night_carry=0, night_hours=16.0, dt_night=60.0,
+                 d_strip=0.6, strip_th_lo=0.0, strip_th_hi=100.0,
+                 w_strip=1.2, r_strip=0.6, arm_north=3.0, u_f2=3.5,
+                 sec_side="cass", r_hole=0.5,
+                 night_carry=0, night_hours=16.0, dt_night=60.0, r_duct=None,
+                 w_slot=0.7, strip_wk=1.1, slot_el=54.0,
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, r_m4=1.3,
@@ -884,6 +910,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # converging beam passes the primary through it; the centre is
         # in the secondary's shadow anyway)
         self.r_hole = float(r_hole)
+        # w_slot: Hashemi's radial slot, a cut of this width along the
+        # dish's downhill meridian from r_hole to the rim; the vertical
+        # bore's converging beam passes the dish through it at high sun
+        self.w_slot = float(w_slot)
+        # strip_wk > 0: the strip's width follows the cone's footprint,
+        # width = strip_wk x (hit distance from F) instead of w_strip
+        self.strip_wk = float(strip_wk)
+        # slot_el > 0: mirrored flaps close the slot while the sun is below
+        # slot_el deg (the dish only reaches the bore above ~54 deg)
+        self.slot_el = float(slot_el)
         # NIGHT CARRY-OVER (user, 2026-09-04: "warm_frac should be set by
         # the insulation type"): with night_carry the day-over does not
         # draw a warm/cold pot; yesterday's pot cools through night_hours
@@ -891,6 +927,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # explicit Euler), so the dawn state is whatever the insulation
         # leaves and the seasoned regime emerges over consecutive days.
         # warm_frac then only seeds the very first day of a rollout.
+        # r_duct: the built duct mouth radius (sc[13]); default R_DUCT_H
+        self.r_duct = float(R_DUCT_H) if r_duct is None else float(r_duct)
         self.night_carry = bool(night_carry)
         self.night_hours = float(night_hours)
         self.dt_night = float(dt_night)
@@ -908,6 +946,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.deck_h = deck_h
         self.col_dist, self.col_radius = float(col_dist), float(col_radius)
         self.r_m1, self.r_m3, self.r_bore = float(r_m1), float(r_m3), float(r_bore)
+        if self.receiver == "cass":
+            # the derived vertical-bore geometry (ladder at Quetta:
+            # 182/193/149 MJ per 8 h summer/equinox/winter): the tower
+            # 0.5 m north of the wall, the bore 0.7 m at the deck, M4
+            # r 1.3 - applied where the shared kwargs still hold the
+            # focus machine's defaults
+            if post_offset == 2.5:
+                self.post_offset = 0.5
+            if r_bore == 1.3:
+                self.r_bore = 0.7
         self.z_turn, self.r_m4, self.r_strut = z_turn, float(r_m4), float(r_strut)
         # fold_toroid: COMPLIANT SECONDARY. The fold becomes a weak
         # toroid whose meridian curvatures re-unify the sphere's
@@ -1260,16 +1308,26 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         A_in = P4 - F
         A_in = A_in / np.linalg.norm(A_in)
         L_out = np.linalg.norm(F4 - P4)
-        # F2 sits u_f2 before M4 up the bore; M4 is the ellipsoid patch
-        # with foci F2 and the duct mouth F4 through P4 (demagnification
-        # L_out / u_f2 of the F2 image)
-        F2 = P4 - A_in * self.u_f2
-        Oe = 0.5 * (F2 + F4)
-        c_e = 0.5 * np.linalg.norm(F4 - F2)
-        Ae = (F4 - F2) / (2.0 * c_e)
-        a_e = 0.5 * (np.linalg.norm(P4 - F2) + L_out)
-        n4 = (F2 - P4) / np.linalg.norm(F2 - P4) + (F4 - P4) / L_out
-        n4 = n4 / np.linalg.norm(n4)
+        A_out = (F4 - P4) / L_out
+        if self.u_f2 > 0.0:
+            # F2 sits u_f2 before M4 up the bore; M4 is the ellipsoid patch
+            # with foci F2 and the duct mouth F4 through P4 (demagnification
+            # L_out / u_f2 of the F2 image)
+            F2 = P4 - A_in * self.u_f2
+            Oe = 0.5 * (F2 + F4)
+            c_e = 0.5 * np.linalg.norm(F4 - F2)
+            Ae = (F4 - F2) / (2.0 * c_e)
+            a_e = 0.5 * (np.linalg.norm(P4 - F2) + L_out)
+            n4 = (F2 - P4) / np.linalg.norm(F2 - P4) + (F4 - P4) / L_out
+            n4 = n4 / np.linalg.norm(n4)
+        else:
+            # u_f2 = 0: M4 is a FLAT at the turn; F2 is the mirror image of
+            # the duct mouth in it, so the strip images F straight onto the
+            # mouth (a_e = 0 flags the flat to the cores; Oe/Ae carry n4)
+            F2 = P4 + A_in * L_out
+            n4 = A_out - A_in
+            n4 = n4 / np.linalg.norm(n4)
+            Oe, Ae, a_e, c_e = P4.copy(), n4.copy(), 0.0, 0.0
         c_h = 0.5 * np.linalg.norm(F2 - F)
         O = 0.5 * (F + F2)
         A = (F2 - F) / (2.0 * c_h)
@@ -1292,8 +1350,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                           + [np.radians(self.strip_th_lo), np.radians(self.strip_th_hi), self.w_strip]
                           + list(P4) + list(F4) + list(Oe) + list(Ae) + [float(a_e), float(c_e)]
                           + [self.r_m4, self.r_bore, self.r_strut, float(self.f_nom), float(self.a_mem),
-                             float(self.z_deck), self.r_hole])
-        assert len(self._fc_table) == 36
+                             float(self.z_deck), self.r_hole, self.w_slot,
+                             self.strip_wk, np.radians(self.slot_el)])
+        assert len(self._fc_table) == 39
 
     def _build_optics(self):
         # coude's own _build_optics would build its lookup table; we want
@@ -1575,7 +1634,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             [self.r_fold, self.slot_r0, self.slot_w2, z1_t, z0_t,
              z1_t + 0.60, (0.97 if self.silvered else 0.95),
              self.r_tube_in, self.r_m5, self.z_m5,
-             X_TOWER, Z_DUCT, R_POT, R_DUCT_H,
+             X_TOWER, Z_DUCT, R_POT, self.r_duct,
              0.0,                                   # cosi, set per step
              -(1.12 * self.r_m5 - self.r_tube_in) / (z0_t - self.z_m5),
              Z_ROOF, self.z_fold - 0.10, self.r_post, self.r_tube,
@@ -1671,7 +1730,6 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._geo = _geo_core_cass
             self._geo_ref = _geo_core_cass
             self._geo_is_fused = False
-            self._metal = None
         pk = 0.9 * np.pi * a * a * 0.88 * (1 - self.obstruction)
         print(f"  [hashemi] dish {np.pi*a*a:.1f} m2 SPHERE R="
               f"{self.R_sphere:.1f} m (f=R/2={self.R_sphere/2:.2f}, "

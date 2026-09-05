@@ -405,7 +405,7 @@ kernel void tandoor_trace(
     bool sh_thr = false; float sh_w = 1.0f;
     float3 sh_h3 = float3(0.0f), sh_d3 = float3(0.0f);
     float sh_dy = 0.0f, sh_dz = 0.0f;
-    if (sc[106] > 0.5f) {
+    if (sc[106] > 0.5f && sc[106] < 1.5f) {
     // ==== RECEIVER AT THE FOCUS (sc[106..138], _build_focus_chain):
     // M1 flat AT F -> M2 off-axis paraboloid collimator (focus F) ->
     // M3 flat at the wall line -> chase -> M4 off-axis paraboloid at the
@@ -473,6 +473,193 @@ kernel void tandoor_trace(
     sh_dz = fc_h5.z - sc[11] + off[b*2+1];
     sh_thr = fc_ok && (fc_t5 > 0.0f) && (sh_dy*sh_dy + sh_dz*sh_dz <= sc[13]*sc[13]);
     sh_w = 1.0f; sh_h3 = fc_h5; sh_d3 = fc_d5;
+    } else if (sc[106] > 1.5f) {
+    // ==== CASSEGRAIN (sc[106..144], _build_cass_chain): a rotating strip
+    // of the conic with foci F and F2 (hyperboloid before F, 'cass';
+    // ellipsoid beyond F, 'greg') -> straight bore -> M4 (ellipsoid
+    // patch, or a flat when a_e = 0) -> duct plane. Mirrors
+    // _geo_core_cass line for line; cs_ locals.
+    const bool cs_greg = sc[106] > 2.5f;
+    const float3 cs_F = Pf;
+    const float cs_armn = sc[107], cs_rstrip = sc[108], cs_d = sc[109];
+    const float cs_a = sc[110], cs_c = sc[111];
+    const float3 cs_O = float3(sc[112], sc[113], sc[114]);
+    const float3 cs_A = float3(sc[115], sc[116], sc[117]);
+    const float cs_thlo = sc[118], cs_thhi = sc[119], cs_w = sc[120];
+    const float3 cs_P4 = float3(sc[121], sc[122], sc[123]);
+    const float3 cs_Oe = float3(sc[127], sc[128], sc[129]);
+    const float3 cs_Ae = float3(sc[130], sc[131], sc[132]);
+    const float cs_ae = sc[133], cs_ce = sc[134];
+    const float cs_rm4 = sc[135], cs_rbore = sc[136], cs_rstrut = sc[137];
+    const float cs_fd = sc[138], cs_ad = sc[139], cs_zdeck = sc[140];
+    const float cs_rhole = sc[141], cs_wslot = sc[142], cs_wk = sc[143];
+    const float cs_slotel = sc[144];
+    const float cs_side = cs_greg ? 1.0f : -1.0f;
+    const float3 cs_Ps = cs_F + float3(cs_armn, 0.0f, 0.0f);
+    const float3 cs_Q = cs_greg ? (cs_F - cs_d*cs_A) : cs_F;
+    const float3 cs_Hc = cs_F + cs_side*cs_d*ut;
+    // ---- sun leg: the strip (sphere), the hole, the open slot, the arm
+    bool cs_lit = !fc_blocked(p, ut, cs_Hc, cs_rstrip);
+    float cs_rhol = sqrt(p_loc.x*p_loc.x + p_loc.y*p_loc.y);
+    cs_lit = cs_lit && (cs_rhol > cs_rhole);
+    float3 cs_zl = mrow(float3(0.0f, 0.0f, 1.0f), Mt + b*9);
+    float cs_slx = -cs_zl.x, cs_sly = -cs_zl.y;
+    float cs_sln = max(sqrt(cs_slx*cs_slx + cs_sly*cs_sly), 1e-9f);
+    cs_slx /= cs_sln; cs_sly /= cs_sln;
+    float cs_elsun = asin(clamp(ut.z, -1.0f, 1.0f));
+    bool cs_slotopen = (cs_wslot > 0.0f) && (cs_elsun > cs_slotel);
+    {
+        float cs_al0 = p_loc.x*cs_slx + p_loc.y*cs_sly;
+        float cs_pp0 = p_loc.x*cs_sly - p_loc.y*cs_slx;
+        bool cs_ins0 = cs_slotopen && (cs_al0 > 0.0f) && (fabs(cs_pp0) < 0.5f*cs_wslot);
+        cs_lit = cs_lit && !cs_ins0;
+    }
+    float cs_ts; float cs_ds = fc_seg_dist(p, ut, cs_Ps, cs_Q, cs_ts);
+    cs_lit = cs_lit && (cs_ds > cs_rstrut);
+    // ---- the strip: conic hit
+    float cs_t1; float3 cs_h1, cs_nh; bool cs_v1;
+    if (cs_greg) {
+        float cs_tF = dot(cs_F - p, d);
+        float3 cs_w = p - cs_O;
+        float cs_z0 = dot(cs_w, cs_A), cs_dz = dot(d, cs_A);
+        float cs_wd = dot(cs_w, d), cs_ww = dot(cs_w, cs_w);
+        float cs_a2 = cs_a*cs_a, cs_c2 = cs_c*cs_c, cs_b2 = cs_a2 - cs_c2;
+        float cs_qa = cs_a2 - cs_c2*cs_dz*cs_dz;
+        float cs_qb = 2.0f*(cs_a2*cs_wd - cs_c2*cs_z0*cs_dz);
+        float cs_qc = cs_a2*cs_ww - cs_c2*cs_z0*cs_z0 - cs_a2*cs_b2;
+        float cs_disc = cs_qb*cs_qb - 4.0f*cs_qa*cs_qc;
+        float cs_sq = sqrt(max(cs_disc, 0.0f));
+        float cs_qas = (fabs(cs_qa) > 1e-12f) ? cs_qa : 1e-12f;
+        float cs_ta = (-cs_qb - cs_sq)/(2.0f*cs_qas);
+        float cs_tb = (-cs_qb + cs_sq)/(2.0f*cs_qas);
+        cs_ta = (cs_ta > cs_tF) ? cs_ta : 1e9f;
+        cs_tb = (cs_tb > cs_tF) ? cs_tb : 1e9f;
+        cs_t1 = min(cs_ta, cs_tb);
+        cs_v1 = (cs_disc >= 0.0f) && (cs_t1 < 1e8f);
+        cs_h1 = p + cs_t1*d;
+        float3 cs_wX = cs_h1 - cs_O;
+        float cs_zz = dot(cs_wX, cs_A);
+        float3 cs_nn = cs_a2*cs_wX - cs_c2*cs_zz*cs_A;
+        cs_nh = cs_nn/max(length(cs_nn), 1e-12f);
+        if (dot(cs_nh, d) > 0.0f) cs_nh = -cs_nh;
+    } else {
+        float3 cs_w = p - cs_O;
+        float cs_z0 = dot(cs_w, cs_A), cs_dz = dot(d, cs_A);
+        float cs_wd = dot(cs_w, d), cs_ww = dot(cs_w, cs_w);
+        float cs_c2 = cs_c*cs_c, cs_a2 = cs_a*cs_a, cs_b2 = cs_c2 - cs_a2;
+        float cs_qa = cs_c2*cs_dz*cs_dz - cs_a2;
+        float cs_qb = 2.0f*(cs_c2*cs_z0*cs_dz - cs_a2*cs_wd);
+        float cs_qc = cs_c2*cs_z0*cs_z0 - cs_a2*cs_ww - cs_a2*cs_b2;
+        float cs_disc = cs_qb*cs_qb - 4.0f*cs_qa*cs_qc;
+        float cs_sq = sqrt(max(cs_disc, 0.0f));
+        float cs_sgn = (cs_qb >= 0.0f) ? 1.0f : -1.0f;
+        float cs_qq = -0.5f*(cs_qb + cs_sgn*cs_sq);
+        float cs_qas = (fabs(cs_qa) > 1e-12f) ? cs_qa : 1e-12f;
+        float cs_qqs = (fabs(cs_qq) > 1e-12f) ? cs_qq : 1e-12f;
+        float cs_ta = cs_qq/cs_qas, cs_tb = cs_qc/cs_qqs;
+        float3 cs_Xa = p + cs_ta*d, cs_Xb = p + cs_tb*d;
+        bool cs_oka = (cs_ta > 1e-6f) && (dot(cs_Xa - cs_O, cs_A) < 0.0f);
+        bool cs_okb = (cs_tb > 1e-6f) && (dot(cs_Xb - cs_O, cs_A) < 0.0f);
+        cs_ta = cs_oka ? cs_ta : 1e9f;
+        cs_tb = cs_okb ? cs_tb : 1e9f;
+        cs_t1 = min(cs_ta, cs_tb);
+        cs_v1 = (cs_disc >= 0.0f) && (cs_t1 < 1e8f);
+        cs_h1 = p + cs_t1*d;
+        float cs_zz = dot(cs_h1 - cs_O, cs_A);
+        float3 cs_nn = cs_c2*cs_zz*cs_A - cs_a2*(cs_h1 - cs_O);
+        cs_nh = cs_nn/max(length(cs_nn), 1e-12f);
+        if (dot(cs_nh, d) > 0.0f) cs_nh = -cs_nh;
+    }
+    // ---- the strip window: polar angle about A, azimuth about the
+    // meridian of the dish axis, width tapered with the hit distance
+    float3 cs_rel = cs_h1 - cs_F;
+    float cs_rn = max(length(cs_rel), 1e-9f);
+    float cs_th = acos(clamp(dot(cs_rel, cs_A)/cs_rn, -1.0f, 1.0f));
+    float3 cs_avh = cs_rel - dot(cs_rel, cs_A)*cs_A;
+    float3 cs_sdr = cs_side*ut;
+    float3 cs_avs = cs_sdr - dot(cs_sdr, cs_A)*cs_A;
+    float cs_cosd = dot(cs_avh, cs_avs)/max(length(cs_avh)*length(cs_avs), 1e-9f);
+    float cs_rho = length(cs_avh);
+    float cs_arc = acos(clamp(cs_cosd, -1.0f, 1.0f))*cs_rho;
+    float cs_wloc = (cs_wk > 0.0f) ? cs_wk*cs_rn : cs_w;
+    bool cs_on = cs_v1 && (cs_th >= cs_thlo) && (cs_th <= cs_thhi)
+                 && ((cs_arc < 0.5f*cs_wloc) || (cs_rho < 0.5f*cs_wloc));
+    float cs_tsg; float cs_dsg = fc_seg_dist(p, d, cs_Ps, cs_Q, cs_tsg);
+    bool cs_graze = (cs_dsg < cs_rstrut) && (cs_tsg < cs_t1 - 0.05f);
+    bool cs_ok = cs_lit && !cs_graze && cs_on;
+    float3 cs_d2 = d - 2.0f*dot(d, cs_nh)*cs_nh;
+    // ---- the reflected leg must clear the membrane (ideal paraboloid in
+    // the dish frame, hole and open slot excepted) and the arm
+    float3 cs_l0 = mrow(cs_h1 - CdV, Mt + b*9);
+    float3 cs_dl = mrow(cs_d2, Mt + b*9);
+    float cs_qa2 = cs_dl.x*cs_dl.x + cs_dl.y*cs_dl.y;
+    float cs_qb2 = 2.0f*(cs_l0.x*cs_dl.x + cs_l0.y*cs_dl.y) - 4.0f*cs_fd*cs_dl.z;
+    float cs_qc2 = cs_l0.x*cs_l0.x + cs_l0.y*cs_l0.y - 4.0f*cs_fd*cs_l0.z;
+    float cs_disc2 = cs_qb2*cs_qb2 - 4.0f*cs_qa2*cs_qc2;
+    float cs_sq2 = sqrt(max(cs_disc2, 0.0f));
+    float cs_qas2 = (fabs(cs_qa2) > 1e-12f) ? cs_qa2 : 1e-12f;
+    float cs_tm = (-cs_qb2 - cs_sq2)/(2.0f*cs_qas2);
+    float cs_tp = (-cs_qb2 + cs_sq2)/(2.0f*cs_qas2);
+    bool cs_cross = false;
+    for (int cs_k = 0; cs_k < 2; cs_k++) {
+        float cs_tt = (cs_k == 0) ? cs_tm : cs_tp;
+        float3 cs_X = cs_l0 + cs_tt*cs_dl;
+        float cs_rr = sqrt(cs_X.x*cs_X.x + cs_X.y*cs_X.y);
+        float cs_al = cs_X.x*cs_slx + cs_X.y*cs_sly;
+        float cs_pp = cs_X.x*cs_sly - cs_X.y*cs_slx;
+        bool cs_ins = cs_slotopen && (cs_al > 0.0f) && (fabs(cs_pp) < 0.5f*cs_wslot);
+        cs_cross = cs_cross || ((cs_disc2 >= 0.0f) && (cs_tt > 1e-3f)
+                                && (cs_rr < cs_ad) && (cs_rr > cs_rhole) && !cs_ins);
+    }
+    float cs_tsa; float cs_dsa = fc_seg_dist(cs_h1, cs_d2, cs_Ps, cs_Q, cs_tsa);
+    cs_cross = cs_cross || ((cs_dsa < cs_rstrut) && (cs_tsa > 0.0f));
+    cs_ok = cs_ok && !cs_cross;
+    // ---- the bore gate at the deck plane, then M4
+    float3 cs_axis = normalize(cs_P4 - cs_F);
+    float cs_tdeck = (cs_zdeck - cs_h1.z)/min(cs_d2.z, -1e-9f);
+    float3 cs_wdk = cs_h1 + cs_tdeck*cs_d2 - cs_F;
+    float cs_adist = length(cs_wdk - dot(cs_wdk, cs_axis)*cs_axis);
+    float cs_t4; float3 cs_h4, cs_n4; bool cs_v4;
+    if (cs_ae > 0.0f) {
+        float3 cs_w4 = cs_h1 - cs_Oe;
+        float cs_z04 = dot(cs_w4, cs_Ae), cs_dz4 = dot(cs_d2, cs_Ae);
+        float cs_wd4 = dot(cs_w4, cs_d2), cs_ww4 = dot(cs_w4, cs_w4);
+        float cs_a24 = cs_ae*cs_ae, cs_c24 = cs_ce*cs_ce, cs_b24 = cs_a24 - cs_c24;
+        float cs_qa4 = cs_a24 - cs_c24*cs_dz4*cs_dz4;
+        float cs_qb4 = 2.0f*(cs_a24*cs_wd4 - cs_c24*cs_z04*cs_dz4);
+        float cs_qc4 = cs_a24*cs_ww4 - cs_c24*cs_z04*cs_z04 - cs_a24*cs_b24;
+        float cs_disc4 = cs_qb4*cs_qb4 - 4.0f*cs_qa4*cs_qc4;
+        float cs_sq4 = sqrt(max(cs_disc4, 0.0f));
+        float cs_qas4 = (fabs(cs_qa4) > 1e-12f) ? cs_qa4 : 1e-12f;
+        float cs_t41 = (-cs_qb4 - cs_sq4)/(2.0f*cs_qas4);
+        float cs_t42 = (-cs_qb4 + cs_sq4)/(2.0f*cs_qas4);
+        cs_t4 = max(cs_t41, cs_t42);
+        cs_v4 = (cs_disc4 >= 0.0f) && (cs_t4 > 1e-6f);
+        cs_h4 = cs_h1 + cs_t4*cs_d2;
+        float3 cs_wX4 = cs_h4 - cs_Oe;
+        float cs_zz4 = dot(cs_wX4, cs_Ae);
+        float3 cs_nn4 = cs_a24*cs_wX4 - cs_c24*cs_zz4*cs_Ae;
+        cs_n4 = cs_nn4/max(length(cs_nn4), 1e-12f);
+        if (dot(cs_n4, cs_d2) > 0.0f) cs_n4 = -cs_n4;
+    } else {
+        float cs_den4 = dot(cs_d2, cs_Ae);
+        float cs_denu4 = (fabs(cs_den4) > 1e-9f) ? cs_den4 : 1e-9f;
+        cs_t4 = dot(cs_P4 - cs_h1, cs_Ae)/cs_denu4;
+        cs_h4 = cs_h1 + cs_t4*cs_d2;
+        cs_n4 = cs_Ae;
+        cs_v4 = cs_t4 > 0.0f;
+    }
+    cs_ok = cs_ok && (cs_d2.z < -0.2f) && (cs_adist < cs_rbore);
+    cs_ok = cs_ok && cs_v4 && (length(cs_h4 - cs_P4) < cs_rm4);
+    float3 cs_d5 = cs_d2 - 2.0f*dot(cs_d2, cs_n4)*cs_n4;
+    float cs_t5 = (sc[12] - cs_h4.x)/min(cs_d5.x, -1e-9f);
+    cs_ok = cs_ok && (cs_d5.x < -0.05f) && (cs_t5 < 4.0f);
+    cs_t5 = min(cs_t5, 4.0f);
+    float3 cs_h5 = cs_h4 + cs_t5*cs_d5;
+    sh_dy = cs_h5.y + off[b*2];
+    sh_dz = cs_h5.z - sc[11] + off[b*2+1];
+    sh_thr = cs_ok && (cs_t5 > 0.0f) && (sh_dy*sh_dy + sh_dz*sh_dz <= sc[13]*sc[13]);
+    sh_w = 1.0f; sh_h3 = cs_h5; sh_d3 = cs_d5;
     } else {
     // ---- occlusion, closed form (post + tube), sun leg
     float px_ = p.x - sc[10], py_ = p.y, pz_ = p.z;
