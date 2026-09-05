@@ -834,7 +834,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  sec_side="cass", r_hole=0.5,
                  night_carry=0, night_hours=16.0, dt_night=60.0, r_duct=None,
                  w_slot=0.7, strip_wk=1.1, slot_el=54.0,
-                 lost_deg=3.0, enc_clamp=3.0, m4_mode="relay",
+                 lost_deg=3.0, enc_clamp=3.0, m4_mode="field",
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, r_m4=1.3,
