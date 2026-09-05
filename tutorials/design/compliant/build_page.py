@@ -8,7 +8,7 @@ def svg(name):
     s = s[s.index("<svg"):]
     s = re.sub(r'<svg([^>]*?)\swidth="[^"]*"\sheight="[^"]*"', r'<svg\1', s, count=1)
     s = s.replace("<svg", '<svg style="width:100%;height:auto;display:block"', 1)
-    return s
+    return re.sub(r"(-?\d+\.\d{2,})", lambda m: f"{float(m.group(1)):.1f}", s)
 def plate(num, title, fig, ref, rows, note=""):
     tb = "".join(f'<div class="k">{html.escape(k)}</div><div class="v">{v}</div>' for k, v in rows)
     return f'''<article class="plate" id="pl{num}">
@@ -22,8 +22,9 @@ def plate(num, title, fig, ref, rows, note=""):
   </aside>
 </article>'''
 VIEWER_JS = open(os.path.join("3d", "viewer.js")).read()
-def plate3d(num, title, json_path, ref, rows, note=""):
-    model = open(json_path).read()
+def plate3d(num, title, json_path, ref, rows, note="", model_js=None, export=None):
+    model = model_js if model_js else open(json_path).read()
+    if export: model = f"window.{export} = " + model
     tb = "".join(f'<div class="k">{html.escape(k)}</div><div class="v">{v}</div>' for k, v in rows)
     vid = f"view{num}"
     return f'''<article class="plate" id="pl{num}">
@@ -157,5 +158,80 @@ D3.append(plate3d(32, "The fine stage: 3 DOF Type 1 about the vertex, exactly co
 D3.append(plate(33, "Fine stage, engineering views from behind the dish", "stage3/hashemi_pneumatic/out/hp2_fine_stage_views.svg", "isometric from behind and below (the sun side is +z); detail of one station: rod to its post, column on the frame ring; plan, front, side",
   [("green", "tangential rods, the three constraint lines of the back plane"), ("brown", "water columns on the normals, the three displacement inputs"), ("grey", "back frame: hub (stem clamp), spokes, ring r 1.75 m; the dish's back ring r 1.46 m rides on rods and columns")],
   "Hidden-line projection of the CadQuery model. The rim toroid, plenum film and the stem stub are context."))
-page = open("page_template.html").read().replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
+
+def legend_organs(json_path):
+    import json as _json
+    parts = _json.load(open(json_path))["parts"]; seen = []
+    for p in parts:
+        organ = p["name"].split(" | ")[0]
+        if organ not in [o for o, c in seen]: seen.append((organ, p.get("color", "#888")))
+    return "Legend: " + "; ".join(f'<span class="organ" style="background:{c}"></span>{html.escape(o)}' for o, c in seen)
+FM = "stage3/fact_mount/out/"
+MOUNT = []
+MOUNT.append(plate3d(34, "The FACT mount: fork on the deck ring, blade trunnions on the axis through F, cradle, diaphragm fine stage (equinox noon)", FM + "fm_machine.json",
+  "Third pass. Hopkins Fig. 2.7 to the end: ground the deck and the tube; stage 1 the fork (1R vertical, a ring bearing); stage 2 the cradle on two cross-blade trunnion blocks (1R horizontal through F, flexure); stage 3 the dish on the fine stage (3 DOF Type 1 about the vertex, flexure). 1 + 1 + 3 = 5 twists, the five wanted. Optics untouched.",
+  [("elevation", "two blocks of 12 blades 17-7PH 200 x 1.0 x 120 mm, planes through the axis through F, at |y| 3.25 m: rank 5 / DOF 1 each and together; 71 deg at 0.17 sigma_y; 167 N m/rad"),
+   ("why there", "the constraint space of a rotation is the same set of lines everywhere along its axis (thesis 3.2.1): at F the blocks and their struts cross the aperture in projection and the tube's reach; at |y| 3.25 m they do neither, and the 6.5 m between them turns the wind's moment about F into a pair of forces"),
+   ("wind", "worst blade 906 N in plane at 9 m/s, 1940 N at 25 m/s (crosswind, el 44) vs 9.1 kN buckling: SF 10 / 4.7; the single block at F of the first draft would have seen 3.2 kN at 9 m/s"),
+   ("cradle", "side arms 150 x 5 at |y| 2.45 m (155 mm outside the rim toroid), C-frame r 1.75 m 0.6 m behind the vertex, 91 L of water 2.6 m up each arm: balanced about the axis; 650 kg"),
+   ("shading", "0.000 m2 of the 13.07 m2 annulus at equinox noon, summer noon and 9 h (shading.py, 1 cm raster along the sun line); the tube's own 10 %, the strip ring's 1.5 % are the cass machine's"),
+   ("clearance", "tube vs cradle over 59 Quetta positions: 71 mm worst (back ring end, summer 11 h, el 75); rings open 80 deg at the slot"),
+   ("hold", "crank 1.0 m + Tr40 screw jack per post: lever 0.81-1.00 m over el 12-83, 1.9 kN at 9 m/s, 14 kN at 25, self-locking; ~30 urad under the mean wind; 46 L pumped to the frame cancels it"),
+   ("fine stage", "three tangential blades (rank 3: tip, tilt, focus) + three water columns on the normals (rank 6): 90 MN m/rad, 4 urad at 9 m/s, 62 urad per mL, +-20 mrad")],
+  legend(FM + "fm_machine.json"), export="fmMachine"))
+MOUNT.append(plate(35, "FACT mount, equinox noon: engineering views", FM + "fm_machine_views.svg", "isometric from the south-west; detail of the west trunnion block on its post with the arm clamp, crank and jack; plan, front, side",
+  [("plan", "the ring beam r 3.6 m about the tube, the posts on it, the arms outside the rim, the tanks up-sun"), ("side", "both posts, the axis through F between them, the cradle hanging in the light's shadow of nothing")],
+  "Hidden-line projection of the CadQuery model (3d/cad_views.py); light grey: deck, wall, column, pot, rail."))
+MOUNT.append(plate3d(36, "Trunnion block: twelve blades in two cross-blade stages on the elevation axis, exact 1R", FM + "fm_pivot.json",
+  "Constraint space of 1R: every line meeting the axis. A blade whose plane contains the axis is three such lines; three cells of two blades at +-45 deg crossing on the axis per stage; two stages in series through the intermediate bar. Post below (ground), arm inboard (moving).",
+  [("check", "18 lines per stage, rank 5, DOF 1 = rotation about the axis; reciprocal products 0; the two blocks in parallel: rank 5, DOF 1"), ("range", "+-25.8 deg per stage at 0.25 sigma_y; +-17.8 needed; 258 MPa = 0.17 sigma_y at el 12 and 83"),
+   ("loads", "gravity 3.2 kN and the wind's pair of forces along the dish axis, resolved into the +-45 deg families: SF 10 / 4.7 on 9.1 kN fixed-fixed buckling"), ("thermal", "both blocks hold y; 1.0 mm over 6.5 m goes into the posts at 166 N; axes aligned to 0.2 mrad")],
+  legend(FM + "fm_pivot.json")))
+MOUNT.append(plate(37, "Trunnion block: engineering views", FM + "fm_pivot_views.svg", "isometric; detail of stage B over the moving bar; plan, front (the X of a cell on the axis), side (six cells along the axis)",
+  [("orange", "the 12 blades, planes through the axis"), ("dark", "ground bar and post saddle below stage A, intermediate bar above both, moving bar and arm clamp below stage B")], "Hidden-line projection of the same model."))
+MOUNT.append(plate3d(38, "The fine stage: 3 DOF Type 1 about the vertex, three tangential blades, three water columns, C-rings open at the slot", FM + "fm_fine.json",
+  "Hopkins ch. 2 serial synthesis, intermediate space 3, between the cradle's frame and the dish. Constraint space = every line in the back plane + a normal torque (Fig. 3.38); actuation space = the box of lines normal to the plane (Fig. 4.3).",
+  [("constraints", "three flat blades 450 x 60 x 1.5 mm tangential at r 1.46 m, 60/180/300 deg from the slot: 9 lines in the plane, rank 3, DOF 3 = tip, tilt, focus; athermal (Al/steel 0.62 mm bends them in-plane at 114 MPa)"),
+   ("actuators", "three flexure struts with 8 mm necks on the normals at r 1.6 m (90/210/315 deg) on sealed water columns d 0.12 m: rank 6 locked; 62 urad per mL; 90 MN m/rad"),
+   ("range", "+-20 mrad (130 MPa = 0.09 sigma_y), +-30 mm focus"), ("wind", "drag asymmetry 315 N m at 9 m/s -> 4 urad"), ("the slot", "back ring and frame ring open 80 deg about the slot, no station within |y| 0.5 m of it: the tube passes anywhere along the slot at el 55-83")],
+  legend(FM + "fm_fine.json")))
+MOUNT.append(plate(39, "Fine stage: engineering views from behind the dish", FM + "fm_fine_views.svg", "isometric from behind and below (+z is the sun side); detail of one station; plan, front, side",
+  [("green", "the tangential blades, three constraint lines each in the back plane"), ("blue", "water columns on the normals"), ("dark", "the C-frame with its spokes and diagonals to the arm points; the C-ring gap at +x, the slot direction")], "Hidden-line projection of the same model."))
+MOUNT.append(plate(40, "Summer noon, el 83", FM + "fm_summer_views.svg", "the dish flat under F, the tube through the slot and the C-rings' gap, the arms upright beside it, the tanks 12.8 m up",
+  [("clearance", "the cradle's lowest members 0.3 m over the deck; the ring beam outside them"), ("shading", "0.000 m2 from the mount; the tube 1.7 %, the strip ring 1.3 % (theirs)")], "Hidden-line projection."))
+MOUNT.append(plate(41, "Equinox 9 h, el 38 ESE", FM + "fm_morning_views.svg", "the fork turned 63 deg from south, the cradle tilted; the tube stands beside the dish's lower rim, outside it",
+  [("shading", "0.000 m2 from the mount; the tube 10 % (Hashemi's near method stands it in the light at every elevation but the highest: the other fork's number, printed so the two are not confused)")], "Hidden-line projection."))
+MOUNT.append(plate(42, "Equinox day, 8-16 h", FM + "fm_sweep_views.svg", "rims, arms, posts and the elevation axis at each hour: every axis through F, every arm outside its rim, every post outside the sweep",
+  [("footprint", "the dish's sweep, 9.2 x 7.8 m for a 2.1 m dish at f 4.0; ring beam 7.5 m; at el 12 the tank ends reach 1.6 m south of the tube at z 10.5"), ("scale", "at the same f/D: 1.5 m dish 6.5 x 5.6 m, 1.05 m dish 4.6 x 3.9 m; blade range and stress unchanged at constant t/L, wind SF unchanged (loads and buckling both ~L^2)")], "Hidden-line projection; rims thin, arms and posts dark, axes dashed."))
+FLOWER = []
+FLOWER.append(plate(43, "The flower, drawn: a heliotropic bowl flower with an inferior ovary", "flower_botany.svg", "Side view along the elevation axis at spring noon, el 60; every organ is one part of sheet 34",
+  [("corolla", "the bowl: membrane and rim"), ("stigma", "the strip under F, where the light lands"), ("style", "the focal tube up the middle of the bowl; the light conducted down inside it"), ("ovary", "the tandoor pot, inferior, below the deck"),
+   ("pulvinus", "the trunnion blocks: the joint that turns the head"), ("turgor", "water at the arms' ends; pumped to lean against the wind"), ("calyx", "the cradle: arms beside the bowl, frame behind it"), ("stalk", "the ring beam and the two posts"), ("roots", "the deck and its ring rail")],
+  "Kevan 1975 (Science 189:723) measured Arctic poppies and Dryas warming their gynoecium by tracking the sun with a parabolic corolla; a pulvinus moves a leaf by moving water between its cells."))
+ORGAN_JS = """(function(){ const O = [["sunlight","#f6ad55",["beam:","sun direction"]],["heliotropism: the two rotation axes through F","#4a5568",["f-f2 axis"]],["stigma: the strip under F where the light lands, F and F2","#6b46c1",["hyperboloid strip","=F","=F2"]],["ovary and fruit: the tandoor pot, inferior, below the ground","#9b2c2c",["tandoor pot"]],["roots: the deck, its rail, the beam column and M4 below","#7c4a1e",["deck ring rail","roof deck","beam column","m4"]],["style: the focal tube up the middle of the bowl, carrying the light down to the ovary","#2f855a",["focal tube","strip ring"]],["stalk: the ring beam turning on the rail and the two posts up to the head's axis","#276749",["post","ring beam","saddle","upright","jack bracket"]],["pulvinus: the trunnion blocks, the joint that bends the head toward the sun","#dd6b20",["pivot blade","ground bar","intermediate bar","moving bar","arm clamp"]],["turgor: the water at the arms' ends that balances and trims the head; the jacks that hold it","#2b6cb0",["water tank","screw jack","crank"]],["calyx: the cradle, two arms beside the bowl and a frame behind it","#6b8e23",["side arm","back frame","post to the back frame","frame spoke","frame diagonal"]],["motor cells: the fine stage, blades and water columns that trim the head by microradians","#15803d",["fine stage","flexure","water column","dish back c-ring","strut foot"]],["corolla: the bowl of petals, the membrane and its rim","#d69e2e",["membrane","rim toroid","back plenum"]],["the ground","#c9cfd6",["south wall"]]];
+  const organ = n => { const l = n.toLowerCase(); for (const [o, c, ks] of O) for (const k of ks) { if (k[0] === "=" ? n === k.slice(1) : l.includes(k)) return [o, c]; } return ["other", "#a0aec0"]; };
+  return Object.assign({}, window.fmMachine, {parts: window.fmMachine.parts.map(p => { const [o, c] = organ(p.name); return Object.assign({}, p, {color: c, name: o + " | " + p.name}); })}); })()"""
+FLOWER.append(plate3d(44, "The same machine, coloured by organ", FM + "flower_organs.json", "Sheet 34's model with each part recoloured by the organ it plays (flower_organs.py); rotate it and pick the organs out",
+  [("head", "corolla (yellow) on its calyx (olive) with the motor cells (green) between them; the stigma (purple) at the focus above"), ("joint", "pulvinus (orange) at the ends of the axis through F; turgor (blue) at the arms' up-sun ends"),
+   ("stalk and root", "two posts and the ring beam (dark green) on the deck rail (brown); the style (green) up the middle from the ovary (red) below the ground")],
+  legend_organs(FM + "flower_organs.json"), model_js=ORGAN_JS))
+CORR = """<table class="corr"><tr><th>organ</th><th>in the plant</th><th>in the machine</th><th>the numbers</th></tr>
+<tr><td><span class="organ" style="background:#7c4a1e"></span>roots</td><td>anchor and water</td><td>the deck, its ring rail, the beam column below</td><td>ring 7.5 m inside the 7.8 m the dish's sweep needs</td></tr>
+<tr><td><span class="organ" style="background:#276749"></span>stalk</td><td>holds the head up and turns it</td><td>the ring beam on rollers and two 250 x 8 posts, 4.3 m, up to the head's axis</td><td>azimuth 220 deg; 328 kN/m each, the trunnion pair's thermal compliance (166 N per 13 K)</td></tr>
+<tr><td><span class="organ" style="background:#dd6b20"></span>pulvinus</td><td>the motor joint just below the head</td><td>two trunnion blocks of twelve blades on the axis through F, 3.25 m to either side</td><td>rank 5, DOF 1; 71 deg at 0.17 sigma_y; blade SF 10 at 9 m/s, 4.7 at 25</td></tr>
+<tr><td><span class="organ" style="background:#2b6cb0"></span>turgor</td><td>water moved between cells to lean</td><td>91 L at each arm's up-sun end; 46 L pumped to the frame cancels the 9 m/s mean torque; the jacks hold the gusts</td><td>1.9 kN per jack at 9 m/s, 14 at 25; ~30 urad</td></tr>
+<tr><td><span class="organ" style="background:#6b8e23"></span>calyx</td><td>cups the corolla from behind and beside</td><td>two side arms at |y| 2.45 m and the C-frame 0.6 m behind the vertex</td><td>0.000 m2 of shading; 71 mm worst tube clearance over the year</td></tr>
+<tr><td><span class="organ" style="background:#d69e2e"></span>corolla</td><td>the parabolic bowl that gathers the light</td><td>the pumped membrane a 2.1 m, R 8.2 m, and its rim toroid</td><td>the other fork's; untouched</td></tr>
+<tr><td><span class="organ" style="background:#15803d"></span>motor cells</td><td>fine turgor movement</td><td>three tangential blades and three water columns between calyx and corolla, 3 DOF Type 1</td><td>62 urad per mL; 4 urad at 9 m/s; +-20 mrad</td></tr>
+<tr><td><span class="organ" style="background:#2f855a"></span>style</td><td>conducts the pollen tube down to the ovary</td><td>the focal tube up the middle of the bowl through its hole and slot; the light goes down inside it</td><td>Hashemi's near method; its own shadow 10 % at el 59 is the cass machine's</td></tr>
+<tr><td><span class="organ" style="background:#6b46c1"></span>stigma</td><td>where the pollen lands, at the bowl's focus</td><td>the hyperboloid strip 0.8 m under F</td><td>the Cassegrain secondary; the other fork's</td></tr>
+<tr><td><span class="organ" style="background:#9b2c2c"></span>ovary and fruit</td><td>inferior: below the receptacle</td><td>the tandoor pot below the deck</td><td>where the light ends</td></tr>
+<tr><td><span class="organ" style="background:#4a5568"></span>heliotropism</td><td>the head follows the sun</td><td>azimuth on the ring, elevation on the trunnions, the fine stage closing the loop on the beam centroid</td><td>59 Quetta positions checked for clearance; 9 and 25 m/s for load</td></tr>
+</table>
+<table class="corr"><tr><th>the same flower at three sizes (f/D 1.9)</th><th>dish a</th><th>roof</th><th>fine stage</th><th>blades</th></tr>
+<tr><td>as drawn</td><td>2.1 m</td><td>9.2 x 7.8 m</td><td>62 urad per mL</td><td>200 x 1.0 x 120 mm, SF 4.7 at 25 m/s</td></tr>
+<tr><td>a smaller roof</td><td>1.5 m</td><td>6.5 x 5.6 m</td><td>170 urad per mL</td><td>same t/L: same range, same stress, same wind SF</td></tr>
+<tr><td>a small roof</td><td>1.05 m</td><td>4.6 x 3.9 m</td><td>496 urad per mL</td><td>same; lighter on its blades (weight ~L^3, buckling ~L^2)</td></tr>
+</table>"""
+page = open("page_template.html").read().replace("<!--PLATES_MOUNT-->", "\n".join(MOUNT)).replace("<!--PLATES_FLOWER-->", "\n".join(FLOWER)).replace("<!--FLOWER_TABLE-->", CORR).replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
 open(os.path.join(OUT, "flexure_register.html"), "w").write(page); print("page:", os.path.getsize(os.path.join(OUT, "flexure_register.html"))//1024, "KB")

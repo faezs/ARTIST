@@ -18,6 +18,10 @@ section{margin-top:40px}
 .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 h2{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:24px;margin:4px 0 6px;text-wrap:balance}
 .intro{max-width:66ch;margin:0 0 16px;color:var(--ink)}
+table.corr{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0 18px;background:var(--paper);color:#14213d}
+table.corr th,table.corr td{border-top:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+table.corr th{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.organ{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
 .plate{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);gap:0;border:1px solid var(--line);margin-top:16px;background:var(--soft)}
 .paper{background:var(--paper);padding:10px;overflow-x:auto}
 .paper3d{padding:0;position:relative;min-height:520px}
@@ -40,7 +44,7 @@ a:focus-visible{outline:2px solid var(--kin);outline-offset:2px}
 <header>
   <div>
     <h1>Tandoor Flexure Register</h1>
-    <p class="lede">The compliant mechanisms designed for the three mirrors of the Hashemi-frame solar tandoor concentrator, built as directionally compliant lattices at full scale (rotatable models), with the earlier FACT syntheses and first-pass catalogue elements below them; each plate shows the element undeflected and deflected by its pseudo-rigid-body model, with the title block carrying the numbers from the design memos.</p>
+    <p class="lede">The mount of the Cassegrain Hashemi solar tandoor machine, synthesized by FACT (Hopkins 2010) as freedom, constraint and actuation spaces and built from flexure blades: cross-blade trunnions on the axis through the fixed focus, a cradle, a diaphragm fine stage for microradians; then the same machine read as a heliotropic flower; then the earlier passes, kept as the record. Rotatable models beside hidden-line sheets; the title blocks carry the numbers from the design memos.</p>
   </div>
   <div class="legend">
     <span><i class="sw" style="background:#c2410c"></i> flexing element (the part that bends to do the job)</span>
@@ -50,8 +54,23 @@ a:focus-visible{outline:2px solid var(--kin);outline-offset:2px}
 </header>
 
 <section>
+  <div class="eyebrow">The mount · synthesized by FACT · third pass</div>
+  <h2>Blade trunnions on the axis through F, a cradle, a diaphragm fine stage</h2>
+  <p class="intro">Hopkins's six steps (2010, Fig. 2.7) run to the end for the Cassegrain Hashemi machine of the nix-support fork; the optics are theirs and untouched, and everything here is behind or beside the light. The elevation rotation about the horizontal through F is made by cross-blade cells whose planes contain that axis. Because the constraint space of a rotation is the same set of lines everywhere along its axis, the cells sit where the axis leaves the dish's shadow: two trunnion blocks 6.5 m apart on a fork from the deck ring, with the wind's moment about F arriving as a pair of forces. The dish rides in a cradle on the blocks; a flexure diaphragm between cradle and dish holds it to microradians. A first draft of this pass put one block at F with struts to the dish: it shaded 2.9 % and the crosswind's moment overloaded its blades; the memo keeps both faults beside the correction.</p>
+  <!--PLATES_MOUNT-->
+</section>
+
+<section>
+  <div class="eyebrow">The flower · the same machine, organ by organ</div>
+  <h2>How this is a flower</h2>
+  <p class="intro">The brief asked for the structural dual of Hashemi's machine: his dish rides a rail on the focal circle, ours swings on a radius about F; his structure stands around the dish, ours below and beside it, a head on a stalk. Read organ by organ it is a heliotropic bowl flower with an inferior ovary, the plant that already does this job: Arctic poppies and Dryas turn their parabolic corollas to the sun and warm the gynoecium at the focus (Kevan 1975), a pulvinus turns a leaf by moving water between its cells, the sunflower's ovary sits below the corolla. The table gives the correspondence with its numbers; the drawing and the recoloured model follow. It is not a flower in silhouette: the stalk is a fork of two posts, because the flexure pivot needs two blocks far apart to turn the crosswind's moment into forces.</p>
+  <!--FLOWER_TABLE-->
+  <!--PLATES_FLOWER-->
+</section>
+
+<section>
   <div class="eyebrow">Structures · directionally compliant lattices at full scale</div>
-  <h2>Second pass: the mechanism is the architecture of a block</h2>
+  <h2>Second pass and the pneumatic mount: the record</h2>
   <p class="intro">After Shaw, Sun, Portela, Barranco, Greer and Hopkins (2019): a block is sliced into rigid layers and every interface cell is bridged by flexure elements whose lines lie in the constraint space of the desired freedom, so each interface allows exactly that freedom and the stack multiplies the range. The screw-algebra check and a frame finite-element model give exactness, stiffness ratio, torque, modes, stress and thermal drift. Models are rotatable below.</p>
   <!--PLATES_3D-->
 </section>

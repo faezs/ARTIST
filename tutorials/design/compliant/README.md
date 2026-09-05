@@ -18,7 +18,26 @@ from the designers' own knowledge and are marked as such.
 | beam-down fold at the focus F | [beam_down_fold.md](beam_down_fold.md) | ~40 deg tilt tracking the sun's elevation at 90-300 suns; fail-safe dump |
 | M5 ellipsoidal relay, 43 rolled facets | [m5_relay.md](m5_relay.md) | per-facet tip/tilt/piston held to 10 mrad through daily thermal cycling |
 
-## Stage 3: the pneumatic mount
+## Stage 3: the mount
+
+The third pass ([stage3/fact_mount/memo.md](stage3/fact_mount/memo.md))
+follows Hopkins's six FACT steps to the end and builds the mount from
+blades: a ring beam on the deck rail for the 220 deg of azimuth (a
+bearing, named as one), two two-stage cross-blade flexural pivots on
+the elevation axis through F but outside the aperture (|y| 3.25 m: the
+constraint space of a rotation is the same everywhere along its axis;
+there the blades shade nothing and the 6.5 m between them turns the
+crosswind's moment into a pair of forces), a cradle balanced by water,
+and a tangential-blade diaphragm fine stage for microradians. Shading
+by the mount 0.000 m2, rasterised along the sun line. The first draft
+put one block at F with struts to the dish; it shaded 2.9 % and its
+blades were overloaded by the crosswind's moment, and the memo keeps
+both faults beside the correction. Read organ by organ the machine is
+a heliotropic bowl flower with an inferior ovary; sheets 34-44 on the
+register show the mount and the flower. The pneumatic pass below is
+kept as the record.
+
+### Earlier: the pneumatic mount
 
 The brief of 2026-09-05 (a water hose as the frame, vine-robot
 actuation, the assembly below the primary like a flower, fractal)

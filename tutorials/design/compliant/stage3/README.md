@@ -1,4 +1,19 @@
-# Stage 3: the pneumatic mount
+# Stage 3: the mount
+
+Third pass, `fact_mount/`: the mount synthesized by FACT to the end and built from blades. Azimuth: a ring beam on
+the deck rail (Hashemi's ring rail) carrying a fork. Elevation: two two-stage cross-blade flexural pivots ON the
+axis through F but OUTSIDE the aperture, at |y| 3.25 m (the constraint space of a rotation is the same everywhere
+along its axis; there the blades shade nothing and the 6.5 m between them turns the crosswind's moment into a
+pair of forces); 71 deg at 0.17 sigma_y, blade SF 10 / 4.7 at 9 / 25 m/s. The dish in a cradle (side arms outside
+the rim, C-frame behind, water counterweights up-sun), the tangential-blade diaphragm fine stage (Hopkins
+Fig. 4.3) for microradians. Shading by the mount: 0.000 m2 (rasterised along the sun line). The first draft of
+this pass (one block at F, struts to the dish) shaded 2.9 % and its blades were overloaded by the crosswind's
+moment; the memo keeps both faults beside the correction. `fact_mount/synth.py` prints the six steps with their
+checks; `geometry.py` is the member list that `model.py` draws and `synth.py`/`shading.py` check; `memo.md`;
+`flower_organs.py` recolours the model organ by organ and writes the botanical drawing; sheets 34-44 on the
+register. The pneumatic passes below are kept as the record of how it got there.
+
+## Earlier: the pneumatic mount
 
 The brief of 2026-09-05: a water hose for the frame, actuated like a vine robot so setup and tracking are
 automatic; the structural dual of Hashemi's machine, the assembly below the primary like a flower; fractal, the
