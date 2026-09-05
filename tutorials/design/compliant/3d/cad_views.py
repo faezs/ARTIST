@@ -39,8 +39,24 @@ CONFIG = {
                    detail=(55, 125, -85, -15, -34, 14), detail_label="detail: one station, the wire pair and the adjuster"),
     "m5_patch": dict(title="M5 patch: 43 toroid facets on the pit truss (world frame)",
                      iso=(1.0, -0.9, 0.6), detail=None, bounds_exclude=("foci",)),
+    "flower": dict(title="Pneumatic sunflower, D 2.1 m: hose mast, vine neck, skin head, beam down the stem",
+                   iso=(1.0, -1.0, 0.5), bounds_exclude=("sun",), context=("winch", "cable"),
+                   detail=(-500, 1000, -450, 450, 400, 2000), detail_label="detail: neck, M3 at the vertex hole, M4 at the mast top, the chord"),
+    "bouquet": dict(title="Bouquet: four 2.1 m flowers around one oven chamber (13.9 m2, today's collector area)",
+                    iso=(1.0, -1.0, 0.6), detail=None, bounds_exclude=("sun",)),
+    "flower_scales": dict(title="The same module at 1.4, 2.1 and 4.2 m: constant pressure, constant safety factor",
+                          iso=(1.0, -1.0, 0.5), detail=None, bounds_exclude=("sun",)),
+    "hp_equinox_noon": dict(title="Cassegrain Hashemi machine on the pneumatic mount: equinox noon, sun el 60 deg south",
+                            iso=(-1.0, -1.0, 0.55), bounds_exclude=("sun", "env's", "guy", "suspension"), context=("deck", "wall", "column", "pot", "reel", "env's"),
+                            detail=(1500, 4500, -1500, 1500, 5000, 7800), detail_label="detail: the root, the vine rod, the spreader ring and the attitude tendons"),
+    "hp_summer_noon": dict(title="Summer noon, sun el 83 deg: the dish under F, the beam through its hole and slot", iso=(-1.0, -1.0, 0.55),
+                           bounds_exclude=("sun", "env's", "guy", "suspension"), context=("deck", "wall", "column", "pot", "reel", "env's"), detail=None),
+    "hp_morning": dict(title="Equinox 9 h, sun el 38 deg east-south-east: the rod at full reach to the west", iso=(-1.0, -1.0, 0.55),
+                       bounds_exclude=("sun", "env's", "guy", "suspension"), context=("deck", "wall", "column", "pot", "reel", "env's"), detail=None),
+    "hp_sweep": dict(title="The orbit the mount serves: rim positions and rod lines through an equinox day", iso=(-1.0, -1.0, 0.7),
+                     bounds_exclude=("sun", "env's", "guy", "suspension"), context=("deck", "wall", "column", "pot", "env's"), detail=None),
 }
-DASHED = ("axis", "axes", "foci")          # line parts drawn dashed in their own colour, never hidden
+DASHED = ("axis", "axes", "foci", "sun direction", "env's")          # line parts drawn dashed in their own colour, never hidden
 
 
 # ---------------------------------------------------------------- capture the geometry a model script builds
@@ -260,7 +276,7 @@ def sheet(name, groups, cfg, out_svg):
         svg.append(f'<clipPath id="clip_{cid}"><rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}"/></clipPath>')
     svg.append("</defs>")
     svg.append(f'<text x="{M}" y="40" font-size="32" font-weight="bold" fill="#1f2937">{cfg["title"]}</text>')
-    svg.append(f'<text x="{S - M}" y="40" font-size="17" fill="#6b7280" text-anchor="end">hidden-line projection of the CadQuery model · {name} · mm</text>')
+    svg.append(f'<text x="{S - M}" y="{S - 6}" font-size="14" fill="#9ca3af" text-anchor="end">hidden-line projection of the CadQuery model · {name} · mm</text>')
 
     def frame(c, label):
         svg.append(f'<rect x="{c[0]:.1f}" y="{c[1]:.1f}" width="{c[2]:.1f}" height="{c[3]:.1f}" fill="none" stroke="#d1d5db"/>')

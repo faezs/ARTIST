@@ -1,3 +1,5 @@
 resources/*
 !resources/README.md
 stage2/*/out/*.png
+stage3/*/out/*.png
+stage3/*/out/*.npy

@@ -18,6 +18,20 @@ from the designers' own knowledge and are marked as such.
 | beam-down fold at the focus F | [beam_down_fold.md](beam_down_fold.md) | ~40 deg tilt tracking the sun's elevation at 90-300 suns; fail-safe dump |
 | M5 ellipsoidal relay, 43 rolled facets | [m5_relay.md](m5_relay.md) | per-facet tip/tilt/piston held to 10 mrad through daily thermal cycling |
 
+## Stage 3: the pneumatic mount
+
+The brief of 2026-09-05 (a water hose as the frame, vine-robot
+actuation, the assembly below the primary like a flower, fractal)
+applied to the Cassegrain-receiver Hashemi machine on nix-support:
+a vine rod from one root on the deck pushes the dish onto its orbit
+sphere, deck tendons steer it, short tendons hold its attitude, F
+hangs from a mast pair outside the sweep, nothing new in the beam.
+[stage3/README.md](stage3/README.md) and
+[stage3/hashemi_pneumatic/memo_hp.md](stage3/hashemi_pneumatic/memo_hp.md);
+sheets 28-31 on the register page. The stage-2 fold saddle below is
+withdrawn by its own audit (range 0.75 deg, not 30 deg); its record
+stays for the lesson.
+
 ## Stage 2: full-scale directionally compliant structures
 
 The second pass ([stage2/README.md](stage2/README.md)) replaces the
