@@ -20,6 +20,15 @@ from the designers' own knowledge and are marked as such.
 
 ## Stage 3: the mount
 
+The fourth pass ([stage3/coude/memo.md](stage3/coude/memo.md)) moves
+everything behind the dish: the secondary on a conical style inside its
+own shadow, the beam back through a small hole, two fixed folds along a
+hollow flexure neck and down a single stalk to the unchanged underground
+relay. Shading above the deck 2.5 % against 17-25 % with Hashemi's tube.
+The earlier passes below are the record.
+
+### Third pass (record)
+
 The third pass ([stage3/fact_mount/memo.md](stage3/fact_mount/memo.md))
 follows Hopkins's six FACT steps to the end and builds the mount from
 blades: a ring beam on the deck rail for the 220 deg of azimuth (a

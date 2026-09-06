@@ -1,5 +1,14 @@
 # Stage 3: the mount
 
+Fourth pass, `coude/`: everything behind the dish. A Cassegrain head on the pumped membrane with the secondary on a
+conical style inside its own shadow, the beam back through a 0.12 m hole, one fold on the head along the neck
+axis through a hollow cartwheel flexure trunnion, a second fold at the stalk down to the cass machine's F2 and its
+unchanged underground relay. Shading above the deck 2.5 % of the aperture against 17-25 % for the machine with
+Hashemi's tube; four reflections above ground instead of two; net light 1.03-1.14 x. `coude/optics.py`,
+`synth.py`, `shading.py`, `model.py`, `memo.md`; sheets 46-51. The passes below are the record.
+
+## Third pass (record): the FACT fork with Hashemi's tube
+
 Third pass, `fact_mount/`: the mount synthesized by FACT to the end and built from blades. Azimuth: a ring beam on
 the deck rail (Hashemi's ring rail) carrying a fork. Elevation: two two-stage cross-blade flexural pivots ON the
 axis through F but OUTSIDE the aperture, at |y| 3.25 m (the constraint space of a rotation is the same everywhere

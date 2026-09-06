@@ -1,0 +1,10 @@
+hollow cartwheel stage A: 18 lines from 6 radial blades around a bore of r 0.33 m -> rank 5, DOF 1: ['rotation about axis through [-0.  0.  0.] along [-0.  1. -0.]']
+hollow cartwheel stage B: 18 lines from 6 radial blades around a bore of r 0.33 m -> rank 5, DOF 1: ['rotation about axis through [-0.  0. -0.] along [ 0. -1. -0.]']
+reciprocal product of every blade line with the rotation about the neck axis: 2.8e-17; the axis line itself is empty: the beam goes through
+range: +-25.8 deg per stage at 0.25 sigma_y; +-17.8 needed per stage -> 0.17 sigma_y at el 12 and 83
+spring: 417 N m/rad per stage, 208 for the two in series; blade buckling (fixed-fixed, in plane) 11.4 kN
+9 m/s: moment about the vertical through the pivot 3.2 kN m (head weight at 1.4 m + drag 751 N) -> 3.5 kN at the rings, 1.77 kN per blade in plane: SF 6.5
+25 m/s: moment about the vertical through the pivot 10.2 kN m (head weight at 1.4 m + drag 5797 N) -> 11.4 kN at the rings, 5.69 kN per blade in plane: SF 2.0
+elevation torque about the neck (balanced head): wind 1.6 kN m at 9 m/s, 12.2 at 25; jack on a 0.8 m crank behind the neck: 2.0 / 15.2 kN
+counterweights: 136 kg of water 1.6 m beyond the stalk on the yoke (about the azimuth axis), 151 kg 1.6 m behind the neck on the head (about the elevation axis); both in the dish's shadow
+what is compliant: the hollow cartwheel pivot (exact 1R, hollow), the fine stage (exact 3 DOF Type 1), the struts' flexure necks. Not: the slew ring, the stalk, the jack, M3 and M4's mounts.

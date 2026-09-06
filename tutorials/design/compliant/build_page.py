@@ -278,5 +278,41 @@ SETUP.append(plate_anim(45, "The machine sets itself up: posts rise, arms and co
   "3-D soft-body simulation of the inflatable fork: the FACT mount with the hose as its frame. Posts, arms and counterweight tubes are fabric tubes grown like everting vine robots (Blumenschein 2019, Coad 2021); the trunnion blocks are the hinges on the axis through F; a double-acting pneumatic strut per side sets the elevation, the deck ring the azimuth; the flexure fine stage (sheets 38-39) rides on it",
   setup_rows("stage3/setup_sim/out/setup_log.json", "stage3/setup_sim/out/setup_anim.json"),
   "Blue membranes: posts, arms, counterweight tubes. Yellow: the dish; dark truss: the back frame; green: the fine stage's tangential rods; brown: its water columns. Orange: the axle bodies and cranks on the elevation axis; red: the struts; blue spheres: the water. Purple: F. Orange ring: the vertex's ideal position F - 4 s for the current sun; dashed teal: the sun line. Deck at env z 5.0."))
-page = open("page_template.html").read().replace("<!--PLATES_SETUP-->", "\n".join(SETUP)).replace("<!--ANIM_JS-->", ANIM_JS).replace("<!--PLATES_MOUNT-->", "\n".join(MOUNT)).replace("<!--PLATES_FLOWER-->", "\n".join(FLOWER)).replace("<!--FLOWER_TABLE-->", CORR).replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
+
+CD = "stage3/coude/out/"
+import json as _j
+_O = _j.load(open(CD + "optics.json")); _sh = open(CD + "shading.txt").read()
+BEHIND = []
+BEHIND.append(plate3d(46, "Everything behind the dish: Cassegrain head on its style, hollow flexure neck, one stalk, the beam down inside (equinox noon)", CD + "cd_equinox_noon.json",
+  "Fourth pass. The secondary stands on a conical style inside its own shadow; the beam returns through a 0.12 m hole to an image behind the vertex, M3 on the head turns it along the neck axis through the hollow trunnion pivot, M4 at the stalk turns it down to the cass machine's F2 and the unchanged underground relay. Nothing of the mount is in front of the membrane.",
+  [("optics", f"secondary r {_O['r_sec']:.2f} m at {_O['D_SEC']} m (magnification {_O['m']:.1f}, f_eff {_O['f_eff']:.0f} m); hole r {_O['r_hole']:.2f} m; image r {_O['r_img']:.2f} m 1.0 m behind the vertex; M3 r {_O['r_m3']:.2f} m, M4 r {_O['r_m4']:.2f} m, both at 45 deg at every elevation"),
+   ("shading", "raster along the sun line: secondary and style 2.3 %, rim toroid 0.1 %, mount 0, folds 0: 2.45 % of the aperture; the tube machine: tube 9.8 %, strip ring 1.5 %, hole 5.7 %, slot 8.1 % when open"),
+   ("light", "4 reflections above ground instead of 2; net at the pot 1.03-1.14 x the tube machine's; no strip, no slaved ring, no slot, no flaps"),
+   ("neck", f"elevation axis {_O['NECK']} m behind the vertex meeting the stalk's axis {_O['OFF']} m beside the dish axis; two-stage hollow cartwheel pivot (6 radial blades 250 x 1.0 x 120 mm per stage around a 0.6 m bore): rank 5, DOF 1, 71 deg at 0.17 sigma_y, blade SF 6.5 / 2.0 at 9 / 25 m/s"),
+   ("head", "dish + style + secondary + M3 on the diaphragm fine stage (sheets 38-39) on a short frame; water counterweights 151 kg behind the neck and 136 kg beyond the stalk, both in the shadow; screw jack 2 / 15 kN"),
+   ("size", f"stalk to the neck at env z {_O['z_neck']:.2f} m; lowest rim 0.2 m over the deck at el 12; the head sweeps 7.9 m about the neck, the roof a circle of about 8.5 m about the stalk; no F to keep, so it scales with the dish")],
+  legend(CD + "cd_equinox_noon.json")))
+BEHIND.append(plate(47, "Equinox noon: engineering views", CD + "cd_equinox_noon_views.svg", "isometric from the south-west; detail of M3 at the neck, the hollow pivot and M4 in the yoke; plan, front, side",
+  [("plan", "one stalk, the head 1.4 m to its side, the counterweights on the far side and behind the neck"), ("side", "the beam from the dish axis along the neck and down the stalk to F2 below the yoke")], "Hidden-line projection of the CadQuery model; light grey: deck, wall, bore, pot, underground mirror."))
+BEHIND.append(plate3d(48, "Hollow cartwheel trunnion: radial blades in planes through the neck axis around the beam's bore", CD + "cd_pivot.json",
+  "The constraint space of a rotation is every line meeting its axis; a blade in a plane through the axis supplies three of them without reaching it. Six per stage, two stages in series, the bore open for the relayed image inside it.",
+  [("check", "18 lines per stage, rank 5, DOF 1 = rotation about the neck; reciprocal products 0; the axis line empty"), ("range", "+-25.8 deg per stage at 0.25 sigma_y, 0.17 sigma_y at el 12 and 83; 208 N m/rad in series"),
+   ("loads", "the side-hung head and the crosswind about the vertical: 3.2 / 10.2 kN m at 9 / 25 m/s -> 1.8 / 5.7 kN per blade in plane, buckling 11.4 kN")], legend(CD + "cd_pivot.json")))
+BEHIND.append(plate(49, "Hollow cartwheel trunnion: engineering views", CD + "cd_pivot_views.svg", "isometric; detail of stage A; plan, front (the six blades as spokes around the bore), side", [("orange", "12 radial blades"), ("dark", "ground ring on the yoke arm, intermediate ring across both stages, moving ring to the neck bar")], "Hidden-line projection of the same model."))
+BEHIND.append(plate(50, "Summer noon and equinox morning", CD + "cd_summer_noon_views.svg", "el 83: the dish flat over the neck, only the style and the secondary above it; the morning sheet stage3/coude/out/cd_morning_views.svg shows el 38 with everything behind",
+  [("shading at el 83", "2.45 %, the same as at noon and in the morning: the shadow is the secondary's alone at every hour")], "Hidden-line projection."))
+BEHIND.append(plate(51, "Equinox day, 8-16 h", CD + "cd_sweep_views.svg", "rims, neck bars, spines, secondary axes and counterweight arms about one stalk",
+  [("footprint", "the head's sweep about the neck 7.9 m, about the stalk a circle of about 8.5 m; the stalk 2 m tall instead of two 4.9 m posts")], "Hidden-line projection."))
+SHADE_TABLE = """<table class="corr"><tr><th>in front of the membrane, fraction of the aperture</th><th>tube machine (cass, third pass mount)</th><th>fourth pass</th></tr>
+<tr><td>focal tube (Hashemi's near method), el 59</td><td>9.8 %</td><td>none</td></tr>
+<tr><td>strip's slew ring at the tube top</td><td>1.5 %</td><td>none</td></tr>
+<tr><td>centre hole</td><td>5.7 % (r 0.50 m)</td><td>0.3 % (r 0.12 m)</td></tr>
+<tr><td>slot for the tube, open above el 54</td><td>8.1 %</td><td>none</td></tr>
+<tr><td>secondary and its support</td><td>the strip, not counted (a secondary's own)</td><td>2.3 % (secondary; the style inside it)</td></tr>
+<tr><td>mount, folds, counterweights</td><td>0 (third pass, outside the aperture)</td><td>0 (behind the membrane)</td></tr>
+<tr><td>total</td><td>17 % slot shut, 25 % slot open</td><td>2.5 %</td></tr>
+<tr><td>reflections above ground</td><td>2</td><td>4 (x0.88 at 0.94)</td></tr>
+<tr><td>light at the pot, relative</td><td>1.00</td><td>1.03 (slot shut) to 1.14 (slot open)</td></tr>
+</table>"""
+page = open("page_template.html").read().replace("<!--PLATES_BEHIND-->", "\n".join(BEHIND)).replace("<!--SHADE_TABLE-->", SHADE_TABLE).replace("<!--PLATES_SETUP-->", "\n".join(SETUP)).replace("<!--ANIM_JS-->", ANIM_JS).replace("<!--PLATES_MOUNT-->", "\n".join(MOUNT)).replace("<!--PLATES_FLOWER-->", "\n".join(FLOWER)).replace("<!--FLOWER_TABLE-->", CORR).replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
 open(os.path.join(OUT, "flexure_register.html"), "w").write(page); print("page:", os.path.getsize(os.path.join(OUT, "flexure_register.html"))//1024, "KB")
