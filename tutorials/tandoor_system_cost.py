@@ -40,6 +40,8 @@ PRICES = dict(dish_m2=1200.0,      # aluminized film 400 + rim ring, plenum and 
               lid=500.0,           # a steel lid, x 0.18/lid_leak
               sand_fixed=3000.0,   # dig out the floor, sand, a lining box
               fins_m2_per_k=400.0, # rebar fins per m2 of bed per W/mK of effective conductivity above plain sand
+              rim_m=700.0,         # a SECTION's rim: rolled steel tube following the parent's curve, per metre (both rims)
+              gores=1.25,          # a section's film is pre-formed to the parent in gores: seams and cutting, x on the film
               fixed=25000.0)       # controller, encoders, sun sensor, wiring, labour
 A_MEM0 = 2.10           # nominal membrane radius [m] (hashemi a_mem)
 G_ORBIT0 = 4.0          # nominal fold orbit [m]; ring rail radius = G_ORBIT0 x s + 0.6
@@ -51,14 +53,17 @@ BUDGET = 100000.0       # the target price of the kit [PKR]
 def capital(d):
     """d: dict of design values (both boxes). The itemised bill of the kit."""
     s = d.get("dish_scale", 1.0); deck = d.get("deck_h", 4.0)
-    A_dish = np.pi * (A_MEM0 * s) ** 2
+    section = d.get("site", 0.0) >= 0.5                     # the membrane is a section of the parent (surface block > 0)
+    rise = d.get("rise", 0.0) if section else 0.0
+    A_dish = d.get("film_m2", np.pi * (A_MEM0 * s) ** 2) if section else np.pi * (A_MEM0 * s) ** 2
     th = np.radians(d.get("strip_th_hi", 100.0)); r_mean = 1.4 * d.get("d_strip", 0.6)
     A_strip = r_mean * th * d.get("strip_wk", 1.1) * r_mean
     A_m4 = np.pi * d.get("r_m4", 1.3) ** 2
     A_bore = 2 * np.pi * d.get("r_bore", 0.7) * (L_BORE + (deck - 4.0))
-    post = d.get("mount_post", 0.0) >= 0.5
+    post = (d.get("mount_post", 0.0) >= 0.5) or section
     ins = min(max(d.get("ins_scale", 1.0), 0.2), 1.0)
-    items = dict(dish=PRICES["dish_m2"] * A_dish, tower=PRICES["tower_m"] * deck,
+    dish_cost = PRICES["dish_m2"] * A_dish * (PRICES["gores"] if section else 1.0) + (PRICES["rim_m"] * d.get("rim_m", 0.0) if section else 0.0)
+    items = dict(dish=dish_cost, tower=PRICES["tower_m"] * (deck + rise),
                  mount=PRICES["post_mount"] if post else PRICES["rail_m"] * 2 * np.pi * (G_ORBIT0 * s + 0.6),
                  motors=PRICES["motors"] * d.get("rate_scale", 1.0) ** 1.5,
                  strip=PRICES["strip_m2"] * A_strip, m4=PRICES["m4_m2"] * A_m4, bore=PRICES["bore_m2"] * A_bore,

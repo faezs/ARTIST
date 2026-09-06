@@ -608,6 +608,9 @@ def _ellip_hit(h, d, O, A, a_e, c_e):
     return t, X, n, valid
 
 
+N_LEV_SURF = 7   # pressure levels per surface block (N_LEVELS); pts_l stacks blocks of this many
+
+
 def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
                    Mt, Cd, dvec, off, vp, sc, scb,
                    ellM, ellS, ellC, V0t, fct=None):
@@ -623,15 +626,20 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     membrane-crossing test, ok_post_tube = after the bore gates,
     h1 = strip hit, h2 = M4 hit, h3 = duct-plane hit, desc = strip hit."""
     csr_frac_c, csr_sig_c = sc[20], sc[21]
-    i0 = lv.long().clamp(0, pts_l.shape[0] - 2)
-    fr = (lv - i0.float())[:, None, None]
+    if fct is None:
+        fct = torch.cat([sc[106:145], sc[13:14]])[None, :].expand(lv.shape[0], -1)
+    # the surface block (design table [60]): pts_l stacks N_LEV_SURF levels per
+    # block - the built circle first, then the installed SECTIONS of the parent
+    L = N_LEV_SURF if pts_l.shape[0] > N_LEV_SURF else pts_l.shape[0]
+    i0 = lv.long().clamp(0, L - 2)
+    if fct.shape[1] > 60 and pts_l.shape[0] > N_LEV_SURF:
+        i0 = i0 + (fct[:, 60] + 0.5).long() * L
+    fr = (lv - lv.long().clamp(0, L - 2).float())[:, None, None]
     p_loc = (1 - fr) * pts_l[i0] + fr * pts_l[i0 + 1]
     n_loc = (1 - fr) * nrm_l[i0] + fr * nrm_l[i0 + 1]
     n_loc = n_loc / n_loc.norm(dim=-1, keepdim=True)
     # the dish scale (design table [40]): uniform scaling of the membrane
     # about the frame origin, f and a scale together (kernel twin)
-    if fct is None:
-        fct = torch.cat([sc[106:145], sc[13:14]])[None, :].expand(lv.shape[0], -1)
     if fct.shape[1] > 40:
         p_loc = p_loc * fct[:, 40, None, None]
     tq = us.clamp(0, 1) * 64.0
@@ -1084,6 +1092,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # roof_table: a JSON list of roof half-width quantiles [m] (0..1 in
         # equal steps) from building footprints; None = the placeholder
         rt = kwargs.pop("roof_table", None)
+        # sections: the section library (tandoor_section_library.py) - the
+        # membranes the sites allow, installed as surface blocks after the
+        # built dish; the design's "section" knob picks them per agent
+        self._sections_path = kwargs.pop("sections", None)
+        self._seclib = None
         self._roof_q = None
         if rt:
             import json as _json
@@ -1890,6 +1903,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         prm[41] = self.el_max_h
         self._mnt_prm = torch.tensor(prm, device=dev)
         self._finish_trace_build(a, g, f_design)
+        if self._sections_path:
+            self._load_section_library(str(self._sections_path))
         self._build_design_table()
 
     # ------------------------------------------------------ design #
@@ -1939,8 +1954,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                ("bread_area", 0.08, 0.16), ("loaves_per_load", 4.0, 8.0),
                ("mount_post", 0.0, 1.0),
                ("sand_depth", 0.0, 0.40), ("sand_k", 0.3, 3.0),
-               ("demand_scale", 0.5, 2.0))
-    SITE_KEYS = ("roof_r", "cap_scale", "demand_scale")   # drawn with the site, never chosen
+               ("demand_scale", 0.5, 2.0),
+               ("section", 0.0, 1.0),      # >= 0.5: the membrane is the SECTION of the parent the site allows (else the scaled circle)
+               ("post_rise", 0.0, 3.0),    # F raised above the as-built under-swing height [m]: the tallness that lets a section overhang
+               ("over_cap", 0.0, 1.0))     # SITE: how far past the parapet the neighbours accept the rim (thirds: 1.0 / 2.0 / 3.5 m)
+    SITE_KEYS = ("roof_r", "cap_scale", "demand_scale", "over_cap")   # drawn with the site, never chosen
     #: THE SAND INSIDE THE TANDOOR (user): the hearth and floor sit on a
     #: sand bed of sand_depth [m] the beam charges directly and that
     #: gives the heat back to the cavity at night; sand_k [W/mK] is its
@@ -1950,12 +1968,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: the rest, an insulated bottom.
     SAND_RC = 1.28e6          # sand volumetric heat capacity [J/m3K]
     SAND_TOP = 0.08           # the sub layer's depth [m]
-    N_DESIGN = 9 + 12
+    N_DESIGN = 9 + 15
     FCT_W = 72
     #: system block layout in the design table (offset 40)
     DS = dict(s=40, s2=41, zfold=42, zdeck=43, rate=44, ins=45, cap=46,
               lid=47, bread=48, hb=49, roti=50, lfp=51, lpl=52, fnom=53,
               amem=54, gorb=55, demand=56, roof=57, post=58, rail=59,
+              site=60,                  # the primary's SURFACE BLOCK: 0 the built circle, k >= 1 the k-th installed section
+              film=61, rim=62, rise=63, ocap=64,  # info for the bill and the readouts: film area [m2], rim length [m], post rise [m], overhang cap [m]
               sand_d=70, sand_k=71)     # the sand column: depth [m], conductivity [W/mK]; [56] the shop's demand scale
 
 
@@ -1997,7 +2017,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  lpl=float(self.loaves_per_load), fnom=float(self.f_nom),
                  amem=float(self.a_mem), gorb=float(self.g_orbit),
                  roof=float(self.sweep0), post=0.0, rail=float(self.r_rail),
-                 sand_d=0.0, sand_k=0.3, demand=1.0)
+                 sand_d=0.0, sand_k=0.3, demand=1.0, site=0.0,
+                 film=float(np.pi * self.a_mem ** 2), rim=float(2 * np.pi * self.a_mem), rise=0.0, ocap=0.0)
         if sys:
             d.update(sys)
         row = rec + [0.0] * (self.FCT_W - 40)
@@ -2049,13 +2070,27 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             roof = float(self._roof_quantile(sv["roof_r"]))
             post = bool(sv["mount_post"] >= 0.5)
             s = float(self.roof_to_scale(roof, sv["deck_h"], post))
-            # the dish, its focal length and the orbit scale together;
-            # the deck sets the fold height and the receiver's F
-            self.a_mem = base["a_mem"] * s
-            self.f_nom = base["f_nom"] * s
-            self.g_orbit = base["g_orbit"] * s
+            # THE SECTION (user, 2026-09-07): the membrane is the part of the
+            # parent primary (f, F and the receiver unchanged) that stays
+            # legal over the year on this roof, with the post raised by
+            # post_rise so it may overhang the neighbours at height; the
+            # library holds the film and its optics per (roof, cap, rise)
+            rec, blk = (None, 0)
+            if self._seclib is not None and sv.get("section", 0.0) >= 0.5:
+                rec, blk = self._pick_section(roof, sv.get("over_cap", 0.5), sv.get("post_rise", 0.0))
+            rise = float(rec["rise"]) if rec is not None else 0.0
+            if rec is not None:
+                s, post = 1.0, True                       # the parent as built; a post mount (no ring rail fits these roofs)
+                self.a_mem = float(rec["r_out_max"])      # the film's reach (the rim-height cap reads it); optics from the block
+                self.f_nom = base["f_nom"]; self.g_orbit = base["g_orbit"]
+            else:
+                # the dish, its focal length and the orbit scale together;
+                self.a_mem = base["a_mem"] * s
+                self.f_nom = base["f_nom"] * s
+                self.g_orbit = base["g_orbit"] * s
+            # the deck sets the fold height and the receiver's F; the post rise lifts F further
             self.z_deck = H_POT + float(sv["deck_h"])
-            self.z_fold = base["z_fold"] + (self.z_deck - base["z_deck"])
+            self.z_fold = base["z_fold"] + (self.z_deck - base["z_deck"]) + rise
             self._build_cass_chain()
             A = float(sv["bread_area"])
             sysd = dict(s=s, s2=s * s, zfold=self.z_fold, zdeck=self.z_deck,
@@ -2069,7 +2104,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                         roof=roof, post=float(post),
                         rail=0.0 if post else base["g_orbit"] * s + self.RAIL_MARGIN,
                         sand_d=float(sv["sand_depth"]), sand_k=float(sv["sand_k"]),
-                        demand=float(sv["demand_scale"]))
+                        demand=float(sv["demand_scale"]),
+                        site=float(blk), rise=rise,
+                        film=float(rec["area"]) if rec is not None else float(np.pi * (base["a_mem"] * s) ** 2),
+                        rim=float(rec["perimeter"]) if rec is not None else float(2 * np.pi * base["a_mem"] * s),
+                        ocap=float(rec["cap"]) if rec is not None else 0.0)
             rows[b] = self._design_row(sysd)
         for k, vv in nominal.items():
             setattr(self, k, vv)
@@ -2142,7 +2181,75 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             d["roof_r"] = self._roof_quantile(d["roof_r"])
         fct = self._fct.detach().cpu().numpy()
         d["dish_scale"] = fct[:, self.DS["s"]].astype(np.float64)
+        for k in ("site", "film", "rim", "rise", "ocap"):
+            d[k] = fct[:, self.DS[k]].astype(np.float64)
+        d["film_m2"], d["rim_m"] = d["film"], d["rim"]
         return d
+
+    SEC_CAPS = (1.0, 2.0, 3.5)          # the library's overhang caps [m], picked by thirds of the over_cap site key
+
+    def _load_section_library(self, path):
+        """install every non-empty record of the library as a surface block and
+        keep the (roof, cap, rise) -> block map for _rows_from_u"""
+        lib = torch.load(path, weights_only=False)
+        recs, blocks, keys = [], {}, sorted(lib["records"].keys())
+        for k in keys:
+            r = lib["records"][k]
+            if r.get("empty", False) or r.get("area", 0.0) < 1.0:
+                continue
+            blocks[k] = 1 + len(recs); recs.append(r)
+        self.install_sections([dict(pts=r["pts"], nrm=r["nrm"], ray_pw=r["ray_pw"]) for r in recs])
+        self._seclib = dict(lib=lib, blocks=blocks, recs=recs, roof_hw=np.asarray(lib["roof_hw"], dtype=np.float64),
+                            caps=tuple(lib["caps"]), rises=np.asarray(lib["rises"], dtype=np.float64))
+        print(f"  [hashemi] section library: {len(recs)} films installed from {len(keys)} (roof x cap x rise) records")
+
+    def _pick_section(self, roof_hw, cap_u, rise):
+        """nearest library record for a roof half-width [m], the over_cap site
+        coordinate (0..1) and a post rise [m] -> (record, block) or (None, 0)"""
+        L = self._seclib
+        ir = int(np.argmin(np.abs(L["roof_hw"] - float(roof_hw))))
+        ic = min(int(float(cap_u) * len(L["caps"])), len(L["caps"]) - 1)
+        idl = int(np.argmin(np.abs(L["rises"] - float(rise))))
+        k = (ir, ic, idl)
+        if k not in L["blocks"]:
+            return None, 0
+        return L["lib"]["records"][k], L["blocks"][k]
+
+    def install_sections(self, sections):
+        """SECTIONS of the parent primary as extra surface blocks: each a dict
+        with pts (L,P,3), nrm (L,P,3) in the dish's body frame and ray_pw (P,)
+        (tandoor_section_surface.build_section, P = n_rays, L = N_LEVELS).
+        Block 0 stays the built circular dish; block k is sections[k-1]. An
+        agent's block is design-table column DS['site']; the kernels read
+        pts_l/nrm_l/ray_pw stacked, the torch binning per-agent weights."""
+        assert self.receiver == "cass", "sections: receiver='cass' only"
+        L, P = self.N_LEVELS, len(self._hx)
+        if not hasattr(self, "_surf0"):
+            self._surf0 = (self._pts_l.clone(), self._nrm_l.clone(), self._ray_pw.clone())
+        pts, nrm, pw = [self._surf0[0]], [self._surf0[1]], [self._surf0[2]]
+        for sd in sections:
+            sp, sn, spw = sd["pts"], sd["nrm"], sd["ray_pw"]
+            assert sp.shape[0] == L and sp.shape[2] == 3, (sp.shape, (L, P, 3))
+            if sp.shape[1] != P:
+                # a different ray count: an even stride through the equal-area sequence keeps it uniform; the weights keep the area
+                idx = torch.as_tensor(np.round(np.linspace(0, sp.shape[1] - 1, P)).astype(np.int64))
+                sp, sn, spw = sp[:, idx], sn[:, idx], spw[idx] * (sp.shape[1] / P)
+            pts.append(sp.to(self.device, torch.float32)); nrm.append(sn.to(self.device, torch.float32))
+            pw.append(spw.to(self.device, torch.float32) * float(self._loss_chain) / float(sd.get("loss_chain", 1.0)))
+        self._pts_l = torch.cat(pts, 0).contiguous(); self._nrm_l = torch.cat(nrm, 0).contiguous()
+        self._ray_pw = torch.cat(pw, 0).contiguous()
+        self._sections = list(sections); self.N_SURF = 1 + len(sections)
+        self._refresh_site_weights()
+        return self
+
+    def _refresh_site_weights(self):
+        """the per-agent ray weights the torch binning uses (block from DS['site'])"""
+        S = int(getattr(self, "N_SURF", 1)); P = len(self._hx)
+        if S <= 1 or getattr(self, "_fct", None) is None:     # no sections, or the table not built yet (init order)
+            self._ray_pw_agent = None; return
+        site = (self._fct[:, self.DS["site"]] + 0.5).long().clamp(0, S - 1)
+        self._ray_pw_agent = self._ray_pw.view(S, P)[site]
+        self._site_idx = site
 
     def _apply_system_design(self):
         """Per-env arrays of the system design for the numpy and torch
@@ -2150,6 +2257,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         scale, lid leak, roti size/energy, loaves per lean, the scaled
         wall conductance and thermal mass, the dish-area factor."""
         B, N = self.num_agents, self.n_nodes
+        self._refresh_site_weights()
         D = {k: i - 40 for k, i in self.DS.items()}
         ds = self._fct[:, 40:].detach().cpu().numpy().astype(np.float64)
         # the sand columns: depth and conductivity per agent, layers of >= 5 cm

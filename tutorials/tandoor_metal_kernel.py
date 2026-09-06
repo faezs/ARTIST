@@ -53,7 +53,7 @@ static inline bool hits_column(float px, float py, float pz,
 // step-kernel capacity guards (host asserts n_nodes/n_belt fit)
 #define NMAX 20
 #define NBMAX 12
-#define FCTW 72   // per-env design table width: [0..39] receiver, [40..59] system, [70] sand depth, [71] sand conductivity
+#define FCTW 72   // per-env design table width: [0..39] receiver, [40..59] system, [60] surface block, [70] sand depth, [71] sand conductivity
 #define KSAND 8   // layers of the sand column under the hearth and the floor (>= 5 cm each)
 #define RU 20     // uniforms per agent per step: [0] cloud, [1..15] fresh-pot temps, [16..19] the demand process
 #define NDEM 3    // demand state per agent at the row's end: orders waiting, rotis on the shelf, sold today
@@ -399,10 +399,14 @@ kernel void tandoor_trace(
     const float3 eprp = float3(vp[vb+18], vp[vb+19], vp[vb+20]);
     const float3 CdV  = float3(Cd[b*3+0], Cd[b*3+1], Cd[b*3+2]);
 
-    // ---- membrane level-lerp (the fused bounce)
+    // ---- membrane level-lerp (the fused bounce); the SURFACE BLOCK from the
+    // design table [60]: pts_l stacks L levels per block (0 the built circle,
+    // k the k-th installed section of the parent), ray_pw one row per block
     float lvb = lv[b];
+    int sblk = int(fct[b*FCTW + 60] + 0.5f);
     int i0 = clamp(int(lvb), 0, L-2);
     float fr = lvb - float(i0);
+    i0 += sblk*L;
     int o0 = (i0*P + ip)*3, o1 = ((i0+1)*P + ip)*3;
     float3 p_loc = (1.0f-fr)*float3(pts_l[o0],pts_l[o0+1],pts_l[o0+2])
                  +        fr*float3(pts_l[o1],pts_l[o1+1],pts_l[o1+2]);
@@ -898,7 +902,7 @@ kernel void tandoor_trace(
         int node = (hitf || sz < -HD + 0.12f) ? NB
                    : (sz > -0.22f ? NB + 2
                       : (sz > -0.85f ? seg : NB + 3 + seg4));
-        float wgt = ray_pw[ip] * soil[b] * fct[b*FCTW + 41] * (sh_thr ? sh_w : 0.0f)
+        float wgt = ray_pw[int(fct[b*FCTW + 60] + 0.5f)*P + ip] * soil[b] * fct[b*FCTW + 41] * (sh_thr ? sh_w : 0.0f)
                     * scb[sb+4] * scb[sb+5]
                     * (sc[105] > 0.5f ? 0.95f : 1.0f);
         atomic_fetch_add_explicit(
@@ -1528,7 +1532,8 @@ class MetalGeo:
                  Acan, Mt, Cd, dvec, off, vp, sc, ellM, ellS, ellC,
                  V0t, ray_pw, soil, n_nodes, aim, scb, fct=None):
         B, P = du.shape
-        L = pts_l.shape[0]
+        S = max(1, int(ray_pw.numel()) // P)      # surface blocks (the built circle + installed sections)
+        L = pts_l.shape[0] // S                    # pressure levels per block
         dev = du.device
         thr = torch.empty(B * P, dtype=torch.float32, device=dev)
         out6 = torch.empty(B * P, 6, dtype=torch.float32, device=dev)
@@ -1552,7 +1557,7 @@ class MetalGeo:
             k = min(39, max(0, int(sc.shape[0]) - 106))
             row[:k] = sc[106:106 + k]
             row[39] = sc[13]
-            row[40] = 1.0; row[41] = 1.0; row[44:47] = 1.0; row[60:70] = 1.0
+            row[40] = 1.0; row[41] = 1.0; row[44:47] = 1.0; row[61:70] = 1.0   # [60] = block 0, the built dish
             row[51] = float(getattr(self, "loaf_h", 0.1732))
             fct = row[None, :].expand(B, -1)
         self.lib.tandoor_trace(

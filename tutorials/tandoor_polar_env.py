@@ -507,7 +507,9 @@ class TandoorPolarEnv(TandoorEnv):
         rs = getattr(self, "_ray_scale", 1.0)
         if torch.is_tensor(rs):
             rs = rs.to(pxp.device)[:, None]   # per-env cosine + gate
-        w = ((self._ray_pw[None, :] * soil_t[:, None] * rs).reshape(-1)
+        pw = getattr(self, "_ray_pw_agent", None)         # per-agent (B,P) when surface blocks differ (sections)
+        pw = self._ray_pw[None, :] if pw is None else pw
+        w = ((pw * soil_t[:, None] * rs).reshape(-1)
              * through.reshape(-1).float())
         if self.render_mode == "human":
             # pot-frame strikes for the kitchen view: where the jet

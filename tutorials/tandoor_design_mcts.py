@@ -20,7 +20,7 @@ from tandoor_design_readout import Policy, env_kwargs, DEV
 import tandoor_system_cost as C
 
 ORDER = ["mount_post", "deck_h", "sand_depth", "sand_k", "ins_scale", "bread_area", "rate_scale", "d_strip", "r_bore", "r_m4",
-         "w_slot", "strip_th_hi", "strip_wk", "r_hole", "u_f2", "r_duct", "lid_leak", "loaves_per_load"]
+         "w_slot", "strip_th_hi", "strip_wk", "r_hole", "u_f2", "r_duct", "lid_leak", "loaves_per_load", "section", "post_rise"]
 SITE_U = {"cap_scale": 0.375, "demand_scale": 1.0 / 3.0}   # the site's pit (1.0x wall) and shop (1.0x demand): fixed at the root
 NBIN = 3
 

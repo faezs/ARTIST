@@ -57,14 +57,27 @@ def cell_weights(phi, dx):
 def solve_fvk(phi, dx, p, T_pre, E_mod, h_film, nu=0.34, linear=False,
               rho_areal=0.0, tilt_deg=0.0, tilt_dir=(1.0, 0.0),
               iters=(400, 600), lr=None, device=None, verbose=False,
-              w_init=None):
+              w_init=None, w0=None):
     """Minimise the FvK energy on the domain {phi < 0}.
 
     phi   : [Nx, Ny] level set on nodes, metres (negative inside)
     p     : scalar or [Nx, Ny] transverse pressure [Pa]
     T_pre : isotropic pretension [N/m]
     rho_areal, tilt_deg, tilt_dir : gravity of the film+backing at tilt
-    returns dict(w, u, v, wx, wy, inside, cellw, energy)
+    w0    : optional [Nx, Ny] REFERENCE SHAPE (metres). None: a flat sheet on
+            a planar rim (the classic FvK). Given: the film is pre-formed to
+            w0 (gores cut for it), carries the isotropic pretension T_pre in
+            that shape, and is fixed to a rim that follows w0 along the
+            outline - the SECTION of a sphere on a sphere-conformal rim. The
+            unknown is the deviation wt (clamped at the rim), w = w0 + wt,
+            with Marguerre's shallow-shell strains
+                e_xx = u,x + w0,x wt,x + wt,x^2/2   (etc.)
+            and the pretension's work T (w0,x wt,x + w0,y wt,y + |grad wt|^2/2),
+            whose first variation -T lap(w0) balances the pressure: for a
+            sphere of radius R, p = 2T/R gives wt = 0 exactly (Laplace).
+            Shallow-shell theory: trust it to slopes ~0.5; the far end of a
+            deep section is reported, not hidden.
+    returns dict(w, u, v, wx, wy, inside, cellw, energy[, wt])
     """
     device = device or torch.device("cpu")
     phi = torch.as_tensor(phi, dtype=torch.float64, device=device)
@@ -90,6 +103,12 @@ def solve_fvk(phi, dx, p, T_pre, E_mod, h_film, nu=0.34, linear=False,
     td = td / max(np.linalg.norm(td), 1e-12)
     p_eff = p + g_n
 
+    curved = w0 is not None
+    if curved:
+        w0 = torch.as_tensor(w0, dtype=torch.float64, device=device)
+        w0x, w0y = _cell_grads(w0, dx)
+        if w_init is None:
+            w_init = torch.zeros_like(phi)
     # initial guess: linear membrane solution scaled by the mean pressure
     if w_init is None:
         # exact LINEAR membrane solution w = p(a^2-r^2)/(4T); with a signed
@@ -109,14 +128,22 @@ def solve_fvk(phi, dx, p, T_pre, E_mod, h_film, nu=0.34, linear=False,
         wx, wy = _cell_grads(wm, dx)
         ux, uy = _cell_grads(um, dx)
         vx, vy = _cell_grads(vm, dx)
-        e_xx = ux + 0.5 * wx * wx
-        e_yy = vy + 0.5 * wy * wy
-        e_xy = 0.5 * (uy + vx) + 0.5 * wx * wy
+        if curved:
+            # Marguerre: strains of the deviation from the pre-formed shape
+            e_xx = ux + w0x * wx + 0.5 * wx * wx
+            e_yy = vy + w0y * wy + 0.5 * wy * wy
+            e_xy = 0.5 * (uy + vx) + 0.5 * (w0x * wy + w0y * wx) + 0.5 * wx * wy
+            pre = T_cell * (w0x * wx + w0y * wy + 0.5 * (wx * wx + wy * wy))
+        else:
+            e_xx = ux + 0.5 * wx * wx
+            e_yy = vy + 0.5 * wy * wy
+            e_xy = 0.5 * (uy + vx) + 0.5 * wx * wy
+            pre = 0.5 * T_cell * (wx * wx + wy * wy)
         # NB: the T*(u,x+v,y) term is analytically zero for clamped
         # in-plane BCs (divergence theorem) but is NOT numerically zero
         # under cell weighting - keeping it lets the optimiser manufacture
         # spurious in-plane strain and a far too floppy membrane. Dropped.
-        dens = (0.5 * T_cell * (wx * wx + wy * wy)
+        dens = (pre
                 + 0.5 * K * (e_xx**2 + 2 * nu * e_xx * e_yy + e_yy**2
                              + 2 * (1 - nu) * e_xy**2)
                 - _cell_avg(p_eff) * _cell_avg(wm)
@@ -151,6 +178,11 @@ def solve_fvk(phi, dx, p, T_pre, E_mod, h_film, nu=0.34, linear=False,
         out = dict(w=wm.detach(), u=(u * cut).detach(),
                    v=(v * cut).detach(), wx=wx.detach(), wy=wy.detach(),
                    inside=inside, cellw=cw, energy=float(energy()))
+        if curved:
+            # report the TOTAL shape; the deviation separately
+            out["wt"] = out["w"]
+            out["w"] = (w0 * inside).detach() + out["wt"] if False else (w0 + out["wt"]).detach()
+            out["wx"], out["wy"] = (w0x + wx).detach(), (w0y + wy).detach()
     return out
 
 
@@ -192,3 +224,41 @@ def ellipse_phi(Nx, extent, ax, ay):
     # signed-distance-like level set (scaled so |grad phi| ~ 1)
     q = torch.sqrt((X / ax) ** 2 + (Y / ay) ** 2)
     return (q - 1.0) * min(ax, ay)
+
+
+def grid(N, extent, centre=(0.0, 0.0)):
+    """node coordinates X, Y [N, N] of a square box of half-width extent about centre"""
+    xs = torch.linspace(-extent, extent, N, dtype=torch.float64)
+    X, Y = torch.meshgrid(xs, xs, indexing="ij")
+    return X + centre[0], Y + centre[1]
+
+
+def sphere_w0(X, Y, R):
+    """the parent sphere as a reference shape IN THE SOLVER'S CONVENTION:
+    w is positive toward the pressure side (the pumped film is a dome in w),
+    so the mirror's bowl of sag R - sqrt(R^2 - r^2) (vertex 0, rim high) is
+    w0 = -sag. Optics code reading w must negate it back to a sag."""
+    return -(R - torch.sqrt(torch.clamp(R * R - X * X - Y * Y, min=1e-9)))
+
+
+def polar_phi(X, Y, theta, rmax):
+    """level set of a star-shaped outline r_max(theta) (theta uniform on [-pi, pi)):
+    phi ~ r - r_max(theta(x, y)), negative inside"""
+    th = torch.atan2(Y, X); r = torch.sqrt(X * X + Y * Y)
+    thn = torch.as_tensor(theta, dtype=torch.float64); rm = torch.as_tensor(rmax, dtype=torch.float64)
+    # periodic linear interpolation of r_max
+    n = len(thn); dth = float(thn[1] - thn[0]); k = torch.floor((th - thn[0]) / dth).long() % n; fr = ((th - thn[0]) / dth) % 1.0
+    rmt = rm[k] * (1 - fr) + rm[(k + 1) % n] * fr
+    return r - rmt
+
+
+def rect_phi(X, Y, x0, x1, y0, y1):
+    """level set of an axis-aligned rectangle (signed distance-like)"""
+    dx_ = torch.maximum(x0 - X, X - x1); dy_ = torch.maximum(y0 - Y, Y - y1)
+    return torch.maximum(dx_, dy_)
+
+
+def slope_error_vs(res, w0x, w0y, mask=None):
+    """RMS slope error of the solved surface against a reference slope field (cell centres) [rad]"""
+    m = res["cellw"] > 0.99 if mask is None else mask
+    return float(torch.sqrt(((res["wx"] - w0x)[m] ** 2 + (res["wy"] - w0y)[m] ** 2).mean()))

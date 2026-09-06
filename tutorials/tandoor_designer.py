@@ -37,7 +37,7 @@ class Designer(torch.nn.Module):
     """site (3) -> Gaussian over the kit's NK logits."""
     def __init__(self, h=64):
         super().__init__()
-        self.net = torch.nn.Sequential(torch.nn.Linear(3, h), torch.nn.Tanh(), torch.nn.Linear(h, h), torch.nn.Tanh(), torch.nn.Linear(h, 2 * NK))
+        self.net = torch.nn.Sequential(torch.nn.Linear(len(SITE), h), torch.nn.Tanh(), torch.nn.Linear(h, h), torch.nn.Tanh(), torch.nn.Linear(h, 2 * NK))
         with torch.no_grad():
             self.net[-1].weight.mul_(0.1); self.net[-1].bias.zero_(); self.net[-1].bias[NK:] = math.log(1.2)   # start near uniform in the box
     def forward(self, site):
@@ -92,9 +92,12 @@ class Sim:
 def priced(sim, u, sold, budget):
     """the search's objective: sold rotis, one off per 50 PKR over the budget."""
     e = sim.e; cap = []
+    rows = e._rows_from_u(np.asarray(u, dtype=np.float64))          # the design table's own derivation: scale, film, rim, rise, site
     for b in range(u.shape[0]):
         d = {k: float(lo + u[b, i] * (hi - lo)) for i, (k, lo, hi) in enumerate(BOX)}
-        d["roof_r"] = float(e._roof_quantile(d["roof_r"])); d["dish_scale"] = float(e.roof_to_scale(d["roof_r"], d["deck_h"], d["mount_post"] >= 0.5))
+        d["roof_r"] = float(e._roof_quantile(d["roof_r"]))
+        d["dish_scale"] = float(rows[b, e.DS["s"]]); d["site"] = float(rows[b, e.DS["site"]]); d["film_m2"] = float(rows[b, e.DS["film"]])
+        d["rim_m"] = float(rows[b, e.DS["rim"]]); d["rise"] = float(rows[b, e.DS["rise"]])
         cap.append(C.capital(d)["total"])
     cap = np.array(cap); return sold - 0.02 * np.maximum(cap - budget, 0.0), cap
 
@@ -104,13 +107,14 @@ if __name__ == "__main__":
     ap.add_argument("--top", type=int, default=64); ap.add_argument("--seasoned", type=int, default=2); ap.add_argument("--budget", type=float, default=100000.0)
     ap.add_argument("--sites", default="0.25,0.5,0.75"); ap.add_argument("--out", default="/Users/faezs/ARTIST/tutorials/puffer_tandoor/watch/design_pop.json")
     ap.add_argument("--load", default=None)
+    ap.add_argument("--over-cap", type=float, default=0.5, help="site: the overhang the neighbours accept, as the box coordinate (thirds: 1.0 / 2.0 / 3.5 m)")
     args = ap.parse_args()
     torch.manual_seed(0); np.random.seed(0)
     des = Designer().to(DEV)
     if args.load: des.load_state_dict(torch.load(args.load, map_location=DEV))
     opt = torch.optim.Adam(des.parameters(), lr=3e-3)
     sim = Sim(args.ckpt, B=args.cand, seasoned=args.seasoned)
-    sites = [(float(r), 0.375, 1 / 3) for r in args.sites.split(",")]      # roof percentile, nominal pit, nominal shop
+    sites = [(float(r), 0.375, 1 / 3, args.over_cap) for r in args.sites.split(",")]      # roof percentile, nominal pit, nominal shop, the neighbours' tolerance
     pop = {"names": NAMES, "site_keys": SITE, "kit_index": I_KIT, "sites": {}}
     t0 = time.time()
     for g in range(args.gens):
