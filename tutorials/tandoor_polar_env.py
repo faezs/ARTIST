@@ -370,7 +370,8 @@ class TandoorPolarEnv(TandoorEnv):
         Th (B,); returns (Tc_new, q_bed (B,2) power from each surface into
         its bed, q_bot (B,) into the halo, bed (B,) mask)."""
         ka, d, k = prm; B = T.shape[0]; K = self.KSAND
-        bed = ka > 0; kas = np.maximum(ka, 1); dz = d / kas
+        bed = ka > 0; kas = np.maximum(ka, 1)
+        dz = np.where(bed, d / kas, 0.05)          # a dummy thickness where there is no bed (masked out below)
         L = np.arange(K)[None, :]; act = L < ka[:, None]
         Tc_new = Tc.copy(); q_bed = np.zeros((B, 2)); q_bot = np.zeros(B)
         for n, j in enumerate((self.n_belt, self.n_belt + 1)):

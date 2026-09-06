@@ -2135,7 +2135,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         -> (Tc_new, q_bed (B,2), q_bot (B,), bed (B,) mask)."""
         K = self.KSAND; B = T.shape[0]; dev = T.device
         ka = self._sand_ka_t; d = self._sand_d_t; k = self._sand_k_t
-        bed = ka > 0; kas = ka.clamp(min=1.0); dz = d / kas
+        bed = ka > 0; kas = ka.clamp(min=1.0)
+        dz = torch.where(bed, d / kas, torch.full_like(d, 0.05))   # a dummy thickness where there is no bed
         L = torch.arange(K, device=dev, dtype=T.dtype)[None, :]; act = (L < ka[:, None]).to(T.dtype)
         Tc_new = Tc.clone(); q_bed = torch.zeros(B, 2, device=dev, dtype=T.dtype); q_bot = torch.zeros(B, device=dev, dtype=T.dtype)
         for n, j in enumerate((self.n_belt, self.n_belt + 1)):
