@@ -1025,6 +1025,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # figure follows the day's declination (the dawn re-form is paid
         # for, never free; 1 = the old instant re-form)
         self.form_min = int(kwargs.pop("form_min", 4))
+        # r_rail: the azimuth ring rail's radius on the roof (Hashemi fig
+        # 18: the A-frames' rollers run on a fixed ring around the tower),
+        # g_orbit + 0.6 m by default; it must sit ON the roof - it cannot
+        # overhang - so it is the binding footprint of a rail mount. A
+        # central-post (trunnion) mount has no rail.
+        self.r_rail = float(kwargs.pop("r_rail", float(g_orbit) + 0.6))
         self.design_rand = int(kwargs.pop("design_rand", 0))
         self.design_seed = int(kwargs.pop("design_seed", 1234))
         # roof_table: a JSON list of roof half-width quantiles [m] (0..1 in
@@ -1437,6 +1443,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         cfg, dev = self.cfg, self.device
         cfg.a = self.a_mem
         a, g = float(cfg.a), self.g_orbit
+        # the machine's footprint on the roof: the dish sweep g + a (the
+        # design run scales both with the dish) and the ring rail
+        self.sweep0 = float(g + a)
+        self.g_orbit0 = float(g)       # the nominal orbit (the row builder scales g per agent)
 
         # -- the mount solve, all of it geometric:
         # NO tracking ceiling: Hashemi's fig-12 SLOT. The dish carries a
@@ -1771,8 +1781,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: dish is the largest that fits, s = roof_r / (g_orbit + a_mem) of
     #: the nominal machine, clipped to [S_LO, S_HI]. The obs column is
     #: the roof percentile.
-    SWEEP0 = 6.1               # nominal sweep radius g_orbit + a_mem [m]
     S_LO, S_HI = 0.35, 1.30
+    RAIL_MARGIN = 0.6          # ring rail radius = g_orbit x s + margin [m]
     ROOF_DEFAULT = (1.5, 12.0)  # log-uniform placeholder half-width [m]
     #: VERTICAL SPACE: a tiny roof can still carry a dish by going up -
     #: above DECK_CLEAR the sweep may overhang the parapet (neighbouring
@@ -1780,16 +1790,21 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: of deck above the clearance, at most OVERHANG_MAX (structure and
     #: wind). Assumption, to be replaced by a real setback rule.
     DECK_CLEAR, OVERHANG_PER_M, OVERHANG_MAX = 3.0, 1.0, 3.5
+    #: mount_post: the mount class - u < 0.5 a ring-rail mount (the rail
+    #: must sit on the roof: s <= (roof_r - margin) / g_orbit), u >= 0.5
+    #: a central-post trunnion mount (no rail; only the dish sweep, which
+    #: may overhang above the parapet, limits the dish)
     SYS_BOX = (("roof_r", 0.0, 1.0), ("deck_h", 3.0, 8.0),
                ("rate_scale", 0.5, 2.0), ("ins_scale", 0.3, 3.6),
                ("cap_scale", 0.5, 2.0), ("lid_leak", 0.05, 0.40),
-               ("bread_area", 0.08, 0.16), ("loaves_per_load", 4.0, 8.0))
-    N_DESIGN = 9 + 8
+               ("bread_area", 0.08, 0.16), ("loaves_per_load", 4.0, 8.0),
+               ("mount_post", 0.0, 1.0))
+    N_DESIGN = 9 + 9
     FCT_W = 64
     #: system block layout in the design table (offset 40)
     DS = dict(s=40, s2=41, zfold=42, zdeck=43, rate=44, ins=45, cap=46,
               lid=47, bread=48, hb=49, roti=50, lfp=51, lpl=52, fnom=53,
-              amem=54, gorb=55, roof=57)
+              amem=54, gorb=55, roof=57, post=58, rail=59)
 
     def _roof_quantile(self, u):
         """Roof half-width [m] at percentile u (0..1) from the site table."""
@@ -1800,16 +1815,21 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             return lo * (hi / lo) ** u
         return np.interp(u, np.linspace(0.0, 1.0, len(q)), q)
 
-    def roof_to_scale(self, roof_r, deck_h=None):
+    def roof_to_scale(self, roof_r, deck_h=None, post=False):
         """The largest dish that fits a roof of half-width roof_r [m] with
-        a deck deck_h [m] above the pot: the sweep may overhang the
-        parapet by what the height above DECK_CLEAR allows."""
+        a deck deck_h [m] above the pot. The dish sweep (g_orbit + a_mem,
+        scaled) may overhang the parapet by what the height above
+        DECK_CLEAR allows; a ring rail (post=False) cannot overhang, so
+        s <= (roof_r - RAIL_MARGIN) / g_orbit binds a rail mount."""
         r = np.asarray(roof_r, dtype=np.float64)
+        over = 0.0
         if deck_h is not None:
             over = np.clip((np.asarray(deck_h, dtype=np.float64) - self.DECK_CLEAR)
                            * self.OVERHANG_PER_M, 0.0, self.OVERHANG_MAX)
-            r = r + over
-        return np.clip(r / self.SWEEP0, self.S_LO, self.S_HI)
+        s = (r + over) / self.sweep0
+        s_rail = (r - self.RAIL_MARGIN) / max(float(getattr(self, "g_orbit0", self.g_orbit)), 1e-6)
+        s = np.where(np.asarray(post, dtype=bool), s, np.minimum(s, s_rail))
+        return np.clip(s, self.S_LO, self.S_HI)
 
     def _design_row(self, sys=None):
         """One design table row (64): _fc_table (39) + duct mouth + the
@@ -1823,7 +1843,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  lfp=float(np.sqrt(self.bread_area) / 2.0),
                  lpl=float(self.loaves_per_load), fnom=float(self.f_nom),
                  amem=float(self.a_mem), gorb=float(self.g_orbit),
-                 roof=float(self.SWEEP0))
+                 roof=float(self.sweep0), post=0.0, rail=float(self.r_rail))
         if sys:
             d.update(sys)
         row = rec + [0.0] * (self.FCT_W - 40)
@@ -1873,7 +1893,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             sv = {k: lo + ub * (hi - lo)
                   for (k, lo, hi), ub in zip(self.SYS_BOX, u[b, nr:])}
             roof = float(self._roof_quantile(sv["roof_r"]))
-            s = float(self.roof_to_scale(roof, sv["deck_h"]))
+            post = bool(sv["mount_post"] >= 0.5)
+            s = float(self.roof_to_scale(roof, sv["deck_h"], post))
             # the dish, its focal length and the orbit scale together;
             # the deck sets the fold height and the receiver's F
             self.a_mem = base["a_mem"] * s
@@ -1891,7 +1912,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                         lfp=float(np.sqrt(A) / 2.0),
                         lpl=float(int(round(sv["loaves_per_load"]))),
                         fnom=self.f_nom, amem=self.a_mem, gorb=self.g_orbit,
-                        roof=roof)
+                        roof=roof, post=float(post),
+                        rail=0.0 if post else base["g_orbit"] * s + self.RAIL_MARGIN)
             rows[b] = self._design_row(sysd)
         for k, vv in nominal.items():
             setattr(self, k, vv)
@@ -2052,7 +2074,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
               f"r={self.r_m5:.2f} at core base, track el "
               f"{self.el_min_h:.0f}-{self.el_max_h:.0f} (NO gate), "
               f"chain {self._loss_chain:.3f}")
-        print(f"  [hashemi] machine wholly on the roof: ring rail R 4.6, "
+        print(f"  [hashemi] machine wholly on the roof: ring rail R {self.r_rail:.1f}, "
               f"dish sweep r={g+a:.1f} m inside the parapet; beam sealed "
               f"below the roof deck")
 
@@ -3283,7 +3305,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # on. Elevation = the dish's position along the arc; azimuth
             # = the beam's rotation. Scaled from his 2 m yard unit.
             g, a = self.g_orbit, self.cfg.a
-            R_rail, R_ring = g + 0.35, 4.6
+            R_rail, R_ring = g + 0.35, self.r_rail
             zh_ = np.array([0., 0., 1.])
             hdir = -(u - u[2]*zh_)
             hdir = hdir / max(np.linalg.norm(hdir), 1e-9)

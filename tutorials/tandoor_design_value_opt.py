@@ -31,7 +31,9 @@ def capital_torch(d, roof):
     A_m4 = np.pi * d["r_m4"] ** 2
     A_bore = 2 * np.pi * d["r_bore"] * (C.L_BORE + (deck - 4.0))
     P = C.PRICES
-    return (P["dish_m2"] * A_dish + P["tower_m"] * deck + P["motors"] * d["rate_scale"] ** 1.5
+    p_post = d.get("mount_post", torch.zeros_like(s))
+    mount = p_post * P["post_mount"] + (1 - p_post) * P["rail_m"] * 2 * np.pi * (C.G_ORBIT0 * s + 0.6)
+    return (P["dish_m2"] * A_dish + P["tower_m"] * deck + mount + P["motors"] * d["rate_scale"] ** 1.5
             + P["shell"] / d["ins_scale"].clamp(min=0.2) + P["mass"] * d["cap_scale"]
             + P["lid"] * 0.18 / d["lid_leak"].clamp(min=0.02) + P["strip_m2"] * A_strip
             + P["m4_m2"] * A_m4 + P["bore_m2"] * A_bore + P["fixed"])
@@ -83,12 +85,14 @@ if __name__ == "__main__":
             roof = torch.as_tensor(e._roof_quantile(roof_u), dtype=torch.float32, device=DEV).expand(u.shape[0])
             d["roof_r"] = roof
             over = ((d["deck_h"] - e.DECK_CLEAR) * e.OVERHANG_PER_M).clamp(0.0, e.OVERHANG_MAX)
-            d["dish_scale"] = ((roof + over) / e.SWEEP0).clamp(e.S_LO, e.S_HI)
+            s_dish = (roof + over) / e.sweep0
+            s_rail = (roof - e.RAIL_MARGIN) / float(e.g_orbit0)
+            d["dish_scale"] = torch.where(d["mount_post"] >= 0.5, s_dish, torch.minimum(s_dish, s_rail)).clamp(e.S_LO, e.S_HI)
             uu = u.clone(); uu[:, i_site] = roof_u
         else:
             roof = torch.as_tensor(e._roof_quantile(roof_u), dtype=torch.float32, device=DEV).expand(u.shape[0])
             over = ((d["deck_h"] - e.DECK_CLEAR) * e.OVERHANG_PER_M).clamp(0.0, e.OVERHANG_MAX)
-            d["dish_scale"] = ((roof + over) / e.SWEEP0).clamp(e.S_LO, e.S_HI)
+            d["dish_scale"] = ((roof + over) / e.sweep0).clamp(e.S_LO, e.S_HI)
             uu = u.clone(); uu[:, 9] = (d["dish_scale"] - 0.75) / 0.55     # the old layout's dish column follows the fit
         obs = torch.cat([dawn[None].expand(u.shape[0], -1), 2.0 * uu - 1.0], 1)
         vs = []

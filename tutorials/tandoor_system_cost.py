@@ -22,8 +22,10 @@ sys.path.insert(0, "/Users/faezs/ARTIST/tutorials"); sys.path.insert(0, "/Users/
 sys.path.insert(0, "/Users/faezs/ARTIST/tutorials/puffer_tandoor")
 
 PRICES = dict(dish_m2=6000.0, tower_m=40000.0, motors=30000.0, shell=60000.0, mass=40000.0, lid=6000.0,
-              strip_m2=25000.0, m4_m2=15000.0, bore_m2=4000.0, fixed=200000.0)
+              strip_m2=25000.0, m4_m2=15000.0, bore_m2=4000.0, fixed=200000.0,
+              rail_m=8000.0, post_mount=150000.0)
 A_MEM0 = 2.10           # nominal membrane radius [m] (hashemi a_mem)
+G_ORBIT0 = 4.0          # nominal fold orbit [m]; ring rail radius = G_ORBIT0 x s + 0.6
 L_BORE = 9.7            # bore length at deck 4.0 [m]; grows with the deck
 
 
@@ -37,7 +39,9 @@ def capital(d):
     A_strip = r_mean * th * d.get("strip_wk", 1.1) * r_mean
     A_m4 = np.pi * d.get("r_m4", 1.3) ** 2
     A_bore = 2 * np.pi * d.get("r_bore", 0.7) * (L_BORE + (deck - 4.0))
-    items = dict(dish=PRICES["dish_m2"] * A_dish, tower=PRICES["tower_m"] * deck,
+    post = d.get("mount_post", 0.0) >= 0.5
+    mount = PRICES["post_mount"] if post else PRICES["rail_m"] * 2 * np.pi * (G_ORBIT0 * s + 0.6)
+    items = dict(dish=PRICES["dish_m2"] * A_dish, tower=PRICES["tower_m"] * deck, mount=mount,
                  motors=PRICES["motors"] * d.get("rate_scale", 1.0) ** 1.5,
                  shell=PRICES["shell"] / max(d.get("ins_scale", 1.0), 0.2),
                  mass=PRICES["mass"] * d.get("cap_scale", 1.0),
@@ -74,7 +78,7 @@ if __name__ == "__main__":
     print(f"\ntop {args.top} by value (rotis/day = mean over the pinned days, cold pit):")
     for b in order[:args.top]:
         d = D[b]; c = capital(d)
-        print(f"  {val[b]/1e3:7.0f}k  rotis {rot[b]:5.0f}  capital {c['total']/1e3:5.0f}k  " + ", ".join(f"{k}={d[k]:.2f}" for k in ("roof_r", "dish_scale", "deck_h", "rate_scale", "ins_scale", "cap_scale", "lid_leak", "bread_area", "loaves_per_load", "d_strip", "r_m4", "r_bore", "w_slot")))
+        print(f"  {val[b]/1e3:7.0f}k  rotis {rot[b]:5.0f}  capital {c['total']/1e3:5.0f}k  " + ", ".join(f"{k}={d[k]:.2f}" for k in ("roof_r", "dish_scale", "mount_post", "deck_h", "rate_scale", "ins_scale", "cap_scale", "lid_leak", "bread_area", "loaves_per_load", "d_strip", "r_m4", "r_bore", "w_slot")))
     # standardized regression of value on the box: what to buy
     X = np.c_[np.ones(len(val)), U]; beta = np.linalg.lstsq(X, val, rcond=None)[0][1:]
     r2 = 1 - ((val - X @ np.linalg.lstsq(X, val, rcond=None)[0]) ** 2).sum() / ((val - val.mean()) ** 2).sum()
