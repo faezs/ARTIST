@@ -37,7 +37,11 @@ OUT = os.path.join(HERE, "out"); os.makedirs(OUT, exist_ok=True)
 ap = argparse.ArgumentParser(); ap.add_argument("--t_setup", type=float, default=40.0); ap.add_argument("--t_day", type=float, default=40.0)
 ap.add_argument("--fps", type=int, default=30); ap.add_argument("--rec", type=int, default=3); ap.add_argument("--substeps", type=int, default=16); ap.add_argument("--iters", type=int, default=12)
 ap.add_argument("--doy", type=int, default=80); ap.add_argument("--h0", type=float, default=8.0); ap.add_argument("--h1", type=float, default=16.0); ap.add_argument("--quiet", action="store_true")
-ap.add_argument("--p_max", type=float, default=40e3); ap.add_argument("--wind", type=float, default=0.0, help="steady wind m/s from the north (-x) after setup")
+ap.add_argument("--p_max", type=float, default=40e3); ap.add_argument("--wind", type=float, default=0.0, help="mean wind m/s from the north (-x) after setup")
+ap.add_argument("--gust", type=float, default=0.35, help="gust amplitude as a fraction of the mean (two sinusoids, 4.0 and 1.3 s periods, in the structure's real seconds)")
+ap.add_argument("--cd", type=float, default=1.3, help="dish drag coefficient face-on (Peterka & Derickson 1992 order); edge-on 0.25")
+ap.add_argument("--cm", type=float, default=0.12, help="dish pitching-moment coefficient amplitude, M = q A D cm sin 2 alpha about the dish centre")
+ap.add_argument("--tag", default="setup4", help="output file stem")
 A = ap.parse_args()
 wp.config.quiet = True; wp.init(); DEV = "cpu"
 # ------------------------------------------------------------------ geometry (metres; sim frame = env frame with the deck at z 0)
@@ -189,13 +193,35 @@ totw = wa(tube_of_tri, wp.int32); wallw = wa(wall_tri, wp.int32); topw = wa(tube
 n_tubes = len(tubes); grad = wa(np.zeros((n, 3), np.float32), wp.vec3); vol = wa(np.zeros(n_tubes, np.float32), float); vden = wa(np.zeros(n_tubes, np.float32), float)
 vtar = wa(np.zeros(n_tubes, np.float32), float); vlam = wa(np.zeros(n_tubes, np.float32), float)
 R_PART = 0.05
+fext = wa(np.zeros((n, 3), np.float32), wp.vec3)                              # the dish's aerodynamic load, set once per frame
+A_DISH, D_DISH, RHO = np.pi*GM.R_RING**2*0 + 13.9, 4.2, 1.03
+DISH_PTS = RIM + [VTX]
+def wind_now(t):
+    if A.wind <= 0 or t <= T_S: return 0.0
+    return A.wind*(1.0 + A.gust*(0.6*np.sin(2*np.pi*t/4.0) + 0.4*np.sin(2*np.pi*t/1.3 + 1.0)))
+def dish_load(q, vw):
+    """drag along the wind and a pitching moment about the dish centre, as forces on the rim and vertex (the dish is a rigid clique, so only the resultant and the couple matter)"""
+    F = np.zeros((n, 3))
+    if vw <= 0: return F, 0.0, 0.0
+    what = np.array([-1.0, 0, 0]); qd = 0.5*RHO*vw*vw
+    n_d = np.cross(q[BR[1]] - q[BR[0]], q[BR[2]] - q[BR[0]]); n_d /= np.linalg.norm(n_d)
+    if n_d@(q[VTX] - q[BR].mean(0)) < 0: n_d = -n_d
+    ca = float(n_d@what); cd = 0.25 + (A.cd - 0.25)*ca*ca; Fd = qd*A_DISH*cd
+    c_d = q[DISH_PTS].mean(0); F[DISH_PTS] += Fd*what/len(DISH_PTS)
+    weff = what if ca >= 0 else -what; ax = np.cross(n_d, weff); sa = np.linalg.norm(ax)
+    Mv = np.zeros(3)
+    if sa > 1e-6:
+        Mv = ax/sa*qd*A_DISH*D_DISH*A.cm*2*abs(ca)*sa                      # cm sin 2 alpha, turning the dish face-on
+        r = q[RIM] - c_d; S = 0.5*np.sum(np.linalg.norm(r, axis=1)**2)
+        F[RIM] += np.cross(Mv, r)/S
+    return F, Fd, float(np.linalg.norm(Mv))
 
 @wp.kernel
-def predict(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3), f: wp.array(dtype=wp.vec3), w: wp.array(dtype=float), g: wp.vec3, dt: float, damp: float, vmax: float, xp: wp.array(dtype=wp.vec3)):
+def predict(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3), f: wp.array(dtype=wp.vec3), fe: wp.array(dtype=wp.vec3), w: wp.array(dtype=float), g: wp.vec3, dt: float, damp: float, vmax: float, xp: wp.array(dtype=wp.vec3)):
     i = wp.tid()
     if w[i] == 0.0:
         xp[i] = x[i]; return
-    vi = (v[i] + (f[i]*w[i] + g)*dt)*damp
+    vi = (v[i] + ((f[i] + fe[i])*w[i] + g)*dt)*damp
     m = wp.length(vi)
     if m > vmax: vi = vi*(vmax/m)
     v[i] = vi; xp[i] = x[i] + vi*dt
@@ -353,11 +379,12 @@ for fr in range(n_frames + 1):
     # azimuth: the deck ring turns the post bases (kinematic)
     R = az_rotate(hour, az_bias); newpin = (R @ (X0pin - Fxy).T).T + Fxy
     xn = x.numpy(); xn[pin_ids] = newpin.astype(np.float32); xn[FP] = xn[stalk["cap"]] + np.array([0, 0, 0.45], np.float32); x.assign(xn)
-    wind = wp.vec3(-A.wind, 0.0, 0.0) if (A.wind > 0 and t > T_S) else wp.vec3(0.0, 0.0, 0.0)
+    vw = wind_now(t); wind = wp.vec3(-vw, 0.0, 0.0)
+    Fw, F_dish, M_dish = dish_load(q, vw); fext.assign(Fw.astype(np.float32))
     for k in range(A.substeps):
         f.zero_(); lam.zero_(); vlam.zero_()
-        if A.wind > 0 and t > T_S: wp.launch(wind_force, dim=len(tris), inputs=[x, triw, wallw, wind, f], device=DEV)
-        wp.launch(predict, dim=n, inputs=[x, v, f, w, GRAV, dt, damp, 8.0, xp], device=DEV)
+        if vw > 0: wp.launch(wind_force, dim=len(tris), inputs=[x, triw, wallw, wind, f], device=DEV)
+        wp.launch(predict, dim=n, inputs=[x, v, f, fext, w, GRAV, dt, damp, 8.0, xp], device=DEV)
         for it in range(A.iters):
             for cw_ in colw:
                 wp.launch(springs, dim=len(cw_), inputs=[cw_, xp, w, sidx, rest, kew, uniw, fmax, lam, dt], device=DEV)
@@ -393,9 +420,9 @@ for fr in range(n_frames + 1):
     if fr % A.rec == 0:
         frames.append(np.round(q*100).astype(np.int16))
         log.append(dict(t=round(t, 2), hour=round(hour, 2), p=round(p), g_post=round(g_post, 3), z_axis=round(z_axis, 3), tank=round(m_tank, 1), el_t=round(float(np.degrees(elt)), 1), el_bias=round(float(np.degrees(el_bias)), 2), az_bias=round(float(np.degrees(az_bias)), 2),
-                        err=round(err, 3), point=round(point_err, 3), coarse=round(coarse_err, 2), fine_mm=[round(1e3*u_, 1) for u_ in u_fine], z_min=round(z_min, 2), p_eq=[float(v_) for v_ in p_eq], muscles=[round(m_) for m_ in mus], vtx=[round(float(c), 3) for c in q[VTX]], tgt=[round(float(c), 3) for c in V_ideal]))
+                        err=round(err, 3), point=round(point_err, 3), coarse=round(coarse_err, 2), fine_mm=[round(1e3*u_, 1) for u_ in u_fine], z_min=round(z_min, 2), p_eq=[float(v_) for v_ in p_eq], muscles=[round(m_) for m_ in mus], vtx=[round(float(c), 3) for c in q[VTX]], tgt=[round(float(c), 3) for c in V_ideal], wind=round(vw, 2), f_dish=round(F_dish), m_dish=round(M_dish), lean=round(float(np.degrees(np.arctan2(np.hypot(q[stalk['cap']][0] - Fxy[0], q[stalk['cap']][1] - Fxy[1]), q[stalk['cap']][2]))), 3)))
     if not A.quiet and fr % (A.fps*2) == 0:
-        print(f"t {t:5.1f}  h {hour:5.2f}  p_eq {np.round(p_eq/1e3, 1)} kPa  axis z {z_axis:.2f}  g_post {g_post:.2f}  tank {m_tank:5.1f}  el_t {np.degrees(elt):5.1f}  vtx {np.round(q[VTX], 2)}  ideal {np.round(V_ideal, 2)}  err {err:.2f} m  coarse {coarse_err:.1f} deg  dish {point_err:.2f} deg  cols {np.round(np.array(u_fine)*1e3, 1)} mm  zmin {z_min:.2f}@{i_low}  muscles {np.round(mus, -1)}  ({time.time() - t0:.0f} s)")
+        print(f"t {t:5.1f}  h {hour:5.2f}  p_eq {np.round(p_eq/1e3, 1)} kPa  axis z {z_axis:.2f}  g_post {g_post:.2f}  tank {m_tank:5.1f}  el_t {np.degrees(elt):5.1f}  vtx {np.round(q[VTX], 2)}  ideal {np.round(V_ideal, 2)}  err {err:.2f} m  coarse {coarse_err:.1f} deg  dish {point_err:.2f} deg  cols {np.round(np.array(u_fine)*1e3, 1)} mm  zmin {z_min:.2f}@{i_low}  muscles {np.round(mus, -1)}  wind {vw:4.1f} m/s dish {F_dish/1e3:.2f} kN {M_dish/1e3:.2f} kN m lean {np.degrees(np.arctan2(np.hypot(q[stalk['cap']][0] - Fxy[0], q[stalk['cap']][1] - Fxy[1]), q[stalk['cap']][2])):.2f} deg  ({time.time() - t0:.0f} s)")
 # ------------------------------------------------------------------ outputs
 Q = np.stack(frames); blob = base64.b64encode(zlib.compress(Q.tobytes(), 9)).decode()
 head_pairs = [[A2, M3], [M3, FRAME[0]], [M3, FRAME[4]], [M3, CK]] + [[FRAME[i], FRAME[(i + 1) % 8]] for i in range(8)] + [[VTX, SEC]] + [[VTX, RIM[i]] for i in range(0, 8, 2)] + [[RIM[i], SEC] for i in range(0, 8, 2)]
@@ -404,10 +431,10 @@ anim = dict(n_frames=int(Q.shape[0]), n_particles=int(Q.shape[1]), dt=A.rec/A.fp
             tris=tris.reshape(-1).tolist(), n_tube=int(n), head_lines=head_pairs, axle_lines=axle_pairs, muscles=[[JA, CK]],
             tanks=[sd["tank"] for sd in sides], fine_rods=[list(p) for p in FINE_RODS], fine_cols=[list(p) for p in FINE_COLS], sec=int(SEC), m3=int(M3), rim=RIM, frame=FRAME, vtx=VTX, F=FP, rail=dict(c=[float(Fxy[0]), float(Fxy[1])], r=float(R_STALK + 0.1)), wires=[],
             t_setup=T_S, t_day=A.t_day, h0=A.h0, h1=A.h1, p_max=P_MAX, m_cw1=round(M_CW1), m_cw2=round(M_CW2), log=log)
-json.dump(anim, open(os.path.join(OUT, "setup4_anim.json"), "w"), separators=(",", ":")); json.dump(log, open(os.path.join(OUT, "setup4_log.json"), "w"))
+json.dump(anim, open(os.path.join(OUT, A.tag + "_anim.json"), "w"), separators=(",", ":")); json.dump(log, open(os.path.join(OUT, A.tag + "_log.json"), "w"))
 errs = np.array([l["err"] for l in log]); ts = np.array([l["t"] for l in log]); pts = np.array([l["point"] for l in log]); crs = np.array([l.get("coarse", 0) for l in log]); track = ts > T_S
 print(f"\nframes {Q.shape[0]} x {Q.shape[1]} particles, {len(tris)} triangles, {n_spr} constraints in {n_col} colours -> {len(blob)//1024} KB; wall {time.time() - t0:.0f} s")
 if track.any():
     late = track & (ts > T_S + 0.15*A.t_day)
     print(f"setup: vertex error {errs[~track][-1]:.2f} m, coarse pointing {crs[~track][-1]:.1f} deg at t_setup; tracking {A.h0:.0f}-{A.h1:.0f} h: vertex error mean {errs[track].mean():.2f} m max {errs[track].max():.2f} m;")
-    print(f"        coarse (frame) pointing mean {crs[track].mean():.2f} deg max {crs[track].max():.2f}; dish pointing with the fine stage: mean {pts[track].mean():.3f} deg, after the first 15 % of the day mean {pts[late].mean():.3f} deg = {pts[late].mean()*17.45:.2f} mrad, max {pts[late].max():.3f} deg; columns at end {log[-1]['fine_mm']} mm; muscles at end {log[-1]['muscles']} N; axis z {log[-1]['z_axis']:.2f} (neck target {Z_NECK:.2f})")
+    print(f"        coarse (frame) pointing mean {crs[track].mean():.2f} deg max {crs[track].max():.2f}; wind mean {np.mean([l.get('wind', 0) for l in log if l['t'] > T_S]):.1f} m/s, dish force max {max(l.get('f_dish', 0) for l in log)/1e3:.2f} kN, stalk lean max {max(l.get('lean', 0) for l in log if l['t'] > T_S):.2f} deg; dish pointing with the fine stage: mean {pts[track].mean():.3f} deg, after the first 15 % of the day mean {pts[late].mean():.3f} deg = {pts[late].mean()*17.45:.2f} mrad, max {pts[late].max():.3f} deg; columns at end {log[-1]['fine_mm']} mm; muscles at end {log[-1]['muscles']} N; axis z {log[-1]['z_axis']:.2f} (neck target {Z_NECK:.2f})")

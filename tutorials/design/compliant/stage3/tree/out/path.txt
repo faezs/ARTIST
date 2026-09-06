@@ -1,0 +1,5 @@
+fifth pass, one stem: F at 4.87 m over the deck on the light pipe (r 0.7); the stem 2.0 m north of it, top at 1.0 m; rim between 0.3 and 2.5999999999999996 m over the deck (beta_cap_z 7.6); branches reach 1.2-3.2 m from the stem top
+sun samples 479, reachable 76; head axis elevation 58-80 deg; off-retro beta mean 19.6 deg, max 23.4
+hub travel: x -0.25..3.11 m, y +-2.26 m, z 0.68..1.66 m over the deck; the whole path fits in a box 3.35 x 4.53 x 0.98 m
+pipe + strip shadow on the aperture: mean 1.4 %, max 23.3 % (retro would be about 31 %)
+rim: lowest 0.30 m, highest 2.60 m over the deck

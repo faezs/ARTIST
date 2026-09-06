@@ -4,6 +4,9 @@ flexure_register.html into the given output dir."""
 import re, os, sys, html, json
 OUT = sys.argv[1]; FIG = "figures"
 def svg(name):
+    if name.endswith(".png"):                                   # raster sheets (the tree's hidden-line SVGs are too large for the page)
+        import base64
+        return '<img style="width:100%;height:auto;display:block" src="data:image/png;base64,' + base64.b64encode(open(name, "rb").read()).decode() + '">'
     s = open(os.path.join(FIG, name) if not name.startswith(("fact/", "stage2/", "stage3/")) else name).read()
     s = s[s.index("<svg"):]
     s = re.sub(r'<svg([^>]*?)\swidth="[^"]*"\sheight="[^"]*"', r'<svg\1', s, count=1)
@@ -314,5 +317,23 @@ SHADE_TABLE = """<table class="corr"><tr><th>in front of the membrane, fraction 
 <tr><td>reflections above ground</td><td>2</td><td>4 (x0.88 at 0.94)</td></tr>
 <tr><td>light at the pot, relative</td><td>1.00</td><td>1.03 (slot shut) to 1.14 (slot open)</td></tr>
 </table>"""
-page = open("page_template.html").read().replace("<!--PLATES_BEHIND-->", "\n".join(BEHIND)).replace("<!--SHADE_TABLE-->", SHADE_TABLE).replace("<!--PLATES_SETUP-->", "\n".join(SETUP)).replace("<!--ANIM_JS-->", ANIM_JS).replace("<!--PLATES_MOUNT-->", "\n".join(MOUNT)).replace("<!--PLATES_FLOWER-->", "\n".join(FLOWER)).replace("<!--FLOWER_TABLE-->", CORR).replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
+TR = "stage3/tree/out/"
+_sw = open(TR + "sweep.txt").read().strip().splitlines()
+TREE = []
+TREE.append(plate(52, "The flower proper: one stem, a crown of branches carrying the exact spherical membrane, F on the light pipe (equinox noon)", TR + "tr_equinox_noon_views_small.png",
+  "isometric from the south-west; detail of the stem, the receptacle and the branches under the head; plan, front, side. The head sits on the env's orbit about F (hashemi.ini: beta_dev 0, retro), 4 m from F along the sun line; the beam converges on the strip 0.6 m before F and goes down the pipe.",
+  [("primary", "the exact hashemi.ini membrane: a spherical cap a 2.1 m, R 8 m, f = g = 4 m, no hole, no slot; the crown's tips carry it"),
+   ("crown", "one stem 1 m (r 0.15) 2 m north of the pipe; from its top six primaries to r 0.8 on the head's back, twelve secondaries to r 1.45, sixty twigs to a Vogel scatter of tips on the sphere: the foliage whose inner surface is the spherical section"),
+   ("F", "on the light pipe, the cass machine's bore r 0.7 to z_deck + 0.35 + max(g sin el + a cos el) = 4.87 m over the deck; the hyperboloid strip r 0.6 at F - 0.6: a Masdar beam-down; the pipe is separate of the tree"),
+   ("why one stem", "the sphere has no axis: only its centre of curvature must be at F + 4 s, the attitude about it is free (the env's beta_dev); the paraboloid needed vertex and axis, which is what defeated the second pass's stem")],
+  "Hidden-line projection of the CadQuery model; mm. The branches are drawn as smooth curves from the receptacle; their lengths at each sun are in the sweep sheet."))
+TREE.append(plate(53, "The year's sweep: the head on the orbit sphere at 8, 12 and 16 h equinox and at the solstice noons", TR + "tr_sweep_views_small.png",
+  "rims, membranes and crowns at five suns about one stem and one pipe",
+  [("hub", _sw[0].split(": ", 1)[1]), ("branches", _sw[2].split(": ", 1)[1]), ("shadow", _sw[3]), ("rim", _sw[1].split("; ")[1])],
+  "The crown is a mechanism, not a shape: it carries the head around a quarter of the orbit sphere. With the head parked low and turning half the sun's motion (the sphere's freedom) the branches shorten to 1-3 m at the price of beta up to 40 deg; stage3/tree/path.py."))
+TREE.append(plate(54, "Winter noon and equinox morning", TR + "tr_winter_noon_views_small.png", "el 36: the head 3.2 m north and 2.5 m up; the morning sheet stage3/tree/out/tr_equinox_morning_views.png has it 2.8 m west of the meridian",
+  [("winter noon", "hub 3.2 m north, 2.5 m up; primaries 1.5-2.9 m"), ("equinox 9 h", "hub 1.45 m north, 2.8 m west, 2.4 m up; primaries 3.0-4.6 m; the crown turns about the stem")], "Hidden-line projection of the CadQuery model; mm."))
+TREE.append(plate(55, "Summer noon, el 83: the head 0.9 m over the deck beside the pipe, looking up", TR + "tr_summer_noon_views_small.png", "the lowest position of the year: the hub 0.5 m north of the pipe's axis",
+  [("wind", _sw[4].split("; ")[0].split(": ", 1)[1]), ("stiffness", _sw[4].split("; ")[1])], "The gating load. The fourth-pass stalk machine with the dish's drag in its simulation: stalk lean 1.0 deg at 9 m/s (the fine stage's whole range), 21 deg at 25 m/s."))
+page = open("page_template.html").read().replace("<!--PLATES_TREE-->", "\n".join(TREE)).replace("<!--PLATES_BEHIND-->", "\n".join(BEHIND)).replace("<!--SHADE_TABLE-->", SHADE_TABLE).replace("<!--PLATES_SETUP-->", "\n".join(SETUP)).replace("<!--ANIM_JS-->", ANIM_JS).replace("<!--PLATES_MOUNT-->", "\n".join(MOUNT)).replace("<!--PLATES_FLOWER-->", "\n".join(FLOWER)).replace("<!--FLOWER_TABLE-->", CORR).replace("<!--PLATES_3D-->", "\n".join(D3)).replace("<!--VIEWER_JS-->", VIEWER_JS).replace("<!--PLATES_FACT-->", "\n".join(FACT)).replace("<!--PLATES_M5-->", "\n".join(S[7:] + C[4:])).replace("<!--PLATES_DISH-->", "\n".join(S[:4] + C[:2])).replace("<!--PLATES_FOLD-->", "\n".join(S[4:7] + C[2:4]))
 open(os.path.join(OUT, "flexure_register.html"), "w").write(page); print("page:", os.path.getsize(os.path.join(OUT, "flexure_register.html"))//1024, "KB")
