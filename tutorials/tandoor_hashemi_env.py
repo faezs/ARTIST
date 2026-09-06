@@ -1023,6 +1023,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # is the design sensitivity WITH the controller in the loop.
         self.design_rand = int(kwargs.pop("design_rand", 0))
         self.design_seed = int(kwargs.pop("design_seed", 1234))
+        # roof_table: a JSON list of roof half-width quantiles [m] (0..1 in
+        # equal steps) from building footprints; None = the placeholder
+        rt = kwargs.pop("roof_table", None)
+        self._roof_q = None
+        if rt:
+            import json as _json
+            with open(str(rt)) as fh:
+                self._roof_q = np.asarray(_json.load(fh), dtype=np.float64)
         if self.design_rand:
             self.N_EXTRA_OBS += self.N_DESIGN
         # beta_cap_z: hard cap (meters) on the TOP OF THE DISH RIM.
@@ -1747,7 +1755,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: insulation (wall->soil conductance scale, 1 = the ini's shell),
     #: thermal mass (node capacity scale), lid leak, roti size, loaves
     #: per lean
-    SYS_BOX = (("dish_scale", 0.75, 1.30), ("deck_h", 3.0, 5.5),
+    #: THE SITE COMES FIRST: every tandoor has its own roof, most of them
+    #: small. roof_r is the roof's usable half-width (m) drawn from a
+    #: quantile table (Open Buildings footprints around Quetta when the
+    #: table is given, a log-uniform 3-12 m placeholder otherwise); the
+    #: dish is the largest that fits, s = roof_r / (g_orbit + a_mem) of
+    #: the nominal machine, clipped to [S_LO, S_HI]. The obs column is
+    #: the roof percentile.
+    SWEEP0 = 6.1               # nominal sweep radius g_orbit + a_mem [m]
+    S_LO, S_HI = 0.5, 1.30
+    ROOF_DEFAULT = (3.0, 12.0)  # log-uniform placeholder half-width [m]
+    SYS_BOX = (("roof_r", 0.0, 1.0), ("deck_h", 3.0, 5.5),
                ("rate_scale", 0.5, 2.0), ("ins_scale", 0.3, 3.6),
                ("cap_scale", 0.5, 2.0), ("lid_leak", 0.05, 0.40),
                ("bread_area", 0.08, 0.16), ("loaves_per_load", 4.0, 8.0))
@@ -1756,7 +1774,21 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: system block layout in the design table (offset 40)
     DS = dict(s=40, s2=41, zfold=42, zdeck=43, rate=44, ins=45, cap=46,
               lid=47, bread=48, hb=49, roti=50, lfp=51, lpl=52, fnom=53,
-              amem=54, gorb=55)
+              amem=54, gorb=55, roof=57)
+
+    def _roof_quantile(self, u):
+        """Roof half-width [m] at percentile u (0..1) from the site table."""
+        q = getattr(self, "_roof_q", None)
+        u = np.asarray(u, dtype=np.float64)
+        if q is None:
+            lo, hi = self.ROOF_DEFAULT
+            return lo * (hi / lo) ** u
+        return np.interp(u, np.linspace(0.0, 1.0, len(q)), q)
+
+    def roof_to_scale(self, roof_r):
+        """The largest dish that fits a roof of half-width roof_r [m]."""
+        return np.clip(np.asarray(roof_r, dtype=np.float64) / self.SWEEP0,
+                       self.S_LO, self.S_HI)
 
     def _design_row(self, sys=None):
         """One design table row (64): _fc_table (39) + duct mouth + the
@@ -1769,7 +1801,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  roti=float(self.roti_energy),
                  lfp=float(np.sqrt(self.bread_area) / 2.0),
                  lpl=float(self.loaves_per_load), fnom=float(self.f_nom),
-                 amem=float(self.a_mem), gorb=float(self.g_orbit))
+                 amem=float(self.a_mem), gorb=float(self.g_orbit),
+                 roof=float(self.SWEEP0))
         if sys:
             d.update(sys)
         row = rec + [0.0] * (self.FCT_W - 40)
@@ -1804,7 +1837,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self.r_strip = 0.5 * self.strip_wk * self.d_strip * 1.3
                 sv = {k: lo + ub * (hi - lo)
                       for (k, lo, hi), ub in zip(self.SYS_BOX, u[b, nr:])}
-                s = float(sv["dish_scale"])
+                roof = float(self._roof_quantile(sv["roof_r"]))
+                s = float(self.roof_to_scale(roof))
                 # the dish, its focal length and the orbit scale together;
                 # the deck sets the fold height and the receiver's F
                 self.a_mem = base["a_mem"] * s
@@ -1821,7 +1855,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                             roti=float(self.roti_energy) * A / A0,
                             lfp=float(np.sqrt(A) / 2.0),
                             lpl=float(int(round(sv["loaves_per_load"]))),
-                            fnom=self.f_nom, amem=self.a_mem, gorb=self.g_orbit)
+                            fnom=self.f_nom, amem=self.a_mem, gorb=self.g_orbit,
+                            roof=roof)
                 rows[b] = self._design_row(sysd)
             for k, vv in nominal.items():
                 setattr(self, k, vv)
@@ -1837,10 +1872,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             dtype=torch.float32, device=self.device)
 
     def design_points(self):
-        """The per-agent designs as a dict of (B,) arrays (design_rand)."""
+        """The per-agent designs as a dict of (B,) arrays (design_rand):
+        the box values, with roof_r in metres and the derived dish_scale."""
         box = tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX)
-        return {k: lo + self._design_u[:, i] * (hi - lo)
-                for i, (k, lo, hi) in enumerate(box)}
+        d = {k: lo + self._design_u[:, i] * (hi - lo)
+             for i, (k, lo, hi) in enumerate(box)}
+        if "roof_r" in d:
+            d["roof_r"] = self._roof_quantile(d["roof_r"])
+        fct = self._fct.detach().cpu().numpy()
+        d["dish_scale"] = fct[:, self.DS["s"]].astype(np.float64)
+        return d
 
     def _apply_system_design(self):
         """Per-env arrays of the system design for the numpy and torch

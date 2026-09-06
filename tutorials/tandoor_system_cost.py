@@ -61,6 +61,8 @@ if __name__ == "__main__":
     from tandoor_hashemi_env import TandoorHashemiEnv as E
     box = {k: (lo, hi) for k, lo, hi in tuple(E.DESIGN_BOX) + tuple(E.SYS_BOX)}
     D = [{n: box[n][0] + U[b, i] * (box[n][1] - box[n][0]) for i, n in enumerate(names)} for b in range(U.shape[0])]
+    for k, v in R.get("derived", {}).items():          # roof_r in metres, the derived dish_scale
+        for b in range(U.shape[0]): D[b][k] = float(v[b])
     days = sorted(R["days"].keys(), key=int)
     rot = np.mean([np.array(R["days"][d]["rotis"]) for d in days], 0)     # mean over the pinned days
     cap = np.array([capital(d)["total"] for d in D])
@@ -72,7 +74,7 @@ if __name__ == "__main__":
     print(f"\ntop {args.top} by value (rotis/day = mean over the pinned days, cold pit):")
     for b in order[:args.top]:
         d = D[b]; c = capital(d)
-        print(f"  {val[b]/1e3:7.0f}k  rotis {rot[b]:5.0f}  capital {c['total']/1e3:5.0f}k  " + ", ".join(f"{k}={d[k]:.2f}" for k in ("dish_scale", "deck_h", "rate_scale", "ins_scale", "cap_scale", "lid_leak", "bread_area", "loaves_per_load", "d_strip", "r_m4", "r_bore", "w_slot")))
+        print(f"  {val[b]/1e3:7.0f}k  rotis {rot[b]:5.0f}  capital {c['total']/1e3:5.0f}k  " + ", ".join(f"{k}={d[k]:.2f}" for k in ("roof_r", "dish_scale", "deck_h", "rate_scale", "ins_scale", "cap_scale", "lid_leak", "bread_area", "loaves_per_load", "d_strip", "r_m4", "r_bore", "w_slot")))
     # standardized regression of value on the box: what to buy
     X = np.c_[np.ones(len(val)), U]; beta = np.linalg.lstsq(X, val, rcond=None)[0][1:]
     r2 = 1 - ((val - X @ np.linalg.lstsq(X, val, rcond=None)[0]) ** 2).sum() / ((val - val.mean()) ** 2).sum()

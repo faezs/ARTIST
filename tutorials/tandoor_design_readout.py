@@ -45,8 +45,8 @@ class Policy:
         return (lg - torch.log(-torch.log(u.clamp_min(1e-20)))).argmax(-1), v
 
 
-def env_kwargs(B, seed=1234):
-    return dict(num_agents=B, seed=1, wide_shutter=1, device=DEV, gpu=1, n_rays=512, warm_frac=0.0,
+def env_kwargs(B, seed=1234, night_carry=0):
+    return dict(night_carry=night_carry,num_agents=B, seed=1, wide_shutter=1, device=DEV, gpu=1, n_rays=512, warm_frac=0.0,
                 day_random=0, lat_random=0, wall_obs=1, n_zones=5, nurbs=1, flare_ratio=1.4, flare_reflect=0.6,
                 silvered=1, duct_nozzle=2, spot_bread=1, roti_kj=130.0, bread_area=0.12, loaves_per_load=8,
                 elbow_aim=1, load_ctrl=1, reward_div=75.0, receiver="cass", r_m4=1.3, g_orbit=4.0, zone_c=0.4,
@@ -75,7 +75,9 @@ def ladder_day(e, S, day, hours=(9.0, 10.5, 12.0, 13.5, 15.0), draws=2):
     return (acc / (len(hours) * draws) / 1e3).cpu().numpy()
 
 
-def run_day(e, pol, day, nh, nv):
+def run_day(e, pol, day, nh, nv, ndays=1):
+    """One pinned day (cold pit), or ndays consecutive days with the
+    night carry-over (the pit seasons); returns the LAST day's rotis."""
     B = e.num_agents
     e.day = day; e.lat = 30.2
     with contextlib.redirect_stdout(io.StringIO()):
@@ -86,13 +88,18 @@ def run_day(e, pol, day, nh, nv):
     a = torch.full((B, nh), 3, dtype=torch.long, device=DEV)
     o, r, d, tr, _ = e.step_torch(a)
     last = S.day_rotis.clone(); cuts = torch.zeros(B, device=DEV); v0 = None; ret = torch.zeros(B, device=DEV)
+    days_done = 0; dawn = True
     with torch.no_grad():
-        for t in range(2000):
+        for t in range(2000 * ndays):
             act, v = pol.step(o, nh, nv)
-            if v0 is None: v0 = v.clone()
+            if dawn: v0 = v.clone(); dawn = False        # the LAST dawn's value (seasoned pit)
             o, r, d, tr, _ = e.step_torch(act)
             ret += r.reshape(-1); cuts += tr.reshape(-1).float()
-            if d.reshape(-1).any(): break
+            if d.reshape(-1).any():
+                days_done += 1
+                if days_done >= ndays: break
+                dawn = True; ret.zero_(); cuts.zero_()
+                continue
             last = S.day_rotis.clone()
     return last.cpu().numpy(), cuts.cpu().numpy(), v0.cpu().numpy(), ret.cpu().numpy(), S
 
@@ -110,26 +117,28 @@ def regress(y, U, names):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("ckpt"); ap.add_argument("--agents", type=int, default=2048)
     ap.add_argument("--days", default="172,355"); ap.add_argument("--label", default="")
+    ap.add_argument("--seasoned", type=int, default=1, help="consecutive days with night carry-over; the last day is read")
     ap.add_argument("--out", default="/private/tmp/claude-501/-Users-faezs-ARTIST/40abdad5-aefb-4c8a-a67b-a45db67e0f41/scratchpad/design_readout.json")
     args = ap.parse_args()
     B = args.agents
     sd = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     pol = Policy(sd)
     with contextlib.redirect_stdout(io.StringIO()):
-        e = TandoorHashemiEnv(**env_kwargs(B))
+        e = TandoorHashemiEnv(**env_kwargs(B, night_carry=int(args.seasoned > 1)))
     nh, nv = e.N_HEADS, int(e.single_action_space.nvec[0])
     assert sd["policy.encoder.0.weight"].shape[1] == e.single_observation_space.shape[0], "obs dim mismatch: pad the checkpoint"
     BOX = tuple(e.DESIGN_BOX) + tuple(getattr(e, "SYS_BOX", ()))
     U = e._design_u.copy(); names = [k for k, _, _ in BOX]; lo = np.array([b[1] for b in BOX]); hi = np.array([b[2] for b in BOX])
-    out = dict(ckpt=args.ckpt, label=args.label, names=names, U=U.tolist(), days={})
+    out = dict(ckpt=args.ckpt, label=args.label, names=names, U=U.tolist(), days={},
+               derived={k: np.asarray(v, dtype=np.float64).tolist() for k, v in e.design_points().items()})
     t0 = time.time()
     for day in [int(x) for x in args.days.split(",")]:
-        rot, cuts, v0, ret, S = run_day(e, pol, day, nh, nv)
+        rot, cuts, v0, ret, S = run_day(e, pol, day, nh, nv, ndays=args.seasoned)
         lad = ladder_day(e, S, day)
         lad = lad / e._ds_s2                      # per m2 of the nominal dish: the controller's use of the beam, not the dish size
         br, sr, r2r = regress(rot, U, names); bl, sl, r2l = regress(lad, U, names); bv, sv, r2v = regress(v0, U, names)
         cc = np.corrcoef(rot, lad)[0, 1]
-        print(f"\nday {day} ({'summer' if day == 172 else 'winter' if day == 355 else 'equinox'}), {B} designs, sampled: rotis {rot.mean():.1f} +- {rot.std():.1f} (min {rot.min():.0f} max {rot.max():.0f}), cuts/agent {cuts.mean():.2f}, "
+        print(f"\nday {day} ({'summer' if day == 172 else 'winter' if day == 355 else 'equinox'}){' seasoned day %d' % args.seasoned if args.seasoned > 1 else ''}, {B} designs, sampled: rotis {rot.mean():.1f} +- {rot.std():.1f} (min {rot.min():.0f} max {rot.max():.0f}), cuts/agent {cuts.mean():.2f}, "
               f"ladder {lad.mean():.2f} +- {lad.std():.2f} kW, V0 {v0.mean():.2f} +- {v0.std():.2f}; corr(rotis, ladder) {cc:.2f}  [{time.time()-t0:.0f} s]")
         print(f"  {'design':12s} {'d rotis / box':>14s} {'d ladder kW / box':>18s} {'d V0 / box':>12s}   (effect of sweeping the whole box lo->hi, +- SE)")
         for i, n in enumerate(names):
