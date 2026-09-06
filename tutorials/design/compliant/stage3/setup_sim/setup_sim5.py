@@ -279,7 +279,7 @@ for fr in range(n_frames + 1):
 # ------------------------------------------------------------------ outputs
 Qf = np.stack(frames); blob = base64.b64encode(zlib.compress(Qf.tobytes(), 9)).decode()
 anim = dict(n_frames=int(Qf.shape[0]), n_particles=int(Qf.shape[1]), dt=A.rec/A.fps, scale=0.01, z_offset=H.Z_DECK, blob=blob, legs=[list(p) for p in LEGS], rim=RIM, vtx=VTX, plat=PJ, base=BJ, F=FP,
-            receptacle=dict(c=S_REC.tolist(), r=R_REC), stem_top=S_REC.tolist(), pipe=dict(c=[0.0, 0.0], r=0.42, z_top=float(Z_F)), t_setup=T_S, t_cal=T_C, t_day=A.t_day, h0=A.h0, h1=A.h1, wind=A.wind, log=log, ident=ident)
+            receptacle=dict(c=S_REC.tolist(), r=R_REC), stem_top=S_REC.tolist(), pipe=dict(c=[0.0, 0.0], r=0.42, z_top=float(Z_F)), t_setup=T_S, t_cal=T_C, t_day=A.t_day, h0=A.h0, h1=A.h1, wind=A.wind, log=log, ident=ident, cal_X=[c[0].round(6).tolist() for c in cal], cal_U=[c[1].round(6).tolist() for c in cal])
 json.dump(anim, open(os.path.join(OUT, A.tag + "_anim.json"), "w"), separators=(",", ":")); json.dump(log, open(os.path.join(OUT, A.tag + "_log.json"), "w"))
 ts = np.array([l["t"] for l in log]); miss = np.array([l["miss_cm"] for l in log]); mtot = np.array([l["miss_tot_cm"] for l in log]); mmem = np.array([l["miss_mem_cm"] for l in log]); rerr = np.array([l["rec_err_cm"] for l in log]); wv = np.array([l["wind"] for l in log]); day = ts >= T_S + T_C; calm = (ts >= T_S) & (ts < T_S + T_C); setup = ts < T_S
 fmax_leg = max(max(abs(f_) for f_ in l["f_leg_kN"]) for l in log if l["t"] >= T_S)
