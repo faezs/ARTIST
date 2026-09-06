@@ -3,9 +3,9 @@
 a dense truss ground structure, the members' cross-sectional areas as design variables between a near-zero lower limit and
 an upper limit, a volume-fraction constraint, and either minimum compliance (the stiff structure, Fig. 7.2) or the
 compliant-mechanism objective (maximum output displacement against an output spring, Eq. 7.5, the formulation of Fig. 7.7)
-solved by MMA (sec. 7.6). Members at the lower limit are void; the rest are drawn in grey scale of area as in Fig. 7.5d.
+solved by MMA (sec. 7.6). Members below 5 % of the cap are treated as void in the picture and the count; the rest are drawn in grey scale of area as in Fig. 7.5d.
 
-Validation against the chapter: the displacement inverter of Fig. 7.3a (diamond) and the half pliers of Fig. 7.5.
+Validation against the chapter: the displacement inverter of Fig. 7.3a (mirrored; the diamond) and a pliers-like half problem after Fig. 7.5.
 Application to the flower: the calyx (the truss behind the membrane between its rim and the six platform anchors) under the
 dish's peak wind load and its own weight, and the receptacle ring between the six strut anchors and the boom's wrist, both
 as minimum-compliance structures (they are stiffness parts, not mechanisms)."""
@@ -60,7 +60,8 @@ def optimise(tr, f, objective, vol_frac, amax, out_dof=None, iters=150, amin_rel
         if verbose and (it % 20 == 0 or it == iters - 1): print(f"  [{tag}] it {it:3d} obj {obj:+.5g} vol {g + 1:.3f} change {ch:.4f}")
         if it > 30 and ch < 1e-4: break
     K = tr.stiffness(A); u = tr.solve(K, f); return A, u, hist
-def draw(ax, tr, A, amax, u=None, scale=0.0, title="", loads=None, supports=None, keep=0.02):
+KEEP = 0.05                                                                                    # one threshold for the picture and the count: members above 5 % of the cap
+def draw(ax, tr, A, amax, u=None, scale=0.0, title="", loads=None, supports=None, keep=KEEP):
     amax_e = A.max()
     for e in range(len(tr.M)):
         if A[e] < keep*amax: continue
@@ -84,8 +85,9 @@ def draw(ax, tr, A, amax, u=None, scale=0.0, title="", loads=None, supports=None
 def grid2d(nx, ny, w, h):
     X = np.array([[w*i/nx, h*j/ny] for j in range(ny + 1) for i in range(nx + 1)]); idx = lambda i, j: j*(nx + 1) + i; return X, idx
 def case_inverter():
-    """Fig. 7.3a: supports at the two left corners, input force at the right middle pointing right, output at the left middle
-    pointing left (the displacement inverter); input and output springs as in Fig. 7.7"""
+    """Fig. 7.3a's problem, mirrored: supports at the two left corners, the actuator at the right middle pushing INTO the domain
+    (to the left), the output at the left middle asked to move to the right, i.e. opposite to the input (the displacement
+    inverter); input and output springs as in Fig. 7.7. Mirroring the drawing changes nothing by linearity."""
     nx, ny = 6, 6; X, idx = grid2d(nx, ny, 1.0, 1.0); M = ground(X, 1.0/nx*np.sqrt(2) + 1e-6, 2); tr = Truss(X, M, E=1.0)
     tr.fix(idx(0, 0)); tr.fix(idx(0, ny)); n_in, n_out = idx(nx, ny//2), idx(0, ny//2)
     tr.spring(n_in, 0, 1.0); tr.spring(n_out, 0, 1.0)
@@ -93,8 +95,9 @@ def case_inverter():
     A, u, hist = optimise(tr, f, "mechanism", 0.2, 1.0, out_dof=2*n_out, iters=200, tag="inverter")
     return tr, A, u, f, dict(loads=[(n_in, (-1, 0))], supports=[idx(0, 0), idx(0, ny)], out=n_out, u_out=float(u[2*n_out]), u_in=float(u[2*n_in]))
 def case_pliers():
-    """Fig. 7.5: half of a pair of compliant pliers; the handle's load F at the top left pointing down, the jaw's output at the
-    right bottom pointing down (toward the other jaw across the symmetry line), the symmetry line's supports under the step"""
+    """a pliers-like half-symmetry problem after Fig. 7.5 (its proportions are not matched cell for cell): the handle's load F at
+    the top left pointing down, the jaw's output at the right pointing down toward the other jaw across the symmetry line,
+    the symmetry line's supports under the step"""
     w, h, step = 10.0, 4.0, 2.0; X = []
     for j in range(5):
         for i in range(11):
@@ -115,26 +118,27 @@ PLAT_ANG = np.radians([315, 45, 75, 165, 195, 285]); BASE_ANG = np.radians([-15,
 def ring(r, z, n, phase=0.0): return [[r*np.cos(2*np.pi*k/n + phase), r*np.sin(2*np.pi*k/n + phase), z] for k in range(n)]
 def case_calyx(V_peak=15.0, vol_frac=0.12, amax=6e-4):
     """the calyx: the truss between the membrane's rim (r 2.1, 24 nodes) and the six platform anchors (r 1.0, 0.6 m behind
-    the vertex) through a middle ring; loads: the dish's peak drag (37.63 N per (m/s)^2 at the audit's peak factor) as a
-    pressure on the rim nodes with the pitching moment (c_M 0.15) as an antisymmetric part, plus the membrane's weight;
+    the vertex) through a middle ring; loads: the dish's peak drag (37.63 N per (m/s)^2) and hinge moment (10.07 N m per
+    (m/s)^2), the audit's constants with its load factor 3, as forces on the rim nodes, plus the head's weight (130 kg, the
+    lumped head of the simulations, not the ~1 kg film);
     supports: the six anchors pinned (the struts). Minimum compliance at a volume fraction: Fig. 7.2's problem in 3-D."""
     rim = ring(2.1, 0.0, 24); mid = ring(1.55, -0.30, 12, np.pi/12); mid2 = ring(1.1, -0.15, 12); plat = [[np.cos(a), np.sin(a), -0.6] for a in PLAT_ANG]
     hub = ring(0.45, -0.45, 6, np.pi/6) + [[0.0, 0.0, -0.6]]
     X = np.array(rim + mid + mid2 + plat + hub); M = ground(X, 1.35, 3); tr = Truss(X, M, E=E_AL)
     n_rim, n_plat0 = 24, 24 + 12 + 12
     for k in range(6): tr.fix(n_plat0 + k)
-    F_d = 37.63*V_peak**2; Mp = 0.15*0.5*1.03*V_peak**2*np.pi*2.1**2*4.2; W = 130*9.81
-    f = np.zeros(tr.nd)
+    F_d = 37.63*V_peak**2; Mp = 10.07*V_peak**2; W = 130*9.81                     # the audit's peak constants (a load factor 3 on the mean q in both), the head's weight
+    f = np.zeros(tr.nd); sum_y2 = float(np.sum(X[:n_rim, 1]**2))
     for k in range(n_rim):
-        x, y, z = X[k]; f[3*k + 2] += -(F_d + W)/n_rim + (Mp/2.1)*(y/2.1)/(n_rim/2)*2     # drag and weight along -z, the pitching moment as +-z on the rim
+        x, y, z = X[k]; f[3*k + 2] += -(F_d + W)/n_rim + Mp*y/sum_y2                  # drag and weight along -z, the pitching moment as +-z on the rim (sum f y = Mp)
     A, u, hist = optimise(tr, f, "compliance", vol_frac, amax, iters=120, tag="calyx")
-    dl = tr.elong(u); force = E_AL*A*dl/tr.L; mass = float(np.sum(RHO_AL*A*tr.L)); kept = A > 0.05*amax
+    dl = tr.elong(u); force = E_AL*A*dl/tr.L; mass = float(np.sum(RHO_AL*A*tr.L)); kept = A > KEEP*amax
     stress = np.abs(force[kept]/A[kept]).max(); rim_z = u[2:3*n_rim:3]; tilt = float((rim_z.max() - rim_z.min())/4.2)
     return tr, A, u, f, dict(supports=list(range(n_plat0, n_plat0 + 6)), mass=mass, n_members=int(kept.sum()), max_stress=float(stress), rim_tilt_mrad=1e3*tilt, F_d=F_d, Mp=Mp)
 def case_receptacle(vol_frac=0.15, amax=6e-4):
     """the receptacle ring: the six strut anchors (r 1.5) tied to the boom's wrist (a rigid hub of four nodes at r 0.12);
-    loads: the struts' worst pattern from the runs, alternating +-3.5 kN along the strut directions (the yaw-hunting case)
-    and all six compressive 1 kN (the head's weight); supports: the hub. Minimum compliance."""
+    loads: alternating +-3.5 kN along the strut directions (the quasi-static 12 m/s peak-wind leg force) and the head's
+    weight share on each strut (130 kg over six legs); supports: the hub. Minimum compliance."""
     base = [[1.5*np.cos(a), 1.5*np.sin(a), 0.0] for a in BASE_ANG]; outer = ring(1.5, 0.0, 12, 0.0); inner = ring(0.9, 0.0, 12); inner2 = ring(0.9, -0.25, 6, np.pi/6)     # outer-ring nodes at 0, 30, 60 deg: none coincides with an anchor (zero-length members); inner2 = ring(0.9, -0.25, 6, np.pi/6)
     hubn = ring(0.12, -0.1, 3) + [[0.0, 0.0, -0.1]]
     X = np.array(base + outer + inner + inner2 + hubn); M = ground(X, 1.05, 3); tr = Truss(X, M, E=E_AL)
@@ -142,9 +146,9 @@ def case_receptacle(vol_frac=0.15, amax=6e-4):
     for k in range(4): tr.fix(n_hub0 + k)
     plat = np.array([[np.cos(a), np.sin(a), 1.2] for a in PLAT_ANG]); f = np.zeros(tr.nd)
     for k in range(6):
-        d = plat[k] - X[k]; d /= np.linalg.norm(d); Fk = 3.5e3*(1 if k % 2 == 0 else -1) - 1.0e3; f[3*k: 3*k + 3] += Fk*d
+        d = plat[k] - X[k]; d /= np.linalg.norm(d); Fk = 3.5e3*(1 if k % 2 == 0 else -1) - 130*9.81/6/abs(d[2]); f[3*k: 3*k + 3] += Fk*d      # alternating 3.5 kN and the head's weight share per strut
     A, u, hist = optimise(tr, f, "compliance", vol_frac, amax, iters=120, tag="receptacle")
-    dl = tr.elong(u); force = E_AL*A*dl/tr.L; mass = float(np.sum(RHO_AL*A*tr.L)); kept = A > 0.05*amax
+    dl = tr.elong(u); force = E_AL*A*dl/tr.L; mass = float(np.sum(RHO_AL*A*tr.L)); kept = A > KEEP*amax
     stress = np.abs(force[kept]/A[kept]).max() if kept.any() else float("nan"); anchor_disp = float(np.linalg.norm(u[:18].reshape(6, 3), axis=1).max())
     return tr, A, u, f, dict(supports=list(range(n_hub0, n_hub0 + 4)), mass=mass, n_members=int(kept.sum()), max_stress=float(stress), anchor_disp_mm=1e3*anchor_disp)
 if __name__ == "__main__":
@@ -154,7 +158,7 @@ if __name__ == "__main__":
     ax = fig.add_subplot(2, 3, 1); draw(ax, tr, A, 1.0, title=f"Fig. 7.3a: displacement inverter, ground structure\nu_out {info['u_out']:+.3f} for u_in {info['u_in']:+.3f}", loads=info["loads"], supports=info["supports"])
     ax = fig.add_subplot(2, 3, 4); draw(ax, tr, A, 1.0, u=u, scale=0.5, title="deformed (x0.5)", loads=info["loads"], supports=info["supports"])
     tr, A, u, f, info = case_pliers(); rep["pliers"] = {k: v for k, v in info.items() if k in ("u_out", "u_in")}
-    ax = fig.add_subplot(2, 3, 2); draw(ax, tr, A, 1.0, title=f"Fig. 7.5: half pliers, ground structure\njaw u_out {info['u_out']:+.3f} for handle u_in {info['u_in']:+.3f}", loads=info["loads"], supports=info["supports"])
+    ax = fig.add_subplot(2, 3, 2); draw(ax, tr, A, 1.0, title=f"after Fig. 7.5: pliers-like half problem, ground structure\njaw u_out {info['u_out']:+.3f} for handle u_in {info['u_in']:+.3f}", loads=info["loads"], supports=info["supports"])
     ax = fig.add_subplot(2, 3, 5); draw(ax, tr, A, 1.0, u=u, scale=0.5, title="deformed (x0.5)", loads=info["loads"], supports=info["supports"])
     tr, A, u, f, info = case_calyx(); rep["calyx"] = {k: v for k, v in info.items() if k != "supports"}
     ax = fig.add_subplot(2, 3, 3, projection="3d"); draw(ax, tr, A, 6e-4, title=f"the calyx: rim to six anchors, 15 m/s peak\n{info['n_members']} members, {info['mass']:.0f} kg Al, rim tilt {info['rim_tilt_mrad']:.2f} mrad", supports=info["supports"]); ax.view_init(30, -60)

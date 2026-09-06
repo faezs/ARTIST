@@ -3,7 +3,7 @@
  "dp": 1370.4482724143077,
  "sag_mm": 275.62839334062136,
  "N_rim": 4527.427139532661,
- "slope_rim_deg": 14.64128377295658,
+ "slope_rim_deg": 14.334523950855614,
  "q": 115.875,
  "f_wind": [
   -3.8112818656012557,
@@ -14,46 +14,46 @@
   8.231996444311129
  ],
  "m_ring": 42.977784540807676,
- "m_spider": 24.35113713311476,
- "n_bars": 107,
+ "m_spider": 24.337196870144467,
+ "n_bars": 96,
  "harm_static_mm": [
-  0.9432898600975953,
-  0.1682840338898491,
-  0.04756215944688757,
-  0.15889286310021047,
-  0.002444398915298425,
-  0.001725824446977724,
-  0.04062165382458547
+  0.9454603447161078,
+  0.28060652251908613,
+  0.0939661777473355,
+  0.15327688687278307,
+  0.0008380096210747713,
+  0.00720046281599137,
+  0.03630982190355964
  ],
  "harm_wind_axial_mm": [
-  0.03670422923406726,
-  0.3860232736379862,
-  0.10843286751071157,
-  0.02524729589663245,
-  0.006524005429317008,
-  0.012754539820941596,
-  0.002580298194262089
+  0.09914631372940028,
+  0.6133226248619689,
+  0.1842475470725689,
+  0.024919403845997532,
+  0.005616234382619521,
+  0.021975993743735812,
+  0.002855690744318717
  ],
  "harm_wind_radial_mm": [
-  0.0066595721434514945,
-  0.18662166140337186,
-  0.023647328007918564,
-  0.008535967835810463,
-  0.006630525563381257,
-  0.01496553772875101,
-  0.002584719374982451
+  0.030467548103580502,
+  0.2948471959516913,
+  0.03959104543508268,
+  0.006751875712331344,
+  0.01046245828188976,
+  0.023858230500531506,
+  0.0036014566936096153
  ],
- "tilt_mrad": 0.18382060649427914,
- "walk_cm": 0.14705648519542333,
- "fig_rms_mrad": 0.0776769520649175,
+ "tilt_mrad": 0.2920583927914137,
+ "walk_cm": 0.23364671423313096,
+ "fig_rms_mrad": 0.12844692762118737,
  "lines": [
-  "1. membrane (1-D FvK, a 2.1 m, T_pre 2000 N/m, 5 zones zone_c 0.4): centre-zone pressure 1370 Pa (rim zone 926) for f 4.0; sag 276 mm; rim tension 4527 N/m, rim slope 14.6 deg",
-  "   the film's pull on the ring: 4380 N/m radially inward (hoop compression 9.2 kN in the ring), 1144 N/m toward the vertex (15.1 kN in all: the zoned pressure on the film, 15.3 kN)",
-  "2. gust 15.0 m/s (q 116 Pa, Cd 1.4, c_M 0.15) on the 2-D FvK membrane: f -4.01/-4.01 -> -3.81/-3.81 m; rms slope error vs the best paraboloid 7.18 -> 8.23 mrad (figure under wind, blur 2x); rim slope change mean -0.89 deg, n=1 amplitude 0.54 deg",
-  "3. ring Al 100 x 4 tube 43 kg, films 5.9 kg; wind line load on the ring: 70 N/m mean magnitude, total axial -929 N (the pressure integral 2248 N)",
-  "4. spider by ground structure: 107 bars kept of 798, 24 kg Al; bar force max 2.0 kN, stress max 8 MPa; ring stress from hoop 7.6 MPa",
-  "5. under the film's pull alone the ring sags 0.94 mm (piston, n 0) with n 2..6 axial harmonics [0.048 0.159 0.002 0.002 0.041] mm (the static warp the pump sees once; the zones absorb a fixed figure)",
-  "   the gust adds: axial n 0 0.037 mm, n 1 0.386 mm (tilt 0.184 mrad, image walk 0.15 cm at F), n 2..6 [0.108 0.025 0.007 0.013 0.003] mm (figure: rms slope 0.078 mrad, blur 0.155 mrad = 0.06 cm); radial n 2 0.024 mm (fy/fx - 1 = -0.045 per mille)",
-  "   for comparison the membrane's own figure change under the same gust (item 2): 1.05 mrad rms; and the head's pose error from the struts and pedicel (sheet 59): 0.8-1.1 cm at F"
+  "1. membrane (1-D FvK, a 2.1 m, T_pre 2000 N/m, 5 zones zone_c 0.4): centre-zone pressure 1370 Pa (rim zone 926) for f 4.0; sag 276 mm; rim tension 4527 N/m, rim slope 14.3 deg",
+  "   the film's pull on the ring: 4386 N/m radially inward (hoop compression 9.2 kN in the ring), 1157 N/m toward the vertex (15.3 kN in all: the zoned pressure on the film, 15.3 kN)",
+  "2. gust 15.0 m/s (q 116 Pa, Cd 1.4, c_M 0.15): uniform part on the 1-D zoned solver: f 3.791 m (from 4.0), the rim's vertical line load +170 N/m (total 2248 N against the pressure integral 2248 N), radial +285 N/m; gradient part p1 139 Pa by linear theory: an n = 1 vertical line load of amplitude p1 a/4 = 73 N/m (moment 1011 N m against 1011); the 2-D solver's rim slope change (-0.89 deg mean, 0.54 deg n = 1) is kept only as a check, its sign convention being the 1-D solver's opposite",
+  "3. ring Al 100 x 4 tube 43 kg, films 5.9 kg; wind line load on the ring: total axial 2248 N (the pressure integral 2248 N), moment about y 1011 N m (the pitching moment 1011)",
+  "4. spider by ground structure at a volume fraction of 0.03: 96 bars above 5 % of the cap out of 798, 23 kg Al in them (24 kg with the floor bars); the mass is the volume fraction asked for, not a result, since the constraint is active and no bar is capped; bar force max 2.6 kN, stress max 9 MPa; the ring's worst element 13.8 kN axial, 14.8 MPa with bending (a free ring under the hoop alone would carry 9.2 kN)",
+  "5. under the film's pull alone the ring sags 0.95 mm (piston, n 0) with n 2..6 axial harmonics [0.094 0.153 0.001 0.007 0.036] mm (the static warp the pump sees once; the zones absorb a fixed figure)",
+  "   the gust adds: axial n 0 0.099 mm, n 1 0.613 mm (tilt 0.292 mrad, image walk 0.23 cm at F), n 2..6 [0.184 0.025 0.006 0.022 0.003] mm (figure: rms slope 0.128 mrad, blur 0.257 mrad = 0.10 cm); radial n 2 0.040 mm (fy/fx - 1 = -0.075 per mille)",
+  "   for comparison the membrane's own figure under the same gust (membrane_wind.py: the gradient's 5.9 mrad rms by linear theory, 4.6 on the 2-D mesh; the uniform part 3 % of 162 Pa through a sealed plenum) and the head's pose error from the struts and pedicel (sheet 59): 0.8-1.1 cm at F. The 2-D solver's absolute figure (7.2 mrad rms here) is mesh-limited and not quoted"
  ]
 }

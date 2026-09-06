@@ -233,7 +233,7 @@ for fr in range(n_frames + 1):
         ident = dict(skill=float(skill), gain_rel_err=float(rel), rms_model=e_m.tolist(), rms_persist=e_p.tolist(), controller=ctrl_name); print(ctrl_name)
     if t >= T_S + T_C and not A.no_loop:
         Ginv = Kgain if Kgain is not None else jacobian(P_t, n_t)
-        u_fb = np.clip(u_fb + np.clip(-1.5*dt_f*(Ginv@err), -0.003, 0.003), -0.04, 0.04)
+        u_fb = np.clip(u_fb + np.clip(-1.5*dt_f*(Ginv@err), -0.003, 0.003), -0.015, 0.015)      # the clip is a design variable of the strut joints (stage3/topopt/fact_ball.py): +-15 mm keeps the flexure balls under 0.5 sigma_y; the runs never exceeded 7 mm
     L_cmd = leg_lengths(P_t, n_t) + dither + u_fb
     vw = wind_now(t); Fv, Mv, Fd = dish_load(vw, nd); LOAD["F"], LOAD["M"] = Fv, Mv
     if fr == 0: CMD_PREV = (Cb_t.copy(), n_t.copy(), L_cmd.copy())

@@ -246,7 +246,7 @@ for fr in range(n_frames + 1):
     err = pose_error(q, P_t, n_t) if t >= T_S else np.zeros(6)
     if t >= T_S + T_C and not A.no_lqr:
         Ginv = Kgain if Kgain is not None else jacobian(P_t, n_t)
-        u_fb = np.clip(u_fb + np.clip(-1.5*dt_f*(Ginv@err), -0.003, 0.003), -0.04, 0.04)                                  # integral on the pose error, 3 mm per frame at most
+        u_fb = np.clip(u_fb + np.clip(-1.5*dt_f*(Ginv@err), -0.003, 0.003), -0.015, 0.015)      # the clip is a design variable of the strut joints (stage3/topopt/fact_ball.py): +-15 mm keeps the flexure balls under 0.5 sigma_y; the runs never exceeded 7 mm                                  # integral on the pose error, 3 mm per frame at most
     B_t = base_joints(P_t, n_t); xn = x.numpy(); xn[GH_FLAT] = (np.repeat(np.array(B_t), 3, axis=0) + GH_OFFS).astype(np.float32); x.assign(xn)   # the pedicel's command: the ghosts move, the ring follows through the boom's stiffness
     L_cmd = L_ff + dither + u_fb
     nom = nominal0.copy()

@@ -36,9 +36,9 @@ for _ in range(40):
     else: hi = mid
 DP, MEM = 0.5*(lo + hi), f_of(0.5*(lo + hi))[1]
 r1 = MEM["r"].numpy() if torch.is_tensor(MEM["r"]) else np.asarray(MEM["r"]); Nr = MEM["Nr"].numpy() if torch.is_tensor(MEM["Nr"]) else np.asarray(MEM["Nr"]); sp_ = MEM["sp"].numpy() if torch.is_tensor(MEM["sp"]) else np.asarray(MEM["sp"])
-N_rim, slope_rim = float(Nr[-1]), float(abs(sp_[-1])); w0 = float(MEM["w0"])
+N_rim, sp_rim = float(Nr[-1]), float(abs(sp_[-1])); slope_rim = float(np.arctan(sp_rim)); w0 = float(MEM["w0"])
 say(f"1. membrane (1-D FvK, a {A_M} m, T_pre {T_PRE:.0f} N/m, {N_ZONES} zones zone_c {ZONE_C}): centre-zone pressure {DP:.0f} Pa (rim zone {DP*Z_SHAPE[-1]:.0f}) for f {F_DES}; sag {w0*1e3:.0f} mm; rim tension {N_rim:.0f} N/m, rim slope {np.degrees(slope_rim):.1f} deg")
-q_line_r, q_line_z = N_rim*np.cos(slope_rim), N_rim*np.sin(slope_rim)
+q_line_r, q_line_z = N_rim/np.sqrt(1 + sp_rim**2), N_rim*sp_rim              # the solver's own equilibrium r N_r s' = P_cum: N_r is the in-plane resultant, N_r s' the vertical line load
 P_TOT = float(np.sum(DP*Z_SHAPE*np.pi*(Z_EDGES[1:]**2 - Z_EDGES[:-1]**2)))
 say(f"   the film's pull on the ring: {q_line_r:.0f} N/m radially inward (hoop compression {q_line_r*A_M/1e3:.1f} kN in the ring), {q_line_z:.0f} N/m toward the vertex ({2*np.pi*A_M*q_line_z/1e3:.1f} kN in all: the zoned pressure on the film, {P_TOT/1e3:.1f} kN)")
 # ------------------------------------------------------------------ 2. the gust on the bowl (the repo's 2-D FvK solver)
@@ -61,7 +61,10 @@ def rim_slope(res, nth=48):
         out[k] = np.mean(wx[m]*np.cos(t) + wy[m]*np.sin(t)) if m.any() else np.nan
     return th, out
 th, s0 = rim_slope(res0); _, s1 = rim_slope(res1); ds = s1 - s0
-say(f"2. gust {V_PEAK} m/s (q {q:.0f} Pa, Cd {CD}, c_M {CM}) on the 2-D FvK membrane: f {fx0:.2f}/{fy0:.2f} -> {fx1:.2f}/{fy1:.2f} m; rms slope error vs the best paraboloid {se0*1e3:.2f} -> {se1*1e3:.2f} mrad (figure under wind, blur 2x); rim slope change mean {np.degrees(np.nanmean(ds)):.2f} deg, n=1 amplitude {np.degrees(np.nanmax(np.abs(ds - np.nanmean(ds)))):.2f} deg")
+MEMW = _sim.solve_membrane(CFG, DP*Z_SHAPE + q*CD, n=600, zone_edges=Z_EDGES); NrW, spW = np.asarray(MEMW["Nr"]), np.asarray(MEMW["sp"])
+dq_z_uniform = float(NrW[-1]*abs(spW[-1])) - q_line_z; dq_r_uniform = float(NrW[-1]/np.sqrt(1 + spW[-1]**2)) - q_line_r     # the 1-D solver with the uniform wind pressure added
+p1 = q*8*CM; Tm = float(np.mean(Nr)); amp_n1 = p1*A_M/4                                                                        # linear theory: T dw1/dr at the rim = p1 a/4 cos(theta), whose moment is p1 pi a^3/4 = M
+say(f"2. gust {V_PEAK} m/s (q {q:.0f} Pa, Cd {CD}, c_M {CM}): uniform part on the 1-D zoned solver: f {float(MEMW['z0'] + MEMW['f_fit']):.3f} m (from {F_DES}), the rim's vertical line load +{dq_z_uniform:.0f} N/m (total {2*np.pi*A_M*dq_z_uniform:.0f} N against the pressure integral {q*CD*np.pi*A_M**2:.0f} N), radial +{dq_r_uniform:.0f} N/m; gradient part p1 {p1:.0f} Pa by linear theory: an n = 1 vertical line load of amplitude p1 a/4 = {amp_n1:.0f} N/m (moment {amp_n1*np.pi*A_M**2:.0f} N m against {p1*np.pi*A_M**3/4:.0f}); the 2-D solver's rim slope change ({np.degrees(np.nanmean(ds)):.2f} deg mean, {np.degrees(np.nanmax(np.abs(ds - np.nanmean(ds)))):.2f} deg n = 1) is kept only as a check, its sign convention being the 1-D solver's opposite")
 # ------------------------------------------------------------------ 3. ring (frame) + spider (truss) finite elements
 E_AL, G_AL, RHO_AL = 69e9, 26e9, 2700.0; D_R, T_R = 0.100, 0.004                    # ring: Al tube 100 x 4
 A_R = np.pi*(D_R*T_R - T_R**2); I_R = np.pi/64*(D_R**4 - (D_R - 2*T_R)**4); J_R = 2*I_R
@@ -116,8 +119,8 @@ ell = 2*np.pi*A_M/NR; f_static = np.zeros(nd); f_wind = np.zeros(nd)
 m_ring = RHO_AL*A_R*2*np.pi*A_M; m_film = 2*0.05e-3*1390*np.pi*A_M**2 + 4.0
 for k, t in enumerate(th_r):
     rhat = np.array([np.cos(t), np.sin(t), 0.0]); f_static[dofs_t(k)] += -q_line_r*ell*rhat + np.array([0, 0, q_line_z*ell]) - np.array([0, 0, 9.81*(m_ring + m_film)/NR])
-    dsk = np.interp(t, th, np.nan_to_num(ds), period=2*np.pi); f_wind[dofs_t(k)] += np.array([0, 0, N_rim*dsk*ell])      # the wind's extra axial pull of the film on the ring
-say(f"3. ring Al {1e3*D_R:.0f} x {1e3*T_R:.0f} tube {m_ring:.0f} kg, films {m_film:.1f} kg; wind line load on the ring: {np.abs(f_wind).sum()/ell/NR:.0f} N/m mean magnitude, total axial {f_wind[2::6].sum():.0f} N (the pressure integral {float((p_wind*F2.cell_weights(phi, dx)[0]).sum()) if False else q*CD*np.pi*A_M**2:.0f} N)")
+    f_wind[dofs_t(k)] += np.array([-dq_r_uniform*ell*rhat[0], -dq_r_uniform*ell*rhat[1], (dq_z_uniform + amp_n1*np.cos(t))*ell])      # the wind's change of the film's pull: uniform (1-D) and n = 1 (linear theory)
+say(f"3. ring Al {1e3*D_R:.0f} x {1e3*T_R:.0f} tube {m_ring:.0f} kg, films {m_film:.1f} kg; wind line load on the ring: total axial {f_wind[2::6].sum():.0f} N (the pressure integral {q*CD*np.pi*A_M**2:.0f} N), moment about y {sum(f_wind[6*k + 2]*X[k, 0] for k in range(NR)):.0f} N m (the pitching moment {p1*np.pi*A_M**3/4:.0f})")
 # ------------------------------------------------------------------ 4. the spider by ground structure (min compliance, both load cases)
 amax, vol_frac = 4e-4, 0.03; n = len(M); A = np.full(n, vol_frac*amax); V = vol_frac*np.sum(amax*Lm); mma = MMA1(n, 1e-4*amax, amax, move=0.3)
 f_tot = f_static + f_wind
@@ -127,8 +130,19 @@ for it in range(120):
     g = float(np.sum(A*Lm)/V - 1.0); dg = Lm/V; A_new = mma.update(A, dobj, g, dg); ch = float(np.abs(A_new - A).max()/amax); A = A_new
     if it > 30 and ch < 1e-4: break
 K = K_of(A); u_s = solve(K, f_static); u_w = solve(K, f_tot); u_d = u_w - u_s
-kept = A > 0.05*amax; m_spider = float(np.sum(RHO_AL*A*Lm)); force = E_AL*A*elong(u_w)/Lm
-say(f"4. spider by ground structure: {int(kept.sum())} bars kept of {n}, {m_spider:.0f} kg Al; bar force max {np.abs(force[kept]).max()/1e3:.1f} kN, stress max {np.abs(force[kept]/A[kept]).max()/1e6:.0f} MPa; ring stress from hoop {q_line_r*A_M/A_R/1e6:.1f} MPa")
+kept = A > 0.05*amax; m_spider = float(np.sum(RHO_AL*A*Lm)); m_kept = float(np.sum(RHO_AL*A[kept]*Lm[kept])); force = E_AL*A*elong(u_w)/Lm
+def ring_stress(u):
+    worst = (0.0, 0.0)
+    for i, j in frame_el:
+        L = np.linalg.norm(X[j] - X[i]); ex = (X[j] - X[i])/L; ref = np.array([0, 0, 1.0]); ez = np.cross(ex, ref); ez /= np.linalg.norm(ez); ey = np.cross(ez, ex); R = np.vstack([ex, ey, ez])
+        T = np.zeros((12, 12))
+        for b in range(4): T[3*b:3*b + 3, 3*b:3*b + 3] = R
+        kg = frame_k(X[i], X[j], E_AL, G_AL, A_R, I_R, I_R, J_R); ue = np.concatenate([u[dofs_f(i)], u[dofs_f(j)]]); fl = T@(kg@ue)
+        N_ = abs(fl[0]); M_ = max(np.hypot(fl[4], fl[5]), np.hypot(fl[10], fl[11])); sig = N_/A_R + M_*(D_R/2)/I_R
+        if sig > worst[0]: worst = (sig, N_)
+    return worst
+sig_ring, N_ring = ring_stress(u_w)
+say(f"4. spider by ground structure at a volume fraction of {vol_frac}: {int(kept.sum())} bars above 5 % of the cap out of {n}, {m_kept:.0f} kg Al in them ({m_spider:.0f} kg with the floor bars); the mass is the volume fraction asked for, not a result, since the constraint is active and no bar is capped; bar force max {np.abs(force[kept]).max()/1e3:.1f} kN, stress max {np.abs(force[kept]/A[kept]).max()/1e6:.0f} MPa; the ring's worst element {N_ring/1e3:.1f} kN axial, {sig_ring/1e6:.1f} MPa with bending (a free ring under the hoop alone would carry {q_line_r*A_M/1e3:.1f} kN)")
 # ------------------------------------------------------------------ 5. the ring's motion read as the membrane's boundary error
 def harmonics(vals, nmax=6):
     c = np.fft.rfft(vals)/len(vals); amp = np.abs(c)*2; amp[0] /= 2; return amp[:nmax + 1]
@@ -143,7 +157,7 @@ rms_fig = float(np.sqrt(np.sum(slope2*rr)/np.sum(rr*np.ones_like(tt))))
 oval = hr_d[2]; ratio = (A_M + oval)/(A_M - oval); dfy_fx = 1/ratio**2 - 1
 say(f"5. under the film's pull alone the ring sags {1e3*hw_s[0]:.2f} mm (piston, n 0) with n 2..6 axial harmonics {np.round(1e3*hw_s[2:], 3)} mm (the static warp the pump sees once; the zones absorb a fixed figure)")
 say(f"   the gust adds: axial n 0 {1e3*hw_d[0]:.3f} mm, n 1 {1e3*hw_d[1]:.3f} mm (tilt {1e3*tilt:.3f} mrad, image walk {1e2*walk:.2f} cm at F), n 2..6 {np.round(1e3*hw_d[2:], 3)} mm (figure: rms slope {1e3*rms_fig:.3f} mrad, blur {2*1e3*rms_fig:.3f} mrad = {1e2*2*rms_fig*F_DES:.2f} cm); radial n 2 {1e3*oval:.3f} mm (fy/fx - 1 = {1e3*dfy_fx:.3f} per mille)")
-say(f"   for comparison the membrane's own figure change under the same gust (item 2): {1e3*(se1 - se0):.2f} mrad rms; and the head's pose error from the struts and pedicel (sheet 59): 0.8-1.1 cm at F")
+say(f"   for comparison the membrane's own figure under the same gust (membrane_wind.py: the gradient's 5.9 mrad rms by linear theory, 4.6 on the 2-D mesh; the uniform part 3 % of 162 Pa through a sealed plenum) and the head's pose error from the struts and pedicel (sheet 59): 0.8-1.1 cm at F. The 2-D solver's absolute figure ({se0*1e3:.1f} mrad rms here) is mesh-limited and not quoted")
 json.dump(dict(T_pre=T_PRE, dp=DP, sag_mm=1e3*w0, N_rim=N_rim, slope_rim_deg=np.degrees(slope_rim), q=q, f_wind=[fx1, fy1], slope_err_mrad=[1e3*se0, 1e3*se1], m_ring=m_ring, m_spider=m_spider, n_bars=int(kept.sum()),
                harm_static_mm=(1e3*hw_s).tolist(), harm_wind_axial_mm=(1e3*hw_d).tolist(), harm_wind_radial_mm=(1e3*hr_d).tolist(), tilt_mrad=1e3*tilt, walk_cm=1e2*walk, fig_rms_mrad=1e3*rms_fig, lines=lines), open(os.path.join(OUT, "ring_calyx.json"), "w"), indent=1)
 open(os.path.join(OUT, "ring_calyx.txt"), "w").write("\n".join(lines) + "\n")

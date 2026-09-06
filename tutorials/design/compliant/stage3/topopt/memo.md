@@ -12,9 +12,15 @@ rejected by the test); three independent lines not coplanar are the wire tripod 
 rotations; two wires leave a screw, three coplanar wires are dependent, as the chapter says on p. 85); step 4 is the
 equivalence of Fig. 6.7a, each wire replaced by two orthogonal blades in series, checked to have exactly a wire's five
 freedoms. The decisive design fact is kinematic: both rings of the hexapod are defined from the head pose, so the six leg
-lengths are constant over the day and the joints only turn with the loop's stroke, +-1.6 deg. Wire tripods of 6 mm Ti
-hold the 40 m/s survival load but halve the leg's stiffness; stacked Ti blades 1.0 x 50 x 15 mm make a joint twice as
-stiff as the strut with SF 14 on buckling. Twelve joints, 72 blades, no bearings. Sizing is outside FACT (p. 82) and says so.
+lengths are constant over the day and the joints only turn with the loop's corrections (the production runs used 7 mm of
+leg stroke at most, 0.4 deg at the calyx end; the loop's clip is the joint's design variable). The audit corrected the
+first sizing: a blade riding the body's rotation theta about C also has its end displaced by theta x s, so its worst
+curvature is (1 + 6 s_mid/L) theta/L, four times pure bending for a blade starting at C and eleven for the second of a
+stacked pair; at the old +-40 mm clip no blade meets bending and buckling at once. At +-15 mm (twice the runs' usage)
+stacked Ti blades 0.8 x 120 x 20 mm at 13 and 36 mm from C hold 388 MPa and SF 9.8 on Euler at the 14 kN survival strut
+load, and the joint is 2.9 x the strut's EA/L (the leg keeps 59 % of its stiffness, the crown 12 Hz). Wire tripods cannot
+carry the survival compression at any length that bends. Both simulations' clip is now +-15 mm. Sizing is outside FACT
+(the chapter keeps to kinematics, p. 82) and says so.
 
 ## Chapter 7, Frecker: ground structure and SIMP (`ground_truss.py`, `simp_cm.py`, `mma1.py`, sheet 61)
 
@@ -46,21 +52,45 @@ pressure integral). The ring as frame elements and a spider by ground structure 
 motion under the 15 m/s gust is 0.4 mm of n = 1 (0.15 cm at F) and 0.1 mm of n >= 2 (0.06 cm): the structure is not the
 problem.
 
-The film is. Its figure follows its differential pressure: df/dp = -1.4 mm/Pa, 3.6 mrad rms of slope change per 50 Pa,
-and a 9 m/s wind is 58 Pa mean with 29 Pa rms of gust; 12 m/s is 104 and 52; 15 m/s 162 and 81. Uncontrolled, the mean
-alone defocuses 3-9 cm at F. The RL policy trims the mean and the slow gusts (one action per 20 s leaves 85-91 % of the gust
-power). A local pressure loop at 0.5 Hz leaves 0.5 / 0.9 / 1.6 cm rms. The compliant answer is better than either: a
-constant-force element (Handbook 12.3.3) on a rolling diaphragm holds the plenum's differential pressure at the policy's
-setpoint while air flows to and from the film's changing volume (0.61 L/Pa: 18-50 L per 1-sigma gust, 150 L at the 3-sigma
-peak of 15 m/s; a 1 m2 diaphragm with +-22 cm of stroke at 1.37 kN, or the gasometer's 140 kg bell; a 0.15 m duct), at
-acoustic speed, with no sensor, no electronics, no hysteresis. The RL sets the setpoint, the mechanism holds it.
+The film is. Its figure follows its differential pressure p_plenum - p_face: df/dp = -1.4 mm/Pa, 3.6 mrad rms of slope
+change per 50 Pa, and a 9 m/s wind is 58 Pa mean with 29 Pa rms of gust; 12 m/s is 104 and 52; 15 m/s 162 and 81. On a
+constant-pressure supply (a blower holding the plenum's gauge pressure) the wind passes one to one: the mean alone
+defocuses 3-9 cm at F; the RL policy's one action per 20 s trims the mean and leaves 79-86 % of the gust variance; a local
+pressure loop at 0.5 Hz leaves 0.5 / 1.1 / 1.8 cm rms. The first version proposed a constant-force regulator on a
+diaphragm as the compliant canceller; the audit refuted it twice over: a regulator on the plenum holds p_plenum against
+ambient and cannot see the face, so the wind still drops the differential by its full pressure, and a 140 kg bell is a
+second-order system with a corner near 0.2 Hz. The compliant canceller is the opposite: SEAL the plenum between the pump's
+trims. The trapped air is then a constant-volume regulator: the film cannot change its volume (0.73 L/Pa from the rim
+plane) without compressing 1.9 m3 of air at 82.7 kPa, a gas spring 32 times stiffer than the film, so the differential
+pressure rises to meet the wind and 3 % of it reaches the figure: 0.1-0.3 cm of defocus for the mean, 0.05-0.14 cm rms for
+the gusts, the whole spectrum, at acoustic speed, with no moving part, no sensor, no port. The seal's cost is thermal: 1 K
+on the trapped air is 282 Pa, 9 Pa of differential after the film yields, slow, and the RL policy's pump trims it and the
+leakage at its 20 s step. The five zones are five sealed volumes with the same argument each.
 
 What no pressure can touch: the pitching moment as a pressure gradient 8 c_M q x/a. The linear membrane response
 w1 = p1 r (a^2 - r^2) cos(theta) / (8 T a) has zero mean slope over the disc (w1 vanishes on the rim), so it moves no image
 centroid and hands the head loop nothing; its rms slope is 0.0425 mrad/Pa at the working tension, all blur: 2.1 / 3.8 /
 5.9 mrad rms at 9 / 12 / 15 m/s, 1.7 / 3.0 / 4.7 cm at F. The 2-D FvK difference of two solves on one mesh gives 4.6 mrad
-at 15 m/s against the linear 5.9. That is the membrane's floor under wind, and the simulations' membrane term now uses it
-(slope 2.63e-5 V^2 rad) in place of the audit's scaled formula, which assumed T 20 kN/m.
+at 15 m/s against the linear 5.4 on the same inner-95 % mask (the disc-wide mean vanishes only over the whole disc). That is
+the membrane's floor under wind, and the simulations' membrane term now uses it (slope 2.63e-5 V^2 rad) in place of the
+audit's scaled formula, which assumed T 20 kN/m.
+
+## The audit of this work (opus workflow, 99 agents, `out/audit_findings.json`)
+
+Five auditors, one per script, prompted to refute against the chapter pages, the code and the outputs; two verifiers per
+finding (mathematics, reproduction). 47 findings, 36 stood. Applied: the blade stress rule and the joint's rotation and
+clip (above); the survival load citation (wind_size.py's 16.6 kN drag, 7.7 kN lift, 16.7 kN m, not a "60 kN drag" that was
+the stem's root moment misread) and the runs' logged strut maximum (5.0 kN, not 3.5); "stiffness and dynamics" as the
+chapter's exclusion, not strength; the calyx's hinge moment on the audit's peak constant (10.07 N m per (m/s)^2) applied
+once, not twice; the receptacle's weight share (256 N per strut, not 1 kN); one threshold (5 % of the cap) for the drawn and
+counted members; the inverter's docstring (the actuator pushes into the domain; Fig. 7.3a mirrored) and the pliers as a
+pliers-like problem, not Fig. 7.5's cells; the density filter attributed to Bruns-Tortorelli and Bourdin, the chapter's own
+remedy for hinges being the robust formulation; the ring's wind load built from the 1-D solver's change of vertical line
+load (uniform part) and linear theory (n = 1), the 2-D readout's sign convention being the 1-D solver's opposite; the ring's
+stress read from the solved frame elements (13.8 kN, 14.8 MPa, not the free ring's 9.2 kN); the spider's mass stated as
+the volume fraction asked for; the volume per pascal from the fixed rim plane (0.73 L/Pa, not 0.61 from the moving
+vertex); a first-order controller's residual weight f^2/(fc^2 + f^2) in place of a brick wall; the 2-D check compared with
+linear theory on the same mask; and the constant-pressure regulator replaced by the sealed plenum.
 
 The 2-D FvK solver is mesh-limited at this sag (6-7 mrad of discretization slope error at 121-161 cells; the env's own
 figure numbers come from the 1-D solver), so absolute figures are taken from the 1-D solver and the 2-D solver is used only

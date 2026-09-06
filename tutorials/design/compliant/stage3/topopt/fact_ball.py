@@ -7,7 +7,7 @@ Step 3  three independent constraint lines from that space, not coplanar: a trip
 Step 4  redundancy is not needed; instead the kinematic equivalence of Fig. 6.7a replaces each wire by a stacked pair of
         orthogonal blades whose planes intersect on the wire's line (Fig. 6.8d) for buckling strength.
 Every step is checked in screw algebra with fact/fact_core.py (constraint_space, reciprocal products, rank). What FACT
-does not do (the chapter says so, p. 82) is stiffness and strength: the sizing of the blades for the flower's loads follows
+does not do (the chapter says so, p. 82) is stiffness and dynamics; load capacity it treats qualitatively in step 4: the sizing of the blades for the flower's loads follows
 outside the method and is labelled as such."""
 import os, sys, json, numpy as np, matplotlib
 matplotlib.use("Agg"); import matplotlib.pyplot as plt
@@ -20,7 +20,7 @@ def series(twist_sets):
     F = np.vstack(twist_sets); u, s, vt = np.linalg.svd(F); r = int((s > 1e-9).sum()); return vt[:r]
 lines = []
 def say(s=""): print(s); lines.append(s)
-C = np.array([0.0, 0.0, 0.0]); zhat = np.array([0, 0, 1.0])                       # the joint centre; the strut leaves along +z
+C = np.array([0.0, 0.0, 0.0]); zhat = np.array([0, 0, 1.0])                       # the joint centre; the legs fan out along +z, the strut continues along -z
 # ---- step 1
 T_des = [rot_twist(C, [1, 0, 0]), rot_twist(C, [0, 1, 0]), rot_twist(C, [0, 0, 1])]
 say("Step 1  desired DOFs: three rotations about C (a ball joint at the strut's end).")
@@ -49,38 +49,53 @@ for p in np.radians([0, 120, 240]):
     d = [np.sin(alpha)*np.cos(p), np.sin(alpha)*np.sin(p), np.cos(alpha)]; lf, _, _ = stacked_blades(C, d)
     cs = constraint_space(lf); joint_constraints.append(cs[:, 0]/np.linalg.norm(cs[:, 0]))
 jf, jr = freedoms_of(joint_constraints); say(f"        the three-leg joint: rank {jr}, DOF {6 - jr}: {describe(jf)}")
-# ---- outside FACT: sizing for the flower (labelled)
-say(""); say("Outside FACT (the chapter excludes stiffness and strength): sizing for the flower's struts.")
-theta = np.radians(1.6); E_ti, sig_ti, EA_L = 110e9, 600e6, 200e9*1.33e-3/1.45
-P_run, P_surv = 3.5e3, 14.0e3                        # per strut: the runs' maximum (yaw hunting at 12 m/s), and the survival gust (40 m/s: 60 kN drag and 16 kN m on six struts)
-say(f"  motion at each ball: the six leg lengths are constant over the day (both rings are defined from the head pose), so the balls turn only with the loop's +-4 cm stroke on 1.45 m: +-{np.degrees(theta):.1f} deg; the dither adds 0.08 deg.")
-Pleg, Pleg_s = P_run/(3*np.cos(alpha)), P_surv/(3*np.cos(alpha)); say(f"  load per leg: {Pleg:.0f} N in the runs' worst case, {Pleg_s:.0f} N at the 40 m/s survival gust (3.5 and 14 kN per strut, three legs at 35 deg).")
-for dw in (4e-3, 6e-3, 8e-3):
-    Lw = 0.06; Pcr = np.pi**2*E_ti*np.pi*dw**4/64/Lw**2; sig_w = 1.5*E_ti*dw*theta/(2*Lw); k_w = E_ti*np.pi*dw**2/4/Lw
-    say(f"  a Ti wire leg d {1e3*dw:.0f} mm, 60 mm long: Euler load {Pcr/1e3:.1f} kN -> SF {Pcr/Pleg_s:.1f} at survival ({'fails' if Pcr < 3*Pleg_s else 'holds at SF 3'}); bending {sig_w/1e6:.0f} MPa at 1.6 deg; axial {k_w/1e6:.0f} MN/m per wire")
-say(f"  the wire tripod holds at d 6-8 mm but is soft: three 6 mm wires give the joint {3*np.cos(alpha)**2*E_ti*np.pi*6e-3**2/4/0.06/1e6:.0f} MN/m against the strut's own EA/L {EA_L/1e6:.0f} MN/m, and two such joints would halve the leg's stiffness and the crown's 16 Hz.")
-say("  step 4's reason, stiffness and load capacity, is why each wire becomes two stacked blades (Fig. 6.8d): sizing them for SF 3 on buckling at survival, bending under 0.5 sigma_y at +-1.6 deg, and a joint at least twice as stiff as the strut:")
-best = None
-for t in (1.0e-3, 1.5e-3, 2.0e-3, 2.5e-3, 3.0e-3):
-    for w in (20e-3, 30e-3, 40e-3, 50e-3, 60e-3):
-        for Lb in (15e-3, 20e-3, 30e-3, 40e-3):
-            sig = 1.5*E_ti*t*theta/(2*Lb)                                            # a fixed-guided blade turned theta: 1.5 x the pure-bending E t theta / 2 L
-            Pcr = 4*np.pi**2*E_ti*w*t**3/12/Lb**2                                      # fixed-fixed Euler about the thin axis
-            k_ax = E_ti*w*t/Lb; k_j = 3*np.cos(alpha)**2*(k_ax/2)
-            ok = sig < 0.5*sig_ti and Pcr > 3*Pleg_s and k_j >= 2*EA_L
-            if ok and (best is None or (w*t*Lb) < best[0]): best = (w*t*Lb, t, w, Lb, sig, Pcr, k_ax, k_j)
-_, t, w, Lb, sig, Pcr, k_ax, k_joint = best
-say(f"  chosen blade (Ti 6Al-4V): t {1e3*t:.1f} mm, w {1e3*w:.0f} mm, free length {1e3*Lb:.0f} mm: bending {sig/1e6:.0f} MPa at +-1.6 deg, Euler load about the thin axis {Pcr/1e3:.1f} kN (SF {Pcr/Pleg_s:.1f} at survival), axial stiffness per blade {k_ax/1e6:.0f} MN/m")
-say(f"  the joint: {k_joint/1e6:.0f} MN/m axially (three legs of two blades in series at 35 deg) = {k_joint/EA_L:.1f} x the strut's EA/L; two joints add {100*2*EA_L/k_joint:.0f} % to a leg's compliance, the crown's first mode falls by {100*(1 - 1/np.sqrt(1 + 2*EA_L/k_joint)):.0f} %")
-say(f"  image walk from that compliance at 3.5 kN: {1e3*2*P_run/k_joint*2*4.0/1.45:.2f} mm at F per leg; twelve joints, 72 blades, no bearings, no backlash, no lubrication.")
-json.dump(dict(theta_deg=float(np.degrees(theta)), P_leg=Pleg, P_leg_survival=Pleg_s, blade=dict(t_mm=1e3*t, w_mm=1e3*w, L_mm=1e3*Lb, sigma_MPa=sig/1e6, P_cr=Pcr), k_joint_MN_m=k_joint/1e6, lines=lines), open(os.path.join(OUT, "fact_ball.json"), "w"), indent=1)
+# ---- outside FACT: sizing for the flower (labelled; the chapter treats stiffness and dynamics as out of scope, p. 82, and load capacity qualitatively in step 4)
+say(""); say("Outside FACT (the chapter keeps to kinematics, p. 82): sizing for the flower's struts.")
+import json as _json, glob as _glob
+E_ti, sig_ti, EA_L = 110e9, 880e6, 200e9*1.33e-3/1.446                                 # Ti 6Al-4V (yield 880 MPa); the 85 x 5.3 strut's EA/L at its 1.446 m
+L_LEG = 1.446; KIN = 1.44                                                              # ball rotation per unit leg-length change: 1.44 x dl/L at the calyx end (hexapod inverse kinematics of the flower's rings, audit)
+logs = sorted(_glob.glob(os.path.join(HERE, "..", "setup_sim", "out", "flower*_log.json")))
+dl_runs, f_runs = 0.0, 0.0
+for lp in logs:
+    if any(k in lp for k in ("_test", "_diag", "fl_", "vB", "vC", "vD", "vF")): continue
+    L_ = _json.load(open(lp)); T_S = 12.0
+    for l in L_:
+        if l["t"] >= T_S: dl_runs = max(dl_runs, max(abs(x - L_LEG) for x in l["legs_m"])); f_runs = max(f_runs, max(abs(x) for x in l["f_leg_kN"]))
+theta_run = KIN*dl_runs/L_LEG
+say(f"  motion at each ball: the six leg lengths are constant over the day (both rings are defined from the head pose), so the balls turn only with the loop's corrections: the production runs used {1e3*dl_runs:.0f} mm at most ({np.degrees(theta_run):.2f} deg at the calyx end); the loop's clip is +-40 mm ({np.degrees(KIN*0.04/L_LEG):.2f} deg for one leg at full stroke) and is a design variable of the joint")
+P_run, P_surv = 1e3*f_runs, 14.0e3           # per strut: the production runs' logged maximum; the 40 m/s 3-s gust (wind_size.py: 16.6 kN drag, 7.7 kN lift, 16.7 kN m hinge moment -> 8.6-12.5 kN per leg by the hexapod solve, rounded up)
+Pleg, Pleg_s = P_run/(3*np.cos(alpha)), P_surv/(3*np.cos(alpha)); say(f"  load per leg: {Pleg:.0f} N at the runs' logged maximum strut force ({P_run/1e3:.1f} kN), {Pleg_s:.0f} N at the 40 m/s survival gust (14 kN per strut).")
+def k_amp(s_mid, Lb): return 1.0 + 6.0*s_mid/Lb                                        # a blade whose one end rides the body turning theta about C: its ends both tilt by theta and shift by theta x s; the curvature at the worst end is (1 + 6 s_mid/L) x theta/L
+say("  a flexure element on the leg does not bend in pure bending: the body's rotation theta about C also moves the element's end by theta x s, and the curvature at the worst end is (1 + 6 s_mid/L) theta/L, s_mid the element's mid-length from C (a leg element that starts at C has s_mid = L/2 and the factor 4).")
+theta = KIN*0.04/L_LEG
+for dw, Lw in ((6e-3, 0.06), (6e-3, 0.30), (4e-3, 0.30)):
+    Pcr = np.pi**2*E_ti*np.pi*dw**4/64/Lw**2; sig_w = k_amp(0.5*Lw, Lw)*E_ti*dw*theta/(2*Lw); k_w = E_ti*np.pi*dw**2/4/Lw
+    say(f"  a Ti wire leg d {1e3*dw:.0f} mm, {1e3*Lw:.0f} mm long from C, at the clip's {np.degrees(theta):.1f} deg: bending {sig_w/1e6:.0f} MPa, Euler {Pcr/1e3:.2f} kN (SF {Pcr/Pleg_s:.2f} at survival), axial {k_w/1e6:.0f} MN/m: {'holds' if Pcr > 3*Pleg_s and sig_w < 0.5*sig_ti else 'fails'}")
+say("  so a wire tripod cannot carry the survival compression at any length that bends; step 4's equivalence puts two stacked blades per leg. Sizing them: bending under 0.5 sigma_y at the loop's clip, SF 3 on Euler at survival, the joint's axial stiffness as high as the geometry allows (two joints in series with the strut), and the clip reduced until a blade exists:")
+GAP = 3e-3; best = None; clip = None
+for clip_try in (0.040, 0.030, 0.020, 0.015, 0.010, 0.005):
+    theta = KIN*clip_try/L_LEG; best = None
+    for t in (0.3e-3, 0.5e-3, 0.8e-3, 1.0e-3, 1.5e-3, 2.0e-3, 3.0e-3):
+        for w in (20e-3, 40e-3, 60e-3, 90e-3, 120e-3):
+            for Lb in (5e-3, 8e-3, 12e-3, 20e-3, 30e-3, 50e-3):
+                s1, s2 = GAP + 0.5*Lb, 2*GAP + 1.5*Lb
+                sig = k_amp(s2, Lb)*E_ti*t*theta/(2*Lb)                                   # the outer blade governs
+                Pcr = 4*np.pi**2*E_ti*w*t**3/12/Lb**2; k_ax = E_ti*w*t/Lb; k_j = 3*np.cos(alpha)**2*(k_ax/2)
+                if sig < 0.5*sig_ti and Pcr > 3*Pleg_s and (best is None or k_j > best[0]): best = (k_j, t, w, Lb, sig, Pcr, k_ax, s1, s2)
+    say(f"  clip +-{1e3*clip_try:.0f} mm ({np.degrees(theta):.2f} deg): " + ("no blade meets bending and buckling at once" if best is None else f"stiffest feasible blade t {1e3*best[1]:.1f} x w {1e3*best[2]:.0f} x L {1e3*best[3]:.0f} mm, joint {best[0]/1e6:.0f} MN/m = {best[0]/EA_L:.2f} x the strut's EA/L"))
+    if best is not None and clip_try >= 2*dl_runs: clip = clip_try; keep = (theta, best)          # the smallest feasible clip that still leaves the loop twice what the runs used
+theta, (k_joint, t, w, Lb, sig, Pcr, k_ax, s1, s2) = keep
+say(f"  chosen: the smallest feasible clip at least twice the runs' usage, +-{1e3*clip:.0f} mm ({np.degrees(theta):.2f} deg, {clip/max(dl_runs, 1e-9):.1f} x what the runs used); blade Ti 6Al-4V t {1e3*t:.1f} mm, w {1e3*w:.0f} mm, free length {1e3*Lb:.0f} mm, the pair at {1e3*s1:.0f} and {1e3*s2:.0f} mm from C (factors {k_amp(s1, Lb):.0f} and {k_amp(s2, Lb):.0f}): outer blade {sig/1e6:.0f} MPa, Euler {Pcr/1e3:.1f} kN (SF {Pcr/Pleg_s:.1f} at survival), axial stiffness per blade {k_ax/1e6:.0f} MN/m")
+say(f"  the joint: {k_joint/1e6:.0f} MN/m axially = {k_joint/EA_L:.2f} x the strut's EA/L {EA_L/1e6:.0f} MN/m; two joints leave the leg at {100/(1 + 2*EA_L/k_joint):.0f} % of its stiffness and the crown's 16 Hz at {16/np.sqrt(1 + 2*EA_L/k_joint):.1f} Hz; at the runs' actual rotation the same blades see {sig*theta_run/theta/1e6:.0f} MPa")
+say(f"  image walk from the joints' compliance at the runs' maximum strut force: {1e3*2*P_run/k_joint*2*4.0/L_LEG:.2f} mm at F per leg; twelve joints, 72 blades, no bearings, no backlash, no lubrication; the loop's clip becomes +-{1e3*clip:.0f} mm in both simulations.")
+json.dump(dict(theta_deg=float(np.degrees(theta)), clip_mm=1e3*clip, theta_run_deg=float(np.degrees(theta_run)), dl_run_mm=1e3*dl_runs, P_strut_run=P_run, P_leg=Pleg, P_leg_survival=Pleg_s, blade=dict(t_mm=1e3*t, w_mm=1e3*w, L_mm=1e3*Lb, sigma_MPa=sig/1e6, P_cr=Pcr, s1_mm=1e3*s1, s2_mm=1e3*s2), k_joint_MN_m=k_joint/1e6, k_ratio=k_joint/EA_L, lines=lines), open(os.path.join(OUT, "fact_ball.json"), "w"), indent=1)
 open(os.path.join(OUT, "fact_ball.txt"), "w").write("\n".join(lines) + "\n")
 # ---- figure: the four steps as pictures
 fig = plt.figure(figsize=(14, 4.2))
 def seg(ax, p, q, **kw): ax.plot([p[0], q[0]], [p[1], q[1]], [p[2], q[2]], **kw)
 ax = fig.add_subplot(1, 4, 1, projection="3d"); ax.set_title("1  desired DOFs: 3 rotations about C", fontsize=9)
 for a in np.eye(3): seg(ax, C - 0.08*a, C + 0.08*a, color="#0e7490", lw=2)
-seg(ax, C, C + 0.12*zhat, color="#7c4a1e", lw=6); ax.scatter(*C, color="k", s=30)
+seg(ax, C, C - 0.12*zhat, color="#7c4a1e", lw=6); ax.scatter(*C, color="k", s=30)
 ax = fig.add_subplot(1, 4, 2, projection="3d"); ax.set_title("2  constraint space: every line through C", fontsize=9)
 for p in np.linspace(0, np.pi, 8):
     for q in np.linspace(0, np.pi, 4):
