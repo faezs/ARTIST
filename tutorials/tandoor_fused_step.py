@@ -305,12 +305,21 @@ def _day_over(env, F, infos):
     })
     env.terminals[:] = True
     env.t_solar[:] = 8.0
+    need_dawn = torch.zeros(B, dtype=torch.bool, device=dev)
+    dawn_charge = torch.zeros(B, device=dev)
     if getattr(env, "night_carry", 0):
         # the pit carried the night: tomorrow is the NEXT day at the SAME
         # site (the site does not move; the declination drifts slowly
         # and the figure keeps yesterday's, until the cook re-forms)
         env.day_v[:] = env.day_v % 365 + 1
         env.day = int(env.day_v[0])
+        # the dawn routine (numpy twin): re-form by hand when the figure
+        # has drifted form_drift degrees, charged form_min soft steps
+        decl_t = 23.44 * torch.sin(2.0 * np.pi * (284.0 + torch.as_tensor(env.day_v.astype(np.float32), device=dev)) / 365.0)
+        need_dawn = (decl_t - S.decl_formed).abs() >= float(getattr(env, "form_drift", 2.0))
+        S.decl_formed.copy_(torch.where(need_dawn, decl_t, S.decl_formed))
+        dawn_charge = 0.02 * float(getattr(env, "form_min", 4)) * need_dawn.float()
+        rew = rew - dawn_charge
     else:
         if env.day_random:
             env.day_v[:] = env.rng.integers(1, 366, B)
@@ -348,6 +357,9 @@ def _day_over(env, F, infos):
                "form_time", "wind_g", "cloud", "p_dist",
                "day_rotis"):
         getattr(S, nm).zero_()
+    # the dawn routine's book: the minutes and the charge land in the new day
+    S.form_time.copy_(need_dawn.float() * float(getattr(env, "form_min", 4)))
+    S.ep_return.sub_(dawn_charge)
     env._hr_mark = 8
     env._hr_rotis = 0.0
     S.has_bread.zero_()

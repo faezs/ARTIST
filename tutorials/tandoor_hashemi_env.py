@@ -1025,6 +1025,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # figure follows the day's declination (the dawn re-form is paid
         # for, never free; 1 = the old instant re-form)
         self.form_min = int(kwargs.pop("form_min", 4))
+        # form_drift: the dawn routine. With the carry-over the cook
+        # re-forms the membrane by hand at dawn whenever the figure has
+        # drifted this many degrees of declination from the day's - it
+        # costs form_min soft steps of reward (-0.02 each) and is
+        # recorded in form_minutes; mid-day re-forming stays the policy's.
+        self.form_drift = float(kwargs.pop("form_drift", 2.0))
         # r_rail: the azimuth ring rail's radius on the roof (Hashemi fig
         # 18: the A-frames' rollers run on a fixed ring around the tower),
         # g_orbit + 0.6 m by default; it must sit ON the roof - it cannot
@@ -1259,6 +1265,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 # the pit carried the night: the next calendar day, same site
                 self.day_v[:] = self.day_v % 365 + 1
                 self.day = int(self.day_v[0])
+                # the dawn routine: re-form by hand when the figure has drifted
+                decl_t = 23.44 * np.sin(2.0 * np.pi * (284.0 + self.day_v) / 365.0)
+                need = np.abs(decl_t - self.decl_formed) >= self.form_drift
+                self.decl_formed = np.where(need, decl_t, self.decl_formed)
+                self.form_time = np.where(need, float(self.form_min), self.form_time)
+                self.rewards -= 0.02 * self.form_min * need
+                self.ep_return -= 0.02 * self.form_min * need
             elif self.day_random or self.lat_random:
                 if self.day_random:
                     self.day_v[:] = self.rng.integers(
@@ -2263,9 +2276,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             })
             self.terminals[:] = True
             self.t_solar[:] = 8.0
+            need_dawn = torch.zeros(B, dtype=torch.bool, device=dev)
             if getattr(self, "night_carry", 0):
                 self.day_v[:] = self.day_v % 365 + 1
                 self.day = int(self.day_v[0])
+                decl_t = 23.44 * torch.sin(2.0 * np.pi * (284.0 + torch.as_tensor(self.day_v.astype(np.float32), device=dev)) / 365.0)
+                need_dawn = (decl_t - S.decl_formed).abs() >= self.form_drift
+                S.decl_formed = torch.where(need_dawn, decl_t, S.decl_formed)
+                rew = rew - 0.02 * self.form_min * need_dawn.float()
             else:
                 if self.day_random:
                     self.day_v[:] = self.rng.integers(1, 366, B)
@@ -2300,6 +2318,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                        "form_time", "wind_g", "cloud", "p_dist",
                        "day_rotis"):
                 setattr(S, nm, torch.zeros_like(getattr(S, nm)))
+            S.form_time = need_dawn.float() * float(self.form_min)
+            S.ep_return = S.ep_return - 0.02 * self.form_min * need_dawn.float()
             self._hr_mark = 8
             self._hr_rotis = 0.0
             S.has_bread = torch.zeros_like(S.has_bread)
