@@ -228,7 +228,7 @@ for fr in range(n_frames + 1):
         lam = 1e-3*np.trace(Phi[:ntr].T@Phi[:ntr])/Phi.shape[1]; M = np.linalg.solve(Phi[:ntr].T@Phi[:ntr] + lam*np.eye(Phi.shape[1]), Phi[:ntr].T@Y[:ntr]).T
         pred = Phi[ntr:]@M.T; e_m = np.sqrt(np.mean((pred - Y[ntr:])**2, 0)); e_p = np.sqrt(np.mean(Y[ntr:]**2, 0))
         skill = 1 - np.mean(e_m/np.maximum(e_p, 1e-9)); Gid = sum(M[:, 6*j:6*(j + 1)] for j in range(NL)); Jan = np.linalg.inv(jacobian(P_t, n_t)); rel = np.linalg.norm(Gid - Jan)/np.linalg.norm(Jan)
-        if skill >= 0.5 and rel < 0.5: Kgain = np.linalg.pinv(Gid); ctrl_name = f"integral loop through the IDENTIFIED gain (skill {skill:.2f}, {100*rel:.0f} % from the analytic Jacobian)"
+        if skill >= 0.5 and rel < 0.3: Kgain = np.linalg.pinv(Gid)      # one-step skill does not qualify a gain for the loop: at rel 0.4-0.5 the loop hunted +-4 cm in yaw (the gain's weak direction) while F held; ctrl_name = f"integral loop through the IDENTIFIED gain (skill {skill:.2f}, {100*rel:.0f} % from the analytic Jacobian)"
         else: Kgain = None; ctrl_name = f"integral loop through the analytic Jacobian (identified gain skill {skill:.2f}, {100*rel:.0f} % off)"
         ident = dict(skill=float(skill), gain_rel_err=float(rel), rms_model=e_m.tolist(), rms_persist=e_p.tolist(), controller=ctrl_name); print(ctrl_name)
     if t >= T_S + T_C and not A.no_loop:

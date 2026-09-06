@@ -238,7 +238,7 @@ for fr in range(n_frames + 1):
         Gid = sum(M[:, 6*j:6*(j + 1)] for j in range(NL))                                    # identified pose change per unit leg increment (6 x 6)
         Jan = np.linalg.inv(jacobian(P_t, n_t))                                             # the analytic inverse Jacobian for comparison
         rel = np.linalg.norm(Gid - Jan)/np.linalg.norm(Jan)
-        if skill >= 0.5 and rel < 0.5: Kgain = np.linalg.pinv(Gid); ctrl_name = f'integral loop through the IDENTIFIED gain (skill {skill:.2f}, {100*rel:.0f} % from the analytic Jacobian)'
+        if skill >= 0.5 and rel < 0.3: Kgain = np.linalg.pinv(Gid)      # one-step skill does not qualify a gain for the loop: at rel 0.4-0.5 the loop hunted +-4 cm in yaw (the gain's weak direction) while F held; ctrl_name = f'integral loop through the IDENTIFIED gain (skill {skill:.2f}, {100*rel:.0f} % from the analytic Jacobian)'
         else: Kgain = None; ctrl_name = f'integral loop through the analytic Jacobian (identified gain skill {skill:.2f}, {100*rel:.0f} % off)'
         print(ctrl_name)
         ident = dict(n_train=int(ntr), n_test=int(len(Y) - ntr), rms_model=e_m.tolist(), rms_persist=e_p.tolist(), skill=float(skill), gain_rel_err=float(rel), controller=ctrl_name)
