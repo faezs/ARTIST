@@ -1331,35 +1331,44 @@ kernel void step_post(
     bool cut = s[S0+16] >= 40.0f;
     s[S0+12] += r;
     s[S0+13] += 1.0f;
-    // ---- lost-sun truncation: ALWAYS COLD, charge-and-crash closed
+    // ---- lost-sun truncation. Fresh-pot mode (ip[10] == 0): ALWAYS
+    // COLD, charge-and-crash closed by refunding the wiped state's
+    // potential. Carry-over mode (ip[10] == 1, the physical model): a
+    // lost mount is a lost mount - the crew re-acquires the sun at the
+    // penalty, the pot, the sand, the halo and the loaves keep their
+    // physics, nothing is refunded because nothing is wiped
     float trv = 0.0f;
+    const bool phys_cut = ip[10] > 0;
     if (cut) {
-        // charge-and-crash closed EXACTLY: refund the potential of
-        // the state being wiped (Phi of cold reset ~ 0) plus the
-        // in-flight load bonuses
         float nb_ = 0.0f;
-        for (int k = 0; k < NB; k++) {
-            nb_ += hb[k];
-            nb_ += (2.0f/0.3f)*clamp(bE[k]/ds[50], 0.0f, 1.0f);
-            nb_ += (0.05f/0.3f)*max(min(s[k], sp[27]) - 350.0f,
-                                    0.0f);
+        if (!phys_cut) {
+            for (int k = 0; k < NB; k++) {
+                nb_ += hb[k];
+                nb_ += (2.0f/0.3f)*clamp(bE[k]/ds[50], 0.0f, 1.0f);
+                nb_ += (0.05f/0.3f)*max(min(s[k], sp[27]) - 350.0f,
+                                        0.0f);
+            }
         }
         r -= 0.3f*nb_ + sp[63];   // + fixed truncation penalty
-        for (int i = 0; i < N; i++) {
-            float nt = 350.0f + (ru[b*16 + 1 + i] - 0.5f)*30.0f;
-            s[i] = nt; Tsub[i] = nt; Tdeep[i] = nt;
+        if (!phys_cut) {
+            for (int i = 0; i < N; i++) {
+                float nt = 350.0f + (ru[b*16 + 1 + i] - 0.5f)*30.0f;
+                s[i] = nt; Tsub[i] = nt; Tdeep[i] = nt;
+            }
+            // the sand columns follow the fresh pot's hearth and floor
+            for (int n = 0; n < 2; n++)
+                for (int l = 0; l < KSAND; l++) s[SB + n*KSAND + l] = s[NB + n];
+            s[3*N] = 300.0f;
         }
-        // the sand columns follow the fresh pot's hearth and floor
-        for (int n = 0; n < 2; n++)
-            for (int l = 0; l < KSAND; l++) s[SB + n*KSAND + l] = s[NB + n];
-        s[3*N] = 300.0f;
         s[S0+9] = 0.0f; s[S0+10] = 0.0f; s[S0+11] = 0.0f;
         s[S0+12] = 0.0f; s[S0+13] = 0.0f;
-        for (int k = 0; k < NB; k++) {
-            bE[k] = 0.0f; bt_[k] = 0.0f; hb[k] = 0.0f;
-            bC[k] = 0.0f;      // fresh dough carries no char
+        if (!phys_cut) {
+            for (int k = 0; k < NB; k++) {
+                bE[k] = 0.0f; bt_[k] = 0.0f; hb[k] = 0.0f;
+                bC[k] = 0.0f;      // fresh dough carries no char
+            }
+            s[S0+1] = sp[1]; s[S0+0] = sp[1];
         }
-        s[S0+1] = sp[1]; s[S0+0] = sp[1];
         float el1, az1d;
         solar_pos(lat[b], day[b], mprm[0] + sp[42], &el1, &az1d);
         s[S0+14] = clamp(el1 + 0.3f*rn[b*12+10], sp[14], sp[15]);

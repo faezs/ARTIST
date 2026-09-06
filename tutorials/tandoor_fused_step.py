@@ -169,7 +169,8 @@ class FusedState:
         nd = int(getattr(e, "_design_obs", np.zeros((B, 0))).shape[1])
         self.ip = torch.tensor([B, N, NB, e.N_HEADS, self.NS, OD, 0,
                                 int(getattr(e, "sticky_k", 0)), nd,
-                                int(getattr(e, "form_min", 1))],
+                                int(getattr(e, "form_min", 1)),
+                                int(bool(getattr(e, "night_carry", 0)))],
                                dtype=torch.int32, device=dev)
         L = e._pts_l.shape[0]
         self.tdims = torch.tensor([B, self.P, L, N + e.n_belt],
@@ -307,7 +308,14 @@ def _day_over(env, F, infos):
     env.t_solar[:] = 8.0
     need_dawn = torch.zeros(B, dtype=torch.bool, device=dev)
     dawn_charge = torch.zeros(B, device=dev)
-    if getattr(env, "night_carry", 0):
+    if getattr(env, "night_carry", 0) and not getattr(env, "consecutive_days", 1):
+        # control: a random day and latitude, the pot carried, the figure re-formed
+        if env.day_random:
+            env.day_v[:] = env.rng.integers(1, 366, B); env.day = int(env.day_v[0])
+        if env.lat_random:
+            env.lat_v[:] = env.rng.uniform(15.0, 35.0, B); env.lat = float(env.lat_v[0])
+        S.decl_formed.copy_(23.44 * torch.sin(2.0 * np.pi * (284.0 + torch.as_tensor(env.day_v.astype(np.float32), device=dev)) / 365.0))
+    elif getattr(env, "night_carry", 0):
         # the pit carried the night: tomorrow is the NEXT day at the SAME
         # site (the site does not move; the declination drifts slowly
         # and the figure keeps yesterday's, until the cook re-forms)

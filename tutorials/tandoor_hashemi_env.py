@@ -1031,6 +1031,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # costs form_min soft steps of reward (-0.02 each) and is
         # recorded in form_minutes; mid-day re-forming stays the policy's.
         self.form_drift = float(kwargs.pop("form_drift", 2.0))
+        # consecutive_days: with the carry-over, tomorrow is the next
+        # calendar day at the same site (1, the physical model) or a
+        # fresh random day and latitude with the pot carried and the
+        # figure re-formed for free (0: the pre-490778e3 training
+        # distribution, kept as an experimental control)
+        self.consecutive_days = int(kwargs.pop("consecutive_days", 1))
         # r_rail: the azimuth ring rail's radius on the roof (Hashemi fig
         # 18: the A-frames' rollers run on a fixed ring around the tower),
         # g_orbit + 0.6 m by default; it must sit ON the roof - it cannot
@@ -1219,31 +1225,38 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 # exact potential of the wiped state + in-flight
                 # load bonuses + accrued doneness (charge-and-crash
                 # closed)
-                give = 0.3 * float(self.has_bread[i].sum()) \
+                phys_cut = bool(getattr(self, "night_carry", 0))
+                # carry-over mode: a lost mount is a lost mount; the pot,
+                # the sand, the halo and the loaves keep their physics,
+                # nothing is refunded because nothing is wiped
+                give = 0.0 if phys_cut else (
+                    0.3 * float(self.has_bread[i].sum())
                     + 2.0 * float(np.clip(
                         self.bread_E[i] / self._ds_roti[i],
-                        0.0, 1.0).sum()) \
+                        0.0, 1.0).sum())
                     + 0.05 * float(np.clip(
                         np.minimum(self.T[i, : self.n_belt],
                                    T_COOK_LO) - 350.0,
-                        0, None).sum())
+                        0, None).sum()))
                 self.rewards[i] -= give + self.cut_penalty
                 self.ep_return[i] -= give + self.cut_penalty
-                # always cold on lost-sun truncation (no warm lottery)
-                self.T[i] = 350.0
-                self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
-                self.T_sub[i] = self.T[i].copy()
-                self.T_deep[i] = self.T[i].copy()
-                self.T_sand[i] = self.T[i, self.n_belt:self.n_belt + 2, None]
-                self.T_halo[i] = 300.0
-                self.bread_t[i] = 0.0
-                self.bread_C[i] = 0.0    # fresh dough carries no char
+                if not phys_cut:
+                    # always cold on lost-sun truncation (no warm lottery)
+                    self.T[i] = 350.0
+                    self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
+                    self.T_sub[i] = self.T[i].copy()
+                    self.T_deep[i] = self.T[i].copy()
+                    self.T_sand[i] = self.T[i, self.n_belt:self.n_belt + 2, None]
+                    self.T_halo[i] = 300.0
+                    self.bread_t[i] = 0.0
+                    self.bread_C[i] = 0.0    # fresh dough carries no char
                 self.ep_rotis[i] = self.ep_scorch[i] = 0.0
                 self.ep_spall[i] = 0.0
                 self.ep_return[i] = self.ep_len[i] = 0.0
-                self.p_set[i] = self.p_act[i] = self.p0
-                self.has_bread[i] = False
-                self.bread_E[i] = 0.0
+                if not phys_cut:
+                    self.p_set[i] = self.p_act[i] = self.p0
+                    self.has_bread[i] = False
+                    self.bread_E[i] = 0.0
                 self.el_m[i] = np.clip(el1v[i]
                                        + self.rng.normal(0, 0.3),
                                        self.el_min_h, self.el_max_h)
@@ -1261,7 +1274,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # path. Caught by the zero-noise trajectory harness.
             self.observations[cut] = self._obs()[cut]
         if wrapped:
-            if getattr(self, "night_carry", 0):
+            if getattr(self, "night_carry", 0) and not getattr(self, "consecutive_days", 1):
+                # control: random day and latitude, pot carried, figure re-formed
+                if self.day_random:
+                    self.day_v[:] = self.rng.integers(1, 366, self.num_agents); self.day = int(self.day_v[0])
+                if self.lat_random:
+                    self.lat_v[:] = self.rng.uniform(15.0, 35.0, self.num_agents); self.lat = float(self.lat_v[0])
+                self.decl_formed = 23.44 * np.sin(2.0 * np.pi * (284.0 + self.day_v) / 365.0)
+            elif getattr(self, "night_carry", 0):
                 # the pit carried the night: the next calendar day, same site
                 self.day_v[:] = self.day_v % 365 + 1
                 self.day = int(self.day_v[0])
@@ -2196,29 +2216,34 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # still in flight before the state is overwritten
             # exact potential of the wiped state + in-flight load
             # bonuses (charge-and-crash closed)
+            phys_cut = bool(getattr(self, "night_carry", 0))
             give = 0.3 * S.has_bread.float().sum(1) \
                 + 2.0 * (S.bread_E / self._ds_roti_t[:, None]) \
                 .clamp(0.0, 1.0).sum(1) \
                 + 0.05 * (S.T[:, : self.n_belt].clamp(max=T_COOK_LO)
                           - 350.0).clamp(min=0.0).sum(1)
+            if phys_cut:
+                give = torch.zeros_like(give)      # nothing wiped, nothing refunded
             rew = rew - (give + self.cut_penalty) * cut.float()
-            S.T = torch.where(cutf, newT, S.T)
-            S.T_sub = torch.where(cutf, newT, S.T_sub)
-            S.T_deep = torch.where(cutf, newT, S.T_deep)
-            S.T_sand = torch.where(cut[:, None, None], newT[:, self.n_belt:self.n_belt + 2, None].expand_as(S.T_sand), S.T_sand)
-            S.T_halo = torch.where(cut, torch.full_like(S.T_halo, 300.0),
-                                   S.T_halo)
-            for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
-                       "ep_len", "bread_E", "bread_t", "bread_C"):
+            if not phys_cut:
+                S.T = torch.where(cutf, newT, S.T)
+                S.T_sub = torch.where(cutf, newT, S.T_sub)
+                S.T_deep = torch.where(cutf, newT, S.T_deep)
+                S.T_sand = torch.where(cut[:, None, None], newT[:, self.n_belt:self.n_belt + 2, None].expand_as(S.T_sand), S.T_sand)
+                S.T_halo = torch.where(cut, torch.full_like(S.T_halo, 300.0),
+                                       S.T_halo)
+            for nm in (("ep_rotis", "ep_scorch", "ep_spall", "ep_return", "ep_len")
+                       + (() if phys_cut else ("bread_E", "bread_t", "bread_C"))):
                 v = getattr(S, nm)
                 setattr(S, nm, torch.where(cut[:, None] if v.dim() > 1
                                            else cut,
                                            torch.zeros_like(v), v))
-            S.has_bread = S.has_bread & ~cutf
-            S.p_set = torch.where(cut, torch.full_like(S.p_set, self.p0),
-                                  S.p_set)
-            S.p_act = torch.where(cut, torch.full_like(S.p_act, self.p0),
-                                  S.p_act)
+            if not phys_cut:
+                S.has_bread = S.has_bread & ~cutf
+                S.p_set = torch.where(cut, torch.full_like(S.p_set, self.p0),
+                                      S.p_set)
+                S.p_act = torch.where(cut, torch.full_like(S.p_act, self.p0),
+                                      S.p_act)
             S.el_m = torch.where(
                 cut, (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
                                                 self.el_max_h), S.el_m)
@@ -2277,7 +2302,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self.terminals[:] = True
             self.t_solar[:] = 8.0
             need_dawn = torch.zeros(B, dtype=torch.bool, device=dev)
-            if getattr(self, "night_carry", 0):
+            if getattr(self, "night_carry", 0) and not getattr(self, "consecutive_days", 1):
+                if self.day_random:
+                    self.day_v[:] = self.rng.integers(1, 366, B); self.day = int(self.day_v[0])
+                if self.lat_random:
+                    self.lat_v[:] = self.rng.uniform(15.0, 35.0, B); self.lat = float(self.lat_v[0])
+                S.lat_v = torch.as_tensor(self.lat_v.astype(np.float32), device=dev)
+                S.decl_formed = 23.44 * torch.sin(2.0 * np.pi * (284.0 + torch.as_tensor(self.day_v.astype(np.float32), device=dev)) / 365.0)
+            elif getattr(self, "night_carry", 0):
                 self.day_v[:] = self.day_v % 365 + 1
                 self.day = int(self.day_v[0])
                 decl_t = 23.44 * torch.sin(2.0 * np.pi * (284.0 + torch.as_tensor(self.day_v.astype(np.float32), device=dev)) / 365.0)
