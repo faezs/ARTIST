@@ -227,20 +227,21 @@ for fr in range(n_frames + 1):
         dither = dither + (dither_target - dither)*(dt_f/0.3)                                     # +-3 mm, first-order smoothed (0.3 s)
     else: dither = dither*(1 - dt_f/0.3)
     if abs(t - (T_S + T_C)) < 0.5*dt_f and cal and not A.no_lqr:
-        X = np.array([c[0] for c in cal]); U = np.array([c[1] for c in cal]); dU = np.diff(U, axis=0)
-        Zk = np.hstack([X[:-1], U[:-1]]); Zn = np.hstack([X[1:], U[1:]]); ntr = int(0.7*len(Zk))
-        M = np.linalg.lstsq(np.hstack([Zk[:ntr], dU[:ntr]]), Zn[:ntr], rcond=None)[0].T; Am, Bm = M[:, :12], M[:, 12:]
-        pred = np.hstack([Zk[ntr:], dU[ntr:]])@M.T; e_m = np.sqrt(np.mean((pred[:, :6] - Zn[ntr:, :6])**2, 0)); e_p = np.sqrt(np.mean((Zk[ntr:, :6] - Zn[ntr:, :6])**2, 0))
-        from scipy.linalg import solve_discrete_are
-        Q = np.diag([1e3, 1e3, 1e3, 1e5, 1e5, 1e5] + [0.0]*6) + 1e-9*np.eye(12); R = np.eye(6)*1e4
+        X = np.array([c[0] for c in cal]); U = np.array([c[1] for c in cal]); dU = np.diff(U, axis=0); dX = np.diff(X, axis=0)
+        # DMDc in velocity form with three input lags (a time-delay embedding of the command), ridge-regularised, on the pose rows only (the command rows are
+        # known): dX_k = B0 dU_k + B1 dU_k-1 + B2 dU_k-2; the static gain is B0 + B1 + B2, the pose's settled response to a command increment; 30 % hold-out vs persistence
+        NL = 3; Phi = np.hstack([dU[NL - 1 - j: len(dU) - j] for j in range(NL)]); Y = dX[NL - 1:]; ntr = int(0.7*len(Y))
+        lam = 1e-3*np.trace(Phi[:ntr].T@Phi[:ntr])/Phi.shape[1]
+        M = np.linalg.solve(Phi[:ntr].T@Phi[:ntr] + lam*np.eye(Phi.shape[1]), Phi[:ntr].T@Y[:ntr]).T
+        pred = Phi[ntr:]@M.T; e_m = np.sqrt(np.mean((pred - Y[ntr:])**2, 0)); e_p = np.sqrt(np.mean(Y[ntr:]**2, 0))
         skill = 1 - np.mean(e_m/np.maximum(e_p, 1e-9))
-        Gid = Bm[:6, :]                                                                    # identified pose change per unit leg increment (6 x 6)
+        Gid = sum(M[:, 6*j:6*(j + 1)] for j in range(NL))                                    # identified pose change per unit leg increment (6 x 6)
         Jan = np.linalg.inv(jacobian(P_t, n_t))                                             # the analytic inverse Jacobian for comparison
         rel = np.linalg.norm(Gid - Jan)/np.linalg.norm(Jan)
-        if skill >= 0.2 and rel < 0.5: Kgain = np.linalg.pinv(Gid); ctrl_name = f'integral loop through the IDENTIFIED gain (skill {skill:.2f}, {100*rel:.0f} % from the analytic Jacobian)'
+        if skill >= 0.5 and rel < 0.5: Kgain = np.linalg.pinv(Gid); ctrl_name = f'integral loop through the IDENTIFIED gain (skill {skill:.2f}, {100*rel:.0f} % from the analytic Jacobian)'
         else: Kgain = None; ctrl_name = f'integral loop through the analytic Jacobian (identified gain skill {skill:.2f}, {100*rel:.0f} % off)'
         print(ctrl_name)
-        ident = dict(n_train=int(ntr), n_test=int(len(Zk) - ntr), rms_model=e_m.tolist(), rms_persist=e_p.tolist(), skill=float(skill), gain_rel_err=float(rel), controller=ctrl_name)
+        ident = dict(n_train=int(ntr), n_test=int(len(Y) - ntr), rms_model=e_m.tolist(), rms_persist=e_p.tolist(), skill=float(skill), gain_rel_err=float(rel), controller=ctrl_name)
         print(f"identified at t {t:.1f}: DMDc one-step test RMS (dP mm, dtheta mrad) {np.round(e_m[:3]*1e3, 2)} {np.round(e_m[3:]*1e3, 2)} vs persistence {np.round(e_p[:3]*1e3, 2)} {np.round(e_p[3:]*1e3, 2)}")
     err = pose_error(q, P_t, n_t) if t >= T_S else np.zeros(6)
     if t >= T_S + T_C and not A.no_lqr:

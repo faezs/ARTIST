@@ -221,12 +221,14 @@ for fr in range(n_frames + 1):
     else: dither = dither*(1 - dt_f/0.3)
     P, nd = head_pose(); err = np.concatenate([P - P_t, np.cross(n_t, nd)]) if t >= T_S else np.zeros(6)
     if abs(t - (T_S + T_C)) < 0.5*dt_f and cal and not A.no_loop:
-        X = np.array([c[0] for c in cal]); U = np.array([c[1] for c in cal]); dU = np.diff(U, axis=0)
-        Zk = np.hstack([X[:-1], U[:-1]]); Zn = np.hstack([X[1:], U[1:]]); ntr = int(0.7*len(Zk))
-        M = np.linalg.lstsq(np.hstack([Zk[:ntr], dU[:ntr]]), Zn[:ntr], rcond=None)[0].T; Bm = M[:, 12:]
-        pred = np.hstack([Zk[ntr:], dU[ntr:]])@M.T; e_m = np.sqrt(np.mean((pred[:, :6] - Zn[ntr:, :6])**2, 0)); e_p = np.sqrt(np.mean((Zk[ntr:, :6] - Zn[ntr:, :6])**2, 0))
-        skill = 1 - np.mean(e_m/np.maximum(e_p, 1e-9)); Gid = Bm[:6, :]; Jan = np.linalg.inv(jacobian(P_t, n_t)); rel = np.linalg.norm(Gid - Jan)/np.linalg.norm(Jan)
-        if skill >= 0.2 and rel < 0.5: Kgain = np.linalg.pinv(Gid); ctrl_name = f"integral loop through the IDENTIFIED gain (skill {skill:.2f}, {100*rel:.0f} % from the analytic Jacobian)"
+        X = np.array([c[0] for c in cal]); U = np.array([c[1] for c in cal]); dU = np.diff(U, axis=0); dX = np.diff(X, axis=0)
+        # DMDc in velocity form with three input lags (a time-delay embedding of the command), ridge-regularised, on the pose rows only: dX_k = B0 dU_k + B1 dU_k-1 + B2 dU_k-2;
+        # the static gain is B0 + B1 + B2; 30 % hold-out against persistence
+        NL = 3; Phi = np.hstack([dU[NL - 1 - j: len(dU) - j] for j in range(NL)]); Y = dX[NL - 1:]; ntr = int(0.7*len(Y))
+        lam = 1e-3*np.trace(Phi[:ntr].T@Phi[:ntr])/Phi.shape[1]; M = np.linalg.solve(Phi[:ntr].T@Phi[:ntr] + lam*np.eye(Phi.shape[1]), Phi[:ntr].T@Y[:ntr]).T
+        pred = Phi[ntr:]@M.T; e_m = np.sqrt(np.mean((pred - Y[ntr:])**2, 0)); e_p = np.sqrt(np.mean(Y[ntr:]**2, 0))
+        skill = 1 - np.mean(e_m/np.maximum(e_p, 1e-9)); Gid = sum(M[:, 6*j:6*(j + 1)] for j in range(NL)); Jan = np.linalg.inv(jacobian(P_t, n_t)); rel = np.linalg.norm(Gid - Jan)/np.linalg.norm(Jan)
+        if skill >= 0.5 and rel < 0.5: Kgain = np.linalg.pinv(Gid); ctrl_name = f"integral loop through the IDENTIFIED gain (skill {skill:.2f}, {100*rel:.0f} % from the analytic Jacobian)"
         else: Kgain = None; ctrl_name = f"integral loop through the analytic Jacobian (identified gain skill {skill:.2f}, {100*rel:.0f} % off)"
         ident = dict(skill=float(skill), gain_rel_err=float(rel), rms_model=e_m.tolist(), rms_persist=e_p.tolist(), controller=ctrl_name); print(ctrl_name)
     if t >= T_S + T_C and not A.no_loop:
