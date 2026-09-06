@@ -167,6 +167,7 @@ for ti, tb in enumerate(tubes):
     a, b_ = tb["tri_range"]; tube_of_tri[a:b_] = ti; wall_tri[a:a + tb["n_wall"]] = 1
     for pid in list(tb["rings"].reshape(-1)) + [tb["cap"], tb["bc"]]: tube_of_part[pid] = ti
 EPS_V = 0.035                                    # over-volume: the walls' 1.7 % hoop strain against it is about 40 kPa in this fabric (reported per tube from the strain)
+EPS_AX = 0.012                                   # axial rests this much shorter than the nominal length, so the pressure puts the walls in axial tension (p r / 2) and the tube bends like an inflated beam
 def vol_target_of(ti, g):
     tb = tubes[ti]; return 0.5*N_C*tb["radius"]**2*np.sin(2*np.pi/N_C)*g*tb["L"]*(1.0 + EPS_V)   # 12-gon section x nominal length, prestressed
 # growth bookkeeping: for tube springs of kind 0/4 the nominal length scales with the tube's growth factor
@@ -288,7 +289,7 @@ def set_rests(t, g_post):
         # axial and LRA springs scale with the tube's length; diagonals keep their circumferential part
         L_ring = tb["L"]/tb["n_a"]; dz0 = tb["stub"]/tb["n_a"]; dc = 2*np.pi*tb["radius"]/N_C
         ax_m = m & (kind == 0) & (np.abs(nominal0 - dz0) < 1e-6); dg_m = m & (kind == 0) & ~ax_m; lra = m & (kind == 4)
-        nom[ax_m] = g*L_ring; nom[dg_m] = np.hypot(dc, g*L_ring); nom[lra] = nominal0[lra]*(g*L_ring/dz0)
+        nom[ax_m] = g*L_ring*(1 - EPS_AX); nom[dg_m] = np.hypot(dc, g*L_ring*(1 - EPS_AX)); nom[lra] = nominal0[lra]*(g*L_ring/dz0)*(1 - EPS_AX)
     return nom
 muscle_ids = [(i_, s) for i_, s in enumerate(range(n_spr)) if kind[s] == 3]
 def muscle_rests(nom, elt, hour, q, engaged):
@@ -300,13 +301,13 @@ def muscle_rests(nom, elt, hour, q, engaged):
         k = np.where((idx[:, 0] == sd["Mus"]) & (idx[:, 1] == sd["Ck"]))[0][0]
         nom[k] = np.linalg.norm(q[sd["A1"]] + 1.0*cdir - q[sd["Mus"]])
     return nom
-def az_rotate(hour):
-    el, Az, s, h, e, nn = frame_of(hour); dA = Az - Az_
+def az_rotate(hour, bias=0.0):
+    el, Az, s, h, e, nn = frame_of(hour); dA = Az - Az_ + bias
     c, s_ = np.cos(dA), np.sin(dA); R = np.array([[c, -s_, 0], [s_, c, 0], [0, 0, 1.0]])
     return R
 ALPHA_V = 0.0
 dt_f = 1.0/A.fps; dt = dt_f/A.substeps; damp = float(np.exp(-4.0*dt)); GRAV = wp.vec3(0.0, 0.0, -9.81)
-u_fine = [0.0, 0.0, 0.0]
+u_fine = [0.0, 0.0, 0.0]; u_tilt = [0.0, 0.0, 0.0]; u_piston = 0.0; el_bias = 0.0; az_bias = 0.0
 T_TOTAL = T_S + A.t_day; n_frames = int(round(T_TOTAL*A.fps)); frames, log = [], []; t0 = time.time()
 pin_ids = np.where(pinned & (np.arange(n) != FP))[0]; X0pin = X0[pin_ids].copy()
 for fr in range(n_frames + 1):
@@ -324,23 +325,34 @@ for fr in range(n_frames + 1):
         if "cw" not in sd: break
         cw_ids = sd["cw"]["rings"][1:].reshape(-1); inv_m[cw_ids] = 1.0/(M_PART + (m_tank - 1.0)/len(cw_ids)); inv_m[sd["tank"]] = 1.0/max(1.0, (m_tank - 1.0)/len(cw_ids))
     w.assign(inv_m.astype(np.float32))
-    elt = el_target(t, hour)
+    elt = el_target(t, hour) + el_bias
     nom = set_rests(t, g_post); nom = muscle_rests(nom, elt, hour, q, engaged=True) if A.stage >= 2 else nom
     if A.stage == 4:
         c_d = q[BR].mean(0); n_d = np.cross(q[BR[1]] - q[BR[0]], q[BR[2]] - q[BR[0]]); n_d /= np.linalg.norm(n_d)
         if n_d@(q[VTX] - c_d) < 0: n_d = -n_d
-        if t >= T_S:                                                                 # the fine stage closes on the sun once the coarse stage has arrived
+        n_f = np.cross(q[FRAME[2]] - q[FRAME[0]], q[FRAME[4]] - q[FRAME[0]]); n_f /= np.linalg.norm(n_f)
+        if n_f@(q[VTX] - q[FRAME].mean(0)) < 0: n_f = -n_f
+        if t >= 0.9*T_S:                                                             # coarse loops on a sun sensor: elevation through the struts, azimuth through the ring
+            el_f = np.arcsin(np.clip(n_f[2], -1, 1)); az_f = np.arctan2(n_f[1], n_f[0])
+            el_bias = float(np.clip(el_bias + 1.0*(el - el_f)*dt_f, -0.35, 0.35))
+            daz = (Az - az_f + np.pi) % (2*np.pi) - np.pi; az_bias = float(np.clip(az_bias + 1.0*daz*dt_f, -0.35, 0.35))
+        coarse_now = float(np.degrees(np.arccos(np.clip(n_f@s, -1, 1))))
+        if t >= T_S and coarse_now > 3.0:                                             # outside the fine stage's range: let the columns come back to centre
+            u_tilt = [u_*(1 - 0.5*dt_f) for u_ in u_tilt]; u_piston *= (1 - 0.5*dt_f); u_fine = [u_tilt[k] + u_piston for k in range(3)]
+        elif t >= T_S:                                                                # the fine stage closes on the sun once the coarse stage has arrived
             eps = np.cross(n_d, s)                                                   # small rotation that takes the dish axis onto the sun line
-            dz = np.clip(0.5*(np.linalg.norm(F - q[VTX]) - G_ORBIT), -0.01, 0.01)    # focus: keep the vertex 4 m from F
+            dz = 0.5*(np.linalg.norm(F - q[VTX]) - G_ORBIT)                          # focus: keep the vertex 4 m from F, within the piston's small share
+            u_piston = float(np.clip(u_piston + np.clip(dz, -0.01, 0.01)*2.0*dt_f, -0.007, 0.007))
             for k, (a_, b_) in enumerate(FINE_COLS):
-                r_k = q[b_] - c_d; du = (np.cross(eps, r_k)@n_d)*2.0*dt_f + dz*2.0*dt_f
-                u_fine[k] = float(np.clip(u_fine[k] + du, -0.032, 0.032))
+                r_k = q[b_] - c_d; du = (np.cross(eps, r_k)@n_d)*2.0*dt_f
+                u_tilt[k] = float(np.clip(u_tilt[k] + du, -0.025, 0.025))            # tilt keeps the range: +-25 mm of the +-32
+        u_fine = [u_tilt[k] + u_piston for k in range(3)]
         for k, (a_, b_) in enumerate(FINE_COLS):
             kk = np.where((idx[:, 0] == a_) & (idx[:, 1] == b_))[0][0]; nom[kk] = nominal0[kk] + u_fine[k]
     rest.assign(nom.astype(np.float32))
     vt = np.array([vol_target_of(ti, g_post if tb["group"] == "post" else (tb["stub"] + (tb["L"] - tb["stub"])*growth[tb["group"]](t))/tb["L"]) for ti, tb in enumerate(tubes)], np.float32); vtar.assign(vt)
     # azimuth: the deck ring turns the post bases (kinematic)
-    R = az_rotate(hour); newpin = (R @ (X0pin - Fxy).T).T + Fxy
+    R = az_rotate(hour, az_bias); newpin = (R @ (X0pin - Fxy).T).T + Fxy
     xn = x.numpy(); xn[pin_ids] = newpin.astype(np.float32); x.assign(xn)
     wind = wp.vec3(-A.wind, 0.0, 0.0) if (A.wind > 0 and t > T_S) else wp.vec3(0.0, 0.0, 0.0)
     for k in range(A.substeps):
@@ -384,7 +396,7 @@ for fr in range(n_frames + 1):
     mus = [abs(KE_MUS*(np.linalg.norm(q[sd["Mus"]] - q[sd["Ck"]]) - nom[np.where((idx[:, 0] == sd["Mus"]) & (idx[:, 1] == sd["Ck"]))[0][0]])) for sd in sides] if A.stage >= 2 else [0.0]
     if fr % A.rec == 0:
         frames.append(np.round(q*100).astype(np.int16))
-        log.append(dict(t=round(t, 2), hour=round(hour, 2), p=round(p), g_post=round(g_post, 3), z_axis=round(z_axis, 3), tank=round(m_tank, 1), el_t=round(float(np.degrees(elt)), 1),
+        log.append(dict(t=round(t, 2), hour=round(hour, 2), p=round(p), g_post=round(g_post, 3), z_axis=round(z_axis, 3), tank=round(m_tank, 1), el_t=round(float(np.degrees(elt)), 1), el_bias=round(float(np.degrees(el_bias)), 2), az_bias=round(float(np.degrees(az_bias)), 2),
                         err=round(err, 3), point=round(point_err, 3), coarse=round(coarse_err, 2), fine_mm=[round(1e3*u_, 1) for u_ in u_fine], z_min=round(z_min, 2), p_eq=[float(v_) for v_ in p_eq], muscles=[round(m_) for m_ in mus], vtx=[round(float(c), 3) for c in q[VTX]], tgt=[round(float(c), 3) for c in V_ideal]))
     if not A.quiet and fr % (A.fps*2) == 0:
         print(f"t {t:5.1f}  h {hour:5.2f}  p_eq {np.round(p_eq/1e3, 1)} kPa  axis z {z_axis:.2f}  g_post {g_post:.2f}  tank {m_tank:5.1f}  el_t {np.degrees(elt):5.1f}  vtx {np.round(q[VTX], 2)}  ideal {np.round(V_ideal, 2)}  err {err:.2f} m  coarse {coarse_err:.1f} deg  dish {point_err:.2f} deg  cols {np.round(np.array(u_fine)*1e3, 1)} mm  zmin {z_min:.2f}@{i_low}  muscles {np.round(mus, -1)}  ({time.time() - t0:.0f} s)")

@@ -1,3 +1,3 @@
-DMDc (identity): train 210 steps, test 91; one-step RMS error vertex 3.3 cm, axis 1.0 cm, pointing 0.16 deg; 12 s roll-out RMS vertex 17.5 cm, pointing 0.37 deg
-EDMDc (poly deg 2): train 210 steps, test 91; one-step RMS error vertex 5.0 cm, axis 1.2 cm, pointing 0.47 deg; 12 s roll-out RMS vertex 21.5 cm, pointing 0.55 deg
+DMDc (identity): train 210 steps, test 91; one-step RMS error vertex 1.8 cm, axis 0.2 cm, pointing 0.16 deg; 12 s roll-out RMS vertex 22.4 cm, pointing 1.09 deg
+EDMDc (poly deg 2): train 210 steps, test 91; one-step RMS error vertex 9.0 cm, axis 4.5 cm, pointing 2.04 deg; 4 s roll-out RMS vertex 276.1 cm, pointing 34.61 deg (diverged after 4 s)
 state: vertex xyz, axis height, pointing error; inputs: elevation command, sun hour (azimuth); dt 0.13 s; data from the tracking phase of the simulation

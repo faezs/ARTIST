@@ -40,7 +40,9 @@ Sequence from the stow (posts short, cradle face-up on its stubs directly under 
 pressurised; posts grow until the axis is a hand's width above F (t 3-17 s of 40); arms and counterweight
 tubes grow (17-26 s), the head descending under F; water pumped (24-30 s); the struts turn the cradle from
 el 90 to the morning sun (30-39 s); then the day, 8-16 h in 40 s, azimuth on the ring and elevation on the
-struts. The pump's minutes are the simulation's seconds. Numbers from the run are in the register's title block
+struts, both closed on a sun sensor on the frame (the struts' command and the ring's angle carry an integral
+bias from the frame's pointing error), and the fine stage closed on the sun once the frame is within 3 degrees.
+The pump's minutes are the simulation's seconds. Numbers from the run are in the register's title block
 for sheet 45 and in `out/setup_log.json`.
 
 A first version of the drive, two pull-only muscles per side hung from an anchor under the axis, lost its lever
@@ -57,8 +59,11 @@ already searched for its jack was put back.
   tube (base cap, wall, tip cap), solved exactly each iteration; the target volume is the tube's rest volume at
   its current growth plus 2 %, and the walls' hoop strain against that over-volume is the pressure (10-50 kPa in
   this fabric over the run; reported per tube from the strain).
-- Constraints are solved Gauss-Seidel by graph colouring (about 30 colours), tension-only for the fabric, with
-  long-range attachments from each tube's base to its rings and cap so growth cannot lag by solver error. Masses
+- Constraints are solved Gauss-Seidel by graph colouring (46 colours), tension-only for the fabric, with
+  long-range attachments from each tube's base to its rings and cap so growth cannot lag by solver error. The
+  axial rest lengths are 1.2 % shorter than the tube's nominal length, so the pressure holds the walls in axial
+  tension (p r / 2) as in a real inflated beam; without that the compressed side of a bent tube went slack at
+  once and the posts leaned far more than E t pi r^3 allows. Masses
   are the machine's: blocks and saddles 5-20 kg, flanges 1 kg, fabric 0.15 kg per node, water in the counterweight
   walls.
 - The lone inflated column carries 150 kg 1.2 m off-centre and grows 1.05 to 4.5 m with a 15 cm lean
@@ -81,6 +86,25 @@ already searched for its jack was put back.
   1.5 kN m, the arms 1.8 / 3.6 under half the head at el 12, the counterweight tube 1.0 / 2.1 with the water at
   its tip; at the design's 80 kPa each doubles. Water in the tube walls halves the counterweight moment.
 
+## To microradians: the fine stage in the loop
+
+The fork lands the dish inside the fine stage's range; the fine stage does the pointing. In the simulation the
+head is now two bodies: the back frame on the arms' caps, and the dish (back ring, vertex, rim) held to the frame
+by the FACT diaphragm of `../fact_mount/`: three tangential rods in the dish's back plane (three lines, rank 3,
+leaving tip, tilt and focus) and three water columns on the normals at r 1.6 m, modelled as force-capped struts
+whose rest lengths are commanded. Once the coarse stage has arrived, the loop closes on the sun: the small
+rotation that takes the dish's normal onto the sun line is turned into three column length changes
+(u_k = (eps x r_k) . n, plus a common piston that keeps the vertex 4 m from F), integrated at 2 /s and clipped
+to +-32 mm (+-20 mrad). The run then shows the cradle wandering by degrees, from the posts' sway, the arms'
+droop and the strut servo's lag, while the dish holds the sun to a fraction of a degree; the number is in the
+title block of sheet 45. What the simulation cannot show is the last decade: its columns are 1 MN/m struts and
+its positions single precision, so its residual is the loop's, not the stage's. The microradians come from the
+stage's own numbers in `../fact_mount/synth.py`: 90 MN m/rad locked, 4 urad under the 9 m/s drag asymmetry,
+62 urad per millilitre, closed on the beam centroid at the tube's waist rather than on a sun sensor. The chain is
+therefore: inflated fork, degrees; strut and ring servos on the optical error, tens of milliradians at the gust
+band; fine stage on the beam centroid, microradians; and the membrane's own figure (the other fork's 0.5 mrad
+slope) sets the spot, not the pointing.
+
 ## Control: the Koopman step
 
 The hand loops in `setup_sim.py` (growth rate on the axis height, strut rest lengths from the elevation
@@ -102,4 +126,4 @@ and the ring's drive.
 - The fabric springs have a fixed stiffness per spring, so a stub with its rings four times closer is four times
   stiffer than the grown tube and its pressure readout starts high (300 kPa) and settles to about 45 kPa when
   grown; scaling the spring stiffness with the ring spacing as the tube grows is the fix.
-- A day compressed into 40 s makes the strut servo lag the sun by degrees; the real day is 700 times slower.
+- A day compressed into 40 s makes the strut servo lag the sun; the coarse loop on the sun sensor removes most of it, and the real day is 700 times slower.
