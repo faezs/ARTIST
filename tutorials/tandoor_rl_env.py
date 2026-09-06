@@ -623,7 +623,7 @@ class TandoorEnv(pufferlib.PufferEnv):
                 # cook readiness: the next pera is rolled (bell signal)
                 np.clip(self.load_timer / 45.0, 0, 2),
             ], axis=1),
-            self.bread_E / self.roti_energy,
+            self.bread_E / getattr(self, "_ds_roti", self.roti_energy),
             self.bread_C,
             self.p_in[:, None] / 6000.0,
         ] + ([self._extra_obs()] if self.N_EXTRA_OBS else []),

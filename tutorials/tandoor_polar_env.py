@@ -315,6 +315,11 @@ class TandoorPolarEnv(TandoorEnv):
                              d1[..., 1] - 0.16, through, soil, B, P)
 
 
+    def _ds(self, name, default):
+        """A per-env system-design array (hashemi's _ds_*), or the
+        nominal value for envs without a design table."""
+        return getattr(self, name, default)
+
     def _bin_pot(self, pxp, pyp, dxw, dyw, dzw, through, soil,
                  B, P):
         """Duct-plane arrival -> pot floor / belt / crown node
@@ -451,6 +456,12 @@ class TandoorPolarEnv(TandoorEnv):
         zb = 0.5 * (Z_BAKE_LO + Z_CROWN)
         rb = float(np.sqrt(max(R_SPH**2 - (zb - Z_CPOT)**2, 1e-6)))
         hl = float(np.sqrt(self.bread_area) / 2.0)
+        hl_t = getattr(self, "_ds_lfp_t", None)       # per-env roti size
+        if hl_t is not None and hl_t.shape[0] == B:
+            hl = hl_t.to(device=phi.device, dtype=phi.dtype).view(
+                B, *([1] * (phi.dim() - 1))) if phi.shape[0] == B \
+                else hl_t.to(device=phi.device, dtype=phi.dtype) \
+                .repeat_interleave(phi.numel() // B).view(phi.shape)
         phk = -np.pi + (seg.float() + 0.5) * (2 * np.pi / NB)
         dph = phi - phk
         dph = dph - 2 * np.pi * torch.floor((dph + np.pi) / (2 * np.pi))
@@ -498,17 +509,20 @@ class TandoorPolarEnv(TandoorEnv):
         n = int(round(hours * 3600.0 / dt))
         area = np.asarray(self.node_area, dtype=np.float64)
         asum = area.sum()
-        mouth = float(np.pi * R_MOUTH ** 2 * self.lid_leak)
+        mouth = np.pi * R_MOUTH ** 2 * np.asarray(
+            self._ds("_ds_lid", np.full(self.num_agents, self.lid_leak)))[idx]
         T = self.T[idx].astype(np.float64)
         Ts = self.T_sub[idx].astype(np.float64)
         Td = self.T_deep[idx].astype(np.float64)
         Th = np.asarray(self.T_halo, dtype=np.float64)[idx]
         g01 = np.asarray(self.g01, dtype=np.float64)
         g12 = np.asarray(self.g12, dtype=np.float64)
-        g2s = np.asarray(self.g2s, dtype=np.float64)
-        cap = np.asarray(self.node_heat_cap, dtype=np.float64)
-        cs = np.asarray(self.cap_sub, dtype=np.float64)
-        cd = np.asarray(self.cap_deep, dtype=np.float64)
+        _pe = lambda nm, d: np.asarray(self._ds(nm, d), dtype=np.float64)
+        _pe2 = lambda nm, d: (lambda a: a[idx] if a.ndim == 2 else a)(_pe(nm, d))
+        g2s = _pe2("_ds_g2s", self.g2s)
+        cap = _pe2("_ds_hc", self.node_heat_cap)
+        cs = _pe2("_ds_cs", self.cap_sub)
+        cd = _pe2("_ds_cd", self.cap_deep)
         ch = float(np.asarray(self.c_halo, dtype=np.float64).mean())
         gout = float(np.asarray(self.g_halo_out, dtype=np.float64).mean())
         k_ap = self.n_belt + 2
@@ -621,7 +635,7 @@ class TandoorPolarEnv(TandoorEnv):
         # start, BEFORE any bread energy moves (direct beam below,
         # wall exchange, pulls, placements). phi = sum clip(E/E_r,0,1)
         # - empty bins are 0 (pulls zero bread_E with has_bread)
-        phi_old = np.clip(self.bread_E / self.roti_energy,
+        phi_old = np.clip(self.bread_E / self._ds("_ds_roti", self.roti_energy),
                           0.0, 1.0).sum(1)
         if getattr(self, "spot_bread", 0):
             ph_, zt_ = self._spot_view
@@ -635,7 +649,7 @@ class TandoorPolarEnv(TandoorEnv):
             nb = self.n_belt
             valid = np.ones_like(valid, dtype=bool)
             lit_b = self.has_bread[:, :nb].astype(float)
-            fr_b = np.clip(self.bread_E[:, :nb] / self.roti_energy, 0, 1)
+            fr_b = np.clip(self.bread_E[:, :nb] / self._ds("_ds_roti", self.roti_energy), 0, 1)
             alpha_b = 0.55 + 0.35 * fr_b      # dough browns, absorbs
             inc_b = per_loaf * gate[:, None]
             q_b = lit_b * alpha_b * inc_b
@@ -644,7 +658,7 @@ class TandoorPolarEnv(TandoorEnv):
             q_direct = q_b.sum(1)
             self._spot_bin = (kb, valid)
             self._spot_q = q_b
-            self._spot_flux = q_direct / max(self.bread_area, 1e-6)
+            self._spot_flux = q_direct / np.maximum(self._ds("_ds_bread", np.full((B, 1), self.bread_area))[:, 0], 1e-6)
             self._spot_kb = kb
         self.p_in = per_dni.sum(1) * gate
 
@@ -657,15 +671,15 @@ class TandoorPolarEnv(TandoorEnv):
         # the pot's OWN mouth radiates ~1.4 kW at baking temperature -
         # a loss the purpose-built cavities never had. Real tandoors are
         # kept lidded between batches; the lid lifts only to load.
-        lid = np.where(self.load_timer < 4.0, 1.0, self.lid_leak)
+        lid = np.where(self.load_timer < 4.0, 1.0, self._ds("_ds_lid", self.lid_leak))
         q_ap = 0.75 * SIGMA * (t_cav4.squeeze(1) - T_AMB**4) \
             * (np.pi * R_MOUTH**2) * lid
         q01 = self.g01 * (T - self.T_sub)
         q12 = self.g12 * (self.T_sub - self.T_deep)
-        q2s = self.g2s * (self.T_deep - self.T_halo[:, None])
+        q2s = self._ds("_ds_g2s", self.g2s) * (self.T_deep - self.T_halo[:, None])
         q = q_solar + q_exch - q01
-        self.T_sub = self.T_sub + (q01 - q12) * self.dt / self.cap_sub
-        self.T_deep = self.T_deep + (q12 - q2s) * self.dt / self.cap_deep
+        self.T_sub = self.T_sub + (q01 - q12) * self.dt / self._ds("_ds_cs", self.cap_sub)
+        self.T_deep = self.T_deep + (q12 - q2s) * self.dt / self._ds("_ds_cd", self.cap_deep)
         self.T_halo = self.T_halo + (
             q2s.sum(1) - self.g_halo_out * (self.T_halo - T_AMB)
         ) * self.dt / self.c_halo
@@ -674,17 +688,17 @@ class TandoorPolarEnv(TandoorEnv):
         # dough exchanges at its own temperature: room-temp coldstart
         # warming to ~400 K at full bake (see the rl_env twin)
         t_dough = 300.0 + 100.0 * np.clip(
-            np.maximum(self.bread_E, 0.0) / self.roti_energy, 0.0, 1.0)
-        q_b = self.has_bread * self.h_bread * (belt_T - t_dough)
+            np.maximum(self.bread_E, 0.0) / self._ds("_ds_roti", self.roti_energy), 0.0, 1.0)
+        q_b = self.has_bread * self._ds("_ds_hb", self.h_bread) * (belt_T - t_dough)
         # per-loaf absorbed power for the renderer: the flux integral
         # over each roti's surface = wall contact + direct beam [W]
         self._bread_pw = q_b.copy()
         if getattr(self, "_spot_kb", None) is not None:
             self._bread_pw[np.arange(len(self._spot_kb)),
                            self._spot_kb] += \
-                self._spot_flux * self.bread_area
+                self._spot_flux * self._ds("_ds_bread", np.full((B, 1), self.bread_area))[:, 0]
         q[:, : self.n_belt] -= q_b
-        dT = q * self.dt / self.node_heat_cap
+        dT = q * self.dt / self._ds("_ds_hc", self.node_heat_cap)
         self.T = T + dT
         self.bread_E += q_b * self.dt
         self.bread_t += self.has_bread * self.dt
@@ -701,11 +715,11 @@ class TandoorPolarEnv(TandoorEnv):
         if getattr(self, "spot_bread", 0) and \
                 getattr(self, "_spot_flux", None) is not None:
             kbc, validc = self._spot_bin
-            fkw_b = self._spot_q / max(self.bread_area, 1e-6) / 1000.0
+            fkw_b = self._spot_q / np.maximum(self._ds("_ds_bread", self.bread_area), 1e-6) / 1000.0
             c_dot = c_dot + np.clip(fkw_b - 8.0, 0, None) / 1000.0 \
                 * validc[:, None]
         self.bread_C += self.has_bread * c_dot * self.dt
-        ready = self.has_bread & (self.bread_E >= self.roti_energy)
+        ready = self.has_bread & (self.bread_E >= self._ds("_ds_roti", self.roti_energy))
         # ONE lean event: pull and load share the opening (see the
         # rl_env twin for why this is the post-increment timer)
         pull_open = self.load_timer + self.dt >= self.load_period
@@ -734,7 +748,7 @@ class TandoorPolarEnv(TandoorEnv):
             # the subclass stashes them as _load_mask.
             mask = getattr(self, "_load_mask",
                            a[:, -self.n_belt:]) > thr
-            left = np.full(self.num_agents, self.loaves_per_load)
+            left = np.array(self._ds("_ds_lpl", np.full(self.num_agents, self.loaves_per_load)), dtype=np.int64)
             for k in range(self.n_belt):
                 place = want & mask[:, k] & ~self.has_bread[:, k] \
                     & (left > 0)
@@ -745,9 +759,9 @@ class TandoorPolarEnv(TandoorEnv):
             # RANDOM bins (user call: the argmax cook taught the
             # policy to heat ONE cell); cook_bin is a deterministic
             # hash of (env, tick, loaf), identical on every backend
-            for _k in range(self.loaves_per_load):
+            for _k in range(int(self.loaves_per_load)):
                 j = cook_bin(ar_, self.tick, _k, self.n_belt)
-                place = want & ~self.has_bread[ar_, j]
+                place = want & (np.asarray(self._ds("_ds_lpl", np.full(self.num_agents, self.loaves_per_load)))[ar_] > _k) & ~self.has_bread[ar_, j]
                 self.has_bread[ar_[place], j[place]] = True
                 rew[place] += 0.3
         self.load_timer[want] = 0.0
@@ -757,7 +771,7 @@ class TandoorPolarEnv(TandoorEnv):
         # stuffing bins never pays. Boundary refunds stay at the full
         # 0.3: the drip only makes crash-with-inflight MORE negative,
         # so charge-and-crash remains over-closed.
-        rew -= (0.03 / max(self.loaves_per_load, 1)) \
+        rew -= (0.03 / np.maximum(self._ds("_ds_lpl", self.loaves_per_load), 1)) \
             * self.has_bread.sum(1)
         # DONENESS POTENTIAL (user call): +2 per full loaf-equivalent
         # of energy INTO dough, paid the step the spot delivers it -
@@ -766,7 +780,7 @@ class TandoorPolarEnv(TandoorEnv):
         # by 1 (net +5-2 that step), scorch and boundary wipes refund
         # accrued doneness. At full flux ~+0.05/loaf-step, it beats
         # the -0.033 holding rent - cooking pays, dawdling bleeds.
-        rew += 2.0 * (np.clip(self.bread_E / self.roti_energy,
+        rew += 2.0 * (np.clip(self.bread_E / self._ds("_ds_roti", self.roti_energy),
                               0.0, 1.0).sum(1) - phi_old)
         # BANDED-SUM preheat potential, REINSTATED (see the rl_env
         # twin for the full why): beam-on must pay before the first
@@ -809,7 +823,7 @@ class TandoorPolarEnv(TandoorEnv):
             # the bonus back when the day wipes it
             inflight = 0.3 * self.has_bread[day_over].sum(1) \
                 + 2.0 * np.clip(self.bread_E[day_over]
-                                / self.roti_energy, 0.0, 1.0).sum(1)
+                                / self._ds("_ds_roti", self.roti_energy), 0.0, 1.0).sum(1)
             self.rewards[day_over] -= inflight.astype(np.float32)
             self.ep_return[day_over] -= inflight
             infos.append({

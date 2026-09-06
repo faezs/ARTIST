@@ -53,6 +53,7 @@ static inline bool hits_column(float px, float py, float pz,
 // step-kernel capacity guards (host asserts n_nodes/n_belt fit)
 #define NMAX 20
 #define NBMAX 12
+#define FCTW 64   // per-env design table width: [0..39] receiver, [40..63] system
 
 static inline void solar_pos(float latd, float dayv, float hour,
                              thread float* el_d, thread float* az_d) {
@@ -84,15 +85,19 @@ kernel void mount_solve(
     device const float* prm    [[buffer(8)]],   // params + shadow tables
     device const int*   nB     [[buffer(9)]],
     device const float* pnt    [[buffer(10)]],  // (B,2) el_m, az_m deg; < -900 = square to the sun
+    device const float* fct    [[buffer(11)]],  // (B,FCTW) per-env design: [42] z_fold [53] f [54] a_mem [55] g_orbit
     uint b [[thread_position_in_grid]])
 {
     if ((int)b >= nB[0]) return;
     const float PI_ = 3.14159265358979f;
     float hour = prm[0], beta_dev = prm[1], cap_z = prm[2];
-    float a_mem = prm[3], z_fold = prm[4], g_orb = prm[5];
+    // THE SYSTEM IS THE DESIGN: dish radius, focal length, orbit and
+    // fold height are per env (design table), nominal = prm[3,12,5,4]
+    device const float* ds_m = fct + b*FCTW;
+    float a_mem = ds_m[54], z_fold = ds_m[42], g_orb = ds_m[55];
     float el_x = prm[6];
     float xtw = prm[9], sc1b = prm[10], ftor = prm[11];
-    float fnom = prm[12], zwst = prm[13];
+    float fnom = ds_m[53], zwst = prm[13];
     // ---- solar position (matches tandoor_mount_batch.solar_batch)
     float phi = lat[b] * PI_ / 180.0f;
     float delta = 0.40910518f * sin(2.0f*PI_*(284.0f+day[b])/365.0f);
@@ -389,6 +394,10 @@ kernel void tandoor_trace(
     float3 n_loc = (1.0f-fr)*float3(nrm_l[o0],nrm_l[o0+1],nrm_l[o0+2])
                  +        fr*float3(nrm_l[o1],nrm_l[o1+1],nrm_l[o1+2]);
     n_loc = normalize(n_loc);
+    // the dish scale (design table [40]): a uniform scaling of the
+    // membrane about the frame origin keeps the paraboloid family,
+    // f and a scale together (the mount's g_orbit and f_nom follow)
+    p_loc = p_loc * fct[b*FCTW + 40];
 
     // ---- THE SUN from its Buie table (sc[38..102], 65 knots):
     // radial angle by inverse-CDF on us, azimuth from upk; du/de are
@@ -492,7 +501,7 @@ kernel void tandoor_trace(
     // the receiver table is PER ENV (design_rand: one design per agent):
     // row b of fct mirrors sc[106..144] + r_duct, so this block reads
     // cs_tab[k] where the torch twin reads fct[:, k]
-    device const float* cs_tab = fct + b*40;
+    device const float* cs_tab = fct + b*FCTW;
     const bool cs_greg = cs_tab[0] > 2.5f;
     const float3 cs_F = Pf;
     const float cs_armn = cs_tab[1], cs_rstrip = cs_tab[2], cs_d = cs_tab[3];
@@ -874,7 +883,7 @@ kernel void tandoor_trace(
         int node = (hitf || sz < -HD + 0.12f) ? NB
                    : (sz > -0.22f ? NB + 2
                       : (sz > -0.85f ? seg : NB + 3 + seg4));
-        float wgt = ray_pw[ip] * soil[b] * (sh_thr ? sh_w : 0.0f)
+        float wgt = ray_pw[ip] * soil[b] * fct[b*FCTW + 41] * (sh_thr ? sh_w : 0.0f)
                     * scb[sb+4] * scb[sb+5]
                     * (sc[105] > 0.5f ? 0.95f : 1.0f);
         atomic_fetch_add_explicit(
@@ -890,8 +899,9 @@ kernel void tandoor_trace(
         float phk = -M_PI_F + ((float)seg + 0.5f) * (2.0f*M_PI_F/(float)NB);
         float dph = phi - phk;
         dph = dph - 2.0f*M_PI_F*floor((dph + M_PI_F)/(2.0f*M_PI_F));
-        bool onloaf = (node < NB) && (fabs(dph)*rb < lfp[0])
-                      && (fabs(sz - ZB) < lfp[0]);
+        const float lfh = fct[b*FCTW + 51];        // the loaf half-size (roti size is a design)
+        bool onloaf = (node < NB) && (fabs(dph)*rb < lfh)
+                      && (fabs(sz - ZB) < lfh);
         if (onloaf)
             atomic_fetch_add_explicit(
                 (device atomic_float*)&per_dni[b*dims[3] + Nn + seg],
@@ -958,6 +968,7 @@ kernel void step_pre(
     device float*       off   [[buffer(13)]],  // (B,2) bore state
     device float*       aim   [[buffer(14)]],  // (B,3)
     device float*       per   [[buffer(15)]],  // (B,N) zeroed here
+    device const float* fct   [[buffer(16)]],  // (B,FCTW) per-env design: [44] rate scale [53] f_nom
     uint b [[thread_position_in_grid]])
 {
     if ((int)b >= ip[0]) return;
@@ -974,8 +985,8 @@ kernel void step_pre(
     // ---- potential BEFORE this step's motor action
     float potp = min(fabs(s[S0+20]) + fabs(s[S0+21]), 4.0f);
     // ---- motors + spot jogs
-    float r_az = (float)(clamp(a[3], 0, 6) - 3) / 3.0f * sp[2];
-    float r_el = (float)(clamp(a[4], 0, 6) - 3) / 3.0f * sp[3];
+    float r_az = (float)(clamp(a[3], 0, 6) - 3) / 3.0f * sp[2] * fct[b*FCTW + 44];
+    float r_el = (float)(clamp(a[4], 0, 6) - 3) / 3.0f * sp[3] * fct[b*FCTW + 44];
     if (sp[24] > 0.5f) {
         float r_ph = (float)(clamp(a[5], 0, 6) - 3) / 3.0f * sp[4];
         float r_zz = (float)(clamp(a[6], 0, 6) - 3) / 3.0f * sp[5];
@@ -1056,8 +1067,8 @@ kernel void step_pre(
     // ---- trace inputs
     lv[b] = clamp((p_eff/sp[1] - sp[36])/sp[37]*sp[35],
                   0.0f, sp[35]);
-    dvec[b*2+0] = 2.0f*sp[34]*e_el*PI_/180.0f;
-    dvec[b*2+1] = 2.0f*sp[34]*e_az*PI_/180.0f;
+    dvec[b*2+0] = 2.0f*fct[b*FCTW + 53]*e_el*PI_/180.0f;
+    dvec[b*2+1] = 2.0f*fct[b*FCTW + 53]*e_az*PI_/180.0f;
     float ph = s[S0+22], zt = s[S0+23];
     float rt = sqrt(max(sp[29]*sp[29] - (zt - sp[30])*(zt - sp[30]),
                         1e-4f)) * 0.999f;
@@ -1088,6 +1099,7 @@ kernel void step_post(
     device float*       diag  [[buffer(13)]],  // (B,8)
     device const int*   act   [[buffer(14)]],  // (B,NH) load-mask heads
     device const float* dsn   [[buffer(15)]],  // (B,ND) per-env design obs (unit box, 2u-1)
+    device const float* fct   [[buffer(16)]],  // (B,FCTW) per-env design (system block at 40)
     uint b [[thread_position_in_grid]])
 {
     if ((int)b >= ip[0]) return;
@@ -1105,6 +1117,10 @@ kernel void step_post(
     device float* hb = bC + NB;
     device const float* pv = per + b*(N + NB);   // N nodes, then NB loaf columns
     device const float* NA = sp + 66;   // sp[63] cut penalty, sp[64] lost_deg, sp[65] enc_clamp
+    // the system design, per env: [45] wall->soil conductance scale,
+    // [46] thermal-mass scale, [47] lid leak, [48] bread area,
+    // [49] h_bread, [50] roti energy, [52] loaves per lean
+    device const float* ds = fct + b*FCTW;
     device const float* HC = NA + N;
     device const float* CS = HC + N;
     device const float* CD_ = CS + N;
@@ -1126,7 +1142,7 @@ kernel void step_post(
     // in-oven doneness at step start, before any bread energy moves
     float phi_old = 0.0f;
     for (int k = 0; k < NB; k++)
-        phi_old += clamp(bE[k]/sp[19], 0.0f, 1.0f);
+        phi_old += clamp(bE[k]/ds[50], 0.0f, 1.0f);
     // ---- spot_bread: the loaf takes the beam directly
     int kb = 0; float validc = 0.0f, q_direct = 0.0f;
     float qsp[16];                     // per-loaf beam power (NB <= 16)
@@ -1141,7 +1157,7 @@ kernel void step_post(
         validc = 1.0f;
         for (int k = 0; k < NB; k++) {
             float lit_k = (hb[k] > 0.5f) ? 1.0f : 0.0f;
-            float frb_k = clamp(bE[k]/sp[19], 0.0f, 1.0f);
+            float frb_k = clamp(bE[k]/ds[50], 0.0f, 1.0f);
             float alpha_k = 0.55f + 0.35f*frb_k;
             float inc_k = pv[N + k]*gate;
             float q_k = lit_k*alpha_k*inc_k;
@@ -1155,7 +1171,7 @@ kernel void step_post(
     float t4s = 0.0f;
     for (int i = 0; i < N; i++) t4s += NA[i]*t4v[i];
     float tc4 = t4s / sp[52];
-    float lid = (s[S0+8] < 4.0f) ? 1.0f : sp[17];
+    float lid = (s[S0+8] < 4.0f) ? 1.0f : ds[47];
     float ta4 = sp[43]*sp[43]*sp[43]*sp[43];
     float q_ap = 0.75f*SIG*(tc4 - ta4)*sp[51]*lid;
     float Th = s[3*N];
@@ -1164,10 +1180,10 @@ kernel void step_post(
         float q_exch = 0.85f*SIG*NA[i]*(tc4 - t4v[i]);
         float q01 = G01[i]*(Tv[i] - Tsub[i]);
         float q12 = G12[i]*(Tsub[i] - Tdeep[i]);
-        float q2s = G2S[i]*(Tdeep[i] - Th);
+        float q2s = (G2S[i]*ds[45])*(Tdeep[i] - Th);
         qv[i] = qv[i] + q_exch - q01;
-        Tsub[i] += (q01 - q12)*dt/CS[i];
-        Tdeep[i] += (q12 - q2s)*dt/CD_[i];
+        Tsub[i] += (q01 - q12)*dt/(CS[i]*ds[46]);
+        Tdeep[i] += (q12 - q2s)*dt/(CD_[i]*ds[46]);
         q2sum += q2s;
     }
     s[3*N] = Th + (q2sum - sp[38]*(Th - sp[43]))*dt/sp[39];
@@ -1175,15 +1191,15 @@ kernel void step_post(
     for (int k = 0; k < NB; k++) {
         // dough exchanges at its own temperature: room-temp
         // coldstart warming to ~400 K at full bake (numpy twins)
-        float fdn = clamp(max(bE[k], 0.0f)/sp[19], 0.0f, 1.0f);
-        float qb = hb[k]*sp[18]*(Tv[k] - (sp[43] + 100.0f*fdn));
+        float fdn = clamp(max(bE[k], 0.0f)/ds[50], 0.0f, 1.0f);
+        float qb = hb[k]*ds[49]*(Tv[k] - (sp[43] + 100.0f*fdn));
         qv[k] -= qb;
         bE[k] += qb*dt;
         bt_[k] += hb[k]*dt;
     }
     float dT_h = 0.0f;
     for (int i = 0; i < N; i++) {
-        float dT = qv[i]*dt/HC[i];
+        float dT = qv[i]*dt/(HC[i]*ds[46]);
         s[i] = Tv[i] + dT;
         if (i == NB) dT_h = dT;
     }
@@ -1199,12 +1215,12 @@ kernel void step_post(
         float bT = s[k];
         float cdot = max(bT - 800.0f, 0.0f)/6000.0f;
         if (sp[25] > 0.5f) {
-            float fkw = qsp[k]/max(sp[53], 1e-6f)/1000.0f;
+            float fkw = qsp[k]/max(ds[48], 1e-6f)/1000.0f;
             cdot += max(fkw - 8.0f, 0.0f)/1000.0f*validc;
         }
         bC[k] += hb[k]*cdot*dt;
         bool has = hb[k] > 0.5f;
-        bool ready = has && (bE[k] >= sp[19]);
+        bool ready = has && (bE[k] >= ds[50]);
         bool ckd = ready && pull;
         bool scd = has && (bC[k] >= 1.0f);
         // NO doughy timeout: cooked or charred only (numpy twins)
@@ -1224,7 +1240,7 @@ kernel void step_post(
     // xor hash sprays it. Only physics either way: empty bins only,
     // loaves_per_load per lean.
     if (s[S0+8] >= sp[20]) {
-        int LPL = (int)sp[61];
+        int LPL = (int)ds[52];
         if (sp[62] > 0.5f) {
             int NH = ip[3];
             device const int* am_ = act + b*NH + (NH - NB);
@@ -1254,12 +1270,12 @@ kernel void step_post(
     // drip 0.3/loaves_per_load per step
     float hold_infl = 0.0f;
     for (int k = 0; k < NB; k++) hold_infl += hb[k];
-    r -= (0.03f / max(sp[61], 1.0f)) * hold_infl;
+    r -= (0.03f / max(ds[52], 1.0f)) * hold_infl;
     // DONENESS POTENTIAL (numpy twins line for line): +2 per full
     // loaf-equivalent of energy INTO dough, telescoped
     float phi_new = 0.0f;
     for (int k = 0; k < NB; k++)
-        phi_new += clamp(bE[k]/sp[19], 0.0f, 1.0f);
+        phi_new += clamp(bE[k]/ds[50], 0.0f, 1.0f);
     r += 2.0f*(phi_new - phi_old);
     // BANDED-SUM preheat potential, REINSTATED (numpy twins):
     // sum of sub-453 rises over all bins, in-step old vs new
@@ -1291,7 +1307,7 @@ kernel void step_post(
         float nb_ = 0.0f;
         for (int k = 0; k < NB; k++) {
             nb_ += hb[k];
-            nb_ += (2.0f/0.3f)*clamp(bE[k]/sp[19], 0.0f, 1.0f);
+            nb_ += (2.0f/0.3f)*clamp(bE[k]/ds[50], 0.0f, 1.0f);
             nb_ += (0.05f/0.3f)*max(min(s[k], sp[27]) - 350.0f,
                                     0.0f);
         }
@@ -1344,7 +1360,7 @@ kernel void step_post(
     ob[o++] = clamp(off[b*2+0]/0.1f, -2.0f, 2.0f);
     ob[o++] = clamp(off[b*2+1]/0.1f, -2.0f, 2.0f);
     ob[o++] = clamp(s[S0+8]/45.0f, 0.0f, 2.0f);
-    for (int k = 0; k < NB; k++) ob[o++] = bE[k]/sp[19];
+    for (int k = 0; k < NB; k++) ob[o++] = bE[k]/ds[50];
     for (int k = 0; k < NB; k++) ob[o++] = bC[k];
     ob[o++] = p_in/6000.0f;
     ob[o++] = s[S0+4];
@@ -1364,7 +1380,7 @@ kernel void step_post(
     diag[b*8+0] = p_in;
     diag[b*8+1] = e_el2;
     diag[b*8+2] = e_az2;
-    diag[b*8+3] = q_direct/max(sp[53], 1e-6f);
+    diag[b*8+3] = q_direct/max(ds[48], 1e-6f);
     diag[b*8+4] = s[S0+25];
     diag[b*8+5] = s[S0+24];
     diag[b*8+6] = 0.0f;
@@ -1381,7 +1397,7 @@ class MetalGeo:
         self._dims = {}
         self._mbuf = {}
 
-    def mount(self, day_t, lat_t, prm_t, B, pnt=None):
+    def mount(self, day_t, lat_t, prm_t, B, pnt=None, fct=None):
         """The mount solve as ONE kernel launch: B threads, each env
         computes its own sun, beta schedule and frames in registers.
         Returns the same dict contract as tandoor_mount_batch."""
@@ -1397,9 +1413,16 @@ class MetalGeo:
             self._mbuf[key] = bufs
         vp, Mt, Cd, Ac, scb, aux, nB, nopnt = bufs
         pnt_t = nopnt if pnt is None else pnt.to(torch.float32).contiguous()
+        fct_t = fct
+        if fct_t is None:
+            # no design table: every env the nominal machine (from prm)
+            fct_t = torch.zeros(B, 64, dtype=torch.float32, device=prm_t.device)
+            fct_t[:, 40] = 1.0; fct_t[:, 41] = 1.0; fct_t[:, 44:47] = 1.0
+            fct_t[:, 42] = prm_t[4]; fct_t[:, 53] = prm_t[12]
+            fct_t[:, 54] = prm_t[3]; fct_t[:, 55] = prm_t[5]
         self.lib.mount_solve(vp, Mt, Cd, Ac, scb, aux,
                              day_t.contiguous(), lat_t.contiguous(),
-                             prm_t, nB, pnt_t)
+                             prm_t, nB, pnt_t, fct_t.contiguous())
         return dict(vp=vp, Mt=Mt.view(B, 3, 3), Cd=Cd,
                     Acan=Ac.view(B, 3, 3), scb=scb, aux=aux,
                     el=aux[:, 0], az=aux[:, 1], el_b=aux[:, 2],
@@ -1429,10 +1452,12 @@ class MetalGeo:
         c = lambda t: t.contiguous()
         if fct is None:
             # no per-env table given: every row is the shared static block
-            row = torch.zeros(40, dtype=torch.float32, device=dev)
+            row = torch.zeros(64, dtype=torch.float32, device=dev)
             k = min(39, max(0, int(sc.shape[0]) - 106))
             row[:k] = sc[106:106 + k]
             row[39] = sc[13]
+            row[40] = 1.0; row[41] = 1.0; row[44:47] = 1.0
+            row[51] = float(getattr(self, "loaf_h", 0.1732))
             fct = row[None, :].expand(B, -1)
         self.lib.tandoor_trace(
             thr, out6, c(pts_l), c(nrm_l), c(lv), c(du), c(de), c(upick),

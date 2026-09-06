@@ -223,7 +223,8 @@ def fused_full_step(env, actions):
     env._mnt_prm[0] = float(env.t_solar[0])
     F.ip[6] = int(env.tick)          # the cook's hash clock
     mnt = env._metal.mount(F.day_v, F.lat_v, env._mnt_prm, B,
-                           pnt=torch.stack([F.el_m, F.az_m], 1))
+                           pnt=torch.stack([F.el_m, F.az_m], 1),
+                           fct=env._fct)
     aux = mnt["aux"]
     env.t_solar += env.dt / 3600.0
     a = actions if torch.is_tensor(actions) else \
@@ -241,7 +242,7 @@ def fused_full_step(env, actions):
     rn, ru = F.draw()
     lib.step_pre(F.lv, F.st, a32, rn, ru, F.sp, F.ip, aux, F.day_v,
                  F.lat_v, env._mnt_prm, F.sigb, F.dvec, F.off, F.aim,
-                 F.per)
+                 F.per, env._fct)
     if getattr(env, "_det_trace", False):
         du = de = F._du0
         upick = us = F._up5
@@ -257,7 +258,7 @@ def fused_full_step(env, actions):
                       us, F.aim, mnt["scb"], F.lfp, env._fct)
     lib.step_post(F.rew, F.st, F.per, F.sp, F.ip, rn, ru, F.day_v,
                   F.lat_v, env._mnt_prm, F.off, F.obs, F.trunc,
-                  F.diag, a32, env._dsn_t)
+                  F.diag, a32, env._dsn_t, env._fct)
     env.tick += 1
     infos = []
     ts0 = float(env.t_solar[0])
@@ -286,7 +287,7 @@ def _day_over(env, F, infos):
     S, B, dev = F, env.num_agents, env.device
     N = env.n_nodes
     inflight = 0.3 * S.has_bread.sum(1) \
-        + 2.0 * (S.bread_E / env.roti_energy).clamp(0.0, 1.0).sum(1)
+        + 2.0 * (S.bread_E / env._ds_roti_t[:, None]).clamp(0.0, 1.0).sum(1)
     rew = F.rew - inflight
     S.ep_return.sub_(inflight)
     infos.append({

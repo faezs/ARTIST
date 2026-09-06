@@ -78,8 +78,20 @@ def solar_batch(lat_deg, day, hour):
     return torch.rad2deg(el), az, s
 
 
+def _dsys(env, dev, dtype, B):
+    """Per-env dish parameters from the design table (a_mem, g_orbit,
+    f_nom, z_fold); the nominal machine when the env has no table."""
+    ds = getattr(env, "_fct", None)
+    if ds is None or ds.shape[1] < 56:
+        t = lambda v: torch.full((B,), float(v), dtype=dtype, device=dev)
+        return t(env.a_mem), t(env.g_orbit), t(env.f_nom), t(env.z_fold)
+    ds = ds.to(device=dev, dtype=dtype)
+    return ds[:, 54], ds[:, 55], ds[:, 53], ds[:, 42]
+
+
 def beta_now_batch(env, el):
     """The signed beta schedule, vectorized (see env._beta_now)."""
+    a_b, g_b, f_b, zf_b = _dsys(env, el.device, el.dtype, el.shape[0])
     lo = (el - (env.el_x - 1.0)).clamp(min=0.0)
     bd = torch.full_like(el, env.beta_dev)
     bp = torch.maximum(torch.minimum(bd, torch.maximum(bd, lo)), lo)
@@ -87,9 +99,9 @@ def beta_now_batch(env, el):
         return bp
     for _ in range(3):
         naim_el = torch.deg2rad(el - 0.5 * bp)
-        allow = env.beta_cap_z - env.a_mem \
+        allow = env.beta_cap_z - a_b \
             * torch.cos(naim_el).clamp(min=0.0)
-        sarg = ((env.z_fold - allow) / env.g_orbit).clamp(-1.0, 1.0)
+        sarg = ((zf_b - allow) / g_b).clamp(-1.0, 1.0)
         hi = el - torch.rad2deg(torch.arcsin(sarg))
         bp = torch.minimum(bd, hi).clamp(min=0.0)
         bp = torch.maximum(bp, lo)
@@ -167,8 +179,10 @@ def mount_batch(env, day, lat, hour, dev, pnt=None):
     ub = _rot_about_axis(um, ax, torch.deg2rad(beta_t))
     ub = torch.where(axn > 1e-6, ub, um)
     ub = ub / ub.norm(dim=-1, keepdim=True)
-    P_fold = C["Pf"].expand(B, 3)
-    Cd = P_fold - env.g_orbit * ub
+    a_b, g_b, f_b, zf_b = _dsys(env, dev, u.dtype, B)
+    P_fold = torch.stack([torch.full_like(zf_b, float(env.X_TOWER_C)),
+                          torch.zeros_like(zf_b), zf_b], -1)
+    Cd = P_fold - g_b[:, None] * ub
     naim = um + ub
     naim = naim / naim.norm(dim=-1, keepdim=True)
     M = _align_batch(C["zhat"], naim)
@@ -221,10 +235,10 @@ def mount_batch(env, day, lat, hour, dev, pnt=None):
     ks = torch.zeros(B, dtype=u.dtype, device=dev)
     if env.fold_toroid:
         cth = (u * naim).sum(-1).clamp(-1, 1)
-        ft_d, fs_d = env.f_nom * cth, env.f_nom / cth
-        dw = env.z_fold - env.z_waist
-        st = ft_d - env.g_orbit
-        ss = fs_d - env.g_orbit
+        ft_d, fs_d = f_b * cth, f_b / cth
+        dw = zf_b - env.z_waist
+        st = ft_d - g_b
+        ss = fs_d - g_b
         okm = (st > 0.05) & (ss > 0.05)
         Pt = 1.0 / dw - 1.0 / st.clamp(min=1e-6)
         Ps = 1.0 / dw - 1.0 / ss.clamp(min=1e-6)

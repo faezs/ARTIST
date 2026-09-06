@@ -58,10 +58,21 @@ class GpuState:
         self.hold_s = f(e._hold_s)
         self.hold_j = f(e._hold_j)
         self.node_area = f(e.node_area)[None, :]
-        self.node_heat_cap = f(e.node_heat_cap)
+        # the system design, per env (hashemi: _ds_* arrays; other envs
+        # the nominal scalars/tables) - numpy twins line for line
+        B_ = e.num_agents
+        g = lambda nm, dflt: f(getattr(e, nm, dflt))
+        self.node_heat_cap = g("_ds_hc", e.node_heat_cap)
         self.T_sub = f(e.T_sub); self.T_deep = f(e.T_deep)
-        self.cap_sub = f(e.cap_sub); self.cap_deep = f(e.cap_deep)
-        self.g01 = f(e.g01); self.g12 = f(e.g12); self.g2s = f(e.g2s)
+        self.cap_sub = g("_ds_cs", e.cap_sub); self.cap_deep = g("_ds_cd", e.cap_deep)
+        self.g01 = f(e.g01); self.g12 = f(e.g12); self.g2s = g("_ds_g2s", e.g2s)
+        self.ds_rate = g("_ds_rate", np.ones(B_))
+        self.ds_lid = g("_ds_lid", np.full(B_, e.lid_leak))
+        self.ds_roti = g("_ds_roti", np.full(B_, e.roti_energy)).reshape(B_)
+        self.ds_hb = g("_ds_hb", np.full(B_, e.h_bread)).reshape(B_)
+        self.ds_bread = g("_ds_bread", np.full(B_, e.bread_area)).reshape(B_)
+        self.ds_lpl = g("_ds_lpl", np.full(B_, e.loaves_per_load)).reshape(B_)
+        self.ds_s2 = g("_ds_s2", np.ones(B_))
         self.T_halo = f(e.T_halo)
         self.g_halo_out = float(e.g_halo_out)
         self.c_halo = float(e.c_halo)
@@ -101,8 +112,8 @@ def gpu_step(env, actions):
     az0d = torch.rad2deg(mnt["az"])
     # potential BEFORE this step's motor action (see the numpy path)
     pot_prev = (S.e_az_prev.abs() + S.e_el_prev.abs()).clamp(max=4.0)
-    r_az = (a[:, 3].clamp(0, 6).float() - 3) / 3.0 * env.RATE_AZ
-    r_el = (a[:, 4].clamp(0, 6).float() - 3) / 3.0 * env.RATE_EL
+    r_az = (a[:, 3].clamp(0, 6).float() - 3) / 3.0 * env.RATE_AZ * S.ds_rate
+    r_el = (a[:, 4].clamp(0, 6).float() - 3) / 3.0 * env.RATE_EL * S.ds_rate
     if getattr(env, "elbow_aim", 0):
         from tandoor_polar_env import (SPOT_PHI_RANGE, SPOT_Z_RANGE,
                                        RATE_SPOT_PHI, RATE_SPOT_Z)
@@ -205,7 +216,7 @@ def gpu_step(env, actions):
     p_in = per.sum(1) * gate
     # DONENESS POTENTIAL, phi_old (numpy twins line for line):
     # in-oven doneness at step start, before any bread energy moves
-    phi_old = (S.bread_E / env.roti_energy).clamp(0.0, 1.0).sum(1)
+    phi_old = (S.bread_E / S.ds_roti[:, None]).clamp(0.0, 1.0).sum(1)
     if getattr(env, "spot_bread", 0):
         from tandoor_polar_env import (SPOT_AREA, Z_BAKE_LO, Z_CROWN)
         import numpy as _np
@@ -220,7 +231,7 @@ def gpu_step(env, actions):
         nb = env.n_belt
         valid = torch.ones_like(valid)
         lit_b = S.has_bread[:, :nb].float()
-        frb_b = (S.bread_E[:, :nb] / env.roti_energy).clamp(0, 1)
+        frb_b = (S.bread_E[:, :nb] / S.ds_roti[:, None]).clamp(0, 1)
         alpha_b = 0.55 + 0.35 * frb_b
         inc_b = per_loaf * gate[:, None]
         q_b = lit_b * alpha_b * inc_b
@@ -229,7 +240,7 @@ def gpu_step(env, actions):
         q_direct = q_b.sum(1)
         env._spot_bin_t = (kb, valid)
         env._spot_q_t = q_b
-        env._spot_flux_t = q_direct / max(env.bread_area, 1e-6)
+        env._spot_flux_t = q_direct / S.ds_bread.clamp(min=1e-6)
 
     # ---- thermal / bread / reward (polar's copy, 950 K structure term)
     T = S.T
@@ -237,7 +248,7 @@ def gpu_step(env, actions):
     t_cav4 = (S.node_area * t4).sum(1, keepdim=True) / S.node_area.sum()
     q_exch = 0.85 * SIGMA * S.node_area * (t_cav4 - t4)
     lid = torch.where(S.load_timer < 4.0, torch.ones_like(S.load_timer),
-                      torch.full_like(S.load_timer, env.lid_leak))
+                      S.ds_lid)
     q_ap = 0.75 * SIGMA * (t_cav4.squeeze(1) - T_AMB**4) \
         * (np.pi * R_MOUTH**2) * lid
     q01 = S.g01 * (T - S.T_sub)
@@ -253,8 +264,8 @@ def gpu_step(env, actions):
     # dough exchanges at its own temperature: room-temp coldstart
     # warming to ~400 K at full bake (numpy twins line for line)
     t_dough = T_AMB + 100.0 * (S.bread_E.clamp(min=0.0)
-                               / env.roti_energy).clamp(max=1.0)
-    q_b = S.has_bread.float() * env.h_bread * (belt_T - t_dough)
+                               / S.ds_roti[:, None]).clamp(max=1.0)
+    q_b = S.has_bread.float() * S.ds_hb[:, None] * (belt_T - t_dough)
     q[:, :env.n_belt] -= q_b
     dT = q * dt / S.node_heat_cap
     S.T = T + dT
@@ -271,10 +282,10 @@ def gpu_step(env, actions):
     if getattr(env, "spot_bread", 0):
         kbc, validc = env._spot_bin_t
         # per-loaf beam flux: each loaf chars on its own share
-        fkw_b = env._spot_q_t / max(env.bread_area, 1e-6) / 1000.0
+        fkw_b = env._spot_q_t / S.ds_bread.clamp(min=1e-6)[:, None] / 1000.0
         c_dot = c_dot + (fkw_b - 8.0).clamp(min=0) / 1000.0 * validc.float()[:, None]
     S.bread_C = S.bread_C + S.has_bread.float() * c_dot * dt
-    ready = S.has_bread & (S.bread_E >= env.roti_energy)
+    ready = S.has_bread & (S.bread_E >= S.ds_roti[:, None])
     # ONE lean event: pull and load share the opening (post-increment
     # timer; see the numpy twins)
     pull_open = S.load_timer + dt >= env.load_period
@@ -299,8 +310,7 @@ def gpu_step(env, actions):
         # last n_belt heads gate each bin, empty bins only, up to
         # loaves_per_load per lean
         mask = a[:, -env.n_belt:].float() > thr_g
-        left = torch.full((B,), float(env.loaves_per_load),
-                          device=dev)
+        left = S.ds_lpl.clone()
         hb_ = S.has_bread.clone()
         for k in range(env.n_belt):
             place = can & mask[:, k] & ~hb_[:, k] & (left > 0)
@@ -316,13 +326,14 @@ def gpu_step(env, actions):
             bidx = S._bidx = torch.arange(B, device=dev)
         M32 = 0xFFFFFFFF
         tick = int(env.tick)
-        for _k in range(env.loaves_per_load):
+        for _k in range(int(env.loaves_per_load)):
             s0 = (bidx + tick * 57 + _k * 241) & M32
             s0 = ((s0 << 13) ^ s0) & M32
             t0 = ((s0 * s0) & M32) * 15731 + 789221
             v = (s0 * (t0 & M32) + 1376312589) & 0x7FFFFFFF
             j = (v * env.n_belt) >> 31   # HIGH bits: low are structured
-            place = can & ~S.has_bread.gather(1, j[:, None]).squeeze(1)
+            place = can & (S.ds_lpl > _k) \
+                & ~S.has_bread.gather(1, j[:, None]).squeeze(1)
             oh = torch.nn.functional.one_hot(j, env.n_belt).bool() \
                 & place[:, None]
             S.has_bread = S.has_bread | oh
@@ -332,11 +343,11 @@ def gpu_step(env, actions):
     rew = rew + 0.3 * loads
     # HOLDING COST (numpy twins line for line): in-flight loaves
     # drip 0.3/loaves_per_load per step
-    rew = rew - (0.03 / max(env.loaves_per_load, 1)) \
+    rew = rew - (0.03 / S.ds_lpl.clamp(min=1.0)) \
         * S.has_bread.float().sum(1)
     # DONENESS POTENTIAL (numpy twins line for line): +2 per full
     # loaf-equivalent of energy INTO dough, telescoped
-    rew = rew + 2.0 * ((S.bread_E / env.roti_energy)
+    rew = rew + 2.0 * ((S.bread_E / S.ds_roti[:, None])
                        .clamp(0.0, 1.0).sum(1) - phi_old)
     # BANDED-SUM preheat potential, REINSTATED (numpy twins line
     # for line; see rl_env for the why)

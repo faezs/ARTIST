@@ -628,6 +628,12 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     p_loc = (1 - fr) * pts_l[i0] + fr * pts_l[i0 + 1]
     n_loc = (1 - fr) * nrm_l[i0] + fr * nrm_l[i0 + 1]
     n_loc = n_loc / n_loc.norm(dim=-1, keepdim=True)
+    # the dish scale (design table [40]): uniform scaling of the membrane
+    # about the frame origin, f and a scale together (kernel twin)
+    if fct is None:
+        fct = torch.cat([sc[106:145], sc[13:14]])[None, :].expand(lv.shape[0], -1)
+    if fct.shape[1] > 40:
+        p_loc = p_loc * fct[:, 40, None, None]
     tq = us.clamp(0, 1) * 64.0
     ti = tq.long().clamp(max=63)
     tf = tq - ti.float()
@@ -1040,6 +1046,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.el_min_h = float(el_min)
         self.r_mast = float(r_mast)
         super().__init__(*args, a_mem=a_mem, **kwargs)
+        self._apply_system_design()
 
     def _reset_state(self):
         super()._reset_state()
@@ -1121,8 +1128,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # unchanged arrays - the shaping term had been identically zero
         # through every training run so far.)
         pot_prev = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
-        r_az = (np.clip(a[:, 3], 0, 6) - 3) / 3.0 * self.RATE_AZ
-        r_el = (np.clip(a[:, 4], 0, 6) - 3) / 3.0 * self.RATE_EL
+        r_az = (np.clip(a[:, 3], 0, 6) - 3) / 3.0 * self.RATE_AZ * self._ds_rate
+        r_el = (np.clip(a[:, 4], 0, 6) - 3) / 3.0 * self.RATE_EL * self._ds_rate
         if self.elbow_aim:
             from tandoor_polar_env import (SPOT_PHI_RANGE, SPOT_Z_RANGE,
                                            RATE_SPOT_PHI, RATE_SPOT_Z)
@@ -1188,7 +1195,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 # closed)
                 give = 0.3 * float(self.has_bread[i].sum()) \
                     + 2.0 * float(np.clip(
-                        self.bread_E[i] / self.roti_energy,
+                        self.bread_E[i] / self._ds_roti[i],
                         0.0, 1.0).sum()) \
                     + 0.05 * float(np.clip(
                         np.minimum(self.T[i, : self.n_belt],
@@ -1308,13 +1315,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             return torch.as_tensor(np.asarray(x, dtype=np.float32), device=dev)
         # the wall parameters live on the env (FusedState packs them into
         # the kernel's sp block; GpuState mirrors them) - read the env's
-        area, cap = tt(self.node_area), tt(self.node_heat_cap)
-        g01, g12, g2s = tt(self.g01), tt(self.g12), tt(self.g2s)
-        cs, cd = tt(self.cap_sub), tt(self.cap_deep)
+        area, cap = tt(self.node_area), tt(self._ds_hc)
+        g01, g12, g2s = tt(self.g01), tt(self.g12), tt(self._ds_g2s)
+        cs, cd = tt(self._ds_cs), tt(self._ds_cd)
         ch = float(np.asarray(self.c_halo, dtype=np.float64).mean())
         gout = float(np.asarray(self.g_halo_out, dtype=np.float64).mean())
         asum = area.sum()
-        mouth = float(np.pi * R_MOUTH ** 2 * self.lid_leak)
+        mouth = tt(np.pi * R_MOUTH ** 2 * self._ds_lid)
         T, Ts, Td, Th = S.T, S.T_sub, S.T_deep, S.T_halo
         k_ap = self.n_belt + 2
         for _ in range(n):
@@ -1733,13 +1740,42 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                   ("w_slot", 0.4, 1.0), ("r_hole", 0.3, 0.8),
                   ("strip_th_hi", 70.0, 125.0), ("strip_wk", 0.8, 1.8),
                   ("r_duct", 0.15, 0.30))
-    N_DESIGN = 9
+    #: THE SYSTEM IS THE DESIGN: the rest of the machine, per agent
+    #: (name, lo, hi): dish scale (radius, focal length and orbit scale
+    #: together; mirror area ~ s^2), tower deck height (fold height and
+    #: the receiver's F follow), actuator class (slew-rate scale), wall
+    #: insulation (wall->soil conductance scale, 1 = the ini's shell),
+    #: thermal mass (node capacity scale), lid leak, roti size, loaves
+    #: per lean
+    SYS_BOX = (("dish_scale", 0.75, 1.30), ("deck_h", 3.0, 5.5),
+               ("rate_scale", 0.5, 2.0), ("ins_scale", 0.3, 3.6),
+               ("cap_scale", 0.5, 2.0), ("lid_leak", 0.05, 0.40),
+               ("bread_area", 0.08, 0.16), ("loaves_per_load", 4.0, 8.0))
+    N_DESIGN = 9 + 8
+    FCT_W = 64
+    #: system block layout in the design table (offset 40)
+    DS = dict(s=40, s2=41, zfold=42, zdeck=43, rate=44, ins=45, cap=46,
+              lid=47, bread=48, hb=49, roti=50, lfp=51, lpl=52, fnom=53,
+              amem=54, gorb=55)
 
-    def _design_row(self):
-        """One receiver table row: _fc_table (39) + the duct mouth."""
-        if self.receiver == "cass":
-            return list(self._fc_table) + [float(self.r_duct)]
-        return [0.0] * 39 + [float(self.r_duct)]
+    def _design_row(self, sys=None):
+        """One design table row (64): _fc_table (39) + duct mouth + the
+        system block (nominal machine unless sys overrides)."""
+        rec = (list(self._fc_table) if self.receiver == "cass"
+               else [0.0] * 39) + [float(self.r_duct)]
+        d = dict(s=1.0, s2=1.0, zfold=float(self.z_fold), zdeck=float(self.z_deck),
+                 rate=1.0, ins=1.0, cap=1.0, lid=float(self.lid_leak),
+                 bread=float(self.bread_area), hb=float(self.h_bread),
+                 roti=float(self.roti_energy),
+                 lfp=float(np.sqrt(self.bread_area) / 2.0),
+                 lpl=float(self.loaves_per_load), fnom=float(self.f_nom),
+                 amem=float(self.a_mem), gorb=float(self.g_orbit))
+        if sys:
+            d.update(sys)
+        row = rec + [0.0] * (self.FCT_W - 40)
+        for k, i in self.DS.items():
+            row[i] = d[k]
+        return row
 
     def _build_design_table(self):
         """The per-env receiver table _fct (B,40) the cores read (Metal
@@ -1758,14 +1794,38 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._design_u = u
             nominal = {k: getattr(self, k) for k, _, _ in self.DESIGN_BOX}
             nominal["r_strip"] = self.r_strip
-            rows = np.zeros((B, 40), dtype=np.float32)
+            base = {k: getattr(self, k) for k in ("a_mem", "f_nom", "g_orbit", "z_fold", "z_deck")}
+            A0 = float(self.bread_area)
+            nr = len(self.DESIGN_BOX)
+            rows = np.zeros((B, self.FCT_W), dtype=np.float32)
             for b in range(B):
-                for (k, lo, hi), ub in zip(self.DESIGN_BOX, u[b]):
+                for (k, lo, hi), ub in zip(self.DESIGN_BOX, u[b, :nr]):
                     setattr(self, k, float(lo + ub * (hi - lo)))
                 self.r_strip = 0.5 * self.strip_wk * self.d_strip * 1.3
+                sv = {k: lo + ub * (hi - lo)
+                      for (k, lo, hi), ub in zip(self.SYS_BOX, u[b, nr:])}
+                s = float(sv["dish_scale"])
+                # the dish, its focal length and the orbit scale together;
+                # the deck sets the fold height and the receiver's F
+                self.a_mem = base["a_mem"] * s
+                self.f_nom = base["f_nom"] * s
+                self.g_orbit = base["g_orbit"] * s
+                self.z_deck = H_POT + float(sv["deck_h"])
+                self.z_fold = base["z_fold"] + (self.z_deck - base["z_deck"])
                 self._build_cass_chain()
-                rows[b] = self._design_row()
+                A = float(sv["bread_area"])
+                sysd = dict(s=s, s2=s * s, zfold=self.z_fold, zdeck=self.z_deck,
+                            rate=float(sv["rate_scale"]), ins=float(sv["ins_scale"]),
+                            cap=float(sv["cap_scale"]), lid=float(sv["lid_leak"]),
+                            bread=A, hb=25.0 * A,
+                            roti=float(self.roti_energy) * A / A0,
+                            lfp=float(np.sqrt(A) / 2.0),
+                            lpl=float(int(round(sv["loaves_per_load"]))),
+                            fnom=self.f_nom, amem=self.a_mem, gorb=self.g_orbit)
+                rows[b] = self._design_row(sysd)
             for k, vv in nominal.items():
+                setattr(self, k, vv)
+            for k, vv in base.items():
                 setattr(self, k, vv)
             self._build_cass_chain()
         self._fct = torch.as_tensor(rows, dtype=torch.float32,
@@ -1778,8 +1838,36 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
 
     def design_points(self):
         """The per-agent designs as a dict of (B,) arrays (design_rand)."""
+        box = tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX)
         return {k: lo + self._design_u[:, i] * (hi - lo)
-                for i, (k, lo, hi) in enumerate(self.DESIGN_BOX)}
+                for i, (k, lo, hi) in enumerate(box)}
+
+    def _apply_system_design(self):
+        """Per-env arrays of the system design for the numpy and torch
+        steps (the kernels read the table directly): actuator rate
+        scale, lid leak, roti size/energy, loaves per lean, the scaled
+        wall conductance and thermal mass, the dish-area factor."""
+        B, N = self.num_agents, self.n_nodes
+        ds = self._fct[:, 40:].detach().cpu().numpy().astype(np.float64)
+        D = {k: i - 40 for k, i in self.DS.items()}
+        self._ds_rate = ds[:, D["rate"]]
+        self._ds_lid = ds[:, D["lid"]]
+        self._ds_bread = ds[:, D["bread"]:D["bread"] + 1]
+        self._ds_hb = ds[:, D["hb"]:D["hb"] + 1]
+        self._ds_roti = ds[:, D["roti"]:D["roti"] + 1]
+        self._ds_lfp = ds[:, D["lfp"]]
+        self._ds_lpl = ds[:, D["lpl"]].astype(np.int64)
+        self._ds_s2 = ds[:, D["s2"]]
+        cap = ds[:, D["cap"]:D["cap"] + 1]
+        self._ds_hc = np.asarray(self.node_heat_cap, dtype=np.float64)[None, :] * cap
+        self._ds_cs = np.asarray(self.cap_sub, dtype=np.float64)[None, :] * cap
+        self._ds_cd = np.asarray(self.cap_deep, dtype=np.float64)[None, :] * cap
+        self._ds_g2s = np.asarray(self.g2s, dtype=np.float64)[None, :] * ds[:, D["ins"]:D["ins"] + 1]
+        t = lambda a: torch.as_tensor(np.asarray(a, dtype=np.float32).reshape(B), device=self.device)
+        self._ds_rate_t, self._ds_lid_t = t(self._ds_rate), t(self._ds_lid)
+        self._ds_bread_t, self._ds_hb_t = t(self._ds_bread), t(self._ds_hb)
+        self._ds_roti_t, self._ds_lfp_t = t(self._ds_roti), t(self._ds_lfp)
+        self._ds_lpl_t, self._ds_s2_t = t(self._ds_lpl), t(self._ds_s2)
 
     DESIGN_KEYS = ("d_strip", "u_f2", "r_m4", "r_bore", "w_slot", "r_hole",
                    "strip_th_lo", "strip_th_hi", "strip_wk", "w_strip",
@@ -1803,6 +1891,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._sc_base = torch.cat([self._sc_base[:106], tail])
         self._sc_base[13] = float(self.r_duct)
         self._build_design_table()
+        self._apply_system_design()
         return self
 
     def _mount(self, day_t, lat_t, hour, pnt=None):
@@ -1811,7 +1900,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if self._metal is not None:
             self._mnt_prm[0] = float(hour)
             return self._metal.mount(day_t, lat_t, self._mnt_prm,
-                                     day_t.shape[0], pnt=pnt)
+                                     day_t.shape[0], pnt=pnt,
+                                     fct=getattr(self, "_fct", None))
         from tandoor_mount_batch import mount_batch
         return mount_batch(self, day_t, lat_t, float(hour),
                            day_t.device, pnt=pnt)
@@ -1918,7 +2008,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # exact potential of the wiped state + in-flight load
             # bonuses (charge-and-crash closed)
             give = 0.3 * S.has_bread.float().sum(1) \
-                + 2.0 * (S.bread_E / self.roti_energy) \
+                + 2.0 * (S.bread_E / self._ds_roti_t[:, None]) \
                 .clamp(0.0, 1.0).sum(1) \
                 + 0.05 * (S.T[:, : self.n_belt].clamp(max=T_COOK_LO)
                           - 350.0).clamp(min=0.0).sum(1)
@@ -1982,7 +2072,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if float(self.t_solar[0]) >= 16.0:
             # end-of-day stuff-the-oven closed (mirror of numpy paths)
             inflight = 0.3 * S.has_bread.float().sum(1) \
-                + 2.0 * (S.bread_E / self.roti_energy) \
+                + 2.0 * (S.bread_E / self._ds_roti_t[:, None]) \
                 .clamp(0.0, 1.0).sum(1)
             rew = rew - inflight
             S.ep_return = S.ep_return - inflight
@@ -2076,7 +2166,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                          (S.bore[:, 0] / 0.1).clamp(-2, 2),
                          (S.bore[:, 1] / 0.1).clamp(-2, 2),
                          (S.load_timer / 45.0).clamp(0, 2)], 1),
-            S.bread_E / self.roti_energy,
+            S.bread_E / self._ds_roti_t[:, None],
             S.bread_C,
             p_in[:, None] / 6000.0,
             torch.stack([S.jammed.float(),
@@ -2158,8 +2248,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             de = torch.randn(B, P_, generator=self._gen, device=dev)
             upick = torch.rand(B, P_, generator=self._gen, device=dev)
             us = torch.rand(B, P_, generator=self._gen, device=dev)
-        dvec = torch.stack([2.0 * self.f_nom * torch.deg2rad(e_el),
-                            2.0 * self.f_nom * torch.deg2rad(e_az)],
+        f_b = self._fct[:, 53]                     # per-env focal length (dish scale)
+        dvec = torch.stack([2.0 * f_b * torch.deg2rad(e_el),
+                            2.0 * f_b * torch.deg2rad(e_az)],
                            1)[:, None, :]
         lv = ((p_eff / self.p0 - self.level_frac[0])
               / (self.level_frac[-1] - self.level_frac[0])
@@ -2190,7 +2281,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # needs it back on the compute device
         return self._bin_pot(dy - off[:, 0:1], dz - off[:, 1:2],
                              d3[..., 1], -d3[..., 0], d3[..., 2],
-                             through, soil, B, P_).to(soil.device)
+                             through, soil * self._ds_s2_t.to(soil.device), B, P_).to(soil.device)
 
     # measured fold-shadow fraction vs beta (solstice ladders,
     # slotless). NOT sign-symmetric: on the negative side the fold
@@ -2346,9 +2437,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         scb = mnt["scb"].contiguous()
         self._ray_scale = scb[:, 4] * scb[:, 5]
         sc = self._sc_base
+        f_np = self._fct[:, 53].detach().cpu().numpy().astype(np.float64)
         dvec = torch.tensor(
-            np.stack([2.0 * self.f_nom * np.radians(self._e_el),
-                      2.0 * self.f_nom * np.radians(self._e_az)], 1),
+            np.stack([2.0 * f_np * np.radians(self._e_el),
+                      2.0 * f_np * np.radians(self._e_az)], 1),
             dtype=torch.float32, device=dev)[:, None, :]
         off = torch.as_tensor(offset_w, dtype=torch.float32, device=dev)
         if self._metal is not None and self.render_mode != "human":
@@ -2436,7 +2528,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # frames: theirs (x,y,z) = (y_ours, -x_ours, z_ours - H_POT)
         return self._bin_pot(dy - off[:, 0:1], dz - off[:, 1:2],
                              d3[..., 1], -d3[..., 0], d3[..., 2],
-                             through, soil, B, P)
+                             through, torch.as_tensor(np.asarray(soil), dtype=torch.float32, device=self._ds_s2_t.device) * self._ds_s2_t, B, P)
 
     def verify_megakernel(self):
         """Megakernel vs the eager reference core on identical inputs.
