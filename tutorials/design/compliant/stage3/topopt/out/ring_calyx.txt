@@ -1,0 +1,8 @@
+1. membrane (1-D FvK, a 2.1 m, T_pre 2000 N/m, 5 zones zone_c 0.4): centre-zone pressure 1370 Pa (rim zone 926) for f 4.0; sag 276 mm; rim tension 4527 N/m, rim slope 14.6 deg
+   the film's pull on the ring: 4380 N/m radially inward (hoop compression 9.2 kN in the ring), 1144 N/m toward the vertex (15.1 kN in all: the zoned pressure on the film, 15.3 kN)
+2. gust 15.0 m/s (q 116 Pa, Cd 1.4, c_M 0.15) on the 2-D FvK membrane: f -4.01/-4.01 -> -3.81/-3.81 m; rms slope error vs the best paraboloid 7.18 -> 8.23 mrad (figure under wind, blur 2x); rim slope change mean -0.89 deg, n=1 amplitude 0.54 deg
+3. ring Al 100 x 4 tube 43 kg, films 5.9 kg; wind line load on the ring: 70 N/m mean magnitude, total axial -929 N (the pressure integral 2248 N)
+4. spider by ground structure: 107 bars kept of 798, 24 kg Al; bar force max 2.0 kN, stress max 8 MPa; ring stress from hoop 7.6 MPa
+5. under the film's pull alone the ring sags 0.94 mm (piston, n 0) with n 2..6 axial harmonics [0.048 0.159 0.002 0.002 0.041] mm (the static warp the pump sees once; the zones absorb a fixed figure)
+   the gust adds: axial n 0 0.037 mm, n 1 0.386 mm (tilt 0.184 mrad, image walk 0.15 cm at F), n 2..6 [0.108 0.025 0.007 0.013 0.003] mm (figure: rms slope 0.078 mrad, blur 0.155 mrad = 0.06 cm); radial n 2 0.024 mm (fy/fx - 1 = -0.045 per mille)
+   for comparison the membrane's own figure change under the same gust (item 2): 1.05 mrad rms; and the head's pose error from the struts and pedicel (sheet 59): 0.8-1.1 cm at F

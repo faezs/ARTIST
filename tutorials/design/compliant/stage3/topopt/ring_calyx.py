@@ -119,7 +119,7 @@ for k, t in enumerate(th_r):
     dsk = np.interp(t, th, np.nan_to_num(ds), period=2*np.pi); f_wind[dofs_t(k)] += np.array([0, 0, N_rim*dsk*ell])      # the wind's extra axial pull of the film on the ring
 say(f"3. ring Al {1e3*D_R:.0f} x {1e3*T_R:.0f} tube {m_ring:.0f} kg, films {m_film:.1f} kg; wind line load on the ring: {np.abs(f_wind).sum()/ell/NR:.0f} N/m mean magnitude, total axial {f_wind[2::6].sum():.0f} N (the pressure integral {float((p_wind*F2.cell_weights(phi, dx)[0]).sum()) if False else q*CD*np.pi*A_M**2:.0f} N)")
 # ------------------------------------------------------------------ 4. the spider by ground structure (min compliance, both load cases)
-amax, vol_frac = 4e-4, 0.12; n = len(M); A = np.full(n, vol_frac*amax); V = vol_frac*np.sum(amax*Lm); mma = MMA1(n, 1e-4*amax, amax, move=0.3)
+amax, vol_frac = 4e-4, 0.03; n = len(M); A = np.full(n, vol_frac*amax); V = vol_frac*np.sum(amax*Lm); mma = MMA1(n, 1e-4*amax, amax, move=0.3)
 f_tot = f_static + f_wind
 for it in range(120):
     K = K_of(A); u_s = solve(K, f_static); u_w = solve(K, f_tot); dls, dlw = elong(u_s), elong(u_w)

@@ -246,7 +246,7 @@ for fr in range(n_frames + 1):
         allsys_ = [("stem", stem), ("boom", boom), ("rec", rec), ("head", head)] + [(f"strut{j}", r) for j, r in enumerate(struts)]
         print(f"  watch t {t:6.3f} " + " ".join(f"{nm} v {np.abs(sy.velocity_collection).max():.2e} w {np.abs(sy.omega_collection).max():.2e}" for nm, sy in allsys_) + f" | boom L {boom.rest_lengths.sum():.3f} legs {np.round(L_cmd, 4)}")
     if not np.isfinite(P).all(): print("diverged at t", t); break
-    miss, defoc = image_miss(P, nd, s); slope_mem = 5.89e-3*(vw/9.0)**2*(20e3/A.T_mem)/A.n_zones if vw > 0 else 0.0; miss_mem = 2*slope_mem*G; miss_tot = np.hypot(miss, miss_mem)
+    miss, defoc = image_miss(P, nd, s); slope_mem = 2.63e-5*vw*vw if vw > 0 else 0.0                       # rad rms: the pitching moment's pressure gradient 8 c_M q x/a on the membrane (stage3/topopt/membrane_wind.py: 0.0425 mrad/Pa at T_pre 2000 N/m, 5 zones); the uniform part is held by the plenum's constant-pressure regulator; miss_mem = 2*slope_mem*G; miss_tot = np.hypot(miss, miss_mem)
     L_now = np.array([np.linalg.norm(struts[j].position_collection[:, -1] - struts[j].position_collection[:, 0]) for j in range(6)])
     f_leg = np.array([float(np.mean(struts[j].internal_stress[2, :])) for j in range(6)])                        # axial internal force (rod convention: positive in tension)
     rec_err = float(np.linalg.norm(rec.position_collection[:, 0] - Cb_t)); stem_tip = float(np.linalg.norm(stem.position_collection[:, -1] - S_REC))

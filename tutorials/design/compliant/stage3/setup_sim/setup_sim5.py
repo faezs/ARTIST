@@ -263,7 +263,7 @@ for fr in range(n_frames + 1):
     q = x.numpy().astype(float)
     if not np.isfinite(q).all(): print("NaN at frame", fr); break
     P, nd = head_pose(q); miss, defoc = image_miss(P, nd, s)
-    slope_mem = 5.89e-3*(vw/9.0)**2*(20e3/A.T_mem)/A.n_zones if vw > 0 else 0.0                                # rad, the antisymmetric wind mode of the membrane
+    slope_mem = 2.63e-5*vw*vw if vw > 0 else 0.0                       # rad rms: the pitching moment's pressure gradient 8 c_M q x/a on the membrane (stage3/topopt/membrane_wind.py: 0.0425 mrad/Pa at T_pre 2000 N/m, 5 zones); the uniform part is held by the plenum's constant-pressure regulator
     miss_mem = 2*slope_mem*G; miss_tot = np.hypot(miss, miss_mem)                                            # a slope error tilts the beam by twice itself; 4 m to F
     rec_err = float(np.linalg.norm(q[BJ].mean(0) - np.mean(B_t, 0)))                                         # the receptacle's departure from the pedicel's command
     L_now = np.array([np.linalg.norm(q[b_] - q[a_]) for a_, b_ in LEGS]); f_leg = lam.numpy()[LEG_K]/(dt*dt)          # the constraint force: the multiplier of the last substep (positive = tension)
