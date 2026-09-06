@@ -307,6 +307,7 @@ def _day_over(env, F, infos):
         + 2.0 * (S.bread_E / env._ds_roti_t[:, None]).clamp(0.0, 1.0).sum(1)
     rew = F.rew - inflight
     S.ep_return.sub_(inflight)
+    sales_np = S.day_rotis.detach().cpu().numpy().copy()
     infos.append({
         "rotis_per_day": float(S.day_rotis.mean()),
         "scorched": float(S.ep_scorch.mean()),
@@ -379,6 +380,9 @@ def _day_over(env, F, infos):
     # the dawn routine's book: the minutes and the charge land in the new day
     S.form_time.copy_(need_dawn.float() * float(getattr(env, "form_min", 4)))
     S.ep_return.sub_(dawn_charge)
+    # THE METAPROGRAMMER's move: keep the machine or draw a new one
+    if getattr(env, "design_pop", None):
+        env.redesign_at_dawn(sales_np)
     env._hr_mark = int(getattr(env, "day_start", 8.0))
     env._hr_rotis = 0.0
     S.has_bread.zero_()

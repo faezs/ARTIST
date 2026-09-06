@@ -1055,6 +1055,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # shelf `shelf_life` minutes; a roti counts (+5) only when it meets
         # an order, a stale one costs stale_pen. The shop's size is the
         # site's demand_scale (design table col 56) x demand_day rotis/day.
+        # design_pop: THE METAPROGRAMMER's population (tandoor_designer.py
+        # writes it). Every redesign_days dawns, a share of the agents
+        # redraw their kit from the designer's Gaussian for their site
+        # (nearest site entry by roof percentile), the elites (the top
+        # quartile of the day's sales) keep theirs, and a redesign_explore
+        # share draws uniformly so the box is never abandoned.
+        self.design_pop = kwargs.pop("design_pop", None)
+        self.redesign_days = int(kwargs.pop("redesign_days", 3))
+        self.redesign_share = float(kwargs.pop("redesign_share", 0.5))
+        self.redesign_explore = float(kwargs.pop("redesign_explore", 0.2))
+        self._redesign_ct = 0
         self.demand = int(kwargs.pop("demand", 0))
         self.demand_day = float(kwargs.pop("demand_day", 500.0))
         self.shelf_life = float(kwargs.pop("shelf_life", 45.0))
@@ -2017,6 +2028,45 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             setattr(self, k, vv)
         self._build_cass_chain()
         return rows
+
+    def _load_design_pop(self):
+        import json as _json, os as _os
+        p = self.design_pop
+        if not p or not _os.path.exists(str(p)):
+            return None
+        m = _os.path.getmtime(str(p))
+        if getattr(self, "_pop_mtime", None) == m:
+            return self._pop
+        with open(str(p)) as fh:
+            self._pop = _json.load(fh)
+        self._pop_mtime = m
+        return self._pop
+
+    def redesign_at_dawn(self, day_sales):
+        """The metaprogrammer's move at the day-over: keep the old machine
+        (the elites) or draw a new one from the designer's population for
+        the agent's site. day_sales (B,) numpy: yesterday's sold rotis."""
+        if not getattr(self, "design_rand", 0) or not self.design_pop:
+            return False
+        self._redesign_ct += 1
+        if self._redesign_ct % max(self.redesign_days, 1):
+            return False
+        pop = self._load_design_pop()
+        if pop is None or not pop.get("sites"):
+            return False
+        B = self.num_agents; u = self._design_u.copy(); rng = self.rng
+        kit_idx = np.array(pop["kit_index"]); names = pop["names"]; i_roof = names.index("roof_r")
+        sites = sorted(pop["sites"].values(), key=lambda s: s["site_u"][0]); roofs = np.array([s["site_u"][0] for s in sites])
+        elite = day_sales >= np.quantile(day_sales, 0.75)
+        redo = (rng.uniform(size=B) < self.redesign_share) & ~elite
+        for b in np.where(redo)[0]:
+            if rng.uniform() < self.redesign_explore:
+                u[b, kit_idx] = rng.uniform(size=len(kit_idx)); continue
+            s = sites[int(np.argmin(np.abs(roofs - u[b, i_roof])))]
+            z = np.array(s["mu"]) + np.exp(np.array(s["log_std"])) * rng.standard_normal(len(kit_idx))
+            u[b, kit_idx] = 1.0 / (1.0 + np.exp(-z))
+        self.set_design_points(u)
+        return True
 
     def set_design_points(self, u):
         """Set every agent's design from unit-box coordinates u (B,N_DESIGN):
