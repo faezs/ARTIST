@@ -37,6 +37,8 @@ PRICES = dict(dish_m2=1200.0,      # aluminized film 400 + rim ring, plenum and 
               bore_m2=800.0,       # galvanized sheet duct, per m2 of bore wall
               ins_m2=1500.0,       # ceramic-fibre lining per m2 of pit, per unit of (1/ins_scale - 1)
               lid=500.0,           # a steel lid, x 0.18/lid_leak
+              sand_fixed=3000.0,   # dig out the floor, sand, a lining box
+              fins_m2_per_k=400.0, # rebar fins per m2 of bed per W/mK of effective conductivity above plain sand
               fixed=25000.0)       # controller, encoders, sun sensor, wiring, labour
 A_MEM0 = 2.10           # nominal membrane radius [m] (hashemi a_mem)
 G_ORBIT0 = 4.0          # nominal fold orbit [m]; ring rail radius = G_ORBIT0 x s + 0.6
@@ -60,6 +62,8 @@ def capital(d):
                  motors=PRICES["motors"] * d.get("rate_scale", 1.0) ** 1.5,
                  strip=PRICES["strip_m2"] * A_strip, m4=PRICES["m4_m2"] * A_m4, bore=PRICES["bore_m2"] * A_bore,
                  insulation=PRICES["ins_m2"] * A_PIT * (1.0 / ins - 1.0),
+                 sand=(PRICES["sand_fixed"] + PRICES["fins_m2_per_k"] * 1.51 * max(d.get("sand_k", 0.3) - 0.3, 0.0))
+                      if d.get("sand_depth", 0.0) > 0.01 else 0.0,
                  lid=PRICES["lid"] * 0.18 / max(d.get("lid_leak", 0.18), 0.02), fixed=PRICES["fixed"])
     items["total"] = sum(items.values())
     return items

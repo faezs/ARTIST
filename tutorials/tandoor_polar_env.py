@@ -320,6 +320,60 @@ class TandoorPolarEnv(TandoorEnv):
         nominal value for envs without a design table."""
         return getattr(self, name, default)
 
+    # ---- THE SAND INSIDE THE TANDOOR: a sand column under the hearth and
+    # the floor (depth and conductivity per agent, hashemi's _sand_*);
+    # KSAND layers of >= 5 cm, the top fed by the surface node, the
+    # bottom leaking to the soil halo. Numpy twin of the kernel.
+    KSAND = 8
+    SAND_RC = 1.28e6
+
+    def equilibrate_wall(self, halo=None):
+        super().equilibrate_wall(halo)
+        NB_ = self.n_belt
+        self.T_sand = np.repeat(self.T[:, NB_:NB_ + 2, None], self.KSAND, axis=2)
+
+    def _sand_params(self, idx=None):
+        ka = getattr(self, "_sand_ka", None)
+        if ka is None:
+            return None
+        d, k = self._sand_d, self._sand_k
+        if idx is not None:
+            ka, d, k = ka[idx], d[idx], k[idx]
+        return ka, d, k
+
+    def _sand_step_np(self, T, Tc, Th, prm, dt):
+        """One explicit step of both columns. T (B,N) surfaces, Tc (B,2,K),
+        Th (B,); returns (Tc_new, q_bed (B,2) power from each surface into
+        its bed, q_bot (B,) into the halo, bed (B,) mask)."""
+        ka, d, k = prm; B = T.shape[0]; K = self.KSAND
+        bed = ka > 0; kas = np.maximum(ka, 1); dz = d / kas
+        L = np.arange(K)[None, :]; act = L < ka[:, None]
+        Tc_new = Tc.copy(); q_bed = np.zeros((B, 2)); q_bot = np.zeros(B)
+        for n, j in enumerate((self.n_belt, self.n_belt + 1)):
+            A = float(self.node_area[j]); tc = Tc[:, n, :]
+            C = A * dz * self.SAND_RC; G = A * k / dz
+            Gt = A / (0.0075 / 1.1 + 0.5 * dz / k); Gb = A * 1.0
+            qtop = Gt * (T[:, j] - tc[:, 0])
+            last = tc[np.arange(B), kas - 1]
+            qbot = Gb * (last - Th)
+            prev = np.roll(tc, 1, axis=1); nxt = np.roll(tc, -1, axis=1)
+            qa = np.where(L == 0, qtop[:, None], G[:, None] * (prev - tc))
+            qb = np.where(L == (ka - 1)[:, None], qbot[:, None], G[:, None] * (tc - nxt))
+            qin = (qa - qb) * act
+            Tc_new[:, n, :] = np.where(bed[:, None], tc + qin * dt / C[:, None], tc)
+            q_bed[:, n] = np.where(bed, qtop, 0.0); q_bot += np.where(bed, qbot, 0.0)
+        return Tc_new, q_bed, q_bot, bed
+
+    def _sand_obs(self):
+        """(B,2): each column's mean temperature over its active layers
+        /1000, the node's surface /1000 when there is no bed."""
+        prm = self._sand_params(); B = self.num_agents; NB = self.n_belt
+        if prm is None:
+            return self.T[:, NB:NB + 2] / 1000.0
+        ka = prm[0]; L = np.arange(self.KSAND)[None, :]; act = (L < ka[:, None]).astype(np.float64)
+        m = (self.T_sand * act[:, None, :]).sum(2) / np.maximum(ka, 1)[:, None]
+        return np.where((ka > 0)[:, None], m, self.T[:, NB:NB + 2]) / 1000.0
+
     def _bin_pot(self, pxp, pyp, dxw, dyw, dzw, through, soil,
                  B, P):
         """Duct-plane arrival -> pot floor / belt / crown node
@@ -477,6 +531,8 @@ class TandoorPolarEnv(TandoorEnv):
     # -------------------------------------------------------------- step #
     def _reset_state(self):
         super()._reset_state()
+        NB_ = self.n_belt
+        self.T_sand = np.repeat(self.T[:, NB_:NB_ + 2, None], self.KSAND, axis=2)
         B_ = self.num_agents
         self.spot_phi = np.full(B_, SPOT_PHI0)
         self.spot_z = np.full(B_, SPOT_Z0)
@@ -515,10 +571,10 @@ class TandoorPolarEnv(TandoorEnv):
         Ts = self.T_sub[idx].astype(np.float64)
         Td = self.T_deep[idx].astype(np.float64)
         Th = np.asarray(self.T_halo, dtype=np.float64)[idx]
-        g01 = np.asarray(self.g01, dtype=np.float64)
-        g12 = np.asarray(self.g12, dtype=np.float64)
         _pe = lambda nm, d: np.asarray(self._ds(nm, d), dtype=np.float64)
         _pe2 = lambda nm, d: (lambda a: a[idx] if a.ndim == 2 else a)(_pe(nm, d))
+        g01 = _pe2("_ds_g01", self.g01)
+        g12 = _pe2("_ds_g12", self.g12)
         g2s = _pe2("_ds_g2s", self.g2s)
         cap = _pe2("_ds_hc", self.node_heat_cap)
         cs = _pe2("_ds_cs", self.cap_sub)
@@ -526,6 +582,7 @@ class TandoorPolarEnv(TandoorEnv):
         ch = float(np.asarray(self.c_halo, dtype=np.float64).mean())
         gout = float(np.asarray(self.g_halo_out, dtype=np.float64).mean())
         k_ap = self.n_belt + 2
+        prm = self._sand_params(idx); Tc = self.T_sand[idx].astype(np.float64)
         for _ in range(n):
             t4 = T ** 4
             tcav4 = (area * t4).sum(1, keepdims=True) / asum
@@ -533,16 +590,23 @@ class TandoorPolarEnv(TandoorEnv):
             q01 = g01 * (T - Ts)
             q12 = g12 * (Ts - Td)
             q2s = g2s * (Td - Th[:, None])
+            q_bot = 0.0
+            if prm is not None:
+                Tc, q_bed, q_bot, bed = self._sand_step_np(T, Tc, Th, prm, dt)
+                for j in (self.n_belt, self.n_belt + 1):
+                    q01[:, j] = np.where(bed, 0.0, q01[:, j]); q12[:, j] = np.where(bed, 0.0, q12[:, j]); q2s[:, j] = np.where(bed, 0.0, q2s[:, j])
+                q[:, self.n_belt:self.n_belt + 2] -= q_bed
             q = q - q01
             q[:, k_ap] -= 0.75 * SIGMA * (tcav4[:, 0] - T_AMB ** 4) * mouth
             T = T + q * dt / cap
             Ts = Ts + (q01 - q12) * dt / cs
             Td = Td + (q12 - q2s) * dt / cd
-            Th = Th + (q2s.sum(1) - gout * (Th - T_AMB)) * dt / ch
+            Th = Th + (q2s.sum(1) + q_bot - gout * (Th - T_AMB)) * dt / ch
         self.T[idx] = T
         self.T_sub[idx] = Ts
         self.T_deep[idx] = Td
         self.T_halo[idx] = Th
+        self.T_sand[idx] = Tc
 
     def step(self, actions):
         B = self.num_agents
@@ -675,14 +739,22 @@ class TandoorPolarEnv(TandoorEnv):
         lid = np.where(self.load_timer < 4.0, 1.0, self._ds("_ds_lid", self.lid_leak))
         q_ap = 0.75 * SIGMA * (t_cav4.squeeze(1) - T_AMB**4) \
             * (np.pi * R_MOUTH**2) * lid
-        q01 = self.g01 * (T - self.T_sub)
-        q12 = self.g12 * (self.T_sub - self.T_deep)
+        q01 = self._ds("_ds_g01", self.g01) * (T - self.T_sub)
+        q12 = self._ds("_ds_g12", self.g12) * (self.T_sub - self.T_deep)
         q2s = self._ds("_ds_g2s", self.g2s) * (self.T_deep - self.T_halo[:, None])
+        q_bed = np.zeros((B, 2)); q_bot = np.zeros(B)
+        prm = self._sand_params()
+        if prm is not None:
+            Tc_new, q_bed, q_bot, bed = self._sand_step_np(T, self.T_sand, self.T_halo, prm, self.dt)
+            for n, j in enumerate((self.n_belt, self.n_belt + 1)):
+                q01[:, j] = np.where(bed, 0.0, q01[:, j]); q12[:, j] = np.where(bed, 0.0, q12[:, j]); q2s[:, j] = np.where(bed, 0.0, q2s[:, j])
+            self.T_sand = Tc_new
         q = q_solar + q_exch - q01
+        q[:, self.n_belt:self.n_belt + 2] -= q_bed
         self.T_sub = self.T_sub + (q01 - q12) * self.dt / self._ds("_ds_cs", self.cap_sub)
         self.T_deep = self.T_deep + (q12 - q2s) * self.dt / self._ds("_ds_cd", self.cap_deep)
         self.T_halo = self.T_halo + (
-            q2s.sum(1) - self.g_halo_out * (self.T_halo - T_AMB)
+            q2s.sum(1) + q_bot - self.g_halo_out * (self.T_halo - T_AMB)
         ) * self.dt / self.c_halo
         q[:, self.n_belt + 2] -= q_ap
         belt_T = T[:, : self.n_belt]
@@ -851,6 +923,7 @@ class TandoorPolarEnv(TandoorEnv):
                     self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
                     self.T_sub[i] = self.T[i].copy()
                     self.T_deep[i] = self.T[i].copy()
+                    self.T_sand[i] = self.T[i, self.n_belt:self.n_belt + 2, None]
                     self.T_halo[i] = (self.rng.uniform(395, 415)
                                       if warm_i else 300.0)
                 self._belt_prev[i] = self.T[i, : self.n_belt].mean()

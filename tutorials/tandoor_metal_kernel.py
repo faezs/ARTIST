@@ -53,7 +53,10 @@ static inline bool hits_column(float px, float py, float pz,
 // step-kernel capacity guards (host asserts n_nodes/n_belt fit)
 #define NMAX 20
 #define NBMAX 12
-#define FCTW 64   // per-env design table width: [0..39] receiver, [40..63] system
+#define FCTW 72   // per-env design table width: [0..39] receiver, [40..59] system, [70] sand depth, [71] sand conductivity
+#define KSAND 8   // layers of the sand column under the hearth and the floor (>= 5 cm each)
+#define SAND_RC 1.28e6f
+inline float ds_fct_depth(device const float* fct, uint b) { return fct[b*FCTW + 70]; }
 
 static inline void solar_pos(float latd, float dayv, float hour,
                              thread float* el_d, thread float* az_d) {
@@ -1112,6 +1115,9 @@ kernel void step_post(
     const int ND = ip[8];
     device float* s = st + b*NS;
     const int S0 = 3*N + 1 + 4*NB;
+    const int SB = NS - 2*KSAND;        // the two sand columns at the row's end
+    const int ka_bed = (ds_fct_depth(fct, b) >= 0.05f)
+        ? clamp((int)round(ds_fct_depth(fct, b)/0.05f), 1, KSAND) : 0;
     device float* Tsub = s + N;
     device float* Tdeep = s + 2*N;
     device float* bE = s + 3*N + 1;
@@ -1181,6 +1187,30 @@ kernel void step_post(
     float q2sum = 0.0f;
     for (int i = 0; i < N; i++) {
         float q_exch = 0.85f*SIG*NA[i]*(tc4 - t4v[i]);
+        // THE SAND INSIDE THE TANDOOR: under the hearth (i == NB) and the
+        // floor (i == NB+1) a sand column of ka_bed layers (depth ds[70]
+        // m, conductivity ds[71] W/mK, >= 5 cm a layer) replaces the
+        // wall's sub/deep path: the surface node feeds the top layer,
+        // the bottom leaks to the soil halo, explicit like the rest
+        const int sn = (i == NB) ? 0 : ((i == NB + 1) ? 1 : -1);
+        if (sn >= 0 && ka_bed > 0) {
+            device float* tc = s + SB + sn*KSAND;
+            const float A_ = NA[i], kk = ds[71], dz = ds[70]/(float)ka_bed;
+            const float C_ = A_*dz*SAND_RC, G_ = A_*kk/dz;
+            const float Gt = A_/(0.0075f/1.1f + 0.5f*dz/kk), Gb = A_*1.0f;
+            const float qtop = Gt*(Tv[i] - tc[0]);
+            const float qbot = Gb*(tc[ka_bed-1] - Th);
+            float qin[KSAND];
+            for (int l = 0; l < ka_bed; l++) {
+                const float qa = (l == 0) ? qtop : G_*(tc[l-1] - tc[l]);
+                const float qb = (l == ka_bed-1) ? qbot : G_*(tc[l] - tc[l+1]);
+                qin[l] = qa - qb;
+            }
+            for (int l = 0; l < ka_bed; l++) tc[l] += qin[l]*dt/C_;
+            qv[i] = qv[i] + q_exch - qtop;
+            q2sum += qbot;
+            continue;
+        }
         float q01 = G01[i]*(Tv[i] - Tsub[i]);
         float q12 = G12[i]*(Tsub[i] - Tdeep[i]);
         float q2s = (G2S[i]*ds[45])*(Tdeep[i] - Th);
@@ -1319,6 +1349,9 @@ kernel void step_post(
             float nt = 350.0f + (ru[b*16 + 1 + i] - 0.5f)*30.0f;
             s[i] = nt; Tsub[i] = nt; Tdeep[i] = nt;
         }
+        // the sand columns follow the fresh pot's hearth and floor
+        for (int n = 0; n < 2; n++)
+            for (int l = 0; l < KSAND; l++) s[SB + n*KSAND + l] = s[NB + n];
         s[3*N] = 300.0f;
         s[S0+9] = 0.0f; s[S0+10] = 0.0f; s[S0+11] = 0.0f;
         s[S0+12] = 0.0f; s[S0+13] = 0.0f;
@@ -1379,6 +1412,13 @@ kernel void step_post(
     }
     if (sp[62] > 0.5f)
         for (int k = 0; k < NB; k++) ob[o++] = hb[k];
+    // the sand columns' mean temperature: the stored heat the cook can
+    // bank on (the node's surface when there is no bed)
+    for (int n = 0; n < 2; n++) {
+        float m = 0.0f;
+        for (int l = 0; l < ka_bed; l++) m += s[SB + n*KSAND + l];
+        ob[o++] = ((ka_bed > 0) ? m/(float)ka_bed : s[NB + n]) / 1000.0f;
+    }
     for (int k = 0; k < ND; k++) ob[o++] = dsn[b*ND + k];
     diag[b*8+0] = p_in;
     diag[b*8+1] = e_el2;
@@ -1419,8 +1459,8 @@ class MetalGeo:
         fct_t = fct
         if fct_t is None:
             # no design table: every env the nominal machine (from prm)
-            fct_t = torch.zeros(B, 64, dtype=torch.float32, device=prm_t.device)
-            fct_t[:, 40] = 1.0; fct_t[:, 41] = 1.0; fct_t[:, 44:47] = 1.0
+            fct_t = torch.zeros(B, 72, dtype=torch.float32, device=prm_t.device)
+            fct_t[:, 40] = 1.0; fct_t[:, 41] = 1.0; fct_t[:, 44:47] = 1.0; fct_t[:, 60:70] = 1.0
             fct_t[:, 42] = prm_t[4]; fct_t[:, 53] = prm_t[12]
             fct_t[:, 54] = prm_t[3]; fct_t[:, 55] = prm_t[5]
         self.lib.mount_solve(vp, Mt, Cd, Ac, scb, aux,
@@ -1455,11 +1495,11 @@ class MetalGeo:
         c = lambda t: t.contiguous()
         if fct is None:
             # no per-env table given: every row is the shared static block
-            row = torch.zeros(64, dtype=torch.float32, device=dev)
+            row = torch.zeros(72, dtype=torch.float32, device=dev)
             k = min(39, max(0, int(sc.shape[0]) - 106))
             row[:k] = sc[106:106 + k]
             row[39] = sc[13]
-            row[40] = 1.0; row[41] = 1.0; row[44:47] = 1.0
+            row[40] = 1.0; row[41] = 1.0; row[44:47] = 1.0; row[60:70] = 1.0
             row[51] = float(getattr(self, "loaf_h", 0.1732))
             fct = row[None, :].expand(B, -1)
         self.lib.tandoor_trace(

@@ -1041,6 +1041,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             import json as _json
             with open(str(rt)) as fh:
                 self._roof_q = np.asarray(_json.load(fh), dtype=np.float64)
+        self.N_EXTRA_OBS += 2                          # the sand columns (hearth, floor)
         if self.design_rand:
             self.N_EXTRA_OBS += self.N_DESIGN
         # beta_cap_z: hard cap (meters) on the TOP OF THE DISH RIM.
@@ -1102,6 +1103,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             cols.append(oh)
         if getattr(self, "load_ctrl", 0):
             cols.append(self.has_bread.astype(np.float64))
+        cols.append(self._sand_obs())                 # the two sand columns' mean temperature
         if getattr(self, "design_rand", 0):
             cols.append(self._design_obs)
         return np.concatenate(cols, axis=1)
@@ -1226,6 +1228,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self.T[i] += self.rng.uniform(-15, 15, self.n_nodes)
                 self.T_sub[i] = self.T[i].copy()
                 self.T_deep[i] = self.T[i].copy()
+                self.T_sand[i] = self.T[i, self.n_belt:self.n_belt + 2, None]
                 self.T_halo[i] = 300.0
                 self.bread_t[i] = 0.0
                 self.bread_C[i] = 0.0    # fresh dough carries no char
@@ -1339,13 +1342,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # the wall parameters live on the env (FusedState packs them into
         # the kernel's sp block; GpuState mirrors them) - read the env's
         area, cap = tt(self.node_area), tt(self._ds_hc)
-        g01, g12, g2s = tt(self.g01), tt(self.g12), tt(self._ds_g2s)
+        g01, g12, g2s = tt(self._ds_g01), tt(self._ds_g12), tt(self._ds_g2s)
         cs, cd = tt(self._ds_cs), tt(self._ds_cd)
         ch = float(np.asarray(self.c_halo, dtype=np.float64).mean())
         gout = float(np.asarray(self.g_halo_out, dtype=np.float64).mean())
         asum = area.sum()
         mouth = tt(np.pi * R_MOUTH ** 2 * self._ds_lid)
         T, Ts, Td, Th = S.T, S.T_sub, S.T_deep, S.T_halo
+        Tc = S.T_sand.clone()
         k_ap = self.n_belt + 2
         for _ in range(n):
             t4 = T ** 4
@@ -1354,17 +1358,24 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             q01 = g01 * (T - Ts)
             q12 = g12 * (Ts - Td)
             q2s = g2s * (Td - Th[:, None])
+            Tc, q_bed, q_bot, bed = self._sand_step_t(T, Tc, Th, dt)
+            for j in (self.n_belt, self.n_belt + 1):
+                q01[:, j] = torch.where(bed, torch.zeros_like(q01[:, j]), q01[:, j])
+                q12[:, j] = torch.where(bed, torch.zeros_like(q12[:, j]), q12[:, j])
+                q2s[:, j] = torch.where(bed, torch.zeros_like(q2s[:, j]), q2s[:, j])
             q = q - q01
+            q[:, self.n_belt:self.n_belt + 2] = q[:, self.n_belt:self.n_belt + 2] - q_bed
             q[:, k_ap] = q[:, k_ap] - 0.75 * SIGMA * (tcav4[:, 0] - T_AMB ** 4) * mouth
             T = T + q * dt / cap
             Ts = Ts + (q01 - q12) * dt / cs
             Td = Td + (q12 - q2s) * dt / cd
-            Th = Th + (q2s.sum(1) - gout * (Th - T_AMB)) * dt / ch
+            Th = Th + (q2s.sum(1) + q_bot - gout * (Th - T_AMB)) * dt / ch
         # in place: FusedState fields are views into the packed state
         S.T.copy_(T)
         S.T_sub.copy_(Ts)
         S.T_deep.copy_(Td)
         S.T_halo.copy_(Th)
+        S.T_sand.copy_(Tc)
 
     def _build_cass_chain(self):
         """Cassegrain chain geometry. F = (X_TOWER_C, 0, z_fold). M4 is a
@@ -1805,14 +1816,26 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                ("rate_scale", 0.5, 2.0), ("ins_scale", 0.3, 1.0),
                ("cap_scale", 0.7, 1.5), ("lid_leak", 0.05, 0.40),
                ("bread_area", 0.08, 0.16), ("loaves_per_load", 4.0, 8.0),
-               ("mount_post", 0.0, 1.0))
+               ("mount_post", 0.0, 1.0),
+               ("sand_depth", 0.0, 0.40), ("sand_k", 0.3, 3.0))
     SITE_KEYS = ("roof_r", "cap_scale")      # drawn with the site, never chosen
-    N_DESIGN = 9 + 9
-    FCT_W = 64
+    #: THE SAND INSIDE THE TANDOOR (user): the hearth and floor sit on a
+    #: sand bed of sand_depth [m] the beam charges directly and that
+    #: gives the heat back to the cavity at night; sand_k [W/mK] is its
+    #: effective conductivity (0.3 plain sand, up to 3 with rebar fins:
+    #: plain sand only lets ~8 cm take part in a day). Modelled on the
+    #: wall's two layers under those nodes: sub = the top 8 cm, deep =
+    #: the rest, an insulated bottom.
+    SAND_RC = 1.28e6          # sand volumetric heat capacity [J/m3K]
+    SAND_TOP = 0.08           # the sub layer's depth [m]
+    N_DESIGN = 9 + 11
+    FCT_W = 72
     #: system block layout in the design table (offset 40)
     DS = dict(s=40, s2=41, zfold=42, zdeck=43, rate=44, ins=45, cap=46,
               lid=47, bread=48, hb=49, roti=50, lfp=51, lpl=52, fnom=53,
-              amem=54, gorb=55, roof=57, post=58, rail=59)
+              amem=54, gorb=55, roof=57, post=58, rail=59,
+              sand_d=70, sand_k=71)     # the sand column: depth [m], conductivity [W/mK]
+
 
     def _roof_quantile(self, u):
         """Roof half-width [m] at percentile u (0..1) from the site table."""
@@ -1851,7 +1874,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  lfp=float(np.sqrt(self.bread_area) / 2.0),
                  lpl=float(self.loaves_per_load), fnom=float(self.f_nom),
                  amem=float(self.a_mem), gorb=float(self.g_orbit),
-                 roof=float(self.sweep0), post=0.0, rail=float(self.r_rail))
+                 roof=float(self.sweep0), post=0.0, rail=float(self.r_rail),
+                 sand_d=0.0, sand_k=0.3)
         if sys:
             d.update(sys)
         row = rec + [0.0] * (self.FCT_W - 40)
@@ -1921,7 +1945,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                         lpl=float(int(round(sv["loaves_per_load"]))),
                         fnom=self.f_nom, amem=self.a_mem, gorb=self.g_orbit,
                         roof=roof, post=float(post),
-                        rail=0.0 if post else base["g_orbit"] * s + self.RAIL_MARGIN)
+                        rail=0.0 if post else base["g_orbit"] * s + self.RAIL_MARGIN,
+                        sand_d=float(sv["sand_depth"]), sand_k=float(sv["sand_k"]))
             rows[b] = self._design_row(sysd)
         for k, vv in nominal.items():
             setattr(self, k, vv)
@@ -1963,8 +1988,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         scale, lid leak, roti size/energy, loaves per lean, the scaled
         wall conductance and thermal mass, the dish-area factor."""
         B, N = self.num_agents, self.n_nodes
-        ds = self._fct[:, 40:].detach().cpu().numpy().astype(np.float64)
         D = {k: i - 40 for k, i in self.DS.items()}
+        ds = self._fct[:, 40:].detach().cpu().numpy().astype(np.float64)
+        # the sand columns: depth and conductivity per agent, layers of >= 5 cm
+        self._sand_d = ds[:, D["sand_d"]]; self._sand_k = ds[:, D["sand_k"]]
+        self._sand_ka = np.where(self._sand_d >= 0.05, np.clip(np.round(self._sand_d / 0.05), 1, self.KSAND), 0).astype(np.int64)
         self._ds_rate = ds[:, D["rate"]]
         self._ds_lid = ds[:, D["lid"]]
         self._ds_bread = ds[:, D["bread"]:D["bread"] + 1]
@@ -1978,11 +2006,44 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._ds_cs = np.asarray(self.cap_sub, dtype=np.float64)[None, :] * cap
         self._ds_cd = np.asarray(self.cap_deep, dtype=np.float64)[None, :] * cap
         self._ds_g2s = np.asarray(self.g2s, dtype=np.float64)[None, :] * ds[:, D["ins"]:D["ins"] + 1]
+        self._ds_g01 = np.tile(np.asarray(self.g01, dtype=np.float64)[None, :], (B, 1))
+        self._ds_g12 = np.tile(np.asarray(self.g12, dtype=np.float64)[None, :], (B, 1))
         t = lambda a: torch.as_tensor(np.asarray(a, dtype=np.float32).reshape(B), device=self.device)
         self._ds_rate_t, self._ds_lid_t = t(self._ds_rate), t(self._ds_lid)
         self._ds_bread_t, self._ds_hb_t = t(self._ds_bread), t(self._ds_hb)
         self._ds_roti_t, self._ds_lfp_t = t(self._ds_roti), t(self._ds_lfp)
         self._ds_lpl_t, self._ds_s2_t = t(self._ds_lpl), t(self._ds_s2)
+        self._sand_ka_t, self._sand_d_t, self._sand_k_t = t(self._sand_ka), t(self._sand_d), t(self._sand_k)
+
+    def _sand_step_t(self, T, Tc, Th, dt):
+        """Torch twin of the numpy column step: T (B,N), Tc (B,2,K), Th (B,)
+        -> (Tc_new, q_bed (B,2), q_bot (B,), bed (B,) mask)."""
+        K = self.KSAND; B = T.shape[0]; dev = T.device
+        ka = self._sand_ka_t; d = self._sand_d_t; k = self._sand_k_t
+        bed = ka > 0; kas = ka.clamp(min=1.0); dz = d / kas
+        L = torch.arange(K, device=dev, dtype=T.dtype)[None, :]; act = (L < ka[:, None]).to(T.dtype)
+        Tc_new = Tc.clone(); q_bed = torch.zeros(B, 2, device=dev, dtype=T.dtype); q_bot = torch.zeros(B, device=dev, dtype=T.dtype)
+        for n, j in enumerate((self.n_belt, self.n_belt + 1)):
+            A = float(self.node_area[j]); tc = Tc[:, n, :]
+            C = A * dz * self.SAND_RC; G = A * k / dz
+            Gt = A / (0.0075 / 1.1 + 0.5 * dz / k); Gb = A * 1.0
+            qtop = Gt * (T[:, j] - tc[:, 0])
+            last = tc.gather(1, (kas - 1).long()[:, None]).squeeze(1)
+            qbot = Gb * (last - Th)
+            prev = torch.roll(tc, 1, dims=1); nxt = torch.roll(tc, -1, dims=1)
+            qa = torch.where(L == 0, qtop[:, None], G[:, None] * (prev - tc))
+            qb = torch.where(L == (ka - 1)[:, None], qbot[:, None], G[:, None] * (tc - nxt))
+            qin = (qa - qb) * act
+            Tc_new[:, n, :] = torch.where(bed[:, None], tc + qin * dt / C[:, None], tc)
+            q_bed[:, n] = torch.where(bed, qtop, torch.zeros_like(qtop)); q_bot = q_bot + torch.where(bed, qbot, torch.zeros_like(qbot))
+        return Tc_new, q_bed, q_bot, bed
+
+    def _sand_obs_t(self, S):
+        """(B,2) the columns' mean temperature over the active layers /1000."""
+        K = self.KSAND; NB = self.n_belt; ka = self._sand_ka_t
+        L = torch.arange(K, device=S.T.device, dtype=S.T.dtype)[None, :]; act = (L < ka[:, None]).to(S.T.dtype)
+        m = (S.T_sand * act[:, None, :]).sum(2) / ka.clamp(min=1.0)[:, None]
+        return torch.where((ka > 0)[:, None], m, S.T[:, NB:NB + 2]) / 1000.0
 
     DESIGN_KEYS = ("d_strip", "u_f2", "r_m4", "r_bore", "w_slot", "r_hole",
                    "strip_th_lo", "strip_th_hi", "strip_wk", "w_strip",
@@ -2131,6 +2192,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             S.T = torch.where(cutf, newT, S.T)
             S.T_sub = torch.where(cutf, newT, S.T_sub)
             S.T_deep = torch.where(cutf, newT, S.T_deep)
+            S.T_sand = torch.where(cut[:, None, None], newT[:, self.n_belt:self.n_belt + 2, None].expand_as(S.T_sand), S.T_sand)
             S.T_halo = torch.where(cut, torch.full_like(S.T_halo, 300.0),
                                    S.T_halo)
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
@@ -2230,6 +2292,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                     + (S.u(B, self.n_nodes) - 0.5) * 30.0
                 S.T_sub = S.T.clone()
                 S.T_deep = S.T.clone()
+                S.T_sand = S.T[:, self.n_belt:self.n_belt + 2, None].expand_as(S.T_sand).clone()
                 S.T_halo = torch.where(warm, 395.0 + 20.0 * S.u(B),
                                        torch.full((B,), 300.0, device=dev))
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
@@ -2303,6 +2366,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self.n_belt).float()] if self.elbow_aim else [])
           + ([S.has_bread.float()] if getattr(self, "load_ctrl", 0)
              else [])
+          + [self._sand_obs_t(S)]
           + ([self._dsn_t] if getattr(self, "design_rand", 0) else []),
             1)
         return obs, rew, infos

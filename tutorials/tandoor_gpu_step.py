@@ -65,7 +65,7 @@ class GpuState:
         self.node_heat_cap = g("_ds_hc", e.node_heat_cap)
         self.T_sub = f(e.T_sub); self.T_deep = f(e.T_deep)
         self.cap_sub = g("_ds_cs", e.cap_sub); self.cap_deep = g("_ds_cd", e.cap_deep)
-        self.g01 = f(e.g01); self.g12 = f(e.g12); self.g2s = g("_ds_g2s", e.g2s)
+        self.g01 = g("_ds_g01", e.g01); self.g12 = g("_ds_g12", e.g12); self.g2s = g("_ds_g2s", e.g2s)
         self.ds_rate = g("_ds_rate", np.ones(B_))
         self.ds_lid = g("_ds_lid", np.full(B_, e.lid_leak))
         self.ds_roti = g("_ds_roti", np.full(B_, e.roti_energy)).reshape(B_)
@@ -74,6 +74,7 @@ class GpuState:
         self.ds_lpl = g("_ds_lpl", np.full(B_, e.loaves_per_load)).reshape(B_)
         self.ds_s2 = g("_ds_s2", np.ones(B_))
         self.T_halo = f(e.T_halo)
+        self.T_sand = f(getattr(e, "T_sand", np.repeat(np.asarray(e.T)[:, e.n_belt:e.n_belt + 2, None], 8, axis=2)))
         self.g_halo_out = float(e.g_halo_out)
         self.c_halo = float(e.c_halo)
         self.level_frac = f(e.level_frac)
@@ -255,11 +256,19 @@ def gpu_step(env, actions):
     q01 = S.g01 * (T - S.T_sub)
     q12 = S.g12 * (S.T_sub - S.T_deep)
     q2s = S.g2s * (S.T_deep - S.T_halo[:, None])
+    # the sand columns under the hearth and the floor (numpy twins)
+    Tc_new, q_bed, q_bot, bed = env._sand_step_t(T, S.T_sand, S.T_halo, dt)
+    for j in (env.n_belt, env.n_belt + 1):
+        q01[:, j] = torch.where(bed, torch.zeros_like(q01[:, j]), q01[:, j])
+        q12[:, j] = torch.where(bed, torch.zeros_like(q12[:, j]), q12[:, j])
+        q2s[:, j] = torch.where(bed, torch.zeros_like(q2s[:, j]), q2s[:, j])
+    S.T_sand = Tc_new
     q = q_solar + q_exch - q01
+    q[:, env.n_belt:env.n_belt + 2] = q[:, env.n_belt:env.n_belt + 2] - q_bed
     S.T_sub = S.T_sub + (q01 - q12) * dt / S.cap_sub
     S.T_deep = S.T_deep + (q12 - q2s) * dt / S.cap_deep
     S.T_halo = S.T_halo + (
-        q2s.sum(1) - S.g_halo_out * (S.T_halo - T_AMB)) * dt / S.c_halo
+        q2s.sum(1) + q_bot - S.g_halo_out * (S.T_halo - T_AMB)) * dt / S.c_halo
     q[:, env.n_belt + 2] -= q_ap
     belt_T = T[:, :env.n_belt]
     # dough exchanges at its own temperature: room-temp coldstart

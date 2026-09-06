@@ -26,6 +26,7 @@ reason. day/lat stay separate so mount_solve keeps its contract.
 import numpy as np
 import torch
 
+KSAND = 8      # layers of the sand column under the hearth and the floor (kernel KSAND)
 _SCAL = ("p_act", "p_set", "p_dist", "shutter", "jammed", "f_locked",
          "form_time", "decl_formed", "load_timer", "ep_rotis",
          "ep_scorch", "ep_spall", "ep_return", "ep_len", "el_m",
@@ -97,9 +98,11 @@ class FusedState:
         dev, B = env.device, env.num_agents
         N, NB = env.n_nodes, env.n_belt
         self.S0 = S0 = 3 * N + 1 + 4 * NB
-        self.NS = NS = S0 + len(_SCAL)
+        self.SB = SB = S0 + len(_SCAL)            # the sand columns (hearth, floor) x KSAND
+        self.NS = NS = SB + 2 * KSAND
         e = env
         st = np.zeros((B, NS), dtype=np.float32)
+        st[:, SB:SB + 2 * KSAND] = np.asarray(e.T_sand, dtype=np.float64).reshape(B, 2 * KSAND)
         st[:, 0:N] = e.T
         st[:, N:2 * N] = e.T_sub
         st[:, 2 * N:3 * N] = e.T_deep
@@ -132,6 +135,7 @@ class FusedState:
         self.T_sub = self.st[:, N:2 * N]
         self.T_deep = self.st[:, 2 * N:3 * N]
         self.T_halo = self.st[:, 3 * N]
+        self.T_sand = self.st[:, SB:SB + 2 * KSAND].view(B, 2, KSAND)
         self.bread_E = self.st[:, 3 * N + 1:3 * N + 1 + NB]
         self.bread_t = self.st[:, 3 * N + 1 + NB:3 * N + 1 + 2 * NB]
         self.bread_C = self.st[:, 3 * N + 1 + 2 * NB:
@@ -335,6 +339,8 @@ def _day_over(env, F, infos):
         S.T.copy_(newT)
         S.T_sub.copy_(newT)
         S.T_deep.copy_(newT)
+        NBb = env.n_belt
+        S.T_sand.copy_(newT[:, NBb:NBb + 2, None].expand(B, 2, KSAND))
         S.T_halo.copy_(torch.where(warm, 395.0 + 20.0 * S.u(B),
                                    torch.full((B,), 300.0, device=dev)))
     for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
