@@ -1021,6 +1021,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # unit-box coordinates (2u-1), so one policy is conditioned on
         # the design and its critic reads out V(design); rotis-by-design
         # is the design sensitivity WITH the controller in the loop.
+        # form_min: soft steps of the cook's hands before the membrane's
+        # figure follows the day's declination (the dawn re-form is paid
+        # for, never free; 1 = the old instant re-form)
+        self.form_min = int(kwargs.pop("form_min", 4))
         self.design_rand = int(kwargs.pop("design_rand", 0))
         self.design_seed = int(kwargs.pop("design_seed", 1234))
         # roof_table: a JSON list of roof half-width quantiles [m] (0..1 in
@@ -1242,14 +1246,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # path. Caught by the zero-noise trajectory harness.
             self.observations[cut] = self._obs()[cut]
         if wrapped:
-            if self.day_random:
-                self.day_v[:] = self.rng.integers(
-                    1, 366, self.num_agents)
+            if getattr(self, "night_carry", 0):
+                # the pit carried the night: the next calendar day, same site
+                self.day_v[:] = self.day_v % 365 + 1
                 self.day = int(self.day_v[0])
-            if self.lat_random:
-                self.lat_v[:] = self.rng.uniform(
-                    15.0, 35.0, self.num_agents)
-                self.lat = float(self.lat_v[0])
+            elif self.day_random or self.lat_random:
+                if self.day_random:
+                    self.day_v[:] = self.rng.integers(
+                        1, 366, self.num_agents)
+                    self.day = int(self.day_v[0])
+                if self.lat_random:
+                    self.lat_v[:] = self.rng.uniform(
+                        15.0, 35.0, self.num_agents)
+                    self.lat = float(self.lat_v[0])
             # the episode wrapped to the next morning: the crew reparks
             # the carriage overnight (hours of slack at full slew)
             el1, az1, _ = _sim.solar_position(self.lat, self.day,
@@ -2162,12 +2171,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             })
             self.terminals[:] = True
             self.t_solar[:] = 8.0
-            if self.day_random:
-                self.day_v[:] = self.rng.integers(1, 366, B)
+            if getattr(self, "night_carry", 0):
+                self.day_v[:] = self.day_v % 365 + 1
                 self.day = int(self.day_v[0])
-            if self.lat_random:
-                self.lat_v[:] = self.rng.uniform(15.0, 35.0, B)
-                self.lat = float(self.lat_v[0])
+            else:
+                if self.day_random:
+                    self.day_v[:] = self.rng.integers(1, 366, B)
+                    self.day = int(self.day_v[0])
+                if self.lat_random:
+                    self.lat_v[:] = self.rng.uniform(15.0, 35.0, B)
+                    self.lat = float(self.lat_v[0])
             S.day_v = torch.as_tensor(self.day_v.astype(np.float32),
                                       device=dev)
             S.lat_v = torch.as_tensor(self.lat_v.astype(np.float32),
@@ -2207,8 +2220,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # to the NEW day's declination (per-agent, kernel formula)
             S.jammed = torch.ones_like(S.jammed)
             S.f_locked = torch.full_like(S.f_locked, self.p0)
-            S.decl_formed = 23.44 * torch.sin(
-                2.0 * np.pi * (284.0 + S.day_v) / 365.0)
+            if not getattr(self, "night_carry", 0):
+                S.decl_formed = 23.44 * torch.sin(
+                    2.0 * np.pi * (284.0 + S.day_v) / 365.0)
             S.soil = 0.90 + 0.08 * S.u(B)
             S.el_m = (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
                                                 self.el_max_h)

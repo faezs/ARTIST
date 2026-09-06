@@ -162,7 +162,8 @@ def gpu_step(env, actions):
     decl_now = 23.44 * torch.sin(2.0 * np.pi * (284.0 + S.day_v)
                                  / 365.0)
     S.decl_now = decl_now
-    S.decl_formed = torch.where(soft, decl_now, S.decl_formed)
+    S.decl_formed = torch.where(soft & (S.form_time >= float(getattr(env, "form_min", 1))),
+                                decl_now, S.decl_formed)
 
     # ---- sun scalars (python), cloud/wind OU (device)
     env.t_solar += dt / 3600.0

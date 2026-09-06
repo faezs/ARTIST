@@ -580,7 +580,8 @@ class TandoorPolarEnv(TandoorEnv):
                                        -6.0, 6.0), self.p_act)
         self.f_locked = np.where(jamming, self.p_act, self.f_locked)
         # re-forming while soft also re-matches the seasonal declination
-        self.decl_formed = np.where(soft, self._decl(), self.decl_formed)
+        self.decl_formed = np.where(soft & (self.form_time >= float(getattr(self, "form_min", 1))),
+                                    self._decl(), self.decl_formed)
 
         # --- sun, cloud, wind (courtyard-sheltered) -------------------- #
         self.t_solar += self.dt / 3600.0
@@ -860,7 +861,8 @@ class TandoorPolarEnv(TandoorEnv):
                 self._hold_s[i] = 6
                 self._hold_j[i] = 6
                 self.form_time[i] = 0.0
-                self.decl_formed[i] = self._decl()
+                if not getattr(self, "night_carry", 0):
+                    self.decl_formed[i] = self._decl()    # fresh machine; with the carry-over the figure persists
                 self.p_dist[i] = 0.0
                 self.shutter[i] = 1.0
                 self.wind_g[i] = 0.0

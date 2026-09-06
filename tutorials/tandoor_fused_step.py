@@ -164,7 +164,8 @@ class FusedState:
         self.sp = torch.as_tensor(_step_params(e), device=dev)
         nd = int(getattr(e, "_design_obs", np.zeros((B, 0))).shape[1])
         self.ip = torch.tensor([B, N, NB, e.N_HEADS, self.NS, OD, 0,
-                                int(getattr(e, "sticky_k", 0)), nd],
+                                int(getattr(e, "sticky_k", 0)), nd,
+                                int(getattr(e, "form_min", 1))],
                                dtype=torch.int32, device=dev)
         L = e._pts_l.shape[0]
         self.tdims = torch.tensor([B, self.P, L, N + e.n_belt],
@@ -300,12 +301,19 @@ def _day_over(env, F, infos):
     })
     env.terminals[:] = True
     env.t_solar[:] = 8.0
-    if env.day_random:
-        env.day_v[:] = env.rng.integers(1, 366, B)
+    if getattr(env, "night_carry", 0):
+        # the pit carried the night: tomorrow is the NEXT day at the SAME
+        # site (the site does not move; the declination drifts slowly
+        # and the figure keeps yesterday's, until the cook re-forms)
+        env.day_v[:] = env.day_v % 365 + 1
         env.day = int(env.day_v[0])
-    if env.lat_random:
-        env.lat_v[:] = env.rng.uniform(15.0, 35.0, B)
-        env.lat = float(env.lat_v[0])
+    else:
+        if env.day_random:
+            env.day_v[:] = env.rng.integers(1, 366, B)
+            env.day = int(env.day_v[0])
+        if env.lat_random:
+            env.lat_v[:] = env.rng.uniform(15.0, 35.0, B)
+            env.lat = float(env.lat_v[0])
     S.day_v.copy_(torch.as_tensor(env.day_v.astype(np.float32),
                                   device=dev))
     S.lat_v.copy_(torch.as_tensor(env.lat_v.astype(np.float32),
@@ -351,8 +359,11 @@ def _day_over(env, F, infos):
     # decl). Per-agent decl, same formula as the kernel.
     S.jammed.fill_(1.0)
     S.f_locked.fill_(env.p0)
-    S.decl_formed.copy_(23.44 * torch.sin(
-        2.0 * np.pi * (284.0 + S.day_v) / 365.0))
+    if not getattr(env, "night_carry", 0):
+        # a fresh pot is a fresh machine, formed on commissioning; with
+        # the carry-over the figure persists and the re-form is PAID
+        S.decl_formed.copy_(23.44 * torch.sin(
+            2.0 * np.pi * (284.0 + S.day_v) / 365.0))
     S.soil.copy_(0.90 + 0.08 * S.u(B))
     S.el_m.copy_((el1 + 0.3 * S.n(B)).clamp(env.el_min_h,
                                             env.el_max_h))

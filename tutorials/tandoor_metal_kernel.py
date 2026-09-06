@@ -1028,7 +1028,10 @@ kernel void step_pre(
     if (jamming) s[S0+5] = s[S0+0];
     float decl = 23.44f * sin(2.0f*PI_*(284.0f + day[b])/365.0f);
     s[S0+31] = decl;
-    if (soft) s[S0+7] = decl;
+    // THE DAWN RE-FORM IS PAID FOR: the figure follows the day's
+    // declination only after ip[9] soft steps that day (the cook's
+    // hands, minutes of exposed, non-cooking membrane), never for free
+    if (soft && s[S0+6] >= (float)ip[9]) s[S0+7] = decl;
     // ---- sun scalars, cloud/wind OU (ts already advanced host-side)
     float ts = mprm[0] + sp[42];
     float sinel = sin(el0*PI_/180.0f);
