@@ -119,12 +119,14 @@ if __name__ == "__main__":
         e = TandoorHashemiEnv(**env_kwargs(B))
     nh, nv = e.N_HEADS, int(e.single_action_space.nvec[0])
     assert sd["policy.encoder.0.weight"].shape[1] == e.single_observation_space.shape[0], "obs dim mismatch: pad the checkpoint"
-    U = e._design_u.copy(); names = [k for k, _, _ in e.DESIGN_BOX]; lo = np.array([b[1] for b in e.DESIGN_BOX]); hi = np.array([b[2] for b in e.DESIGN_BOX])
+    BOX = tuple(e.DESIGN_BOX) + tuple(getattr(e, "SYS_BOX", ()))
+    U = e._design_u.copy(); names = [k for k, _, _ in BOX]; lo = np.array([b[1] for b in BOX]); hi = np.array([b[2] for b in BOX])
     out = dict(ckpt=args.ckpt, label=args.label, names=names, U=U.tolist(), days={})
     t0 = time.time()
     for day in [int(x) for x in args.days.split(",")]:
         rot, cuts, v0, ret, S = run_day(e, pol, day, nh, nv)
         lad = ladder_day(e, S, day)
+        lad = lad / e._ds_s2                      # per m2 of the nominal dish: the controller's use of the beam, not the dish size
         br, sr, r2r = regress(rot, U, names); bl, sl, r2l = regress(lad, U, names); bv, sv, r2v = regress(v0, U, names)
         cc = np.corrcoef(rot, lad)[0, 1]
         print(f"\nday {day} ({'summer' if day == 172 else 'winter' if day == 355 else 'equinox'}), {B} designs, sampled: rotis {rot.mean():.1f} +- {rot.std():.1f} (min {rot.min():.0f} max {rot.max():.0f}), cuts/agent {cuts.mean():.2f}, "
