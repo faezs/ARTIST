@@ -231,8 +231,8 @@ for fr in range(n_frames + 1):
         # DMDc in velocity form with three input lags (a time-delay embedding of the command), ridge-regularised, on the pose rows only (the command rows are
         # known): dX_k = B0 dU_k + B1 dU_k-1 + B2 dU_k-2; the static gain is B0 + B1 + B2, the pose's settled response to a command increment; 30 % hold-out vs persistence
         NL = 3; Phi = np.hstack([dU[NL - 1 - j: len(dU) - j] for j in range(NL)]); Y = dX[NL - 1:]; ntr = int(0.7*len(Y))
-        lam = 1e-3*np.trace(Phi[:ntr].T@Phi[:ntr])/Phi.shape[1]
-        M = np.linalg.solve(Phi[:ntr].T@Phi[:ntr] + lam*np.eye(Phi.shape[1]), Phi[:ntr].T@Y[:ntr]).T
+        ridge = 1e-3*np.trace(Phi[:ntr].T@Phi[:ntr])/Phi.shape[1]
+        M = np.linalg.solve(Phi[:ntr].T@Phi[:ntr] + ridge*np.eye(Phi.shape[1]), Phi[:ntr].T@Y[:ntr]).T
         pred = Phi[ntr:]@M.T; e_m = np.sqrt(np.mean((pred - Y[ntr:])**2, 0)); e_p = np.sqrt(np.mean(Y[ntr:]**2, 0))
         skill = 1 - np.mean(e_m/np.maximum(e_p, 1e-9))
         Gid = sum(M[:, 6*j:6*(j + 1)] for j in range(NL))                                    # identified pose change per unit leg increment (6 x 6)
