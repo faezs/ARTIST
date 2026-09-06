@@ -35,7 +35,8 @@ PRICES = dict(dish_m2=1200.0,      # aluminized film 400 + rim ring, plenum and 
               strip_m2=3000.0,     # polished aluminium sheet on a curved frame
               m4_m2=3000.0,        # same, the ellipsoid M4
               bore_m2=800.0,       # galvanized sheet duct, per m2 of bore wall
-              ins_m2=1500.0,       # ceramic-fibre lining per m2 of pit, per unit of (1/ins_scale - 1)
+              trench_dig=5000.0,   # a narrow trench dug round the pit (a day's labour)
+              trench_unit=10000.0, # fill (perlite / rice-husk ash) per unit of (1/ins_scale - 1): ~10 cm of perlite = ins 0.33
               lid=500.0,           # a steel lid, x 0.18/lid_leak
               sand_fixed=3000.0,   # dig out the floor, sand, a lining box
               fins_m2_per_k=400.0, # rebar fins per m2 of bed per W/mK of effective conductivity above plain sand
@@ -61,7 +62,7 @@ def capital(d):
                  mount=PRICES["post_mount"] if post else PRICES["rail_m"] * 2 * np.pi * (G_ORBIT0 * s + 0.6),
                  motors=PRICES["motors"] * d.get("rate_scale", 1.0) ** 1.5,
                  strip=PRICES["strip_m2"] * A_strip, m4=PRICES["m4_m2"] * A_m4, bore=PRICES["bore_m2"] * A_bore,
-                 insulation=PRICES["ins_m2"] * A_PIT * (1.0 / ins - 1.0),
+                 insulation=(PRICES["trench_dig"] + PRICES["trench_unit"] * (1.0 / ins - 1.0)) if ins < 0.98 else 0.0,
                  sand=(PRICES["sand_fixed"] + PRICES["fins_m2_per_k"] * 1.51 * max(d.get("sand_k", 0.3) - 0.3, 0.0))
                       if d.get("sand_depth", 0.0) > 0.01 else 0.0,
                  lid=PRICES["lid"] * 0.18 / max(d.get("lid_leak", 0.18), 0.02), fixed=PRICES["fixed"])

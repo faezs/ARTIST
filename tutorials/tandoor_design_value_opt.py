@@ -36,7 +36,7 @@ def capital_torch(d, roof):
     sand = torch.where(d.get("sand_depth", torch.zeros_like(s)) > 0.01,
                        P["sand_fixed"] + P["fins_m2_per_k"] * 1.51 * (d.get("sand_k", torch.full_like(s, 0.3)) - 0.3).clamp(min=0), torch.zeros_like(s))
     return (P["dish_m2"] * A_dish + P["tower_m"] * deck + mount + sand + P["motors"] * d["rate_scale"] ** 1.5
-            + P["shell"] / d["ins_scale"].clamp(min=0.2) + P["mass"] * d["cap_scale"]
+            + torch.where(d["ins_scale"] < 0.98, P["trench_dig"] + P["trench_unit"] * (1.0 / d["ins_scale"].clamp(min=0.2) - 1.0), torch.zeros_like(s))
             + P["lid"] * 0.18 / d["lid_leak"].clamp(min=0.02) + P["strip_m2"] * A_strip
             + P["m4_m2"] * A_m4 + P["bore_m2"] * A_bore + P["fixed"])
 
