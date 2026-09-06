@@ -1763,9 +1763,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: the nominal machine, clipped to [S_LO, S_HI]. The obs column is
     #: the roof percentile.
     SWEEP0 = 6.1               # nominal sweep radius g_orbit + a_mem [m]
-    S_LO, S_HI = 0.5, 1.30
-    ROOF_DEFAULT = (3.0, 12.0)  # log-uniform placeholder half-width [m]
-    SYS_BOX = (("roof_r", 0.0, 1.0), ("deck_h", 3.0, 5.5),
+    S_LO, S_HI = 0.35, 1.30
+    ROOF_DEFAULT = (1.5, 12.0)  # log-uniform placeholder half-width [m]
+    #: VERTICAL SPACE: a tiny roof can still carry a dish by going up -
+    #: above DECK_CLEAR the sweep may overhang the parapet (neighbouring
+    #: roofs and the street below it), OVERHANG_PER_M of reach per metre
+    #: of deck above the clearance, at most OVERHANG_MAX (structure and
+    #: wind). Assumption, to be replaced by a real setback rule.
+    DECK_CLEAR, OVERHANG_PER_M, OVERHANG_MAX = 3.0, 1.0, 3.5
+    SYS_BOX = (("roof_r", 0.0, 1.0), ("deck_h", 3.0, 8.0),
                ("rate_scale", 0.5, 2.0), ("ins_scale", 0.3, 3.6),
                ("cap_scale", 0.5, 2.0), ("lid_leak", 0.05, 0.40),
                ("bread_area", 0.08, 0.16), ("loaves_per_load", 4.0, 8.0))
@@ -1785,10 +1791,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             return lo * (hi / lo) ** u
         return np.interp(u, np.linspace(0.0, 1.0, len(q)), q)
 
-    def roof_to_scale(self, roof_r):
-        """The largest dish that fits a roof of half-width roof_r [m]."""
-        return np.clip(np.asarray(roof_r, dtype=np.float64) / self.SWEEP0,
-                       self.S_LO, self.S_HI)
+    def roof_to_scale(self, roof_r, deck_h=None):
+        """The largest dish that fits a roof of half-width roof_r [m] with
+        a deck deck_h [m] above the pot: the sweep may overhang the
+        parapet by what the height above DECK_CLEAR allows."""
+        r = np.asarray(roof_r, dtype=np.float64)
+        if deck_h is not None:
+            over = np.clip((np.asarray(deck_h, dtype=np.float64) - self.DECK_CLEAR)
+                           * self.OVERHANG_PER_M, 0.0, self.OVERHANG_MAX)
+            r = r + over
+        return np.clip(r / self.SWEEP0, self.S_LO, self.S_HI)
 
     def _design_row(self, sys=None):
         """One design table row (64): _fc_table (39) + duct mouth + the
@@ -1838,7 +1850,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 sv = {k: lo + ub * (hi - lo)
                       for (k, lo, hi), ub in zip(self.SYS_BOX, u[b, nr:])}
                 roof = float(self._roof_quantile(sv["roof_r"]))
-                s = float(self.roof_to_scale(roof))
+                s = float(self.roof_to_scale(roof, sv["deck_h"]))
                 # the dish, its focal length and the orbit scale together;
                 # the deck sets the fold height and the receiver's F
                 self.a_mem = base["a_mem"] * s
