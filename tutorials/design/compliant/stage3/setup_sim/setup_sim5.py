@@ -27,7 +27,7 @@ G, RC, A_M, SAG = 4.0, 8.0, 2.1, 8.0 - np.sqrt(64 - 2.1**2)
 Z_F = 0.35 + np.hypot(G, A_M); F = np.array([0.0, 0.0, Z_F]); Z = np.array([0, 0, 1.0])
 S_REC, R_REC, R_PLAT, D_BACK, H_HEX = np.array([3.0, 0.0, 1.0]), 1.5, 1.0, 0.6, 1.2   # stem top; receptacle ring r 1.5 carried by the pedicel, coaxial with the head, H_HEX behind the platform ring r 1.0 (0.6 m behind the vertex)
 BASE_ANG = np.radians([-15, 15, 105, 135, 225, 255]); PLAT_ANG = np.radians([315, 45, 75, 165, 195, 285])
-A_DISH, D_DISH, RHO, R_HOLE = np.pi*(A_M**2 - 0.5**2), 4.2, 1.03, 0.5
+A_DISH, D_DISH, RHO, R_HOLE = np.pi*A_M**2, 4.2, 1.03, 0.5        # drag on the full disc: the production optics are a beam-down that never passes through the dish
 KE_RIG, KE_LEG, F_LEG_MAX = 2.0e7, 2.0e7, 1.0e6                    # the legs and the head's truss at one stiffness the solver converges (a 3 kN leg load = 0.15 mm); the steel legs' EA/L is 1e8
 M_HEAD = 130.0
 BETA_MAX = 36.0
