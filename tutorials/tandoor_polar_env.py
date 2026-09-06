@@ -871,7 +871,7 @@ class TandoorPolarEnv(TandoorEnv):
         self.ep_return += rew
         self.ep_len += 1
         self.tick += 1
-        day_over = self.t_solar >= 16.0
+        day_over = self.t_solar >= float(getattr(self, "day_end", 16.0))
         self.terminals[:] = day_over
         self.truncations[:] = False
         self.rewards[:] = rew.astype(np.float32)
@@ -880,7 +880,7 @@ class TandoorPolarEnv(TandoorEnv):
         hr = int(ts0)
         if self.hourly_metric \
                 and hr > getattr(self, "_hr_mark", 8) \
-                and ts0 < 16.0:
+                and ts0 < float(getattr(self, "day_end", 16.0)):
             infos.append({"rotis_per_hour":
                           float(self.day_rotis.mean())
                           - getattr(self, "_hr_rotis", 0.0),

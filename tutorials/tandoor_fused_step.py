@@ -270,7 +270,7 @@ def fused_full_step(env, actions):
     ts0 = float(env.t_solar[0])
     hr = int(ts0)
     if getattr(env, "hourly_metric", 0) \
-            and hr > getattr(env, "_hr_mark", 8) and ts0 < 16.0:
+            and hr > getattr(env, "_hr_mark", 8) and ts0 < float(getattr(env, "day_end", 16.0)):
         # rotis_per_hour: 8x denser scoring stream than the day-over
         # metric (one device sync per sim-hour, 1/240 steps)
         cur = float(F.day_rotis.mean())
@@ -280,7 +280,7 @@ def fused_full_step(env, actions):
                       "scorched": float(F.ep_scorch.mean())})
         env._hr_rotis = cur
         env._hr_mark = hr
-    if ts0 >= 16.0:
+    if ts0 >= float(getattr(env, "day_end", 16.0)):
         return _day_over(env, F, infos)
     env.terminals[:] = False
     return F.obs, F.rew, infos

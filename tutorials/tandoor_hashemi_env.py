@@ -1037,6 +1037,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # figure re-formed for free (0: the pre-490778e3 training
         # distribution, kept as an experimental control)
         self.consecutive_days = int(kwargs.pop("consecutive_days", 1))
+        # day_end: the solar hour the day ends at (16 = the old daylight-only
+        # day; 20 = the evening, baked from the stored heat after sunset -
+        # what the sand bed is for). The night is what is left of 24 h.
+        self.day_end = float(kwargs.pop("day_end", 16.0))
+        if float(night_hours) == 16.0 and self.day_end != 16.0:
+            night_hours = 24.0 - (self.day_end - 8.0)
+            self.night_hours = float(night_hours)     # (the attribute was already set above)
         # r_rail: the azimuth ring rail's radius on the roof (Hashemi fig
         # 18: the A-frames' rollers run on a fixed ring around the tower),
         # g_orbit + 0.6 m by default; it must sit ON the roof - it cannot
@@ -1192,7 +1199,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # loses the sun in ~4 steps, power stays 0, every episode
         # returns the same -172, and approx_kl sits at 0.000.
         out = super().step(a[:, :3])
-        pot_now = np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0)
+        sun_up = el0 >= self.el_min_h                 # the evening: nothing to track
+        pot_now = np.where(sun_up, np.minimum(np.abs(self._e_az) + np.abs(self._e_el), 4.0), pot_prev)
         wrapped = float(self.t_solar[0]) < t_before - 1.0
         if not wrapped:
             shape = 1.0 * (pot_prev - pot_now)
@@ -1204,7 +1212,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # episode is TRUNCATED in place: fresh pot, counters zeroed,
         # carriage re-acquired, sun left where it is. Bootstrapped via
         # truncations, not terminals.
-        lost = (np.abs(self._e_az) + np.abs(self._e_el)) > self.lost_deg
+        lost = sun_up & ((np.abs(self._e_az) + np.abs(self._e_el)) > self.lost_deg)
         self._lost_ct = np.where(lost, self._lost_ct + 1, 0)
         cut = self._lost_ct >= 40
         if cut.any() and not wrapped:
@@ -2276,7 +2284,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         hr = int(ts0)
         if getattr(self, "hourly_metric", 0) \
                 and hr > getattr(self, "_hr_mark", 8) \
-                and ts0 < 16.0:
+                and ts0 < self.day_end:
             cur = float(S.day_rotis.mean())
             infos.append({"rotis_per_hour":
                           cur - getattr(self, "_hr_rotis", 0.0),
@@ -2284,7 +2292,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                           "scorched": float(S.ep_scorch.mean())})
             self._hr_rotis = cur
             self._hr_mark = hr
-        if float(self.t_solar[0]) >= 16.0:
+        if float(self.t_solar[0]) >= self.day_end:
             # end-of-day stuff-the-oven closed (mirror of numpy paths)
             inflight = 0.3 * S.has_bread.float().sum(1) \
                 + 2.0 * (S.bread_E / self._ds_roti_t[:, None]) \

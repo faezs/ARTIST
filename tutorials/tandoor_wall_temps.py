@@ -20,7 +20,7 @@ N = e.n_nodes; names = [f"belt {k}" for k in range(e.n_belt)] + ["hearth", "floo
 a = torch.full((B, nh), 3, dtype=torch.long, device=DEV); o, *_ = e.step_torch(a)
 t, T, Ts, Td, Th, pin = [], [], [], [], [], []; days = 0; rot = 0.0
 with torch.no_grad():
-    for k in range(2000 * NDAYS):
+    for k in range(4000 * NDAYS):
         act, _ = pol.step(o, nh, nv); rot_prev = float(S.day_rotis.mean()); o, r, d, tr, _ = e.step_torch(act)
         if d.reshape(-1).any():
             days += 1; rot = rot_prev

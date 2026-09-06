@@ -90,7 +90,7 @@ def run_day(e, pol, day, nh, nv, ndays=1):
     last = S.day_rotis.clone(); cuts = torch.zeros(B, device=DEV); v0 = None; ret = torch.zeros(B, device=DEV)
     days_done = 0; dawn = True
     with torch.no_grad():
-        for t in range(2000 * ndays):
+        for t in range(4000 * ndays):
             act, v = pol.step(o, nh, nv)
             if dawn: v0 = v.clone(); dawn = False        # the LAST dawn's value (seasoned pit)
             o, r, d, tr, _ = e.step_torch(act)

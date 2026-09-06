@@ -1323,10 +1323,14 @@ kernel void step_post(
     r += -0.02f*((s[S0+4] < 0.5f) ? 1.0f : 0.0f);
     // ---- Hashemi pointing shaping + lost counter
     float e_el2 = s[S0+32], e_az2 = s[S0+33];
-    float potn = min(fabs(e_az2) + fabs(e_el2), 4.0f);
+    // THE EVENING: once the sun is below the mount's minimum (sp[14])
+    // there is nothing to track - the pointing potential freezes and
+    // the lost counter does not run; the cook bakes from stored heat
+    const bool sun_up = s[S0+27] >= sp[14];
+    float potn = sun_up ? min(fabs(e_az2) + fabs(e_el2), 4.0f) : s[S0+29];
     r += 1.0f*(s[S0+29] - potn);
     s[S0+20] = e_az2; s[S0+21] = e_el2;
-    bool lost = (fabs(e_az2) + fabs(e_el2)) > sp[64];
+    bool lost = sun_up && ((fabs(e_az2) + fabs(e_el2)) > sp[64]);
     s[S0+16] = lost ? s[S0+16] + 1.0f : 0.0f;
     bool cut = s[S0+16] >= 40.0f;
     s[S0+12] += r;

@@ -895,7 +895,7 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.ep_return += rew
         self.ep_len += 1
         self.tick += 1
-        day_over = self.t_solar >= 16.0
+        day_over = self.t_solar >= float(getattr(self, "day_end", 16.0))
         self.terminals[:] = day_over
         self.truncations[:] = False
         self.rewards[:] = rew.astype(np.float32)

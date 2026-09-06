@@ -370,10 +370,11 @@ def gpu_step(env, actions):
     # ---- Hashemi shaping + truncation + wrap
     e_el2 = S.el_m - el0s
     e_az2 = (S.az_m - az0d) * torch.cos(torch.deg2rad(el0s))
-    pot_now = (e_az2.abs() + e_el2.abs()).clamp(max=4.0)
+    sun_up = el0s >= float(env.el_min_h)          # the evening: nothing to track (kernel twin)
+    pot_now = torch.where(sun_up, (e_az2.abs() + e_el2.abs()).clamp(max=4.0), pot_prev)
     rew = rew + 1.0 * (pot_prev - pot_now)
     S.e_az_prev, S.e_el_prev = e_az2, e_el2
-    lost = (e_az2.abs() + e_el2.abs()) > float(getattr(env, 'lost_deg', 3.0))
+    lost = sun_up & ((e_az2.abs() + e_el2.abs()) > float(getattr(env, 'lost_deg', 3.0)))
     S.lost_ct = torch.where(lost, S.lost_ct + 1,
                             torch.zeros_like(S.lost_ct))
     cut = S.lost_ct >= 40

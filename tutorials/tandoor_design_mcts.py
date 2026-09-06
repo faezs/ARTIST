@@ -56,7 +56,7 @@ class Sim:
         a = torch.full((B, self.nh), 3, dtype=torch.long, device=DEV)
         o, *_ = e.step_torch(a); last = S.day_rotis.clone(); days = 0
         with torch.no_grad():
-            for t in range(2000 * self.seasoned):
+            for t in range(4000 * self.seasoned):
                 act, _ = self.pol.step(o, self.nh, self.nv)
                 o, r, d, tr, _ = e.step_torch(act)
                 if d.reshape(-1).any():

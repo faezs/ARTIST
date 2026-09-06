@@ -63,7 +63,7 @@ if __name__ == "__main__":
     o, *_ = e.step_torch(a); pol.reset(B)
     for dday in range(args.seasoned - 1):
         with torch.no_grad():
-            for t in range(2000):
+            for t in range(4000):
                 act, _ = pol.step(o, nh, nv); o, r, d, tr, _ = e.step_torch(act)
                 if d.reshape(-1).any(): break
     dawn = o[:, :OD - nd].mean(0).detach()                    # (OD-nd,)
