@@ -18,7 +18,7 @@ ap.add_argument("--doy", type=int, default=80); ap.add_argument("--h0", type=flo
 ap.add_argument("--wind", type=float, default=0.0, help="mean wind m/s from the north (-x)"); ap.add_argument("--gust", type=float, default=0.73, help="gust amplitude fraction: two sinusoids (4.0, 1.3 s); 0.73 gives peak q = 3 x mean")
 ap.add_argument("--wind_from", default="N", help="N or S: the wind blows from the north onto the head's back, or from the south into the bowl"); ap.add_argument("--gust_model", default="karman", help="karman: von Karman spectrum, Iu and L_turb; sines: the two sinusoids"); ap.add_argument("--Iu", type=float, default=0.25); ap.add_argument("--L_turb", type=float, default=50.0)
 ap.add_argument("--k_boom", type=float, default=2.0e5, help="lateral stiffness of pedicel + stem at the receptacle, N/m (219 x 8 boom of 3.2 m on the 215 x 9 stem)"); ap.add_argument("--m_rec", type=float, default=80.0, help="mass of the receptacle ring and boom tip, kg")
-ap.add_argument("--n_zones", type=int, default=5); ap.add_argument("--T_mem", type=float, default=20e3, help="membrane tension N/m")
+ap.add_argument("--dither_mm", type=float, default=2.0, help="calibration dither amplitude per leg, mm"); ap.add_argument("--n_zones", type=int, default=5); ap.add_argument("--T_mem", type=float, default=20e3, help="membrane tension N/m")
 ap.add_argument("--cd", type=float, default=1.3); ap.add_argument("--cm", type=float, default=0.12); ap.add_argument("--no_lqr", action="store_true"); ap.add_argument("--schedule_only", action="store_true"); ap.add_argument("--tag", default="setup5"); ap.add_argument("--quiet", action="store_true")
 A = ap.parse_args()
 wp.config.quiet = True; wp.init(); DEV = "cpu"
@@ -223,7 +223,7 @@ for fr in range(n_frames + 1):
     L_ff = leg_lengths(P_t, n_t)
     # calibration dither (PRBS-like, +-8 mm, held 0.5 s) and identification at the end of the calibration
     if T_S <= t < T_S + T_C:
-        if int(t/0.5) != int((t - dt_f)/0.5): dither_target = rng.choice([-1.0, 1.0], 6)*0.002
+        if int(t/0.5) != int((t - dt_f)/0.5): dither_target = rng.choice([-1.0, 1.0], 6)*1e-3*A.dither_mm
         dither = dither + (dither_target - dither)*(dt_f/0.3)                                     # +-3 mm, first-order smoothed (0.3 s)
     else: dither = dither*(1 - dt_f/0.3)
     if abs(t - (T_S + T_C)) < 0.5*dt_f and cal and not A.no_lqr:
