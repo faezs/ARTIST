@@ -1837,44 +1837,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             rng = np.random.default_rng(self.design_seed)
             u = rng.uniform(size=(B, self.N_DESIGN))
             self._design_u = u
-            nominal = {k: getattr(self, k) for k, _, _ in self.DESIGN_BOX}
-            nominal["r_strip"] = self.r_strip
-            base = {k: getattr(self, k) for k in ("a_mem", "f_nom", "g_orbit", "z_fold", "z_deck")}
-            A0 = float(self.bread_area)
-            nr = len(self.DESIGN_BOX)
-            rows = np.zeros((B, self.FCT_W), dtype=np.float32)
-            for b in range(B):
-                for (k, lo, hi), ub in zip(self.DESIGN_BOX, u[b, :nr]):
-                    setattr(self, k, float(lo + ub * (hi - lo)))
-                self.r_strip = 0.5 * self.strip_wk * self.d_strip * 1.3
-                sv = {k: lo + ub * (hi - lo)
-                      for (k, lo, hi), ub in zip(self.SYS_BOX, u[b, nr:])}
-                roof = float(self._roof_quantile(sv["roof_r"]))
-                s = float(self.roof_to_scale(roof, sv["deck_h"]))
-                # the dish, its focal length and the orbit scale together;
-                # the deck sets the fold height and the receiver's F
-                self.a_mem = base["a_mem"] * s
-                self.f_nom = base["f_nom"] * s
-                self.g_orbit = base["g_orbit"] * s
-                self.z_deck = H_POT + float(sv["deck_h"])
-                self.z_fold = base["z_fold"] + (self.z_deck - base["z_deck"])
-                self._build_cass_chain()
-                A = float(sv["bread_area"])
-                sysd = dict(s=s, s2=s * s, zfold=self.z_fold, zdeck=self.z_deck,
-                            rate=float(sv["rate_scale"]), ins=float(sv["ins_scale"]),
-                            cap=float(sv["cap_scale"]), lid=float(sv["lid_leak"]),
-                            bread=A, hb=25.0 * A,
-                            roti=float(self.roti_energy) * A / A0,
-                            lfp=float(np.sqrt(A) / 2.0),
-                            lpl=float(int(round(sv["loaves_per_load"]))),
-                            fnom=self.f_nom, amem=self.a_mem, gorb=self.g_orbit,
-                            roof=roof)
-                rows[b] = self._design_row(sysd)
-            for k, vv in nominal.items():
-                setattr(self, k, vv)
-            for k, vv in base.items():
-                setattr(self, k, vv)
-            self._build_cass_chain()
+            rows = self._rows_from_u(u)
         self._fct = torch.as_tensor(rows, dtype=torch.float32,
                                     device=self.device)
         self._design_obs = 2.0 * self._design_u - 1.0
@@ -1882,6 +1845,66 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._dsn_t = torch.as_tensor(
             self._design_obs if nd else np.zeros((B, 1)),
             dtype=torch.float32, device=self.device)
+
+    def _rows_from_u(self, u):
+        """Design table rows (B,64) for unit-box coordinates u (B,N_DESIGN):
+        the receiver box, then the site (roof percentile) and the system
+        box; the dish is the largest that fits the roof and the deck."""
+        B = u.shape[0]
+        nominal = {k: getattr(self, k) for k, _, _ in self.DESIGN_BOX}
+        nominal["r_strip"] = self.r_strip
+        base = {k: getattr(self, k) for k in ("a_mem", "f_nom", "g_orbit", "z_fold", "z_deck")}
+        A0 = float(self.bread_area)
+        nr = len(self.DESIGN_BOX)
+        rows = np.zeros((B, self.FCT_W), dtype=np.float32)
+        for b in range(B):
+            for (k, lo, hi), ub in zip(self.DESIGN_BOX, u[b, :nr]):
+                setattr(self, k, float(lo + ub * (hi - lo)))
+            self.r_strip = 0.5 * self.strip_wk * self.d_strip * 1.3
+            sv = {k: lo + ub * (hi - lo)
+                  for (k, lo, hi), ub in zip(self.SYS_BOX, u[b, nr:])}
+            roof = float(self._roof_quantile(sv["roof_r"]))
+            s = float(self.roof_to_scale(roof, sv["deck_h"]))
+            # the dish, its focal length and the orbit scale together;
+            # the deck sets the fold height and the receiver's F
+            self.a_mem = base["a_mem"] * s
+            self.f_nom = base["f_nom"] * s
+            self.g_orbit = base["g_orbit"] * s
+            self.z_deck = H_POT + float(sv["deck_h"])
+            self.z_fold = base["z_fold"] + (self.z_deck - base["z_deck"])
+            self._build_cass_chain()
+            A = float(sv["bread_area"])
+            sysd = dict(s=s, s2=s * s, zfold=self.z_fold, zdeck=self.z_deck,
+                        rate=float(sv["rate_scale"]), ins=float(sv["ins_scale"]),
+                        cap=float(sv["cap_scale"]), lid=float(sv["lid_leak"]),
+                        bread=A, hb=25.0 * A,
+                        roti=float(self.roti_energy) * A / A0,
+                        lfp=float(np.sqrt(A) / 2.0),
+                        lpl=float(int(round(sv["loaves_per_load"]))),
+                        fnom=self.f_nom, amem=self.a_mem, gorb=self.g_orbit,
+                        roof=roof)
+            rows[b] = self._design_row(sysd)
+        for k, vv in nominal.items():
+            setattr(self, k, vv)
+        for k, vv in base.items():
+            setattr(self, k, vv)
+        self._build_cass_chain()
+        return rows
+
+    def set_design_points(self, u):
+        """Set every agent's design from unit-box coordinates u (B,N_DESIGN):
+        the design search's hook (tree search, Bayesian optimization) -
+        the table, the design obs and the per-env arrays are rebuilt;
+        rebuild the device state (FusedState) afterwards."""
+        u = np.asarray(u, dtype=np.float64)
+        assert u.shape == (self.num_agents, self.N_DESIGN), u.shape
+        self._design_u = u
+        rows = self._rows_from_u(u)
+        self._fct = torch.as_tensor(rows, dtype=torch.float32, device=self.device)
+        self._design_obs = 2.0 * u - 1.0
+        self._dsn_t = torch.as_tensor(self._design_obs, dtype=torch.float32, device=self.device)
+        self._apply_system_design()
+        return self
 
     def design_points(self):
         """The per-agent designs as a dict of (B,) arrays (design_rand):
