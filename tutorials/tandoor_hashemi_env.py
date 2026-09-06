@@ -1024,6 +1024,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # form_min: soft steps of the cook's hands before the membrane's
         # figure follows the day's declination (the dawn re-form is paid
         # for, never free; 1 = the old instant re-form)
+        if kwargs.get("render_mode") == "human":
+            kwargs["num_agents"] = 1        # the renderer shows agent 0 only (user): one agent, one machine
         self.form_min = int(kwargs.pop("form_min", 4))
         # form_drift: the dawn routine. With the carry-over the cook
         # re-forms the membrane by hand at dawn whenever the figure has
@@ -1158,9 +1160,53 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             cols.append(self._design_obs)
         return np.concatenate(cols, axis=1)
 
+    def _sync_from_gpu(self):
+        """The HUD's numpy mirrors of the device state (render mode on the
+        megakernel path): every field the renderer or the time series
+        reads, copied once per frame."""
+        S = self._gpu
+        if S is None:
+            return
+        for nm in ("T", "T_sub", "T_deep", "T_halo", "T_sand", "bread_E", "bread_t", "bread_C",
+                   "p_act", "p_set", "p_dist", "shutter", "f_locked", "form_time", "decl_formed",
+                   "load_timer", "ep_rotis", "ep_scorch", "ep_spall", "ep_return", "ep_len", "el_m", "az_m",
+                   "cloud", "wind_g", "spot_phi", "spot_z", "dni", "wind", "day_rotis", "orders", "shelf", "sold", "soil"):
+            v = getattr(S, nm, None)
+            if v is not None:
+                setattr(self, nm, v.detach().cpu().numpy().astype(np.float64) if v.dtype != torch.bool else v.detach().cpu().numpy())
+        for nm, dst in (("jammed", "jammed"), ("stowed", "stowed"), ("has_bread", "has_bread")):
+            v = getattr(S, nm, None)
+            if v is not None:
+                setattr(self, dst, v.detach().cpu().numpy() > 0.5)
+        for nm, dst in (("lost_ct", "_lost_ct"), ("belt_prev", "_belt_prev"), ("hold_p", "_hold_p"), ("hold_s", "_hold_s"), ("hold_j", "_hold_j"), ("off", "bore")):
+            v = getattr(S, nm, None)
+            if v is not None:
+                setattr(self, dst, v.detach().cpu().numpy())
+        self._spot_view = (self.spot_phi, self.spot_z)
+
+    def _render_trace(self):
+        """Agent rays for the renderer from the torch twin of the trace
+        (parity-verified against the megakernel that stepped the physics):
+        the same membrane pressure and figure blur the kernel used, no
+        random terms."""
+        B = self.num_agents
+        p_eff = np.where(self.jammed, self.f_locked, self.p_act)
+        drift = np.abs(self._decl() - self.decl_formed)
+        q_w = 0.6 * self.wind ** 2
+        gain = np.where(self.jammed, self.jam_gain, 1.0)
+        sig_wind = gain * 0.88e-3 * (np.maximum(q_w, 1e-9) / 15.0) ** 0.6
+        sigma_b = np.sqrt(self.sig_static ** 2 + (2 * 0.35 * sig_wind) ** 2 + (np.radians(drift) * 0.04) ** 2)
+        with torch.no_grad():
+            self._trace_power(p_eff, sigma_b, self.bore, self.soil)     # fills _ladder and _hv while the sun is up
+        el, _, _ = _sim.solar_position(self.lat, self.day, float(self.t_solar[0]))
+        if not (self.el_min_h <= el <= self.el_max_h):
+            self._hv = None; self._ladder = dict(shadow=0.0, slot=0.0, fold=0.0, tube=0.0, m5=0.0, duct=0.0, through=0.0)
+
     def step(self, actions):
-        if self.gpu and self._metal is not None \
-                and self.render_mode != "human":
+        if self.gpu and self._metal is not None:
+            # THE RENDERER RUNS THE MEGAKERNEL (user): the physics the cook
+            # trained on; the rays it draws come from the torch twin once
+            # a frame, the HUD from the synced device state
             obs, rew, infos = self._gpu_full_step(actions)
             self.observations[:] = obs.cpu().numpy()
             self.rewards[:] = rew.cpu().numpy()
@@ -1177,6 +1223,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             rd = getattr(self, "reward_div", 1.0)
             if rd != 1.0:
                 self.rewards[:] = self.rewards / rd
+            if self.render_mode == "human":
+                self._sync_from_gpu()
+                self._render_trace()
             return (self.observations, self.rewards, self.terminals,
                     self.truncations, infos)
         B = self.num_agents
