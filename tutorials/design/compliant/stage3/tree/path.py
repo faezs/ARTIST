@@ -48,6 +48,7 @@ def evaluate(P, n, s, S):
     beta = np.degrees(np.arccos(np.clip(n@s, -1, 1))); reach = np.linalg.norm(P - S)
     return dict(zmin=zmin, zmax=zmax, rp=rp, beta=beta, reach=reach, shadow=shadow_frac(P, n, s))
 BETA_MAX = 36.0
+LEG_CHECK = None                                   # optional callable (P, n) -> bool: the crown's own reach (set by setup_sim5.py)
 def best_pose(s, S, w_beta=0.02, w_move=0.0, P_prev=None):
     """grid over the head's place on the orbit sphere: ub the unit vector from the head toward F; P = F - G ub, axis n = unit(s + ub); beta = angle(s, ub)"""
     els = np.radians(np.linspace(-20, 89, 56)); azs = np.radians(np.linspace(-180, 180, 73))
@@ -60,6 +61,7 @@ def best_pose(s, S, w_beta=0.02, w_move=0.0, P_prev=None):
             P = F - G*ub; n = s + ub; n /= np.linalg.norm(n)
             if n@(P - S) < 0: continue                                              # the crown is behind the dish
             if not (REACH[0] <= np.linalg.norm(P - S) <= REACH[1]): continue
+            if LEG_CHECK is not None and not LEG_CHECK(P, n): continue
             ev = evaluate(P, n, s, S); ev["beta"] = beta
             if ev["zmin"] < RIM_CLEAR or ev["zmax"] > RIM_CAP or ev["rp"] < R_PIPE + 0.3: continue
             cost = ev["shadow"] + w_beta*(beta/10)**2 + (w_move*np.linalg.norm(P - P_prev) if P_prev is not None else 0.0)

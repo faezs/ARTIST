@@ -174,3 +174,42 @@ and the ring's drive.
   stiffer than the grown tube and its pressure readout starts high (300 kPa) and settles to about 45 kPa when
   grown; scaling the spring stiffness with the ring spacing as the tube grows is the fix.
 - A day compressed into 40 s makes the strut servo lag the sun; the coarse loop on the sun sensor removes most of it, and the real day is 700 times slower.
+
+## The flower in the simulation (`setup_sim5.py`, fifth pass)
+
+The machine the user meant, as a soft-body system in the fourth pass's solver: the exact hashemi.ini membrane (a 2.1,
+R 8, with its 0.5 m hole) as a rigid clique of 130 kg on six bilateral force-capped struts; the struts' base joints on
+a receptacle ring (r 1.5) carried by a pedicel from the stem top (kinematic in this run: it places the ring 1.2 m
+behind the platform ring, coaxial with the head, so the hexapod always works near its nominal, well-conditioned
+pose); the platform ring r 1.0 on the head's back 0.6 m behind the vertex; F fixed on the light pipe. The head law is
+the env's (audit F2): hub on the orbit sphere 4 m from F, axis the bisector of the sun and the line to F, the
+pose per quarter hour chosen by `../tree/path.py` within beta 36 deg, the pedicel's reach and continuity.
+
+Sequence: stow (receptacle horizontal at the stem top, head face-up at the hexapod's nominal height); setup by
+interpolating the pose to the first sun and pumping the six struts accordingly (in one assembly mode; interpolating
+the leg lengths instead let the hexapod change mode); a calibration hold with a smoothed +-2 mm dither on each strut,
+from which the machine identifies itself (DMDc in velocity form: state = pose error and strut command, input =
+command increment; validated on a 30 % hold-out against persistence); then the day with an integral loop on the
+pose error through the identified static gain (the analytic Jacobian as fallback if the identified gain has no
+skill), 3 mm per frame at most; the dish's drag and pitching moment with gusts (mean plus two sinusoids, peak
+pressure 3 x mean, the audit's factor), from the north (onto the back) or the south (into the bowl).
+
+What the first version got wrong, in order, each visible in a run: the strut force read as stiffness x residual
+(meaningless at 1e8 N/m; read the multiplier); equal base and platform radii (singular in yaw when coaxial); a
+stiffness mismatch between legs and head truss the Gauss-Seidel solver could not converge; a 180 deg twist between
+the receptacle's and the head's angular frames at the face-up stow (the legs started crossed); the stow's platform
+ring below the base ring after deepening the calyx; the rotation part of the pose error with the opposite sign to
+the translation part (positive feedback); the identification regressed on the dither's level instead of its
+increment (no skill on a quasi-static plant); and, decisive, a fixed receptacle: the hexapod then has five
+well-conditioned islands over the day and must jump 1.6 m between them through condition numbers above 100. A
+fixed-base hexapod cannot serve a 5 m workspace; it serves the last decimetres. The pedicel is the stage the
+kinematics demanded.
+
+Results (`out/*_ident.txt`): setup lands at 0.0 cm from focus; the identified gain has skill 0.95-0.97 over
+persistence and lies 39 % from the analytic Jacobian (the head truss's compliance); the day at 0, 9 and 12 m/s mean
+with gusts (peaks 15.6 and 20.8 m/s), wind from the north or the south: the image at F holds 0.1-2.5 cm in steady
+tracking against the 4.9 cm half power, strut forces under 3.5 kN, strut strokes 1.41-1.55 m, the pedicel's boom
+0-3.2 m long, elevation -2 to 18 deg, azimuth +-68 deg. The 13-21 cm maxima are one quarter-hour pose step that the
+compressed day turns into a jump. Not in this run: the pedicel's and the stem's compliance (the stem alone is 2 mrad
+= 1.8 cm at F from `../tree/wind_size.py`), front/back asymmetry of the drag, the hole's and slot's effect on the
+membrane's own figure, and real gust spectra.

@@ -344,6 +344,26 @@ TREE.append(plate(57, "Where the hexapod can carry the head on the env's own law
   [("reach", _pt[1]), ("hub", _pt[2]), ("shadow", _pt[3]), ("rim", _pt[4]),
    ("audited", "the still-head family first drawn here (P + R n = F + R/2 s) was the sphere's paraxial focus only and is withdrawn (audit F2); a head that does not move pays the full sun angle as beta and is optically dead by mid-morning. The head must travel the orbit sphere; from one fixed receptacle the hub lies 1.3-5.7 m away over the year, beyond a hexapod's stroke (F13). What can carry it: a luffing, slewing pedicel from the stem top to the hexapod's receptacle, or Hashemi's rail")],
   "Hidden-line projection of the CadQuery model; mm. The poses drawn are those the hexapod reaches; the rest of the day needs the pedicel."))
+def plate_gif(num, title, gif_path, ref, rows, note=""):
+    import base64 as _b64
+    tb = "".join(f'<div class="k">{html.escape(k)}</div><div class="v">{v}</div>' for k, v in rows)
+    img = '<img style="width:100%;height:auto;display:block" src="data:image/gif;base64,' + _b64.b64encode(open(gif_path, "rb").read()).decode() + '">'
+    return f'''<article class="plate" id="pl{num}">
+  <div class="paper">{img}</div>
+  <aside class="block">
+    <div class="sheet">SHEET {num:02d}</div>
+    <h3>{html.escape(title)}</h3>
+    <div class="ref">{html.escape(ref)}</div>
+    <div class="tb">{tb}</div>
+    {f'<p class="note">{note}</p>' if note else ''}
+  </aside>
+</article>'''
+_i5 = open("stage3/setup_sim/out/setup5_ident.txt").read().strip().splitlines(); _i5c = open("stage3/setup_sim/out/setup5_calm_ident.txt").read().strip().splitlines(); _i9 = open("stage3/setup_sim/out/setup5_w9_ident.txt").read().strip().splitlines()
+TREE.append(plate_gif(58, "The flower sets itself up, identifies itself and tracks: six struts pumped from the stow, a calibration dither, the day at 12 m/s mean from the south with gusts to 21", "stage3/setup_sim/out/setup5.gif",
+  "3-D soft-body simulation (NVIDIA Warp, the fourth pass's solver): the hashemi.ini membrane as a 130 kg rigid clique on six bilateral force-capped struts from a receptacle ring carried by a kinematic pedicel; the env's head law; the dish's drag and pitching moment with gusts (peak pressure 3 x mean). The loop closes through the machine's own identified static gain.",
+  [("setup", _i5[1].split(": ", 1)[1]), ("identification", _i5[2].split(": ", 1)[1]), ("the day, 12 m/s S", _i5[3].split("): ", 1)[1]), ("the day, 9 m/s S", _i9[3].split("): ", 1)[1]), ("the day, still air", _i5c[3].split("): ", 1)[1]),
+   ("what is not in it", "the pedicel's and the stem's compliance (the stem alone 2 mrad = 1.8 cm at F), front/back asymmetry of the drag, the membrane's own figure under wind, real gust spectra; the quarter-hour pose steps of the schedule become jumps in a day compressed to 60 s")],
+  "Film: legs (brown), rim (grey), the receptacle ring on its stem, the pipe, F (violet), the beam (orange), the head's axis (teal). The memo lists the eight defects the first version had, each visible in a run, and the one that decided the architecture: a fixed receptacle leaves the hexapod five well-conditioned islands a day; the pedicel is the stage the kinematics demanded."))
 TREE.append(plate(53, "The year's sweep: the head on the orbit sphere at 8, 12 and 16 h equinox and at the solstice noons", TR + "tr_sweep_views_small.png",
   "rims, membranes and crowns at five suns about one stem and one pipe",
   [("hub", _sw[0].split(": ", 1)[1]), ("branches", _sw[2].split(": ", 1)[1]), ("shadow", _sw[3]), ("rim", _sw[1].split("; ")[1])],
