@@ -21,35 +21,55 @@ import numpy as np
 sys.path.insert(0, "/Users/faezs/ARTIST/tutorials"); sys.path.insert(0, "/Users/faezs/ARTIST")
 sys.path.insert(0, "/Users/faezs/ARTIST/tutorials/puffer_tandoor")
 
-PRICES = dict(dish_m2=6000.0, tower_m=40000.0, motors=30000.0, shell=60000.0, mass=40000.0, lid=6000.0,
-              strip_m2=25000.0, m4_m2=15000.0, bore_m2=4000.0, fixed=200000.0,
-              rail_m=8000.0, post_mount=150000.0)
+# QUETTA 2026 RETROFIT PRICES (PKR) - my estimates of local rates, to be
+# corrected line by line by the user; the earlier contractor-rate
+# placeholders were ~10x these. The kit is bolted onto an EXISTING
+# firebrick tandoor: the pit, its mass and its lid are the site's; the
+# kit is the collector, its mount and tower, the receiver, the controls
+# and, if chosen, a high-tech lining of the pit.
+PRICES = dict(dish_m2=1200.0,      # aluminized film 400 + rim ring, plenum and pump per m2 of aperture
+              tower_m=2000.0,      # steel pipe mast with guys, per metre of deck
+              rail_m=600.0,        # ring rail: steel angle on posts, per metre of ring
+              post_mount=8000.0,   # central-post trunnion mount (bearing + mast head)
+              motors=16000.0,      # two geared DC motors with drivers, x rate_scale^1.5
+              strip_m2=3000.0,     # polished aluminium sheet on a curved frame
+              m4_m2=3000.0,        # same, the ellipsoid M4
+              bore_m2=800.0,       # galvanized sheet duct, per m2 of bore wall
+              ins_m2=1500.0,       # ceramic-fibre lining per m2 of pit, per unit of (1/ins_scale - 1)
+              lid=500.0,           # a steel lid, x 0.18/lid_leak
+              fixed=25000.0)       # controller, encoders, sun sensor, wiring, labour
 A_MEM0 = 2.10           # nominal membrane radius [m] (hashemi a_mem)
 G_ORBIT0 = 4.0          # nominal fold orbit [m]; ring rail radius = G_ORBIT0 x s + 0.6
 L_BORE = 9.7            # bore length at deck 4.0 [m]; grows with the deck
+A_PIT = 21.0            # pit wall area [m2] (the node areas' sum)
+BUDGET = 100000.0       # the target price of the kit [PKR]
 
 
 def capital(d):
-    """d: dict of design values (both boxes). Returns the itemised bill."""
+    """d: dict of design values (both boxes). The itemised bill of the kit."""
     s = d.get("dish_scale", 1.0); deck = d.get("deck_h", 4.0)
     A_dish = np.pi * (A_MEM0 * s) ** 2
-    # the strip's area from its distance and taper (the conic's meridian
-    # ~ 1.4 d over the window; width ~ strip_wk x 1.4 d)
     th = np.radians(d.get("strip_th_hi", 100.0)); r_mean = 1.4 * d.get("d_strip", 0.6)
     A_strip = r_mean * th * d.get("strip_wk", 1.1) * r_mean
     A_m4 = np.pi * d.get("r_m4", 1.3) ** 2
     A_bore = 2 * np.pi * d.get("r_bore", 0.7) * (L_BORE + (deck - 4.0))
     post = d.get("mount_post", 0.0) >= 0.5
-    mount = PRICES["post_mount"] if post else PRICES["rail_m"] * 2 * np.pi * (G_ORBIT0 * s + 0.6)
-    items = dict(dish=PRICES["dish_m2"] * A_dish, tower=PRICES["tower_m"] * deck, mount=mount,
+    ins = min(max(d.get("ins_scale", 1.0), 0.2), 1.0)
+    items = dict(dish=PRICES["dish_m2"] * A_dish, tower=PRICES["tower_m"] * deck,
+                 mount=PRICES["post_mount"] if post else PRICES["rail_m"] * 2 * np.pi * (G_ORBIT0 * s + 0.6),
                  motors=PRICES["motors"] * d.get("rate_scale", 1.0) ** 1.5,
-                 shell=PRICES["shell"] / max(d.get("ins_scale", 1.0), 0.2),
-                 mass=PRICES["mass"] * d.get("cap_scale", 1.0),
-                 lid=PRICES["lid"] * 0.18 / max(d.get("lid_leak", 0.18), 0.02),
-                 strip=PRICES["strip_m2"] * A_strip, m4=PRICES["m4_m2"] * A_m4,
-                 bore=PRICES["bore_m2"] * A_bore, fixed=PRICES["fixed"])
+                 strip=PRICES["strip_m2"] * A_strip, m4=PRICES["m4_m2"] * A_m4, bore=PRICES["bore_m2"] * A_bore,
+                 insulation=PRICES["ins_m2"] * A_PIT * (1.0 / ins - 1.0),
+                 lid=PRICES["lid"] * 0.18 / max(d.get("lid_leak", 0.18), 0.02), fixed=PRICES["fixed"])
     items["total"] = sum(items.values())
     return items
+
+
+def bom_text(d, budget=BUDGET):
+    c = capital(d)
+    lines = [f"  {k:11s} {v/1e3:7.1f}k" for k, v in c.items() if k != "total"]
+    lines.append(f"  {'TOTAL':11s} {c['total']/1e3:7.1f}k PKR  ({'within' if c['total'] <= budget else 'OVER'} the {budget/1e3:.0f}k budget)")
+    return "\n".join(lines)
 
 
 def value_per_year(rotis_per_day, bread_area, roti_pkr, days):
@@ -59,7 +79,7 @@ def value_per_year(rotis_per_day, bread_area, roti_pkr, days):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("readout"); ap.add_argument("--years", type=float, default=5.0)
     ap.add_argument("--roti-pkr", type=float, default=8.0); ap.add_argument("--days", type=float, default=300.0)
-    ap.add_argument("--top", type=int, default=8)
+    ap.add_argument("--top", type=int, default=8); ap.add_argument("--budget", type=float, default=BUDGET)
     args = ap.parse_args()
     R = json.load(open(args.readout)); names = R["names"]; U = np.array(R["U"])
     from tandoor_hashemi_env import TandoorHashemiEnv as E
@@ -72,7 +92,10 @@ if __name__ == "__main__":
     cap = np.array([capital(d)["total"] for d in D])
     area = np.array([d.get("bread_area", 0.12) for d in D])
     val = value_per_year(rot, area, args.roti_pkr, args.days) * args.years - cap
+    feas = cap <= args.budget
+    val = np.where(feas, val, -np.inf)                # the kit must fit the budget
     order = np.argsort(-val)
+    print(f"budget {args.budget/1e3:.0f}k PKR: {feas.mean()*100:.0f}% of the designs fit")
     print(f"{U.shape[0]} designs, {len(days)} pinned days ({', '.join(days)}), {args.years:.0f} years at {args.roti_pkr} PKR/roti: "
           f"value mean {val.mean()/1e3:.0f}k PKR, best {val[order[0]]/1e3:.0f}k, worst {val[order[-1]]/1e3:.0f}k; capital {cap.min()/1e3:.0f}k-{cap.max()/1e3:.0f}k")
     print(f"\ntop {args.top} by value (rotis/day = mean over the pinned days, cold pit):")

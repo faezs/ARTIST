@@ -51,7 +51,7 @@ def env_kwargs(B, seed=1234, night_carry=0, roof_table="/Users/faezs/ARTIST/tuto
                 silvered=1, duct_nozzle=2, spot_bread=1, roti_kj=130.0, bread_area=0.12, loaves_per_load=8,
                 elbow_aim=1, load_ctrl=1, reward_div=75.0, receiver="cass", r_m4=1.3, g_orbit=4.0, zone_c=0.4,
                 deck_h=4.0, beta_dev=0.0, beta_cap_z=7.6, cut_penalty=75.0, lost_deg=5.0, enc_clamp=6.0,
-                sticky_k=2, wall="ifb", insulation=1, design_rand=1, design_seed=seed)
+                sticky_k=2, wall="firebrick", insulation=0, design_rand=1, design_seed=seed)
 
 
 def ladder_day(e, S, day, hours=(9.0, 10.5, 12.0, 13.5, 15.0), draws=2):

@@ -19,8 +19,9 @@ from tandoor_fused_step import FusedState
 from tandoor_design_readout import Policy, env_kwargs, DEV
 import tandoor_system_cost as C
 
-ORDER = ["mount_post", "deck_h", "ins_scale", "bread_area", "cap_scale", "rate_scale", "d_strip", "r_bore", "r_m4",
+ORDER = ["mount_post", "deck_h", "ins_scale", "bread_area", "rate_scale", "d_strip", "r_bore", "r_m4",
          "w_slot", "strip_th_hi", "strip_wk", "r_hole", "u_f2", "r_duct", "lid_leak", "loaves_per_load"]
+SITE_U = {"cap_scale": 0.375}      # the site's pit: wall thickness 1.0x of the model's firebrick pit (u in the 0.7-1.5 box)
 NBIN = 3
 
 
@@ -71,6 +72,8 @@ def completions(rng, sim, node, site, k):
     """k unit-box designs consistent with the node's partial assignment."""
     nd = len(sim.names); u = rng.uniform(size=(k, nd))
     u[:, sim.names.index("roof_r")] = site
+    for kname, uv in SITE_U.items():
+        if kname in sim.names: u[:, sim.names.index(kname)] = uv
     for pi, b in node.path:
         j = sim.names.index(ORDER[pi]); u[:, j] = (b + rng.uniform(size=k)) / NBIN
     return u
@@ -93,12 +96,14 @@ def designs_of(sim, u):
 
 
 def objective(sim, u, rot, args):
-    """rotis, or the priced value: rotis x bread x PKR x days x years - capital [PKR]."""
-    if not args.priced:
-        return rot
+    """rotis (bread-weighted when --priced: bigger rotis are more bread),
+    with the kit's price as a CONSTRAINT: a design over the budget loses
+    one roti per 50 PKR over, so the tree never prefers an unaffordable
+    machine to an affordable one."""
     D = designs_of(sim, u)
     cap = np.array([C.capital(d)["total"] for d in D]); area = np.array([d["bread_area"] for d in D])
-    return rot * (area / 0.12) * args.roti_pkr * args.days * args.years - cap
+    score = rot * (area / 0.12) if args.priced else rot
+    return score - 0.02 * np.maximum(cap - args.budget, 0.0)
 
 
 if __name__ == "__main__":
@@ -106,7 +111,8 @@ if __name__ == "__main__":
     ap.add_argument("--sims", type=int, default=20); ap.add_argument("--k", type=int, default=256)
     ap.add_argument("--day", type=int, default=172); ap.add_argument("--seasoned", type=int, default=1)
     ap.add_argument("--c", type=float, default=0.6); ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--priced", action="store_true", help="optimize value = rotis x bread x PKR x days x years - capital")
+    ap.add_argument("--priced", action="store_true", help="bread-weighted rotis (roti area / 0.12)")
+    ap.add_argument("--budget", type=float, default=C.BUDGET, help="the kit's price cap [PKR]; over-budget designs are penalised")
     ap.add_argument("--roti-pkr", type=float, default=8.0); ap.add_argument("--days", type=float, default=300.0); ap.add_argument("--years", type=float, default=5.0)
     ap.add_argument("--out", default="/private/tmp/claude-501/-Users-faezs-ARTIST/40abdad5-aefb-4c8a-a67b-a45db67e0f41/scratchpad/design_mcts.json")
     args = ap.parse_args()
@@ -116,8 +122,8 @@ if __name__ == "__main__":
     print(f"MCTS over the design: site p{args.site*100:.0f} (roof half-width {roof_m:.1f} m), day {args.day}{' seasoned %d' % args.seasoned if args.seasoned > 1 else ' cold'}, "
           f"{args.sims} simulations x {NBIN} children x {args.k} completions", flush=True)
     root = Node(()); gbest = (-1e18, None, 0.0); t0 = time.time(); scale = 100.0
-    unit = 1e3 if args.priced else 1.0; lab = "k PKR" if args.priced else "rotis"
-    print(f"  objective: {'VALUE over %.0f years at %.0f PKR/roti, %.0f days/yr, minus capital' % (args.years, args.roti_pkr, args.days) if args.priced else 'rotis on the last day'}", flush=True)
+    unit = 1.0; lab = "bread-rotis" if args.priced else "rotis"
+    print(f"  objective: {'bread-weighted rotis' if args.priced else 'rotis'} on the last day, kit within {args.budget/1e3:.0f}k PKR (1 roti per 50 PKR over); site: {', '.join(f'{k} u={v}' for k, v in SITE_U.items())}", flush=True)
     # simulation 0: the root itself = the uniform baseline (3k designs)
     u0 = completions(rng, sim, root, args.site, NBIN * args.k); rot0 = sim.run(u0); r0 = objective(sim, u0, rot0, args)
     root.N = 1; root.W = score(r0); j = int(r0.argmax()); gbest = (float(r0[j]), u0[j], float(rot0[j])); scale = float(r0.std()) + 1e-6
@@ -158,7 +164,8 @@ if __name__ == "__main__":
     bu = gbest[1]; d = {k: float(lo + bu[i] * (hi - lo)) for i, (k, lo, hi) in enumerate(box)}
     d["roof_r"] = roof_m; d["dish_scale"] = float(e.roof_to_scale(roof_m, d["deck_h"], d.get("mount_post", 0.0) >= 0.5))
     cap = C.capital(d)["total"]
-    print(f"\nbest single design: {gbest[2]:.0f} rotis (day {args.day}{', seasoned day %d' % args.seasoned if args.seasoned > 1 else ''}), capital {cap/1e3:.0f}k PKR"
-          + (f", VALUE {gbest[0]/1e3:.0f}k PKR over {args.years:.0f} y" if args.priced else "") + ": " + ", ".join(f"{k}={v:.2f}" for k, v in d.items()))
+    print(f"\nbest single design: {gbest[2]:.0f} rotis (day {args.day}{', seasoned day %d' % args.seasoned if args.seasoned > 1 else ''}), kit {cap/1e3:.0f}k PKR"
+          + f" ({'within' if cap <= args.budget else 'OVER'} the {args.budget/1e3:.0f}k budget): " + ", ".join(f"{k}={v:.2f}" for k, v in d.items()))
+    print("bill of materials:\n" + C.bom_text(d, args.budget))
     print(f"evaluated {sim.calls * NBIN * args.k} machines in {time.time()-t0:.0f} s")
     json.dump(dict(site=args.site, roof_m=roof_m, day=args.day, seasoned=args.seasoned, priced=args.priced, best_score=gbest[0], best_rotis=gbest[2], best_u=bu.tolist(), best_design=d, capital=cap, greedy=greedy, sims=args.sims, k=args.k), open(args.out, "w"), indent=1)

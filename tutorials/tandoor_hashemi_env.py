@@ -1794,11 +1794,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: must sit on the roof: s <= (roof_r - margin) / g_orbit), u >= 0.5
     #: a central-post trunnion mount (no rail; only the dish sweep, which
     #: may overhang above the parapet, limits the dish)
+    #: THE RETROFIT (user, 2026-09-06): existing firebrick tandoors get a
+    #: collector kit. Site variables (not for sale): roof_r, cap_scale
+    #: (the pit's wall thickness, 0.7-1.5 of the model's firebrick pit).
+    #: Kit variables: deck, mount class, actuator class, ins_scale (a
+    #: ceramic-fibre / aerogel lining: 1.0 = the bare firebrick pit,
+    #: 0.3 = heavy high-tech insulation, priced per m2 of pit), lid,
+    #: and the cook's roti size and loaves per lean.
     SYS_BOX = (("roof_r", 0.0, 1.0), ("deck_h", 3.0, 8.0),
-               ("rate_scale", 0.5, 2.0), ("ins_scale", 0.3, 3.6),
-               ("cap_scale", 0.5, 2.0), ("lid_leak", 0.05, 0.40),
+               ("rate_scale", 0.5, 2.0), ("ins_scale", 0.3, 1.0),
+               ("cap_scale", 0.7, 1.5), ("lid_leak", 0.05, 0.40),
                ("bread_area", 0.08, 0.16), ("loaves_per_load", 4.0, 8.0),
                ("mount_post", 0.0, 1.0))
+    SITE_KEYS = ("roof_r", "cap_scale")      # drawn with the site, never chosen
     N_DESIGN = 9 + 9
     FCT_W = 64
     #: system block layout in the design table (offset 40)
