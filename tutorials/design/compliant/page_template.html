@@ -1,8 +1,5 @@
 <title>Tandoor Flexure Register</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script><!--VIEWER_JS--></script>
-<script><!--ANIM_JS--></script>
 <style>
 :root{--ground:#eef2f6;--paper:#ffffff;--ink:#14213d;--muted:#5b6b7f;--line:#c7d0da;--block:#1f3a5f;--blockink:#eaf0f7;--flex:#d9480f;--kin:#0e7490;--soft:#e3e9f0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ground:#0f1720;--paper:#ffffff;--ink:#e6edf3;--muted:#9fb0c3;--line:#2a3948;--block:#16283d;--blockink:#dbe6f2;--flex:#ff7a2f;--kin:#22b8cf;--soft:#172230}}
@@ -46,7 +43,7 @@ a:focus-visible{outline:2px solid var(--kin);outline-offset:2px}
 <header>
   <div>
     <h1>Tandoor Flexure Register</h1>
-    <p class="lede">The mount of the Cassegrain solar tandoor machine with everything behind the dish, synthesized by FACT (Hopkins 2010) as freedom, constraint and actuation spaces and built from flexure blades: cross-blade trunnions on the axis through the fixed focus, a cradle, a diaphragm fine stage for microradians; then the same machine read as a heliotropic flower; then the earlier passes, kept as the record. Rotatable models beside hidden-line sheets; the title blocks carry the numbers from the design memos.</p>
+    <p class="lede">The flower: one 1 m stem, a crown that carries the exact hashemi.ini spherical membrane on the sun's orbit about a fixed F on the roof's light pipe (a Masdar beam-down), the crown sized by wind as a hexapod of steel struts on a pedicel, and the machine setting itself up, identifying itself and tracking in two simulations, soft-body (Warp XPBD) and Cosserat rods (PyElastica). Everything before the fifth pass is in the branch's history, not here.</p>
   </div>
   <div class="legend">
     <span><i class="sw" style="background:#c2410c"></i> flexing element (the part that bends to do the job)</span>
@@ -63,78 +60,11 @@ a:focus-visible{outline:2px solid var(--kin);outline-offset:2px}
 </section>
 
 <section>
-  <div class="eyebrow">Audit · the opus pass over every calculation on this page</div>
-  <h2>What was wrong, what is corrected, what wind gates</h2>
+  <div class="eyebrow">Audit · wind</div>
+  <h2>What wind gates</h2>
   <!--AUDIT-->
 </section>
 
-<section>
-  <div class="eyebrow">Fourth pass · everything behind the dish</div>
-  <h2>The secondary on its style, the beam down the stalk, nothing in the light <span style="font-weight:400;font-size:.7em">(superseded by the fifth pass; audited, see above: the style and spine intercept the beam as drawn)</span></h2>
-  <p class="intro">The complaint that stood since the first message was shading, and the three passes before this one never met it: they kept Hashemi's near method, a focal tube through a slot in the membrane with the strip at its top, and only kept the mount out of the light. That tube shades a tenth of the aperture at el 59, the hole another 5.7 %, the open slot 8.1 % where it is not already under the tube's shadow, its ring 1.5 % more. Here the secondary stands on a conical style rising from the centre hole, inside its own shadow; the beam returns through a hole a quarter the size to an image behind the vertex; one fold on the head turns it along the neck axis, through the hollow flexure trunnion, to a second fold at the stalk that sends it down inside the stalk to the same F2 the underground relay already expects. Two fixed 45-degree folds are possible only because the stalk stands beside the head, not under it: a single fold under the neck would graze at the zenith. The FACT mount is unchanged in kind and moved behind the membrane: a hollow cartwheel pivot for the neck, the diaphragm fine stage for the dish, water for the balance. The self-setup simulation of the next section runs on this geometry.</p>
-  <!--SHADE_TABLE-->
-  <!--PLATES_BEHIND-->
-</section>
-
-<section>
-  <div class="eyebrow">Setup · the machine erects itself and tracks · soft-body simulation</div>
-  <h2>How it sets itself up</h2>
-  <p class="intro">The brief's first line was a water hose for the frame, actuated like a vine robot, so that setup and tracking are automatic. This is the fourth-pass machine running, as a 3-D soft-body simulation in NVIDIA Warp: one fabric stalk on the deck is pressurised and grown from a stub the way an everting vine grows, until the yoke it carries (M4, the hollow neck pivot's two axis points, the jack's anchor) is at the neck's height; two counterweight hoses grow from stubs, one behind the neck on the head and one beyond the stalk on the yoke, and water is pumped into them until the head balances about the neck and the yoke about the stalk (the amounts come from the built moment balance); a screw jack from the yoke to a crank on the neck bar turns the head from face-up to the morning sun and follows it through the day, while the deck ring turns the stalk's base for the azimuth. Nothing is placed by hand. The dish rides on the flexure fine stage of sheets 38-39, closed on the sun once the frame is within three degrees, so the film shows the frame wandering by a fraction of a degree and the dish holding closer; the microradians are the locked stage's stiffness in the title block. Three things this run taught, recorded in the memo: a tube's pressure in this solver is its volume constraint and must follow its grown length exactly (a stalk whose volume target lagged its growth went slack and leaned); the jack's command must be a fixed function of the elevation from the yoke's own geometry, or the stalk's bending feeds back into it; and the crank's lean decides whether the jack has a dead centre inside the working range. The vine-robot theses and the inflated-beam collapse models the tubes are checked against are in the memo, and the growth kinematics were cross-checked in the charm-lab vine simulator (Julia); the tracking data feeds a Koopman model (pykoopman) for the controller that replaces the hand-tuned loops.</p>
-  <!--PLATES_SETUP-->
-</section>
-
-<section>
-  <div class="eyebrow">The mount · synthesized by FACT · third pass</div>
-  <h2>Blade trunnions on the axis through F, a cradle, a diaphragm fine stage</h2>
-  <p class="intro">Hopkins's six steps (2010, Fig. 2.7) run to the end for the Cassegrain Hashemi machine of the nix-support fork; the optics are theirs and untouched, and everything here is behind or beside the light. The elevation rotation about the horizontal through F is made by cross-blade cells whose planes contain that axis. Because the constraint space of a rotation is the same set of lines everywhere along its axis, the cells sit where the axis leaves the dish's shadow: two trunnion blocks 6.5 m apart on a fork from the deck ring, with the wind's moment about F arriving as a pair of forces. The dish rides in a cradle on the blocks; a flexure diaphragm between cradle and dish holds it to microradians. A first draft of this pass put one block at F with struts to the dish: it shaded 2.9 % and the crosswind's moment overloaded its blades; the memo keeps both faults beside the correction.</p>
-  <!--PLATES_MOUNT-->
-</section>
-
-<section>
-  <div class="eyebrow">The flower · the same machine, organ by organ</div>
-  <h2>How this is a flower <span style="font-weight:400;font-size:.7em">(the third-pass reading; the fifth pass above is the flower as the brief meant it: one stem)</span></h2>
-  <p class="intro">The brief asked for the structural dual of Hashemi's machine: his dish rides a rail on the focal circle, ours swings on a radius about F; his structure stands around the dish, ours below and beside it, a head on a stalk. Read organ by organ it is a heliotropic bowl flower with an inferior ovary, the plant that already does this job: Arctic poppies and Dryas turn their parabolic corollas to the sun and warm the gynoecium at the focus (Kevan 1975), a pulvinus turns a leaf by moving water between its cells, the sunflower's ovary sits below the corolla. The table gives the correspondence with its numbers; the drawing and the recoloured model follow. It is not a flower in silhouette: the stalk is a fork of two posts, because the flexure pivot needs two blocks far apart to turn the crosswind's moment into forces.</p>
-  <!--FLOWER_TABLE-->
-  <!--PLATES_FLOWER-->
-</section>
-
-<section>
-  <div class="eyebrow">Structures · directionally compliant lattices at full scale</div>
-  <h2>Second pass and the pneumatic mount: the record</h2>
-  <p class="intro">After Shaw, Sun, Portela, Barranco, Greer and Hopkins (2019): a block is sliced into rigid layers and every interface cell is bridged by flexure elements whose lines lie in the constraint space of the desired freedom, so each interface allows exactly that freedom and the stack multiplies the range. The screw-algebra check and a frame finite-element model give exactness, stiffness ratio, torque, modes, stress and thermal drift. Models are rotatable below.</p>
-  <!--PLATES_3D-->
-</section>
-
-<section>
-  <div class="eyebrow">Synthesis · freedom and constraint topologies</div>
-  <h2>The mechanisms derived from their freedom spaces</h2>
-  <p class="intro">Second pass. Each mechanism starts from the motion it must allow, takes the reciprocal constraint space in screw algebra, and places independent constraint lines from that space; the screw-algebra check (rank, freedoms left, desired freedoms preserved) is printed with each plate. Left panels draw the FACT constraint-line space, right panels the synthesized flexure on the part.</p>
-  <!--PLATES_FACT-->
-</section>
-
-<section>
-  <div class="eyebrow">First pass · catalogue elements, superseded</div>
-  <h2>Mirror 1 · primary pumped-membrane dish, a = 2.10 m</h2>
-  <h2>Pitch, figure and carriage on Hashemi's fixed-focus mount</h2>
-  <p class="intro">Kept for the numbers in their title blocks; the topologies above replace them. The dish orbits the focus at one focal length with its attitude slaved to a focus-centred arc. Sliding the fold's shadow off the dish needs a β/2 pitch the carriage does not have; correcting the sphere's off-axis astigmatism needs the rim to become a weak toroid. Both are flexures here. The rollers and tow-wire keep rolling parts only where a 6.6 m travel forces them.</p>
-  <!--PLATES_DISH-->
-</section>
-
-<section>
-  <div class="eyebrow">First pass · superseded</div>
-  <h2>Mirror 2 · beam-down fold at the focus F</h2>
-  <p class="intro">The mirror hangs face-down at F inside a fixed hood; its normal bisects the incoming beam and the vertical, so the tilt is 45° − el_b/2 and the azimuth comes free from the carriage beam. The flexures sit on the back and never see the beam. Gravity preloads the chain, and the unpowered state is the parked, beam-dumped one.</p>
-  <!--PLATES_FOLD-->
-</section>
-
-<section>
-  <div class="eyebrow">First pass · superseded</div>
-  <h2>Mirror 3 · M5 ellipsoidal relay, 43 facets</h2>
-  <p class="intro">Each facet stands on three folded bipod feet riding parallel-motion carriages: an exact constraint that is athermal by symmetry, adjusted by hard-contact detent screws so no held position depends on a stressed flexure. The design finding that changed the build: the facets must be pressed toroids, not rolled strips.</p>
-  <!--PLATES_M5-->
-</section>
-
 <footer>
-  <p>Source of every number: the three memos on branch <code>compliant-mechanisms</code> under <code>tutorials/design/compliant/</code> (primary_dish.md, beam_down_fold.md, m5_relay.md), designed against Howell, Magleby &amp; Olsen, <em>Handbook of Compliant Mechanisms</em> (Wiley 2013). FACT synthesis and its exactness checks: <code>fact/fact_core.py</code>, <code>fact/fact_synthesis.py</code>, log in <code>fact/synthesis_log.txt</code>. First-pass drawings by <code>prbm_figures.py</code> in the same directory; deflected shapes use uniform-curvature blades and fixed-guided cubic profiles. Plate 4's arch proportions are illustrative; all other dimensions are the designed ones.</p>
-</footer>
+  <p>Source of every number: branch <code>compliant-mechanisms</code>, <code>tutorials/design/compliant/stage3/tree/</code> (model, sweep, path, wind_size and their memo), <code>stage3/setup_sim/</code> (setup_sim5.py, flower_elastica.py, ident_offline.py, memo.md), <code>stage3/audit/</code>; designed against Howell, Magleby &amp; Olsen, <em>Handbook of Compliant Mechanisms</em> (Wiley 2013), ch. 6 (Hopkins, FACT) and ch. 7 (Frecker, topology optimization); the membrane is the repo's own FvK model (tutorials/03_membrane_beamdown_tandoor.py, membrane_fvk2d.py).</p>
 </div>
