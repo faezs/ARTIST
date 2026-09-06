@@ -213,3 +213,46 @@ tracking against the 4.9 cm half power, strut forces under 3.5 kN, strut strokes
 compressed day turns into a jump. Not in this run: the pedicel's and the stem's compliance (the stem alone is 2 mrad
 = 1.8 cm at F from `../tree/wind_size.py`), front/back asymmetry of the drag, the hole's and slot's effect on the
 membrane's own figure, and real gust spectra.
+
+The four things the first runs left out are now in `setup_sim5.py`: the pedicel's and the stem's compliance (the
+receptacle joints are masses in a rigid clique held to the pedicel's command by ghost springs, `--k_boom` 2e5 N/m
+lateral at the receptacle from a 219 x 8 boom of 3.2 m on the 215 x 9 stem, `--m_rec` 80 kg); front/back asymmetry
+of the drag with lift (Cd 1.40 into the bowl, 1.05 onto the back, c_M 0.15/0.10, C_L 0.5 or 0.4 sin 2 alpha toward
+the convex side); the membrane's own figure under wind (antisymmetric slope 5.89 mrad (V/9)^2 (20 kN/m / T) /
+n_zones, image walk 2 slope g, added in quadrature as `miss_mem_cm`); and von Karman gust spectra (`--gust_model
+karman`, Iu 0.25, L 50 m, 300 lines from 0.01 to 3 Hz). The sheet's rows read the re-run `out/setup5*_ident.txt`.
+
+## The flower as Cosserat rods (`flower_elastica.py`, PyElastica 1.0)
+
+Soft robots are represented as Cosserat rods (Elastica, SoRoSim, Sofa's beam adapters): a centreline with a
+director frame per element, stretch, shear, bend and twist strains, explicit position-Verlet stepping. The flower in
+that representation: the stem (215 x 9, 2 elements) fixed at the deck; the boom (219 x 8, 3 elements, telescoping by
+its rest lengths) on a servo joint at the stem top (slew and luff); the receptacle ring as an 80 kg rigid cylinder on
+a second servo at the boom tip (the wrist: without it the ring's axis is slaved to the boom's direction, which is
+not the head's axis, and the head points where the boom points); six struts (85 x 5.3, 3 elements each) on ball
+joints at offsets on the ring and on the 130 kg rigid head (`OffsetSphericalJoint`, a ball joint to a material point
+of a rigid body, which PyElastica's own joints do not offer: they join centres). Every steel tube is a solid rod of
+the radius that matches EI, with the density that matches the mass; the same schedule, dither, DMDc identification,
+integral loop, dish load with asymmetry and lift, membrane term and Karman gusts as `setup_sim5.py`.
+
+What it took to make it run, each a real property of thin steel members in an explicit solver rather than a bug in
+the library, in the order found:
+1. The explicit step is set by the Timoshenko shear cut-off sqrt(G A_s / (rho I)) = 1.5e5 rad/s for a 60 x 4
+   tube (4e5 in the solid-equivalent rod, whose rotary inertia is rho_eff/rho low), not by the axial CFL: a spoke
+   on a fixed joint grew 20 x per step at dt 1.2e-5 whatever the joint gains (the growth factor (omega dt)^2 - 2
+   matched). Remedy: every element gets its true tube rotary inertia scaled by `--rot_scale` 10 (selective mass
+   scaling: statics and the low modes untouched, the cut-off down by sqrt 10); dt 1e-5.
+2. Radial 60 x 4 spokes as the crown bent 10 cm under 5 kN of strut force: the receptacle and the calyx are rings
+   and plates, not cantilevers. They are rigid bodies with the strut ends at offsets.
+3. A command that steps once per frame is a hammer: 0.2 mm on a 5e8 N/m strut is 100 kN, and the strut rang at its
+   1.3 kHz axial mode for tens of frames (+-400 kN read at the frame instants). Commands now ramp through the
+   frame's substeps; the struts and the boom carry an axial dashpot (`AxialDamper`, zeta 0.3 on that mode), the
+   material damping PyElastica 1.0 lacks.
+4. A servo whose rest rotation was computed from the stem's actual tip director (an absolute-attitude servo on a
+   flexible stem) is not a potential: the reaction on the stem depends on the boom's orientation, energy is pumped
+   in, and the stem-boom pair fluttered at 31 /s from t 2.3 s regardless of dt. The servo is relative (its rest
+   rotation a function of time only, the encoder on the joint); the stem's bending then shows in the receptacle's
+   error, which the head loop corrects, as it would.
+5. Joint gains against explicit limits: k 5e8 N/m (the struts' EA/L is 1.8e8), kt 1e6 N m/rad, servos 1e7; damping
+   nu dt/m and nut dt/I well under 1.
+
