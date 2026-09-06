@@ -37,11 +37,16 @@ def arc_points(p0, p1, k=10):
     seg = np.diff(pts, axis=0); ln = np.linalg.norm(seg, axis=1); length = ln.sum()
     tang = seg/ln[:, None]; dth = np.arccos(np.clip(np.einsum("ij,ij->i", tang[:-1], tang[1:]), -1, 1)); kap = float((dth/(0.5*(ln[:-1] + ln[1:]))).max()) if len(dth) else 0.0
     return pts, (length, kap)
+R_HOLE, ARM_N, R_BORE_DRAWN = 0.5, 3.0, 0.42
 def add_ground(sc):
-    deck = cq.Workplane("XY").box(9.0 * M, 11.0 * M, 120).translate((2.0 * M, 0, Z_DECK * M - 60)).cut(cq.Workplane("XY").circle(R_PIPE * M + 20).extrude(400).translate((0, 0, Z_DECK * M - 200)))
+    deck = cq.Workplane("XY").box(9.0 * M, 11.0 * M, 120).translate((2.0 * M, 0, Z_DECK * M - 60)).cut(cq.Workplane("XY").circle(0.5 * M).extrude(400).translate((-0.25 * M, 0, Z_DECK * M - 200)))
     sc.add(deck.val(), "roof deck (env z 5.0)", COL["ctx"], tol=3.0)
-    base = np.array([0, 0, Z_DECK - 0.6]) * M; top = np.array([0, 0, Z_F + 0.3]) * M
-    sc.add(cyl(R_PIPE * M, base, top).cut(cyl(R_PIPE * M - 20, base - [0, 0, 10], top + [0, 0, 10])), "light pipe on the roof: the cass machine's bore r 0.7 m to the fold F 4.87 m over the deck (separate of the tree)", COL["pipe"], tol=3.0)
+    # the bore: from F down to the turn at the chase 0.5 m south of F (env: X_TOWER = X_CHASE, X_TOWER_C = X_CHASE + 0.5 for cass); it passes through the membrane's 0.5 m hole at the bottom of the orbit
+    turn = np.array([-0.5, 0, Z_DECK - 4.86]) * M
+    sc.add(cyl(R_BORE_DRAWN * M, turn, (F + [0, 0, 0.2]) * M).cut(cyl((R_BORE_DRAWN - 0.02) * M, turn - [0, 0, 10], (F + [0, 0, 0.21]) * M)), "light pipe: the cass machine's bore from F to the turn at the chase (env r_bore 0.7 is the ray limit; drawn r 0.42 to pass the membrane's 0.5 m hole), separate of the tree", COL["pipe"], tol=3.0)
+    # the F post: a horizontal arm from a north tower arm_north beyond F (the env's arm_north 3.0), holding the strip at F
+    tower = np.array([ARM_N, 0, 0.0]); sc.add(cyl(0.12 * M, (tower + [0, 0, Z_DECK]) * M, (tower + [0, 0, Z_F + 0.3]) * M), "north tower for the F post, 3.0 m north of F (env arm_north)", COL["pipe"], tol=3.0)
+    sc.add(cyl(0.07 * M, (tower + [0, 0, Z_F + 0.3]) * M, (F + [0, 0, 0.3]) * M), "F post: horizontal arm from the north tower to F, carrying the strip", COL["pipe"], tol=3.0)
     sc.add(cq.Solid.makeSphere(60, V(*(F * M))), "F: the dish focus, the hyperboloid's first focus", COL["mirror"], tol=2.0)
 def add_strip(sc, n, tag=""):
     c = (F - D_STRIP * n) * M
@@ -53,8 +58,8 @@ def add_head(sc, P, n, tag="", full=True):
     xl, yl, zl = head_axes(n); Mx = frame_matrix(P * M, xl, yl, zl)
     parts = [(cq.Solid.makeTorus(A_M * M + 60, 60, V(0, 0, H.SAG * M), V(0, 0, 1)), "inflated rim toroid", COL["rim"])]
     if full:
-        skin, _ = cap_shell(RC * M, A_M * M, 2.0, 0.0)
-        parts.append((skin, "membrane primary: the exact hashemi.ini sphere, a 2.1 m, R 8 m, f 4 m, no hole, no slot", COL["skin"]))
+        skin, _ = cap_shell(RC * M, A_M * M, R_HOLE * M, 0.0)
+        parts.append((skin, "membrane primary: the hashemi.ini sphere as the env traces it, a 2.1 m, R 8 m (env target 8.1), r_hole 0.5 m for the bore, no slot below el 54", COL["skin"]))
     for shp, name, col in parts: sc.add(shp.transformShape(Mx), name + tag, col, tol=(9.0 if "membrane" in name else 4.0))
     return xl, yl
 N_TIPS, R_TIPS, N_PRI, N_SEC = 60, 2.05, 6, 2
@@ -66,7 +71,7 @@ def crown_points(P, n):
         zb = RC - np.sqrt(RC*RC - r*r)                                     # the sphere's sag at radius r (the membrane's back, concave toward +n)
         return P + (r*np.cos(a))*xl + (r*np.sin(a))*yl + (zb - depth)*n
     k = np.arange(N_TIPS); r = R_TIPS*np.sqrt((k + 0.5)/N_TIPS); a = k*np.radians(137.508)
-    tips = [on_back(r[i], a[i], 0.06) for i in range(N_TIPS)]
+    tips = [on_back(r[i], a[i], 0.06) for i in range(N_TIPS)]   # (the branching-tree crown keeps all tips; the hole is drawn in the membrane)
     sec = {}
     for j in range(N_PRI):
         ac = 2*np.pi*(j + 0.5)/N_PRI
@@ -105,6 +110,56 @@ def scene(name, poses, full_idx=None, beta=0.0):
         if full: add_strip(sc, n, tag); add_beam(sc, P, n, s, tag)
         print(f"  {name}: {doy} d {hour:.0f} h el {np.degrees(el):.0f} az {np.degrees(Az):.0f}: hub {np.round(P - [0, 0, Z_DECK], 2)} m over the deck, axis el {np.degrees(np.arcsin(n[2])):.0f}, primaries {min(s_[0] for s_ in stats):.2f}-{max(s_[0] for s_ in stats):.2f} m, lowest rim {P[2] - Z_DECK - A_M*np.sqrt(1 - n[2]**2):.2f} m")
     sc.write(os.path.join(OUT, name + ".json")); return allstats
+
+# ---- the wind-sized crown (wind_size.py): receptacle ring r 1.0 at the stem top, six steel legs 75 x 4.7 mm (extensible struts: the actuation),
+#      back ring r 1.5 and inner ring r 0.7 with six spokes (40 mm), twigs 18 mm to the sixty tips; stem 215 x 9 mm steel; receptacle r 1.5, legs 85 x 5.3 (the design row of wind_size.txt)
+R_REC, R_LEG, R_STEM_W = 1.5, 0.0425, 0.1075
+BASE_ANG = np.radians([-15, 15, 105, 135, 225, 255]); PLAT_ANG = np.radians([315, 45, 75, 165, 195, 285])
+def add_stem_w(sc, T0):
+    foot = np.array([T0[0], T0[1], Z_DECK])
+    sc.add(cyl(R_STEM_W * M, foot * M, T0 * M).cut(cyl((R_STEM_W - 0.009) * M, (foot - [0, 0, 0.01]) * M, (T0 + [0, 0, 0.01]) * M)), "stem: steel CHS 215 x 9 mm, 1.0 m (root 34 kN m at the 15 m/s peak or the stowed gust; 2 mrad, 2 cm at F)", COL["stem"], tol=3.0)
+    sc.add(cq.Solid.makeTorus(R_REC * M, 45, V(*(T0 * M)), V(0, 0, 1)), "receptacle: ring r 1.5 m at the stem top, the six legs' base joints (wind_size.py: r 1.5 halves the leg forces of r 1.0)", COL["stem"], tol=3.0)
+    sc.add(cq.Workplane("XY").polygon(6, 2*R_REC*M*0.98).extrude(30).translate((T0[0]*M, T0[1]*M, T0[2]*M - 15)).val(), "receptacle web (six spokes to the stem)", COL["ring"], tol=4.0)
+def add_hexapod(sc, T0, P, n, tag=""):
+    xl, yl, zl = head_axes(n); up = np.array([0, 0, 1.0])
+    hx = P - T0; hx = hx - up*(hx@up); hx = hx/np.linalg.norm(hx) if np.linalg.norm(hx) > 1e-6 else np.array([1.0, 0, 0]); hy = np.cross(up, hx)
+    B = [T0 + R_REC*(np.cos(a)*hx + np.sin(a)*hy) for a in BASE_ANG]; Cp = P - D_BACK*n
+    Pp = [Cp + R_BACK*(np.cos(a)*xl + np.sin(a)*yl) for a in PLAT_ANG]
+    Ls = []
+    for j in range(6):
+        L = np.linalg.norm(Pp[j] - B[j]); Ls.append(L)
+        sc.add(cyl(R_LEG * M, B[j] * M, Pp[j] * M), f"leg {j + 1} of 6: steel CHS 85 x 5.3 mm, extensible strut (screw or hydraulic), {L:.2f} m; the hexapod that holds and moves the head" + tag, COL["branch"], tol=4.0)
+        sc.add(cq.Solid.makeSphere(0.07 * M, V(*(B[j] * M))), "base joint" + tag, COL["ring"], tol=6.0); sc.add(cq.Solid.makeSphere(0.07 * M, V(*(Pp[j] * M))), "platform joint" + tag, COL["ring"], tol=6.0)
+    Mx = frame_matrix(P * M, xl, yl, zl)
+    sc.add(cq.Solid.makeTorus(R_BACK * M, 40, V(0, 0, -D_BACK * M), V(0, 0, 1)).transformShape(Mx), "back ring r 1.5 m (the hexapod's platform), steel 80 x 5" + tag, COL["ring"], tol=3.0)
+    sc.add(cq.Solid.makeTorus(0.7 * M, 30, V(0, 0, -0.30 * M), V(0, 0, 1)).transformShape(Mx), "inner ring r 0.7 m" + tag, COL["ring"], tol=3.0)
+    for a in np.radians([0, 60, 120, 180, 240, 300]):
+        sc.add(cyl(20, (Cp + R_BACK*(np.cos(a)*xl + np.sin(a)*yl)) * M, (P - 0.30*n + 0.7*(np.cos(a)*xl + np.sin(a)*yl)) * M), "calyx spoke, aluminium 40 mm" + tag, COL["branch"], tol=6.0)
+    # twigs from the nearest ring point to each tip
+    k = np.arange(N_TIPS); r = R_TIPS*np.sqrt((k + 0.5)/N_TIPS); a = k*np.radians(137.508)
+    for i in range(N_TIPS):
+        if r[i] < R_HOLE + 0.05: continue
+        zb = RC - np.sqrt(RC*RC - r[i]*r[i]); T = P + (r[i]*np.cos(a[i]))*xl + (r[i]*np.sin(a[i]))*yl + (zb - 0.06)*n
+        if r[i] < 1.1: src = P - 0.30*n + 0.7*(np.cos(a[i])*xl + np.sin(a[i])*yl)
+        else: src = Cp + R_BACK*(np.cos(a[i])*xl + np.sin(a[i])*yl)
+        sc.add(cyl(9, src * M, T * M), f"twig, aluminium 18 mm, to tip {i + 1} of {N_TIPS}" + tag, COL["branch"], tol=8.0)
+        sc.add(cq.Solid.makeSphere(0.045 * M, V(*(T * M))), "tip pad under the membrane" + tag, COL["ring"], tol=6.0)
+    return Ls
+def scene_w(name, poses, full_idx=None):
+    """the wind-sized machine at the still-head schedule's poses (path.json)"""
+    PJ = json.load(open(os.path.join(OUT, "path.json"))); T0w = np.array(PJ["stem"]) + np.array([0, 0, Z_DECK])
+    sc = Scene(); add_ground(sc); add_stem_w(sc, T0w)
+    for j, (doy, hour) in enumerate(poses):
+        cands = [l for l in PJ["log"] if l.get("ok") and l["doy"] == doy and abs(l["hour"] - hour) < 0.01]
+        if not cands: print(f"  {name}: no reachable pose at {doy} d {hour} h"); continue
+        l = cands[0]; P = np.array(l["P"]) + np.array([0, 0, Z_DECK]); n = np.array(l["n"]); el, Az, s = sun(doy, hour)
+        tag = f" [{doy} d, {hour:.0f} h, el {np.degrees(el):.0f}, beta {l['beta']:.0f}]" if len(poses) > 1 else ""
+        full = (full_idx is None) or (j == full_idx)
+        add_head(sc, P, n, tag, full=full); Ls = add_hexapod(sc, T0w, P, n, tag)
+        if full: add_strip(sc, n, tag); add_beam(sc, P, n, s, tag)
+        print(f"  {name}: {doy} d {hour:.0f} h el {np.degrees(el):.0f}: hub {np.round(P - [0, 0, Z_DECK], 2)}, axis el {l['el_n']}, beta {l['beta']}, shadow {100*l['shadow']:.1f} %, legs {min(Ls):.2f}-{max(Ls):.2f} m")
+    sc.write(os.path.join(OUT, name + ".json"))
+
 if __name__ == "__main__":
     scene("tr_winter_noon", [(355, 12.0)])
     scene("tr_equinox_morning", [(80, 9.0)])
@@ -112,3 +167,7 @@ if __name__ == "__main__":
     scene("tr_summer_noon", [(172, 12.0)])
     st = scene("tr_sweep", [(80, 8.0), (80, 12.0), (80, 16.0), (355, 12.0), (172, 12.0)], full_idx=1)
     print(f"sweep: primary branch length {min(s_[0] for s_ in st):.2f}-{max(s_[0] for s_ in st):.2f} m")
+    if os.path.exists(os.path.join(OUT, "path.json")):
+        scene_w("tw_equinox_noon", [(80, 12.0)])
+        scene_w("tw_winter_noon", [(35, 12.0)])
+        scene_w("tw_sweep", [(80, 9.0), (80, 12.0), (80, 15.0), (35, 12.0), (170, 12.0)], full_idx=1)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Fifth pass, the flower proper: one stem, the crown of branches carrying the exact spherical membrane primary (a 2.1, R 8,
+"""Fifth pass, the flower proper (the env's head law, audit F2: the head rides the orbit sphere |P - F| = g with its axis the bisector of the sun and the line to F; beta = angle(s, ub) <= 36 deg, the env's validated off-retro): one stem, the crown of branches carrying the exact spherical membrane primary (a 2.1, R 8,
 f = g = 4 of hashemi.ini), F fixed on the light pipe. The sphere has no axis: for the sun direction s only its centre of
 curvature must sit at C = F + g s; the head's attitude about C is free (Hashemi's beta_dev). Per sun we choose the head axis n
 (hub P = C - R n) to keep the head still, its rim above the deck and under the rim cap, the pipe's shadow off the aperture and
@@ -12,11 +12,11 @@ OUT = os.path.join(HERE, "out"); os.makedirs(OUT, exist_ok=True)
 G, RC, A_M = 4.0, 8.0, 2.1                       # orbit radius = focal length, membrane radius of curvature, aperture radius
 Z_DECK_ENV = 5.0                                  # H_POT 1.0 + deck_h 4.0
 Z_F = 0.35 + np.hypot(G, A_M)                     # z_fold = deck + 0.35 + max(g sin el + a cos el): 4.87 m over the deck
-RIM_CAP = 7.6 - Z_DECK_ENV                        # beta_cap_z: the rim stays under env z 7.6 = 2.6 m over the deck
+RIM_CAP = 9.9                                     # beta_cap_z 7.6 is inert at beta_dev 0 (audit); the rim's ceiling is not enforced here
 R_PIPE, D_STRIP, R_STRIP = 0.7, 0.6, 0.6          # r_bore, d_strip, r_strip
 F = np.array([0.0, 0.0, Z_F]); Z = np.array([0, 0, 1.0])
 H_STEM, D_BACK, R_BACK = 1.0, 0.45, 1.5           # stem height; the back ring 0.45 m behind the vertex, r 1.5, where the branches hold the head
-REACH = (1.2, 3.2)                                # hub distance from the stem top: the branches' reach
+REACH = (1.0, 3.0)                                # hub distance from the receptacle: the hexapod's reach (legs 1.5-3.5 m)
 RIM_CLEAR = 0.3
 def suns(step_doy=15, step_h=0.5):
     out = []
@@ -47,18 +47,22 @@ def evaluate(P, n, s, S):
     below = rim[:, 2] < Z_F + 0.5; rp = np.min(np.hypot(rim[:, 0], rim[:, 1])[below]) if below.any() else 9.9
     beta = np.degrees(np.arccos(np.clip(n@s, -1, 1))); reach = np.linalg.norm(P - S)
     return dict(zmin=zmin, zmax=zmax, rp=rp, beta=beta, reach=reach, shadow=shadow_frac(P, n, s))
+BETA_MAX = 36.0
 def best_pose(s, S, w_beta=0.02, w_move=0.0, P_prev=None):
-    """grid over the head axis n; hub P = C - RC n; soft-constrained cost"""
-    C = F + G*s; els = np.radians(np.linspace(5, 89, 57)); azs = np.radians(np.linspace(-180, 180, 73))
+    """grid over the head's place on the orbit sphere: ub the unit vector from the head toward F; P = F - G ub, axis n = unit(s + ub); beta = angle(s, ub)"""
+    els = np.radians(np.linspace(-20, 89, 56)); azs = np.radians(np.linspace(-180, 180, 73))
     best = None
     for e in els:
         for a in azs:
-            n = np.array([np.cos(e)*np.cos(a), np.cos(e)*np.sin(a), np.sin(e)]); P = C - RC*n
+            ub = np.array([np.cos(e)*np.cos(a), np.cos(e)*np.sin(a), np.sin(e)])
+            beta = np.degrees(np.arccos(np.clip(ub@s, -1, 1)))
+            if beta > BETA_MAX: continue
+            P = F - G*ub; n = s + ub; n /= np.linalg.norm(n)
             if n@(P - S) < 0: continue                                              # the crown is behind the dish
             if not (REACH[0] <= np.linalg.norm(P - S) <= REACH[1]): continue
-            ev = evaluate(P, n, s, S)
+            ev = evaluate(P, n, s, S); ev["beta"] = beta
             if ev["zmin"] < RIM_CLEAR or ev["zmax"] > RIM_CAP or ev["rp"] < R_PIPE + 0.3: continue
-            cost = ev["shadow"] + w_beta*(ev["beta"]/10)**2 + (w_move*np.linalg.norm(P - P_prev) if P_prev is not None else 0.0)
+            cost = ev["shadow"] + w_beta*(beta/10)**2 + (w_move*np.linalg.norm(P - P_prev) if P_prev is not None else 0.0)
             if best is None or cost < best[0]: best = (cost, n, P, ev)
     return best
 if __name__ == "__main__":
@@ -66,7 +70,7 @@ if __name__ == "__main__":
     rows = []
     # the stem's place: search north of the pipe (x) on the pipe's meridian
     summary = []
-    for xs in (1.5, 2.0, 2.5, 3.0, 3.5):
+    for xs in (2.0, 2.5, 3.0, 3.5, 4.0):
         S = np.array([xs, 0.0, H_STEM]); res = []; fails = 0
         for doy, hour, el, Az, s in SS[::2]:
             b = best_pose(s, S)
@@ -88,7 +92,7 @@ if __name__ == "__main__":
                         zmin=round(ev["zmin"], 2), zmax=round(ev["zmax"], 2), reach=round(ev["reach"], 2), el_n=round(float(np.degrees(np.arcsin(n[2]))), 1)))
     good = [l for l in log if l["ok"]]
     Ps = np.array([l["P"] for l in good]); betas = np.array([l["beta"] for l in good]); sh = np.array([l["shadow"] for l in good])
-    lines = [f"fifth pass, one stem: F at {Z_F:.2f} m over the deck on the light pipe (r {R_PIPE}); the stem {xs} m north of it, top at {H_STEM} m; rim between {RIM_CLEAR} and {RIM_CAP} m over the deck (beta_cap_z 7.6); branches reach {REACH[0]}-{REACH[1]} m from the stem top",
+    lines = [f"fifth pass, one stem, the env's head law (orbit sphere |P - F| = {G}, axis the bisector, beta <= {BETA_MAX} deg): F at {Z_F:.2f} m over the deck; the receptacle {xs} m north of it at {H_STEM} m; rim at least {RIM_CLEAR} m over the deck; the hub within {REACH[0]}-{REACH[1]} m of the receptacle (the hexapod's reach)",
              f"sun samples {len(log)}, reachable {len(good)}; head axis elevation {min(l['el_n'] for l in good):.0f}-{max(l['el_n'] for l in good):.0f} deg; off-retro beta mean {betas.mean():.1f} deg, max {betas.max():.1f}",
              f"hub travel: x {Ps[:,0].min():.2f}..{Ps[:,0].max():.2f} m, y +-{np.abs(Ps[:,1]).max():.2f} m, z {Ps[:,2].min():.2f}..{Ps[:,2].max():.2f} m over the deck; the whole path fits in a box {Ps[:,0].ptp():.2f} x {Ps[:,1].ptp():.2f} x {Ps[:,2].ptp():.2f} m",
              f"pipe + strip shadow on the aperture: mean {100*sh.mean():.1f} %, max {100*sh.max():.1f} % (retro would be about 31 %)",
