@@ -26,9 +26,9 @@ def draw(ax, k, lab=True):
         ph = "setup: pumping the six struts" if l["t"] < T_S else ("calibration dither (identification)" if l["t"] < T_S + T_C else "tracking the sun")
         ax.text2D(0.02, 0.96, f"t {l['t']:.1f} s  {ph}  sun {l['hour']:.1f} h  wind {l['wind']:.1f} m/s\nmiss at F {l['miss_cm']:.1f} cm (half power 4.9)  beta {l['beta']:.0f} deg  legs {min(l['legs_m']):.2f}-{max(l['legs_m']):.2f} m  |f| max {max(abs(f_) for f_ in l['f_leg_kN']):.1f} kN", transform=ax.transAxes, fontsize=9, va="top")
 fig = plt.figure(figsize=(5.6, 4.5), dpi=90); ax = fig.add_subplot(111, projection="3d"); frames = []
-for k in range(0, len(L), max(1, len(L)//100)):
+for k in range(0, len(L), max(1, len(L)//70)):
     draw(ax, k); fig.canvas.draw(); frames.append(np.asarray(fig.canvas.buffer_rgba())[:, :, :3].copy())
-imageio.mimsave(os.path.join(OUT, TAG + ".gif"), frames, duration=0.16, loop=0, palettesize=64); print("gif", len(frames), "frames", os.path.getsize(os.path.join(OUT, TAG + ".gif"))//1024, "KB")
+imageio.mimsave(os.path.join(OUT, TAG + ".gif"), frames, duration=0.16, loop=0, palettesize=48); print("gif", len(frames), "frames", os.path.getsize(os.path.join(OUT, TAG + ".gif"))//1024, "KB")
 fig2 = plt.figure(figsize=(14, 9)); ts = [l["t"] for l in L]
 picks = [0, next(i for i, l in enumerate(L) if l["t"] >= 0.5*T_S), next(i for i, l in enumerate(L) if l["t"] >= T_S), next(i for i, l in enumerate(L) if l["t"] >= T_S + T_C), next(i for i, l in enumerate(L) if l["t"] >= T_S + T_C + 0.5*A["t_day"]), len(L) - 1]
 for j, k in enumerate(picks):

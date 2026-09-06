@@ -1,0 +1,4 @@
+flower (Cosserat rods, PyElastica), flower_w9: wind 9.0 m/s mean from the S, von Karman Iu 0.25; sun 9.0-15.0 h in 24.0 s; setup 12.0 s, calibration 8.0 s; dt 1e-05, 8 rods, 2 rigid bodies; wall 3766 s
+setup: miss at F at the end 1.5 cm; receptacle off its command 0.6 cm
+calibration: miss at F mean 2.2 cm; DMDc one-step test RMS dP [0.13 0.1  0.08] mm, dtheta [0.04 0.05 0.05] mrad vs persistence [0.18 0.18 0.15] mm, [0.1  0.1  0.13] mrad
+the day (integral loop through the IDENTIFIED gain (skill 0.50, 50 % from the analytic Jacobian)): geometric miss at F mean 1.1 cm, max 2.4; membrane figure 1.0 cm mean; total 1.6 cm mean, 2.7 max (half power 4.9); receptacle off its command 0.3 cm mean, 0.8 max; stem tip 0.1 cm max; strut force max 9.2 kN; wind mean 9.2, peak 12.7 m/s, dish force max 0.80 kN
