@@ -5,15 +5,18 @@ matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 import imageio.v2 as imageio
 HERE = os.path.dirname(os.path.abspath(__file__)); OUT = os.path.join(HERE, "out")
-A = json.load(open(os.path.join(OUT, "setup_anim.json")))
+import sys
+TAG = sys.argv[1] if len(sys.argv) > 1 else "setup"
+A = json.load(open(os.path.join(OUT, TAG + "_anim.json")))
 Q = np.frombuffer(zlib.decompress(base64.b64decode(A["blob"])), dtype=np.int16).reshape(A["n_frames"], A["n_particles"], 3)*A["scale"]
 tris = np.array(A["tris"]).reshape(-1, 3); log = A["log"]; T = A["t_setup"]
 def phase(l):
     t = l["t"]
-    return "stowed, tubes pressurised" if t < 0.08*T else "posts grow to F's height" if t < 0.42*T else "arms and counterweight tubes grow" if t < 0.66*T else "water into the counterweights" if t < 0.74*T else "cradle turns to the morning sun" if t < T else "tracking the sun"
+    stalk = "sec" in A
+    return "stowed, tubes pressurised" if t < 0.08*T else ("stalk grows to the neck's height" if stalk else "posts grow to F's height") if t < 0.42*T else "counterweight tubes grow" if t < 0.66*T else "water into the counterweights" if t < 0.74*T else "head turns to the morning sun" if t < T else "tracking the sun"
 def draw(ax, fr, small=False):
     q = Q[fr]; l = log[fr]
-    ax.cla(); ax.set_xlim(-6, 8); ax.set_ylim(-7, 7); ax.set_zlim(0, 12); ax.set_box_aspect((14, 14, 12))
+    ax.cla(); ax.set_xlim(-6, 8); ax.set_ylim(-7, 7); ax.set_zlim(0, 9); ax.set_box_aspect((14, 14, 9))
     xx, yy = np.meshgrid([-5, 8], [-7, 7]); ax.plot_surface(xx, yy, 0*xx, color="#eef2f6", alpha=0.6, zorder=0)
     if A.get("rail"): th = np.linspace(0, 2*np.pi, 80); ax.plot(A["rail"]["c"][0] + A["rail"]["r"]*np.cos(th), A["rail"]["c"][1] + A["rail"]["r"]*np.sin(th), 0.05 + 0*th, color="#9aa5b1", lw=1.5)
     ax.add_collection3d(Poly3DCollection(q[tris], facecolor="#7fb3e6", edgecolor="#1f3a5f", linewidths=0.1, alpha=0.85))
@@ -30,8 +33,8 @@ fig = plt.figure(figsize=(7.2, 5.6), dpi=90); ax = fig.add_subplot(111, projecti
 step = max(1, int(round(0.5/A["dt"])))
 for fr in range(0, A["n_frames"], step):
     draw(ax, fr); fig.canvas.draw(); frames.append(np.asarray(fig.canvas.buffer_rgba())[:, :, :3].copy())
-imageio.mimsave(os.path.join(OUT, "setup.gif"), frames, duration=0.12, loop=0); print("gif", len(frames), "frames", os.path.getsize(os.path.join(OUT, "setup.gif"))//1024, "KB")
+imageio.mimsave(os.path.join(OUT, TAG + ".gif"), frames, duration=0.12, loop=0); print("gif", len(frames), "frames", os.path.getsize(os.path.join(OUT, TAG + ".gif"))//1024, "KB")
 fig2 = plt.figure(figsize=(14, 9), dpi=100); picks = np.linspace(0, A["n_frames"] - 1, 6).astype(int)
 for k, fr in enumerate(picks): draw(fig2.add_subplot(2, 3, k + 1, projection="3d"), fr, small=True)
-fig2.suptitle("The inflatable fork sets itself up and tracks: Warp XPBD membranes with volume constraints, growth, water, pneumatic muscles; equinox 8-16 h compressed", fontsize=11)
-fig2.tight_layout(); fig2.savefig(os.path.join(OUT, "setup_sheet.png")); print("sheet written")
+fig2.suptitle(("Everything behind the dish sets itself up and tracks: inflatable stalk, hollow neck, water counterweights, jack, fine stage" if "sec" in A else "The inflatable fork sets itself up and tracks") + "; equinox 8-16 h compressed", fontsize=11)
+fig2.tight_layout(); fig2.savefig(os.path.join(OUT, TAG + "_sheet.png")); print("sheet written")

@@ -31,7 +31,8 @@ flexure trunnions on the axis through F, the deck ring turns the azimuth; the he
 pointing at the sun and follows it. `setup_sim.py` (simulation), `inflated_beam.py` (Coad's buckling and crushing
 forces, McFarland's collapse moment), `koopman_fit.py` (pykoopman model of the tracking), `render_gif.py`,
 `memo.md` (including why the second pass's single stem cannot give the head both its place and its attitude);
-sheet 45 on the register.
+`setup_sim4.py` is the same simulation on the fourth-pass geometry (one stalk, hollow neck, counterweight hoses)
+and is the published sheet 45.
 
 ## Earlier: the pneumatic mount
 

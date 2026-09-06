@@ -86,6 +86,53 @@ already searched for its jack was put back.
   1.5 kN m, the arms 1.8 / 3.6 under half the head at el 12, the counterweight tube 1.0 / 2.1 with the water at
   its tip; at the design's 80 kPa each doubles. Water in the tube walls halves the counterweight moment.
 
+## The simulation on the fourth-pass geometry (`setup_sim4.py`)
+
+The published run is now the machine of `../coude/`: one inflatable stalk r 0.5 m at the azimuth axis, grown from a
+0.5 m stub to the yoke's height (the neck at env z 6.94); the yoke body on its cap with M4, the two hinge points
+of the hollow pivot on the neck axis and the jack's anchor; the head body (neck bar, M3, crank, back frame, rod
+posts, column feet) hinged on those two points; the dish body (back ring, vertex, rim, the secondary on its style)
+on the fine stage; two counterweight hoses r 0.35 m, one 1.2 m behind the neck on the head and one 2.0 m beyond the
+stalk on the yoke, grown from stubs and pumped full (the water masses come from the built moment balance about
+the neck and about the stalk, printed at the start; the first draft's 136 kg beyond the stalk balanced the head
+without its own neck counterweight and left 3.7 kN m on the stalk); the jack from the yoke's arm
+to a 0.8 m crank on the neck bar, force-capped at 15 kN; the stalk's base ring turned kinematically for the
+azimuth. Stow: stalk short, head face-up over the neck, hoses empty. Sequence: the stalk grows (t 3-17 s of 40),
+the hoses grow (17-26 s) and fill (24-30 s), the jack turns the head from el 90 to the morning sun (30-39 s),
+then the day with the coarse loops on the sun and the fine stage closed once the frame is within 3 degrees. The
+water columns' cap is 50 kN (a 5 kN cap let the dish slip 8 degrees on its columns in the start-up swing). The
+third-pass fork version (`setup_sim.py`, `out/setup_anim.json`) is kept as the record.
+
+Two things the first fourth-pass runs taught. The stalk's volume target was keyed to the third pass's tube name
+("post"), so it stayed at the full-length volume while the stalk was short (a balloon, 1.4 MPa on the hoop
+readout) and then fell below the grown length once the height feedback pushed the growth past 1.0: an
+under-filled tube has no pre-tension, and a pinned-base sock carrying 3.7 kN m simply leaned 0.3 m and took the
+head with it; the jack then turned the head against a yoke that turned the other way, and the pointing had no
+relation to the command. The volume constraint is the pressure: it must follow the grown length exactly, and a
+tube's stiffness in this solver is worth nothing without its over-volume. Then two more: the jack's command must be
+a fixed function of the elevation from the yoke's own geometry, not recomputed from the anchor's current position
+(that recomputation fed the stalk's bending back into the command and pitched the yoke 5 degrees); and the crank's
+lean had the wrong sign against `geometry.crank_dir`, which put the jack's dead centre at el 34 so that below it the
+head sat on the other branch (el 54 when 14 was asked). With the design's crank (20 deg from -n toward the dish),
+the anchor 0.6 m down-sun and 1.2 m below the neck on the yoke and a stiff (1 MN/m, 15 kN) screw jack, the head
+follows the command. Last, two bookkeeping errors that read as physics: the run's log judged each frame's end state
+against the sun of the frame's start, and in a day compressed to 40 s the sun moves 0.08 degrees per frame, so the
+loops (which correctly drive the state at the start of a frame onto that frame's sun) were reported 0.1 degrees off
+all day, dish and frame alike; the log now uses the sun of the instant it judges. And the focus term drove the piston
+the wrong way (longer columns push the dish forward, so a vertex too far needs shorter ones), which parked the piston
+at its +7 mm stop.
+
+The published run (`out/setup4_anim.json`, `out/setup4_log.json`, sheet 45): the stalk reaches the neck height at
+t 14 s and holds it (g 1.01, hoop readout 182 kPa); 260 kg and 409 kg of water go into the hoses; the head arrives
+0.3 degrees from the morning sun with the vertex 1 cm from its place at t 40 s; over the compressed day the frame
+holds 0.04 degrees on average (0.5 at the very start), the dish on the fine stage 0.014 degrees (0.004 after the
+first sixth of the day, i.e. the loop's resolution in single precision, not the stage's), the vertex within 2 cm, the
+jack 0.3 kN at the end and 15 kN (its cap) only in the turn. The Koopman fit on this run (`out/koopman4.txt`): DMDc
+one-step 2.2 cm / 0.12 degrees, 12 s roll-out 35 cm / 0.5 degrees; the quadratic lift again overfits. Second, the counterweight beyond the
+stalk in the first draft (136 kg) balanced the head alone; the head's own neck counterweight also sits 1.4 m from
+the stalk, so the yoke's counterweight must carry both (267 kg at 1.6 m in the design; in the simulation the two
+hose masses are computed from the built moment balance and printed at the start).
+
 ## To microradians: the fine stage in the loop
 
 The fork lands the dish inside the fine stage's range; the fine stage does the pointing. In the simulation the

@@ -8,7 +8,9 @@ import os, json, numpy as np, pykoopman as pk
 from pykoopman.regression import DMDc, EDMDc
 from pykoopman.observables import Polynomial, Identity
 HERE = os.path.dirname(os.path.abspath(__file__)); OUT = os.path.join(HERE, "out")
-A = json.load(open(os.path.join(OUT, "setup_anim.json"))); L = [l for l in A["log"] if l["t"] >= A["t_setup"]]
+import sys
+TAG = sys.argv[1] if len(sys.argv) > 1 else "setup"
+A = json.load(open(os.path.join(OUT, TAG + "_anim.json"))); L = [l for l in A["log"] if l["t"] >= A["t_setup"]]
 X = np.array([l["vtx"] + [l["z_axis"], l["point"]] for l in L]); U = np.array([[np.radians(l["el_t"]), l["hour"]] for l in L])
 dt = A["dt"]; n = len(X); n_tr = int(0.7*n)
 def rollout(model, x0, U):
@@ -28,4 +30,4 @@ for name, obs in (("DMDc (identity)", Identity()), ("EDMDc (poly deg 2)", Polyno
     tail = f"{m_*dt:.0f} s roll-out RMS vertex {np.linalg.norm(er[:3])*100:.1f} cm, pointing {er[4]:.2f} deg" + ("" if m_ == n - n_tr else f" (diverged after {m_*dt:.0f} s)")
     out.append(f"{name}: train {n_tr} steps, test {n - n_tr}; one-step RMS error vertex {np.linalg.norm(e1[:3])*100:.1f} cm, axis {e1[3]*100:.1f} cm, pointing {e1[4]:.2f} deg; " + tail)
 out.append(f"state: vertex xyz, axis height, pointing error; inputs: elevation command, sun hour (azimuth); dt {dt:.2f} s; data from the tracking phase of the simulation")
-print("\n".join(out)); open(os.path.join(OUT, "koopman.txt"), "w").write("\n".join(out))
+print("\n".join(out)); open(os.path.join(OUT, TAG.replace("setup", "koopman") + ".txt"), "w").write("\n".join(out))

@@ -45,9 +45,12 @@ FACT unchanged in kind, moved behind the membrane:
   F2 is fixed at every hour. Not a flexure and not called one.
 - Head: dish, style, secondary and M3 as one optical unit on the diaphragm fine stage (three tangential blades,
   three water columns, 3 DOF Type 1, `../fact_mount/synth.py`), on a short frame from the neck bar. Counterweights
-  of water: 151 kg 1.6 m behind the neck (about the elevation axis) and 136 kg 1.6 m beyond the stalk on the yoke
-  (about the azimuth axis), both in the dish's shadow. A screw jack from the yoke to a 0.8 m crank on the neck bar:
-  2.0 kN at 9 m/s, 15 at 25.
+  of water: 151 kg 1.6 m behind the neck (about the elevation axis) and 267 kg 1.6 m beyond the stalk on the yoke
+  (the head and its own counterweight both sit 1.4 m from the stalk; an earlier draft balanced the head alone, 136 kg)
+  (about the azimuth axis), both in the dish's shadow. A screw jack from the yoke (0.8 m from the neck along the
+  axis, 0.6 m down-sun, 1.2 m below it) to a 0.8 m crank on the neck bar 20 deg from -n toward the dish: 1.40-2.11 m
+  over el 12-83 (stroke 0.71 m, a single-stage screw), moment arm at least 0.39 m, so 4.0 kN at 9 m/s and 31 at 25.
+  The crank's angle matters: leaning the crank the other way puts the jack's dead centre at el 34, inside the range.
 - Stalk: a 1.0 m tube from the deck to the yoke with the beam inside; neck at env z 6.94 so that F3 = F2; at el 12
   the lowest rim point is 0.2 m over the deck. The head sweeps 7.9 m about the neck; the roof is a circle of about
   8.5 m about the stalk, and with no F to keep the whole machine scales with the dish.

@@ -25,3 +25,25 @@ is in Hopkins's papers and our port `../fact/fact_core.py` /
 - `vine_simulator_icra.pdf` and `Vine_Simulator/` (git clone of charm-lab/Vine_Simulator, Julia): Jitosho, Agharese, Okamura, Manchester, a rigid-link dynamics simulator for vine robots with growth as a rate constraint.
 - `bruder_2019_koopman_mpc_soft_robots.pdf`: Bruder, Gillespie, Remy, Vasudevan, *Modeling and control of soft robots using the Koopman operator and model predictive control*, RSS 2019 (arXiv 1902.02827). Software: `pykoopman` (installed in `.venv-sim`), `pyelastica` (installed, unused so far).
 - The simulation venv is `.venv-sim/` (uv; warp-lang 1.8.1 for warp.sim's ModelBuilder API and the kernels, pykoopman, pyelastica, numpy, scipy, imageio, matplotlib). Not tracked.
+
+## Vine_Simulator run (2026-09-06)
+
+Julia comes from nix (`nix shell nixpkgs#julia-bin --command julia ...`, 1.12.7); the repository's Manifest does
+not resolve on 1.12, so `vine_env/` is a fresh project with the same packages (StaticArrays, ForwardDiff, JuMP,
+OSQP, GeometryBasics, Rotations, CoordinateTransformations). `vine_check.jl` runs their `vine.jl` headless (the
+model is a `global vine`, as in their `runtime_example.jl`): a vine of N planar rigid links with fitted torsion
+springs, growth as a rate constraint in a JuMP/OSQP QP, contact with a circular obstacle, no gravity. Timings on
+this laptop (`vine_check.log`), 400 growth steps into an obstacle at (470, 25) mm of radius 60:
+
+| links | bodies | ms/step | tip after 400 steps (mm) |
+|---|---|---|---|
+| 10 | 20 | 37 (compile) | 546, -58 |
+| 15 | 30 | 6.5 | 549, -58 |
+| 20 | 40 | 8.3 | 551, -59 |
+| 30 | 60 | 10 | 553, -60 |
+| 50 | 100 | 16 | 555, -56 |
+
+What it gives us: a fast planar check of growth-into-contact with the growth-rate constraint that our Warp solver
+implements as rate-limited rest lengths. What it does not: gravity, three dimensions, pressure-dependent stiffness
+(their springs are fitted per robot) and closed-tube volume, which are what set our stalk's height and lean; so the
+Warp model stays the record and the vine simulator is a cross-check of the growth kinematics only.

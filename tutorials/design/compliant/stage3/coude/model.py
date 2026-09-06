@@ -60,7 +60,7 @@ def add_machine(sc, doy, hour, tag="", full=True):
     sc.add(box(600, 600, 500, Q + [0, 0, 0], (0, 0, 1), np.degrees(A)).cut(cq.Solid.makeCylinder(0.35 * M, 700, V(*(Q - 0.35 * M * e)), V(*e))).cut(cq.Solid.makeCylinder(0.35 * M, 700, V(*(Q - [0, 0, 350])), V(0, 0, 1))), "yoke housing at the stalk top: M4 inside, open along the neck axis and down the stalk" + tag, COL["post"], tol=3.0)
     sc.add(cyl(60, Q + 0.30 * M * e, Q + (PIV_C - 0.25) * M * e), "yoke arm to the pivot's ground ring" + tag, COL["post"], tol=3.0)
     sc.add(cyl(60, Q - 0.30 * M * e, Q - 1.6 * M * e), "yoke arm to the counterweight beyond the stalk" + tag, COL["post"], tol=3.0)
-    sc.add(cq.Solid.makeSphere(0.32 * M, V(*(Q - 1.6 * M * e))), "water counterweight 135 kg beyond the stalk (about the azimuth axis)" + tag, COL["water"], tol=3.0)
+    sc.add(cq.Solid.makeSphere(0.40 * M, V(*(Q - 1.6 * M * e))), "water counterweight 267 kg beyond the stalk (about the azimuth axis: head and neck counterweight at 1.4 m)" + tag, COL["water"], tol=3.0)
     # M4: elliptical fold at 45 deg between -e (incoming) and -z (outgoing)
     n4 = Z - e; n4 /= np.linalg.norm(n4)
     sc.add(disc(O["r_m4"] * M, Q, n4, 12), "M4 ellipsoid on the yoke: neck axis -> down the stalk, image to F2" + tag, COL["mirror2"], tol=2.0)
@@ -73,11 +73,11 @@ def add_machine(sc, doy, hour, tag="", full=True):
     for a in (60, 180, 300):
         ar = np.radians(a); sc.add(cyl(35, Vx - GM.D_FRAME * M * s, Vx - GM.D_FRAME * M * s + GM.R_FRAME * M * (np.cos(ar) * xl + np.sin(ar) * yl)), "back frame spoke" + tag, COL["frame"], tol=3.0)
     sc.add(cyl(60, N, N - 1.6 * M * s), "counterweight arm behind the neck" + tag, COL["frame"], tol=3.0)
-    sc.add(cq.Solid.makeSphere(0.32 * M, V(*(N - 1.6 * M * s))), "water counterweight 140 kg behind the neck (about the elevation axis), in the dish's shadow" + tag, COL["water"], tol=3.0)
+    sc.add(cq.Solid.makeSphere(0.32 * M, V(*(N - 1.6 * M * s))), "water counterweight 151 kg behind the neck (about the elevation axis), in the dish's shadow" + tag, COL["water"], tol=3.0)
     # jack from the yoke to a crank on the neck bar
-    crank = N + 0.0 * e - 0.8 * M * (np.cos(np.radians(20)) * n - np.sin(np.radians(20)) * s)
-    sc.add(cyl(40, N, crank), "crank 0.8 m on the neck bar" + tag, COL["frame"], tol=3.0)
-    sc.add(cyl(45, Q + 0.6 * M * e - [0, 0, 1.2 * M] + 0.3 * M * h, crank), "screw jack from the yoke to the crank: elevation, self-locking" + tag, COL["jack"], tol=3.0)
+    crank = N + 0.0 * e - 0.8 * M * (np.cos(np.radians(20)) * n - np.sin(np.radians(20)) * s)   # 20 deg from -n toward the dish: no dead centre in el 12-90
+    sc.add(cyl(40, N, crank), "crank 0.8 m on the neck bar, 20 deg from -n toward the dish" + tag, COL["frame"], tol=3.0)
+    sc.add(cyl(45, Q + 0.6 * M * e - [0, 0, 1.2 * M] - 0.6 * M * h, crank), "screw jack from the yoke (0.6 m down-sun, 1.2 m below the neck) to the crank: 1.40-2.15 m, elevation, self-locking" + tag, COL["jack"], tol=3.0)
     # rings and fine stage (from the fact_mount model), dish, style, secondary
     sc.add(c_ring(Vx - GM.D_FRAME * M * zl, xl, yl, zl, GM.R_FRAME * M, 40, 0.0), "back frame ring r 1.75 m" + tag, COL["frame"], tol=2.5)
     sc.add(c_ring(Vx - GM.D_RING * M * zl, xl, yl, zl, GM.R_RING * M, 40, 0.0), "dish back ring r 1.46 m (fine stage, moving side)" + tag, COL["rim"], tol=2.5)

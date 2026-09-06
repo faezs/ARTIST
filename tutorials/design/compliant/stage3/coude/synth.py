@@ -34,7 +34,15 @@ for lab, D in (("9 m/s", D9), ("25 m/s", D25)):
     F_ring = M_v/(2*R_OUT); per = F_ring/2           # two blades in the loaded plane per stage
     log(f"{lab}: moment about the vertical through the pivot {M_v/1e3:.1f} kN m (head weight at {OFF} m + drag {D:.0f} N) -> {F_ring/1e3:.1f} kN at the rings, {per/1e3:.2f} kN per blade in plane: SF {Pcr/per:.1f}")
 tau9, tau25 = D9*(O["NECK"] + 0.3), D25*(O["NECK"] + 0.3)
-log(f"elevation torque about the neck (balanced head): wind {tau9/1e3:.1f} kN m at 9 m/s, {tau25/1e3:.1f} at 25; jack on a 0.8 m crank behind the neck: {tau9/0.8/1e3:.1f} / {tau25/0.8/1e3:.1f} kN")
-log(f"counterweights: {m_head*OFF/1.6:.0f} kg of water 1.6 m beyond the stalk on the yoke (about the azimuth axis), {(60*1.8 + 25*3.4 + 40*1.2)/1.6:.0f} kg 1.6 m behind the neck on the head (about the elevation axis); both in the dish's shadow")
+# the jack's moment arm over the range: anchor 1.2 m below and 0.3 m up-sun of the neck (in the yoke), crank 0.8 m at psi from -n toward the dish axis
+# the jack: anchor on the yoke 0.8 m from the neck along the axis, 0.6 m down-sun and 1.2 m below it; crank 0.8 m at 20 deg from -n toward the dish
+def jack_geom(el_deg, psi_deg=20.0, ja=(-0.6, -1.2), off=0.8):
+    el = np.radians(el_deg); ck = 0.8*np.array([np.cos(el - np.pi/2 + np.radians(psi_deg)), np.sin(el - np.pi/2 + np.radians(psi_deg))]); ja = np.array(ja)
+    d = ck - ja; Lp = np.linalg.norm(d); L = np.hypot(Lp, off); d /= Lp
+    return L, abs(ck[0]*d[1] - ck[1]*d[0])*Lp/L                 # length, and the arm about the neck axis times the planar share of the force
+Ls = [jack_geom(el)[0] for el in range(12, 84)]; arm_min = min(jack_geom(el)[1] for el in range(12, 84))
+log(f"elevation torque about the neck (balanced head): wind {tau9/1e3:.1f} kN m at 9 m/s, {tau25/1e3:.1f} at 25; screw jack from the yoke to the 0.8 m crank: length {min(Ls):.2f}-{max(Ls):.2f} m over el 12-83 (stroke {max(Ls) - min(Ls):.2f} m, a single-stage screw fits), arm at least {arm_min:.2f} m -> {tau9/arm_min/1e3:.1f} / {tau25/arm_min/1e3:.1f} kN")
+m_cw1 = (60*1.8 + 25*3.4 + 40*1.2)/1.6                                          # balances the head about the neck
+log(f"counterweights: {m_cw1:.0f} kg of water 1.6 m behind the neck on the head (about the elevation axis); {(m_head + m_cw1)*OFF/1.6:.0f} kg 1.6 m beyond the stalk on the yoke (about the azimuth axis: the head and its own counterweight both sit {OFF} m from the stalk); both in the dish's shadow")
 log("what is compliant: the hollow cartwheel pivot (exact 1R, hollow), the fine stage (exact 3 DOF Type 1), the struts' flexure necks. Not: the slew ring, the stalk, the jack, M3 and M4's mounts.")
 open(os.path.join(HERE, "out", "synth.txt"), "w").write("\n".join(LOG))
