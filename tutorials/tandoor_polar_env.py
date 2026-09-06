@@ -320,6 +320,30 @@ class TandoorPolarEnv(TandoorEnv):
         nominal value for envs without a design table."""
         return getattr(self, name, default)
 
+    # ---- THE CUSTOMERS (numpy twin of the kernel's demand process)
+    @staticmethod
+    def demand_rate(t, dem_day):
+        """customers per hour: three bands (breakfast / lunch / dinner)."""
+        t = np.asarray(t, dtype=np.float64); r = 0.0
+        for c, w, sh in ((7.5, 0.75, 0.25), (13.0, 1.0, 0.35), (19.5, 1.0, 0.40)):
+            z = (t - c) / w; r = r + sh / (w * 2.5066283) * np.exp(-0.5 * z * z)
+        return dem_day * r
+
+    def _demand_step(self, cooked_n, u):
+        """orders/shelf/sold update for one step; u (4,B) uniforms; returns
+        (sold_n, stale_n)."""
+        B = self.num_agents; dt = self.dt
+        scale = np.asarray(self._ds("_ds_demand", np.ones(B)), dtype=np.float64)
+        lam_c = self.demand_rate(self.t_solar, self.demand_day * scale / 8.5) * dt / 3600.0
+        size = np.where(u[1] < 0.5, 3.0, np.where(u[1] < 0.9, 10.0, 30.0))
+        arr = np.where(u[0] < lam_c, size, 0.0)
+        ord_ = self.orders + arr; shelf = self.shelf + cooked_n
+        sale = np.minimum(ord_, shelf); ord_ = ord_ - sale; shelf = shelf - sale
+        stale = np.floor(shelf * dt / (self.shelf_life * 60.0) + u[2]); shelf = shelf - stale
+        leave = np.floor(ord_ * dt / (self.patience * 60.0) + u[3]); ord_ = ord_ - leave
+        self.orders, self.shelf = ord_, shelf; self.sold = self.sold + sale
+        return sale, stale
+
     # ---- THE SAND INSIDE THE TANDOOR: a sand column under the hearth and
     # the floor (depth and conductivity per agent, hashemi's _sand_*);
     # KSAND layers of >= 5 cm, the top fed by the surface node, the
@@ -533,6 +557,7 @@ class TandoorPolarEnv(TandoorEnv):
         super()._reset_state()
         NB_ = self.n_belt
         self.T_sand = np.repeat(self.T[:, NB_:NB_ + 2, None], self.KSAND, axis=2)
+        self.orders = np.zeros(self.num_agents); self.shelf = np.zeros(self.num_agents); self.sold = np.zeros(self.num_agents)
         B_ = self.num_agents
         self.spot_phi = np.full(B_, SPOT_PHI0)
         self.spot_z = np.full(B_, SPOT_Z0)
@@ -799,10 +824,13 @@ class TandoorPolarEnv(TandoorEnv):
         cooked = ready & pull_open[:, None]
         scorched = self.has_bread & (self.bread_C >= 1.0)
         # NO doughy timeout: cooked or charred only (rl_env twin)
-        rew += 5.0 * cooked.sum(1) - 5.0 * scorched.sum(1) \
-            - 0.5 * spall
-        self.ep_rotis += cooked.sum(1)
-        self.day_rotis += cooked.sum(1)
+        sold_n, stale_n = cooked.sum(1).astype(np.float64), 0.0
+        if getattr(self, "demand", 0):
+            sold_n, stale_n = self._demand_step(cooked.sum(1), self.rng.uniform(size=(4, B)))
+        rew += 5.0 * sold_n - 5.0 * scorched.sum(1) \
+            - 0.5 * spall - getattr(self, "stale_pen", 1.0) * stale_n
+        self.ep_rotis += sold_n
+        self.day_rotis += sold_n
         self.ep_scorch += scorched.sum(1)
         done_bread = cooked | scorched
         self.has_bread &= ~done_bread
@@ -913,7 +941,8 @@ class TandoorPolarEnv(TandoorEnv):
             if night:
                 self._night_cool_np(day_over)
             for i in np.nonzero(day_over)[0]:
-                self.t_solar[i] = 8.0
+                self.t_solar[i] = float(getattr(self, "day_start", 8.0))
+                self.orders[i] = self.shelf[i] = self.sold[i] = 0.0
                 if not night:
                     warm_i = self.rng.random() < self.warm_frac
                     if warm_i:

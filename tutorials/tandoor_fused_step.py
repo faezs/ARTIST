@@ -27,6 +27,8 @@ import numpy as np
 import torch
 
 KSAND = 8      # layers of the sand column under the hearth and the floor (kernel KSAND)
+NDEM = 3       # demand state per agent: orders waiting, shelf, sold today (kernel NDEM)
+RU = 20        # uniforms per agent per step (kernel RU)
 _SCAL = ("p_act", "p_set", "p_dist", "shutter", "jammed", "f_locked",
          "form_time", "decl_formed", "load_timer", "ep_rotis",
          "ep_scorch", "ep_spall", "ep_return", "ep_len", "el_m",
@@ -46,7 +48,7 @@ def _step_params(env):
     dt = float(env.dt)
     M = env._noz2["M"] if getattr(env, "_noz2", None) else (0.0,) * 3
     N = env.n_nodes
-    sp = np.zeros(66 + 7 * N, dtype=np.float32)
+    sp = np.zeros(71 + 7 * N, dtype=np.float32)
     sp[0:11] = [dt, env.p0, env.RATE_AZ, env.RATE_EL, RATE_SPOT_PHI,
                 RATE_SPOT_Z, SPOT_PHI_RANGE[0], SPOT_PHI_RANGE[1],
                 SPOT_Z_RANGE[0], SPOT_Z_RANGE[1],
@@ -81,7 +83,13 @@ def _step_params(env):
     for i, v in enumerate((env.node_area, env.node_heat_cap,
                            env.cap_sub, env.cap_deep, env.g01,
                            env.g12, env.g2s)):
-        sp[66 + i * N:66 + (i + 1) * N] = v
+        sp[71 + i * N:71 + (i + 1) * N] = v
+    # the demand process (kernel sp[66..70]); the node tables start at 71
+    sp[66] = float(getattr(env, "demand", 0))            # on/off
+    sp[67] = float(getattr(env, "demand_day", 500.0))    # base rotis/day (x the site's demand_scale, table col 56)
+    sp[68] = float(getattr(env, "shelf_life", 45.0))     # minutes a baked roti keeps
+    sp[69] = float(getattr(env, "patience", 15.0))       # minutes a customer waits
+    sp[70] = float(getattr(env, "stale_pen", 1.0))       # reward per stale roti
     return sp
 
 
@@ -99,10 +107,12 @@ class FusedState:
         N, NB = env.n_nodes, env.n_belt
         self.S0 = S0 = 3 * N + 1 + 4 * NB
         self.SB = SB = S0 + len(_SCAL)            # the sand columns (hearth, floor) x KSAND
-        self.NS = NS = SB + 2 * KSAND
+        self.SD = SD = SB + 2 * KSAND             # the demand state
+        self.NS = NS = SD + NDEM
         e = env
         st = np.zeros((B, NS), dtype=np.float32)
         st[:, SB:SB + 2 * KSAND] = np.asarray(e.T_sand, dtype=np.float64).reshape(B, 2 * KSAND)
+        st[:, SD + 0] = getattr(e, "orders", np.zeros(B)); st[:, SD + 1] = getattr(e, "shelf", np.zeros(B)); st[:, SD + 2] = getattr(e, "sold", np.zeros(B))
         st[:, 0:N] = e.T
         st[:, N:2 * N] = e.T_sub
         st[:, 2 * N:3 * N] = e.T_deep
@@ -136,6 +146,7 @@ class FusedState:
         self.T_deep = self.st[:, 2 * N:3 * N]
         self.T_halo = self.st[:, 3 * N]
         self.T_sand = self.st[:, SB:SB + 2 * KSAND].view(B, 2, KSAND)
+        self.orders = self.st[:, SD + 0]; self.shelf = self.st[:, SD + 1]; self.sold = self.st[:, SD + 2]
         self.bread_E = self.st[:, 3 * N + 1:3 * N + 1 + NB]
         self.bread_t = self.st[:, 3 * N + 1 + NB:3 * N + 1 + 2 * NB]
         self.bread_C = self.st[:, 3 * N + 1 + 2 * NB:
@@ -177,7 +188,7 @@ class FusedState:
                                   dtype=torch.int32, device=dev)
         self.zero_noise = False
         self._rn0 = z(B, 12)
-        self._ru5 = torch.full((B, 16), 0.5, device=dev)
+        self._ru5 = torch.full((B, RU), 0.5, device=dev)
         self._du0 = z(B, self.P)
         self._up5 = torch.full((B, self.P), 0.5, device=dev)
         # host mirrors the numpy wrapper / heuristics read
@@ -194,7 +205,7 @@ class FusedState:
         g, dev = self.env._gen, self.env.device
         B = self.env.num_agents
         return (torch.randn(B, 12, generator=g, device=dev),
-                torch.rand(B, 16, generator=g, device=dev))
+                torch.rand(B, RU, generator=g, device=dev))
 
     def n(self, *shape):
         if self.zero_noise:
@@ -305,7 +316,7 @@ def _day_over(env, F, infos):
         "episode_length": float(S.ep_len.mean()),
     })
     env.terminals[:] = True
-    env.t_solar[:] = 8.0
+    env.t_solar[:] = float(getattr(env, "day_start", 8.0))
     need_dawn = torch.zeros(B, dtype=torch.bool, device=dev)
     dawn_charge = torch.zeros(B, device=dev)
     if getattr(env, "night_carry", 0) and not getattr(env, "consecutive_days", 1):
@@ -340,7 +351,7 @@ def _day_over(env, F, infos):
     S.lat_v.copy_(torch.as_tensor(env.lat_v.astype(np.float32),
                                   device=dev))
     el1, az1r, _ = solar_batch(S.lat_v, S.day_v,
-                               torch.full_like(S.day_v, 8.0))
+                               torch.full_like(S.day_v, float(getattr(env, "day_start", 8.0))))
     az1d = torch.rad2deg(az1r)
     if getattr(env, "night_carry", False):
         # yesterday's pot through the night with the wall model (in
@@ -363,12 +374,12 @@ def _day_over(env, F, infos):
     for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                "ep_len", "bread_E", "bread_t", "bread_C",
                "form_time", "wind_g", "cloud", "p_dist",
-               "day_rotis"):
+               "day_rotis", "orders", "shelf", "sold"):
         getattr(S, nm).zero_()
     # the dawn routine's book: the minutes and the charge land in the new day
     S.form_time.copy_(need_dawn.float() * float(getattr(env, "form_min", 4)))
     S.ep_return.sub_(dawn_charge)
-    env._hr_mark = 8
+    env._hr_mark = int(getattr(env, "day_start", 8.0))
     env._hr_rotis = 0.0
     S.has_bread.zero_()
     S.p_set.fill_(env.p0)

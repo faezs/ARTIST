@@ -75,6 +75,8 @@ class GpuState:
         self.ds_s2 = g("_ds_s2", np.ones(B_))
         self.T_halo = f(e.T_halo)
         self.T_sand = f(getattr(e, "T_sand", np.repeat(np.asarray(e.T)[:, e.n_belt:e.n_belt + 2, None], 8, axis=2)))
+        self.orders = f(getattr(e, "orders", np.zeros(B_))); self.shelf = f(getattr(e, "shelf", np.zeros(B_))); self.sold = f(getattr(e, "sold", np.zeros(B_)))
+        self.ds_demand = g("_ds_demand", np.ones(B_))
         self.g_halo_out = float(e.g_halo_out)
         self.c_halo = float(e.c_halo)
         self.level_frac = f(e.level_frac)
@@ -302,10 +304,22 @@ def gpu_step(env, actions):
     cooked = ready & pull_open[:, None]
     scorched = S.has_bread & (S.bread_C >= 1.0)
     # NO doughy timeout: cooked or charred only (numpy twins)
-    rew = rew + 5.0*cooked.float().sum(1) - 5.0*scorched.float().sum(1) \
-        - 0.5*spall.float()
-    S.ep_rotis = S.ep_rotis + cooked.float().sum(1)
-    S.day_rotis = S.day_rotis + cooked.float().sum(1)
+    sold_n = cooked.float().sum(1); stale_n = torch.zeros_like(sold_n)
+    if getattr(env, "demand", 0):
+        # the customers (numpy twins): an arrival with an order of 3/10/30
+        ts_ = float(env.t_solar[0]); u = S.u(4, B)
+        lam_c = torch.as_tensor(env.demand_rate(ts_, 1.0), dtype=sold_n.dtype, device=dev) * (env.demand_day * S.ds_demand / 8.5) * dt / 3600.0
+        size = torch.where(u[1] < 0.5, torch.full_like(sold_n, 3.0), torch.where(u[1] < 0.9, torch.full_like(sold_n, 10.0), torch.full_like(sold_n, 30.0)))
+        arr = torch.where(u[0] < lam_c, size, torch.zeros_like(sold_n))
+        ord_ = S.orders + arr; shelf = S.shelf + sold_n
+        sale = torch.minimum(ord_, shelf); ord_ = ord_ - sale; shelf = shelf - sale
+        stale_n = torch.floor(shelf * dt / (env.shelf_life * 60.0) + u[2]); shelf = shelf - stale_n
+        leave = torch.floor(ord_ * dt / (env.patience * 60.0) + u[3]); ord_ = ord_ - leave
+        S.orders, S.shelf = ord_, shelf; S.sold = S.sold + sale; sold_n = sale
+    rew = rew + 5.0*sold_n - 5.0*scorched.float().sum(1) \
+        - 0.5*spall.float() - float(getattr(env, "stale_pen", 1.0)) * stale_n
+    S.ep_rotis = S.ep_rotis + sold_n
+    S.day_rotis = S.day_rotis + sold_n
     S.ep_scorch = S.ep_scorch + scorched.float().sum(1)
     done_b = cooked | scorched
     S.has_bread = S.has_bread & ~done_b

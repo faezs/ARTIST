@@ -1041,9 +1041,25 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # day; 20 = the evening, baked from the stored heat after sunset -
         # what the sand bed is for). The night is what is left of 24 h.
         self.day_end = float(kwargs.pop("day_end", 16.0))
-        if float(night_hours) == 16.0 and self.day_end != 16.0:
-            night_hours = 24.0 - (self.day_end - 8.0)
+        # day_start: the solar hour the day begins (8 = the old day; 6 with
+        # the demand process, so breakfast is in the day)
+        self.day_start = float(kwargs.pop("day_start", 8.0))
+        if float(night_hours) == 16.0 and (self.day_end != 16.0 or self.day_start != 8.0):
+            night_hours = 24.0 - (self.day_end - self.day_start)
             self.night_hours = float(night_hours)     # (the attribute was already set above)
+        # THE CUSTOMERS (user): a tandoor sells at breakfast, lunch and
+        # dinner. demand=1 samples customers each step from a three-band
+        # rate (7:30 / 13:00 / 19:30 solar, shares 25/35/40 %), each with
+        # an order of 3, 10 or 30 rotis (a few, a family, a lunch or
+        # dinner); orders wait `patience` minutes, baked rotis keep on the
+        # shelf `shelf_life` minutes; a roti counts (+5) only when it meets
+        # an order, a stale one costs stale_pen. The shop's size is the
+        # site's demand_scale (design table col 56) x demand_day rotis/day.
+        self.demand = int(kwargs.pop("demand", 0))
+        self.demand_day = float(kwargs.pop("demand_day", 500.0))
+        self.shelf_life = float(kwargs.pop("shelf_life", 45.0))
+        self.patience = float(kwargs.pop("patience", 15.0))
+        self.stale_pen = float(kwargs.pop("stale_pen", 1.0))
         # r_rail: the azimuth ring rail's radius on the roof (Hashemi fig
         # 18: the A-frames' rollers run on a fixed ring around the tower),
         # g_orbit + 0.6 m by default; it must sit ON the roof - it cannot
@@ -1061,6 +1077,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             with open(str(rt)) as fh:
                 self._roof_q = np.asarray(_json.load(fh), dtype=np.float64)
         self.N_EXTRA_OBS += 2                          # the sand columns (hearth, floor)
+        if self.demand:
+            self.N_EXTRA_OBS += 2                      # the queue and the shelf
         if self.design_rand:
             self.N_EXTRA_OBS += self.N_DESIGN
         # beta_cap_z: hard cap (meters) on the TOP OF THE DISH RIM.
@@ -1123,6 +1141,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if getattr(self, "load_ctrl", 0):
             cols.append(self.has_bread.astype(np.float64))
         cols.append(self._sand_obs())                 # the two sand columns' mean temperature
+        if self.demand:                                # the queue and the shelf
+            cols.append(np.stack([np.clip(self.orders / 10.0, 0, 3), np.clip(self.shelf / 10.0, 0, 3)], 1))
         if getattr(self, "design_rand", 0):
             cols.append(self._design_obs)
         return np.concatenate(cols, axis=1)
@@ -1858,8 +1878,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                ("cap_scale", 0.7, 1.5), ("lid_leak", 0.05, 0.40),
                ("bread_area", 0.08, 0.16), ("loaves_per_load", 4.0, 8.0),
                ("mount_post", 0.0, 1.0),
-               ("sand_depth", 0.0, 0.40), ("sand_k", 0.3, 3.0))
-    SITE_KEYS = ("roof_r", "cap_scale")      # drawn with the site, never chosen
+               ("sand_depth", 0.0, 0.40), ("sand_k", 0.3, 3.0),
+               ("demand_scale", 0.5, 2.0))
+    SITE_KEYS = ("roof_r", "cap_scale", "demand_scale")   # drawn with the site, never chosen
     #: THE SAND INSIDE THE TANDOOR (user): the hearth and floor sit on a
     #: sand bed of sand_depth [m] the beam charges directly and that
     #: gives the heat back to the cavity at night; sand_k [W/mK] is its
@@ -1869,13 +1890,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: the rest, an insulated bottom.
     SAND_RC = 1.28e6          # sand volumetric heat capacity [J/m3K]
     SAND_TOP = 0.08           # the sub layer's depth [m]
-    N_DESIGN = 9 + 11
+    N_DESIGN = 9 + 12
     FCT_W = 72
     #: system block layout in the design table (offset 40)
     DS = dict(s=40, s2=41, zfold=42, zdeck=43, rate=44, ins=45, cap=46,
               lid=47, bread=48, hb=49, roti=50, lfp=51, lpl=52, fnom=53,
-              amem=54, gorb=55, roof=57, post=58, rail=59,
-              sand_d=70, sand_k=71)     # the sand column: depth [m], conductivity [W/mK]
+              amem=54, gorb=55, demand=56, roof=57, post=58, rail=59,
+              sand_d=70, sand_k=71)     # the sand column: depth [m], conductivity [W/mK]; [56] the shop's demand scale
 
 
     def _roof_quantile(self, u):
@@ -1916,7 +1937,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  lpl=float(self.loaves_per_load), fnom=float(self.f_nom),
                  amem=float(self.a_mem), gorb=float(self.g_orbit),
                  roof=float(self.sweep0), post=0.0, rail=float(self.r_rail),
-                 sand_d=0.0, sand_k=0.3)
+                 sand_d=0.0, sand_k=0.3, demand=1.0)
         if sys:
             d.update(sys)
         row = rec + [0.0] * (self.FCT_W - 40)
@@ -1987,7 +2008,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                         fnom=self.f_nom, amem=self.a_mem, gorb=self.g_orbit,
                         roof=roof, post=float(post),
                         rail=0.0 if post else base["g_orbit"] * s + self.RAIL_MARGIN,
-                        sand_d=float(sv["sand_depth"]), sand_k=float(sv["sand_k"]))
+                        sand_d=float(sv["sand_depth"]), sand_k=float(sv["sand_k"]),
+                        demand=float(sv["demand_scale"]))
             rows[b] = self._design_row(sysd)
         for k, vv in nominal.items():
             setattr(self, k, vv)
@@ -2034,6 +2056,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # the sand columns: depth and conductivity per agent, layers of >= 5 cm
         self._sand_d = ds[:, D["sand_d"]]; self._sand_k = ds[:, D["sand_k"]]
         self._sand_ka = np.where(self._sand_d >= 0.05, np.clip(np.round(self._sand_d / 0.05), 1, self.KSAND), 0).astype(np.int64)
+        self._ds_demand = ds[:, D["demand"]]
         self._ds_rate = ds[:, D["rate"]]
         self._ds_lid = ds[:, D["lid"]]
         self._ds_bread = ds[:, D["bread"]:D["bread"] + 1]
@@ -2055,6 +2078,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._ds_roti_t, self._ds_lfp_t = t(self._ds_roti), t(self._ds_lfp)
         self._ds_lpl_t, self._ds_s2_t = t(self._ds_lpl), t(self._ds_s2)
         self._sand_ka_t, self._sand_d_t, self._sand_k_t = t(self._sand_ka), t(self._sand_d), t(self._sand_k)
+        self._ds_demand_t = t(self._ds_demand)
 
     def _sand_step_t(self, T, Tc, Th, dt):
         """Torch twin of the numpy column step: T (B,N), Tc (B,2,K), Th (B,)
@@ -2308,7 +2332,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 "episode_length": float(S.ep_len.mean()),
             })
             self.terminals[:] = True
-            self.t_solar[:] = 8.0
+            self.t_solar[:] = self.day_start
             need_dawn = torch.zeros(B, dtype=torch.bool, device=dev)
             if getattr(self, "night_carry", 0) and not getattr(self, "consecutive_days", 1):
                 if self.day_random:
@@ -2337,7 +2361,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                       device=dev)
             from tandoor_mount_batch import solar_batch
             el1, az1r, _ = solar_batch(S.lat_v, S.day_v,
-                                       torch.full_like(S.day_v, 8.0))
+                                       torch.full_like(S.day_v, self.day_start))
             az1d = torch.rad2deg(az1r)
             if self.night_carry:
                 self._night_cool_torch(S)
@@ -2356,11 +2380,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                        "ep_len", "bread_E", "bread_t", "bread_C",
                        "form_time", "wind_g", "cloud", "p_dist",
-                       "day_rotis"):
+                       "day_rotis", "orders", "shelf", "sold"):
                 setattr(S, nm, torch.zeros_like(getattr(S, nm)))
             S.form_time = need_dawn.float() * float(self.form_min)
             S.ep_return = S.ep_return - 0.02 * self.form_min * need_dawn.float()
-            self._hr_mark = 8
+            self._hr_mark = int(self.day_start)
             self._hr_rotis = 0.0
             S.has_bread = torch.zeros_like(S.has_bread)
             S.p_set = torch.full_like(S.p_set, self.p0)
@@ -2427,6 +2451,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
           + ([S.has_bread.float()] if getattr(self, "load_ctrl", 0)
              else [])
           + [self._sand_obs_t(S)]
+          + ([torch.stack([(S.orders / 10.0).clamp(0, 3), (S.shelf / 10.0).clamp(0, 3)], 1)] if self.demand else [])
           + ([self._dsn_t] if getattr(self, "design_rand", 0) else []),
             1)
         return obs, rew, infos

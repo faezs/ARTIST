@@ -55,6 +55,18 @@ static inline bool hits_column(float px, float py, float pz,
 #define NBMAX 12
 #define FCTW 72   // per-env design table width: [0..39] receiver, [40..59] system, [70] sand depth, [71] sand conductivity
 #define KSAND 8   // layers of the sand column under the hearth and the floor (>= 5 cm each)
+#define RU 20     // uniforms per agent per step: [0] cloud, [1..15] fresh-pot temps, [16..19] the demand process
+#define NDEM 3    // demand state per agent at the row's end: orders waiting, rotis on the shelf, sold today
+#define SPX 71    // the per-node thermal tables start here in sp; [66] demand on, [67] rotis/day, [68] shelf life min, [69] patience min, [70] stale penalty
+inline float demand_rate(float t, float dem_day) {
+    // customers per hour: three bands, breakfast / lunch / dinner, Gaussian
+    // bumps in solar hours whose shares sum to one, scaled by the shop's
+    // daily demand (rotis/day)
+    const float c[3] = {7.5f, 13.0f, 19.5f}, w[3] = {0.75f, 1.0f, 1.0f}, sh[3] = {0.25f, 0.35f, 0.40f};
+    float r = 0.0f;
+    for (int i = 0; i < 3; i++) { float z = (t - c[i])/w[i]; r += sh[i]/(w[i]*2.5066283f)*exp(-0.5f*z*z); }
+    return dem_day * r;
+}
 #define SAND_RC 1.28e6f
 inline float ds_fct_depth(device const float* fct, uint b) { return fct[b*FCTW + 70]; }
 
@@ -1043,7 +1055,7 @@ kernel void step_pre(
         ? 1353.0f * pow(0.7f, pow(am, 0.678f)) : 0.0f;
     float cl = s[S0+18];
     cl = cl - cl*sp[48] + sp[44]*rb[3];
-    if (ru[b*16+0] < sp[47]) cl -= 1.5f;
+    if (ru[b*RU+0] < sp[47]) cl -= 1.5f;
     cl = clamp(cl, -3.0f, 0.25f);
     s[S0+18] = cl;
     float base_w = 2.5f
@@ -1115,7 +1127,8 @@ kernel void step_post(
     const int ND = ip[8];
     device float* s = st + b*NS;
     const int S0 = 3*N + 1 + 4*NB;
-    const int SB = NS - 2*KSAND;        // the two sand columns at the row's end
+    const int SB = NS - 2*KSAND - NDEM; // the two sand columns, then the demand state, at the row's end
+    const int SD = NS - NDEM;
     const int ka_bed = (ds_fct_depth(fct, b) >= 0.05f)
         ? clamp((int)round(ds_fct_depth(fct, b)/0.05f), 1, KSAND) : 0;
     device float* Tsub = s + N;
@@ -1125,7 +1138,7 @@ kernel void step_post(
     device float* bC = bt_ + NB;
     device float* hb = bC + NB;
     device const float* pv = per + b*(N + NB);   // N nodes, then NB loaf columns
-    device const float* NA = sp + 66;   // sp[63] cut penalty, sp[64] lost_deg, sp[65] enc_clamp
+    device const float* NA = sp + SPX;  // sp[63] cut penalty, sp[64] lost_deg, sp[65] enc_clamp, sp[66..70] the demand process
     // the system design, per env: [45] wall->soil conductance scale,
     // [46] thermal-mass scale, [47] lid leak, [48] bread area,
     // [49] h_bread, [50] roti energy, [52] loaves per lean
@@ -1263,9 +1276,32 @@ kernel void step_post(
             hb[k] = 0.0f; bE[k] = 0.0f; bt_[k] = 0.0f; bC[k] = 0.0f;
         }
     }
-    r += 5.0f*cooked_n - 5.0f*scorch_n - 0.5f*spall;
-    s[S0+9] += cooked_n;
-    s[S0+34] += cooked_n;    // day_rotis: cut-immune daily count
+    // ---- THE CUSTOMERS (sp[57] > 0.5: the demand process). Arrivals
+    // per step from the three-band rate, a queue with a patience, a
+    // shelf with a life; a roti counts when it meets an order
+    float sold_n = cooked_n, stale_n = 0.0f;
+    if (sp[66] > 0.5f) {
+        // a customer arrives with an order: half want a few (3), most of
+        // the rest a family's ten, one in ten a lunch or dinner of thirty
+        // (mean 8.5); customers/day = rotis/day / 8.5, at most one a step
+        const float ts_ = mprm[0] + sp[42];
+        const float lam_c = demand_rate(ts_, sp[67]*ds[56]/8.5f) * dt/3600.0f;
+        const float u1 = ru[b*RU+16], u2 = ru[b*RU+17];
+        const float size = (u2 < 0.5f) ? 3.0f : ((u2 < 0.9f) ? 10.0f : 30.0f);
+        const float arr = (u1 < lam_c) ? size : 0.0f;
+        float ord = s[SD+0] + arr, shelf = s[SD+1] + cooked_n;
+        const float sale = min(ord, shelf);
+        ord -= sale; shelf -= sale;
+        stale_n = floor(shelf*dt/(sp[68]*60.0f) + ru[b*RU+18]);
+        shelf -= stale_n;
+        const float leave = floor(ord*dt/(sp[69]*60.0f) + ru[b*RU+19]);
+        ord -= leave;
+        s[SD+0] = ord; s[SD+1] = shelf; s[SD+2] += sale;
+        sold_n = sale;
+    }
+    r += 5.0f*sold_n - 5.0f*scorch_n - 0.5f*spall - sp[70]*stale_n;
+    s[S0+9] += sold_n;
+    s[S0+34] += sold_n;      // day_rotis: cut-immune daily count (sold, with the demand process)
     s[S0+10] += scorch_n;
     s[S0+8] += dt;
     // ---- the lean's dough (numpy twins line for line): either the
@@ -1356,7 +1392,7 @@ kernel void step_post(
         r -= 0.3f*nb_ + sp[63];   // + fixed truncation penalty
         if (!phys_cut) {
             for (int i = 0; i < N; i++) {
-                float nt = 350.0f + (ru[b*16 + 1 + i] - 0.5f)*30.0f;
+                float nt = 350.0f + (ru[b*RU + 1 + i] - 0.5f)*30.0f;
                 s[i] = nt; Tsub[i] = nt; Tdeep[i] = nt;
             }
             // the sand columns follow the fresh pot's hearth and floor
@@ -1389,7 +1425,7 @@ kernel void step_post(
     trc[b] = trv;
     rew[b] = r;
     // ---- obs (matches _gpu_obs column for column)
-    float hn = (mprm[0] + sp[42] - 8.0f)/8.0f;
+    float hn = (mprm[0] + sp[42] - 8.0f)/8.0f;   // the clock feature stays 8-based whatever the day's span
     device float* ob = obs + b*OD;
     int o = 0;
     ob[o++] = sin(PI_*hn);
@@ -1431,6 +1467,10 @@ kernel void step_post(
         float m = 0.0f;
         for (int l = 0; l < ka_bed; l++) m += s[SB + n*KSAND + l];
         ob[o++] = ((ka_bed > 0) ? m/(float)ka_bed : s[NB + n]) / 1000.0f;
+    }
+    if (sp[66] > 0.5f) {              // the queue and the shelf
+        ob[o++] = clamp(s[SD+0]/10.0f, 0.0f, 3.0f);
+        ob[o++] = clamp(s[SD+1]/10.0f, 0.0f, 3.0f);
     }
     for (int k = 0; k < ND; k++) ob[o++] = dsn[b*ND + k];
     diag[b*8+0] = p_in;

@@ -536,7 +536,7 @@ class TandoorEnv(pufferlib.PufferEnv):
     # -------------------------------------------------------------- state #
     def _reset_state(self):
         B = self.num_agents
-        self.t_solar = np.full(B, 8.0)
+        self.t_solar = np.full(B, float(getattr(self, "day_start", 8.0)))
         # curriculum: half the tandoors wake up still warm from yesterday
         # (belt in or near the loading band) so the shutter/loading skill
         # is discoverable; cold starts remain the other half
