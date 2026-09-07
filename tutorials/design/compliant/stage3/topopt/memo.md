@@ -22,6 +22,39 @@ load, and the joint is 2.9 x the strut's EA/L (the leg keeps 59 % of its stiffne
 carry the survival compression at any length that bends. Both simulations' clip is now +-15 mm. Sizing is outside FACT
 (the chapter keeps to kinematics, p. 82) and says so.
 
+## The flexure ball, built (`fact_ball_cad.py`, `fact_ball_views.py`, sheet 60)
+
+The user asked for a drawing good enough to 3D print. Building the solid refuted three things the section drawing could not see.
+
+1. **The blade widths were impossible.** The section sizing chose 120 mm wide blades 36 mm from C. Three legs on a 35 deg cone
+   share an arc of 43 mm there, so a blade whose width runs circumferentially can be 37 mm at most. Only ONE blade of each pair
+   has its width circumferential (the other's lies in the meridional plane and is free), so the sizing is per blade.
+2. **The hub pushes the blades out.** The hub carries the 85 mm strut tube. The strut is above C and the legs below it, so the hub
+   can neck down to 14 mm at C and the legs can start there; if it does not, the inner blade sits inside the hub and the
+   (1 + 6 s/L) amplification, which grows with the station, eats the whole stress budget. At 35 deg with a fat hub, nothing fits.
+3. **The cone angle is a result, not a given.** A shallower cone reaches the flange radius further out along the leg (more
+   amplification); a wider one loses cos^2(alpha) of axial stiffness. Searched, the answer is 30 deg.
+
+The objective also had to change. Maximising stiffness inflates the joint without limit; the requirement is that the joint not
+dominate the leg, so the objective is the SMALLEST joint that reaches twice the strut's own EA/L. As built: cone 30 deg, blades
+2.2 mm thick, 68 mm wide circumferentially and 140 mm meridionally, 65 mm free, at 71 and 140 mm from C, 438 MPa at the loop's
++-15 mm clip, Euler SF 12, 385 MN/m = 2.1 x EA/L, 266 x 293 mm and 2.88 kg of Ti. Twelve of them add 35 kg to a crown whose
+struts weigh 62 kg.
+
+**And building it argued for a different part.** The same three rotations about C come from one turned waist 8.0 mm across and
+14.8 mm long: 440 MPa at the same rotation, the same 368 MN/m, 109 x 123 mm, 1.19 kg. Its price is a restoring moment of 22 N m
+per joint (15 N at the strut, against loads of kN) and 282 MPa of compression at the 40 m/s gust on top of the bending, which is
+0.8 of yield. For this duty - a rotation of a degree and an axial load of kilonewtons - the waist wins on every count. The tripod
+remains the chapter's construction and the one that makes the constraint topology visible, which is why both are drawn and both
+are exported.
+
+Printing: one monolithic body each (the first three builds came out in two and three loose pieces, which is the check that
+matters), flange down, no support anywhere; blades within 35 deg of vertical and the waist's cones at 45. Four files in `out/`:
+two machine parts in Ti as STEP and STL, two demonstrators in PLA whose sections are scaled by (sigma_allow/E)_pla /
+(sigma_allow/E)_ti = 1.8 so the printed part reaches its rotation at the same fraction of its own yield - the tripod at +-1.5 deg
+over 213 x 120 mm, the waist at +-4 deg over 109 x 139 mm. Three stops on the tripod touch at 1.5 x the design rotation; a groove
+marks the C plane on both, because the whole point is the point everything turns about.
+
 ## Chapter 7, Frecker: ground structure and SIMP (`ground_truss.py`, `simp_cm.py`, `mma1.py`, sheet 61)
 
 A dense truss ground structure with member areas as variables, a volume fraction, and MMA (Svanberg 1987, one constraint,
