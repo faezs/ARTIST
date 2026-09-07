@@ -89,6 +89,15 @@ class FlowerEnv(Base):
         if H is None: return
         g = self._flower_geom(H); fl = self._fl
         stem, boom, strut, ringc = (128, 84, 40, 255), (150, 100, 52, 255), (176, 120, 66, 255), (90, 100, 120, 255)
+        # THE DECK the flower stands on: the env's machine deck at z_deck (deck_h above the pot), a platform on stubs over the roof the
+        # base renderer grids at Z_ROOF; the Hashemi rail stood on the same deck, nothing drew it
+        zd = float(self.z_deck); zr = float(Base.render.__globals__["Z_ROOF"]); Ff = g["Ff"]; dx0, dx1, dy = Ff[0] - 3.0, Ff[0] + 6.0, 5.5
+        dcol = (150, 140, 120, 255)
+        for gx in np.linspace(dx0, dx1, 10): pr.draw_line_3d(v3([gx, -dy, zd]), v3([gx, dy, zd]), dcol)
+        for gy in np.linspace(-dy, dy, 12): pr.draw_line_3d(v3([dx0, gy, zd]), v3([dx1, gy, zd]), dcol)
+        for cx in np.linspace(dx0, dx1, 4):
+            for cy in (-dy, dy): pr.draw_line_3d(v3([cx, cy, zr]), v3([cx, cy, zd]), (120, 110, 95, 255))
+        pr.draw_cylinder_ex(v3(g["foot"] - np.array([0, 0, 0.04])), v3(g["foot"] + np.array([0, 0, 0.04])), 0.30, 0.30, 16, (90, 80, 70, 255))   # the stem's base plate on the deck
         pr.draw_cylinder_ex(v3(g["foot"]), v3(g["T0"]), 0.108, 0.108, 12, stem)                       # the stem: steel CHS 215 x 9, 1 m, on the deck
         pr.draw_sphere(v3(g["T0"]), 0.16, ringc)                                                        # slew and luff servo
         pr.draw_cylinder_ex(v3(g["T0"]), v3(g["Cb"]), 0.11, 0.11, 12, boom)                              # the pedicel's boom
