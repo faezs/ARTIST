@@ -1,0 +1,22 @@
+HASHEMI'S REACHABLE SET AS A RIGID BODY: every retro pose with ub between el 12 and 88, at any azimuth.
+
+  no hole (the production beam-down): the pose is geometrically possible for 57 % of the band, elevations 12-55 deg; blocked above 56 deg, where the pipe runs into the aperture
+  the env's own r_hole 0.5 m        : the pose is geometrically possible for 57 % of the band, elevations 12-55 deg; blocked above 56 deg, where the pipe runs into the aperture
+  -> the ceiling is the pipe, not the mount. Hashemi reaches his whole band only because his membrane has a hole in it.
+
+WHAT THE PEDICEL WOULD NEED. At retro the receptacle sits on a sphere of radius g + d_rec = 5.8 m about F, so a boom from a base S must span |R - D| to R + D with D = |F - S|.
+                                      base  D = |F - S|      boom needed  stroke ratio
+    the stem as built, 3 m north, 1 m tall         4.89    0.91 - 9.07 m         10.0x
+        a collar on the pipe at deck level         4.87    0.95 - 6.75 m          7.1x
+            a collar on the pipe, 2.5 m up         2.37    3.43 - 5.79 m          1.7x
+a mast beside the pipe, axis at F's height         1.20    4.63 - 6.98 m          1.5x
+a yoke straddling the pipe, axes crossing AT F         0.00    5.80 - 5.80 m          1.0x
+  -> only a rotation centre AT F gives a constant boom. Hashemi's arc rail is exactly that: a remote centre at F,
+     with nothing standing there. Any mount that covers his whole range must have its centre at F too - a ring
+     bearing concentric with the pipe carrying a fork whose luff axis passes through F, or an arc rail of its own.
+
+THE PEDICEL AS BUILT over Hashemi's whole set (2808 poses, elevation 12-88 at every azimuth):
+  possible at all (no hole in the membrane): 78 % of the set
+  the boom reaches:                          22 %
+  both:                                      14 %
+  with a boom of 0.9-10.7 m instead:         78 % (every pose the pipe allows)

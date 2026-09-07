@@ -1,0 +1,31 @@
+THE PEDICEL AS A SCREW SYSTEM (equinox noon, the head at [3.65 0.32 3.27] m over the deck)
+  $1 slew   (revolute, z through the stem top)         w [0. 0. 1.]                 v_at_P [-0.32 -0.35  0.  ]
+  $2 luff   (revolute, horizontal through the stem top) w [-0.368  0.93   0.   ]     v_at_P [2.11 0.83 0.21]
+  $3 extend (prismatic, along the boom)                w [0. 0. 0.]                 v_at_P [0.66 0.26 0.71]
+  $4 wrist pitch (revolute, through the boom tip)      w [-0.368  0.93   0.   ]     v_at_P [1.11 0.44 1.28]
+  $5 wrist yaw   (revolute, through the boom tip)      w [-0.658 -0.26   0.707]     v_at_P [-0.26 -0.17 -0.3 ]
+  the five screws are independent: rank 5 of 5; the head's useful output is 5 (3 translations of the vertex, 2 rotations of its axis)
+  spin about the head's own axis is NOT in the span and does not need to be: a sphere's image does not move under it
+  singular values of the 5 x 5 map at this pose: [3.193 1.098 0.739 0.445 0.048]  (condition 67.2)
+
+OVER THE YEAR (479 scheduled poses): condition number 6.8 .. 73.4 (median 9.4); smallest singular value 0.043 .. 0.547
+  the chain never loses rank on the schedule: the pedicel is non-singular everywhere it is asked to go
+
+COVERAGE OF THE ORBIT SPHERE (retro, the head exactly on the anti-sun line; ub = the direction from the head to F)
+  Hashemi's carriage: the whole zone its arc rail allows, elevation 12-88 deg at every azimuth = 79 % of the sphere's upper half
+  the pedicel:        24 % of the same half, and NOT the same patch: it is a lobe about the stem's own meridian
+  the pedicel covers 25 % of what Hashemi's carriage covers
+
+WHAT THE SUN ASKS (479 samples of the year above 12 deg)
+  Hashemi's carriage serves 479/479 = 100 % (every sun in its band, at beta 0)
+  the pedicel at beta 0 serves 180/479 = 38 %
+  the pedicel with beta up to 45 deg serves 479/479 = 100 %
+
+SO, PRECISELY: the two mounts are NOT the same machine, and they do not need to be. Hashemi's arc rail is a two-parameter
+remote-centre mount whose centre IS F: it reaches its whole band at beta 0 and needs no beta at all. The pedicel is a
+five-joint arm whose retro reach is a lobe about its own meridian - 25 % of the rail's zone - so at beta 0 it serves only
+180 of 479 suns. What closes the gap is not a control law and not a longer boom alone: it is that the head's axis is
+free. Off retro the head may stand anywhere on a cap of directions about the anti-sun line, and the union of those caps
+over beta <= 45 deg covers every sun of the year: 479/479 = 100 %. The register sheet states what it costs (beta_flux.py):
+beta is not a tax here up to 36 deg - it is a gain of 29-35 %, because it takes the pipe and the fold strip off the aperture -
+and only the last 14 suns, worth 3.0 % of the year's energy, ask for beta past 36, at 2 % of themselves.

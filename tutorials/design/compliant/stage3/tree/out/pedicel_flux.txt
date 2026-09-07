@@ -1,0 +1,21 @@
+THE PRICE OF BETA AND THE PRICE OF 100 % COVERAGE  (479 sun samples, el > 12 deg, Quetta 30.2 N)
+frac E = the year's clear-sky energy this mount actually intercepts, over what an unshadowed retro aperture would;
+it already contains cos(beta/2), the pipe+strip shadow, and a zero for every sun the mount cannot reach.
+
+                                      served   frac E  mean beta  max beta   shadow
+ retro only (beta 0), boom 0.9-4.0  108/479    18.7%       0.0      0.6    17.5%
+   as built: boom 0.9-3.3, beta 36  383/479    74.6%      34.7     36.0     5.2%
+             boom 0.9-4.0, beta 36  427/479    82.2%      34.8     36.0     4.7%
+             boom 0.9-4.0, beta 45  463/479    90.4%      42.4     44.9     0.3%
+             boom 0.9-5.0, beta 36  465/479    88.7%      34.8     36.0     4.3%
+             boom 0.9-5.0, beta 45  479/479    93.3%      42.2     45.0     0.0%
+             boom 0.9-6.0, beta 36  471/479    90.2%      34.7     36.0     3.6%
+             boom 0.9-7.0, beta 36  471/479    90.4%      34.9     36.0     3.4%
+             boom 0.9-7.0, beta 27  439/479    82.2%      26.0     27.0     7.1%
+             boom 0.9-7.0, beta 18  400/479    70.2%      14.7     18.0    13.4%
+yoke at F, constant 5.8 m, beta 36    0/479     0.0%       0.0      0.0     0.0%
+                yoke at F, beta 18    0/479     0.0%       0.0      0.0     0.0%
+       yoke at F, retro (beta 0.6)    0/479     0.0%       0.0      0.0     0.0%
+
+boom 0.9-4.0, beta 36: 427/479 samples = 89.1 %, energy 82.2 %
+boom 0.9-4.0, beta 45: 463/479 samples = 96.7 %, energy 90.4 %

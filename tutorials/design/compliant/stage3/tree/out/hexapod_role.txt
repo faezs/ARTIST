@@ -1,0 +1,25 @@
+1. THE COARSE JOB IS ZERO. Over all 479 poses of the year's schedule the six struts hold
+   1.446348 m, spread 2.66e-15 m (2.7e-12 mm). The rings are built in the head's frame, so the
+   hexapod cannot point the head: the pedicel's five joints do all of it (rank 5, condition 4.4-7.2 over the year).
+
+2. THE FINE JOB IS REAL. The Cosserat run at 12 m/s (setup_sim/out/fl_w12_ident.txt) left, with the coarse loop alone:
+     miss at F  12.6 cm mean, 31.5 cm max     (half power at 4.9 cm)
+     receptacle off its command  1.8 cm mean, 6.2 cm max;  stem tip 0.8 cm
+   Sensitivity of the miss at F to a head twist at equinox noon (per metre and per radian):
+     translation [-0.05 -0.95 -0.3 ]  rotation [ 4.78 -1.49  5.01] m/rad
+   The miss answers to TILT, not to translation: the strongest column is 5.01 m per rad of head rotation against
+   0.95 m per m of translation, so the fine stage's job is to tilt the head a few tens of mrad. Through the
+   hexapod's Jacobian, the least-norm twist that removes the miss and the leg strokes it costs:
+     mean 12.6 cm: least-norm twist |dP| 2 mm, |dtheta| 17.4 mrad  ->  leg strokes [ -8.9  -3.4  -4.3  12.4  13.1 -10.5] mm, max |dL| 13 mm
+     max 31.5 cm: least-norm twist |dP| 6 mm, |dtheta| 43.6 mrad  ->  leg strokes [-22.2  -8.6 -10.7  31.1  32.8 -26.2] mm, max |dL| 33 mm
+
+3. IT IS FAST ENOUGH. Each strut is steel CHS 85 x 5.3 (A 13.3 cm2), EA/L = 184 MN/m at 1.45 m;
+   six of them under 170 kg of head and platform put the crown's first axial mode near 234 Hz,
+   two orders above the gust band (von Karman at 12 m/s, L 50 m: the energy is under 1 Hz). The flexure balls set the
+   real limit, and fact_ball_cad.py sized them at 385 MN/m = 2.1 x EA/L, so they are not the soft link either.
+
+VERDICT: keep the hexapod, but stop calling it a positioner. It is the FINE stage, and it is a small one: 33 mm of strut
+stroke covers the worst miss the 12 m/s run produced and 13 mm covers the mean, so +-50 mm of stroke carries the whole
+wind case with 50 % margin - and it answers in milliseconds, where a 5 m boom under 210 kg cannot. The pedicel owns the
+year, the crown owns the gust. It is also why the struts wanted flexure balls rather than bearings: a stage that lives
+at +-33 mm and +-44 mrad never leaves flexure territory - no backlash, no stiction, nothing to lubricate on a roof.

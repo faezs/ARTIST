@@ -16,7 +16,8 @@ RIM_CAP = 9.9                                     # beta_cap_z 7.6 is inert at b
 R_PIPE, D_STRIP, R_STRIP = 0.7, 0.6, 0.6          # r_bore, d_strip, r_strip
 F = np.array([0.0, 0.0, Z_F]); Z = np.array([0, 0, 1.0])
 H_STEM, D_BACK, R_BACK = 1.0, 0.45, 1.5           # stem height; the back ring 0.45 m behind the vertex, r 1.5, where the branches hold the head
-REACH = (0.6, 3.3)                                # the pedicel's boom, from the stem top to the receptacle ring 1.8 m behind the vertex (setup_sim5.py, flower_elastica.py)
+REACH = (0.6, 5.0)                                # the pedicel's boom, from the stem top to the receptacle ring 1.8 m behind the vertex. 5.0 m, not 3.3:
+                                                  # with the two-tier beta below, this is the SHORTEST boom that serves every sun of the year (pedicel_flux.py)
 D_REC = 1.8                                       # the receptacle ring behind the vertex: D_BACK 0.6 + H_HEX 1.2
 RIM_CLEAR = 0.3
 def suns(step_doy=15, step_h=0.5):
@@ -49,9 +50,15 @@ def evaluate(P, n, s, S):
     below = Q[:, 2] < Z_F + 0.3; rp = np.min(np.hypot(Q[:, 0], Q[:, 1])[below]) if below.any() else 9.9
     beta = np.degrees(np.arccos(np.clip(n@s, -1, 1))); reach = np.linalg.norm(P - S)
     return dict(zmin=zmin, zmax=zmax, rp=rp, beta=beta, reach=reach, shadow=shadow_frac(P, n, s))
-BETA_MAX = 36.0
+# Beta, the off-retro angle, is TWO-TIER, and the tiers come from the machine's own ray trace (beta_flux.py), not from geometry:
+# delivered power climbs steeply off retro - the pipe and the fold strip stop standing on the aperture - PEAKS AT 36 deg
+# (+29/+34/+35 % over retro at midwinter/equinox/midsummer) and then falls back, because cos(beta/2) and the sphere's
+# working-angle astigmatism, ~ a*(beta/2)^2 at the fold, overtake what is left of the shadow. 45 deg is 1.5-2.5 % BELOW 36,
+# 54 deg worse. So 36 is the operating point everywhere a pose exists there, and beta is spent past it only where the
+# geometry leaves no pose at 36 - 14 of the year's 479 suns, all low ones, carrying 3.0 % of the year's energy.
+BETA_OPT, BETA_MAX = 36.0, 45.0
 LEG_CHECK = None                                   # optional callable (P, n) -> bool: the crown's own reach (set by setup_sim5.py)
-def best_pose(s, S, w_beta=0.02, w_move=0.0, P_prev=None):
+def best_pose(s, S, w_beta=0.02, w_move=0.0, P_prev=None, beta_cap=None):
     """grid over the head's place on the orbit sphere: ub the unit vector from the head toward F; P = F - G ub, axis n = unit(s + ub); beta = angle(s, ub)"""
     els = np.radians(np.linspace(-20, 89, 56)); azs = np.radians(np.linspace(-180, 180, 73))
     best = None
@@ -59,16 +66,27 @@ def best_pose(s, S, w_beta=0.02, w_move=0.0, P_prev=None):
         for a in azs:
             ub = np.array([np.cos(e)*np.cos(a), np.cos(e)*np.sin(a), np.sin(e)])
             beta = np.degrees(np.arccos(np.clip(ub@s, -1, 1)))
-            if beta > BETA_MAX: continue
-            P = F - G*ub; n = s + ub; n /= np.linalg.norm(n)
-            if n@(P - S) < 0: continue                                              # the crown is behind the dish
-            if not (REACH[0] <= np.linalg.norm(P - D_REC*n - S) <= REACH[1]): continue      # the boom's length to the receptacle ring
+            if beta > (BETA_MAX if beta_cap is None else beta_cap): continue
+            P = F - G*ub; n = s + ub; n /= np.linalg.norm(n); Cb = P - D_REC*n
+            _ = Cb                                                        # the boom must not pass through the aperture (the half-space test it replaces
+            d = Cb - S; den = d@n                                                   # rejected poses the boom can reach from the side, 54 suns' worth)
+            if abs(den) > 1e-9:
+                t = ((P - S)@n)/den
+                if 0.0 <= t <= 1.0 and np.linalg.norm(S + t*d - P) < A_M: continue
+            if not (REACH[0] <= np.linalg.norm(Cb - S) <= REACH[1]): continue       # the boom's length to the receptacle ring
             if LEG_CHECK is not None and not LEG_CHECK(P, n): continue
             ev = evaluate(P, n, s, S); ev["beta"] = beta
             if ev["zmin"] < RIM_CLEAR or ev["zmax"] > RIM_CAP or ev["rp"] < R_PIPE + 0.3: continue
-            cost = ev["shadow"] + w_beta*(beta/10)**2 + (w_move*np.linalg.norm(P - P_prev) if P_prev is not None else 0.0)
+            # the objective is the power the aperture actually intercepts, not the shadow alone: cos(beta/2) for the
+            # foreshortening, (1 - shadow) for the pipe and the strip, and the trace's own 2 % tax where beta goes past 36
+            power = np.cos(np.radians(beta/2))*(1.0 - ev["shadow"])*(0.98 if beta > BETA_OPT + 1e-6 else 1.0)
+            cost = -power + (w_move*np.linalg.norm(P - P_prev) if P_prev is not None else 0.0)
             if best is None or cost < best[0]: best = (cost, n, P, ev)
     return best
+def best_pose_two_tier(s, S, **kw):
+    """hold the traced optimum where a pose exists there, and only then spend beta"""
+    b = best_pose(s, S, beta_cap=BETA_OPT, **kw)
+    return b if b is not None else best_pose(s, S, beta_cap=BETA_MAX, **kw)
 if __name__ == "__main__":
     SS = suns()
     rows = []
@@ -77,7 +95,7 @@ if __name__ == "__main__":
     for xs in (2.0, 2.5, 3.0, 3.5, 4.0):
         S = np.array([xs, 0.0, H_STEM]); res = []; fails = 0
         for doy, hour, el, Az, s in SS[::2]:
-            b = best_pose(s, S)
+            b = best_pose_two_tier(s, S)
             if b is None: fails += 1; continue
             res.append((b[3]["beta"], b[3]["shadow"], b[2]))
         if res:
@@ -89,7 +107,7 @@ if __name__ == "__main__":
     S = np.array([xs, 0.0, H_STEM]); print(f"\nchosen stem: {xs} m north of the pipe, top at {H_STEM} m")
     log = []
     for doy, hour, el, Az, s in SS:
-        b = best_pose(s, S)
+        b = best_pose_two_tier(s, S)
         if b is None: log.append(dict(doy=doy, hour=hour, el=el, az=Az, ok=False)); continue
         cost, n, P, ev = b
         log.append(dict(doy=doy, hour=hour, el=round(el, 1), az=round(Az, 1), ok=True, n=[round(float(c), 4) for c in n], P=[round(float(c), 3) for c in P], beta=round(ev["beta"], 1), shadow=round(ev["shadow"], 3),
