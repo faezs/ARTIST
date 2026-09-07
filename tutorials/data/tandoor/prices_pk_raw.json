@@ -1,0 +1,956 @@
+{
+ "steel": {
+  "prices": [
+   {
+    "item": "rim tube",
+    "unit": "per m (material + rolling)",
+    "pkr_low": 650,
+    "pkr_typical": 850,
+    "pkr_high": 1150,
+    "sources": [
+     "https://mwpbnp.com/pricing/",
+     "https://zahidco.com/Pipe-IIL-GI-EL",
+     "https://www.peak.com.pk/engineering/structural-steel-ms-fabrication"
+    ],
+    "notes": "Converted from a per-length rate sheet, not quoted per metre. mwpbnp.com/pricing lists 'MS Pipe Prime Round' per 20 RFT by OD and SWG (e.g. 1\" 18SWG Rs 1,458; 1-1/2\" 18SWG Rs 2,228; 2-7/8\" 16SWG Rs 5,936; 4\" 16SWG Rs 7,807). Back-solving each row against pipe weight (mass/m = pi*t*(OD-t)*7850) gives a self-consistent Rs 320-340/kg for prime MS round tube at retail - the table is internally consistent to within 5%, which is why I trust it. A 40 mm OD x 2 mm wall tube weighs 1.874 kg/m, so material = Rs 505/m at a Rs 270/kg wholesale/local-quality rate up to Rs 675/m at Rs 360/kg (Quetta retail, +5-8% over Rawalpindi/Karachi for freight). ROLLING IS AN ESTIMATE, not a found price: no Pakistani shop publishes rolling rates (Peak Engineering lists 'plate bending & rolling' as a service but quotes only on request). R/D = 62 is a gentle curve needing no mandrel or sand-filling, so I allow Rs 150-450/m of rolling charge, typical ~Rs 250/m. Note 2 mm wall is 14 SWG, off the published table, so it is interpolated. Confidence: medium on material, low on the rolling component - get a real quote from a Brandreth Road / Shershah rolling shop before committing.",
+    "confidence": "medium"
+   },
+   {
+    "item": "post / mast",
+    "unit": "per m (material + a share of erection hardware)",
+    "pkr_low": 2900,
+    "pkr_typical": 4900,
+    "pkr_high": 7600,
+    "sources": [
+     "https://zahidco.com/Pipe-IIL-GI-EL",
+     "https://zahidco.com/GI-Galvanized-Iron",
+     "https://mwpbnp.com/pricing/",
+     "https://builddurable.com/product-iil-gi-m-medium-gauge-pipes-gross-per-nali"
+    ],
+    "notes": "Converted from per-6m-length prices. zahidco.com (Karachi, IIL dealer) lists IIL GI Extra Light 4\" at Rs 25,701 per 6 m = Rs 4,284/m; EL 4\" is ~8.8 kg/m, implying Rs ~490/kg for branded galvanised. MEDIUM class 100 mm NB is OD 114.3 x 4.5 mm wall = 12.2 kg/m (BS 1387 nominal) - much heavier than EL. Black MS medium pipe from a local (non-branded) mill runs Rs 280-340/kg at the rates implied by the mwpbnp round-tube table, giving Rs 3,400-4,150/m; branded IIL medium in black would be ~Rs 5,600/m. zahidco shows GI Medium IIL starting at Rs 3,518 (that is the 1/2\" entry) and builddurable lists IIL GI(M) at Rs 9,203.82 per nali without stating the size, so neither pins 4\" medium directly - I extrapolated by weight. Erection-hardware share: 300x300x12 base plate (~8.5 kg, Rs ~2,800), four M16 anchor bolts (Rs 1,600-3,600), gussets and primer (Rs ~3,000) = Rs 7,400-9,400, spread over a 4-6 m mast = Rs 700-2,000/m. LOW assumes 4\" OD x 3.2 mm tube (7.8 kg/m) at local rate; HIGH assumes branded medium-class pipe plus generous base/anchors plus Quetta freight. Confidence medium; the class you actually buy swings this by 2x.",
+    "confidence": "medium"
+   },
+   {
+    "item": "arm carrying F",
+    "unit": "per m",
+    "pkr_low": 850,
+    "pkr_typical": 1400,
+    "pkr_high": 2100,
+    "sources": [
+     "https://mwpbnp.com/pricing/",
+     "https://zahidco.com/Pipe-IIL-GI-EL",
+     "https://pakcia.com/en/ms-cs-pipe-and-fittings-pakistan/36-ms-pipe-price-pakistan.html"
+    ],
+    "notes": "'60 mm (2 inch)' is ambiguous in the Pakistani market, so I priced the band. 60 mm OD x 2 mm tube = 2.86 kg/m -> Rs 800-1,030/m at Rs 280-360/kg (rate back-solved from the mwpbnp per-20-RFT round-tube table, whose 2-7/8\" 16SWG row = Rs 974/m for a 2.87 kg/m section - almost exactly this weight, so the low end is a near-direct read). 2\" NB LIGHT pipe (60.3 x 2.9 mm, 4.11 kg/m) = Rs 1,150-1,480/m; 2\" NB MEDIUM (60.3 x 3.6 mm, 5.03 kg/m) = Rs 1,400-1,800/m. Branded ceiling: zahidco IIL GI Extra Light 2\" = Rs 10,966 per 6 m = Rs 1,828/m. Ignore pakcia's Rs 18,200 per 20 ft for 2\" SCH-40 seamless (= Rs 2,986/m) - that is imported seamless pipe, a different product class, and I cite it only to show what NOT to buy. Typical assumes a 2.5-3 mm wall 60 mm tube. Confidence medium.",
+    "confidence": "medium"
+   },
+   {
+    "item": "rotating beam",
+    "unit": "per m",
+    "pkr_low": 620,
+    "pkr_typical": 900,
+    "pkr_high": 1400,
+    "sources": [
+     "https://mwpbnp.com/pricing/",
+     "https://zahidco.com/Pipe-IIL-GI-EL"
+    ],
+    "notes": "Interpolated from the mwpbnp 'MS Pipe Prime Round' per-20-RFT table (1-1/2\" 16SWG Rs 2,944 and 2-7/8\" 16SWG Rs 5,936 per 20 ft bracket a 50 mm OD section at roughly Rs 4,000 per 20 ft = Rs 656/m for a 1.63 mm wall). By weight: 50 mm OD x 2.0 mm = 2.37 kg/m -> Rs 660-850/m; x 2.5 mm = 2.93 kg/m -> Rs 820-1,050/m; x 3.2 mm = 3.68 kg/m -> Rs 1,030-1,320/m, all at Rs 280-360/kg. Typical assumes a 2-2.5 mm wall. Sold in 20 ft (6.1 m) lengths, so buy in multiples or pay for the offcut; 10%+ discount is normal on a full-bundle purchase from Brandreth Road or Shershah. Confidence medium.",
+    "confidence": "medium"
+   },
+   {
+    "item": "A-frames",
+    "unit": "per m",
+    "pkr_low": 190,
+    "pkr_typical": 290,
+    "pkr_high": 430,
+    "sources": [
+     "https://mwpbnp.com/pricing/"
+    ],
+    "notes": "Near-direct read, the most reliable line in this table. mwpbnp lists MS prime round tube 1\" (25.4 mm OD) per 20 RFT (6.096 m): 20 SWG Rs 1,105 = Rs 181/m, 19 SWG Rs 1,216 = Rs 199/m, 18 SWG Rs 1,458 = Rs 239/m, 16 SWG Rs 1,937 = Rs 318/m. A 2.0 mm wall (heavier than 16 SWG) works out to ~1.13 kg/m = Rs 360-410/m at the implied Rs 320-360/kg. LOW = 20 SWG thin-wall, TYPICAL = 18 SWG, HIGH = 2 mm wall plus a Quetta freight margin. Quoted rates are for prime tube; 'commercial'/second-quality tube in the bazaar is 10-15% cheaper. Confidence high.",
+    "confidence": "high"
+   },
+   {
+    "item": "arc rail",
+    "unit": "per m (material + rolling)",
+    "pkr_low": 330,
+    "pkr_typical": 570,
+    "pkr_high": 900,
+    "sources": [
+     "https://mwpbnp.com/pricing/",
+     "https://www.peak.com.pk/engineering/structural-steel-ms-fabrication"
+    ],
+    "notes": "Material is the same 25 mm tube as the A-frames: Rs 190-430/m from the mwpbnp per-20-RFT table (1\" 20SWG Rs 181/m to 2 mm wall Rs ~410/m). ROLLING IS AN ESTIMATE - I could not find any published Pakistani pipe-rolling rate despite several searches; Peak Engineering advertises rolling but quotes only on request, and no bazaar shop publishes a rate card. A 4.35 m radius on 25 mm tube is R/D = 174, an extremely gentle curve, so I allow Rs 120-400/m, typical ~Rs 280/m, which includes the shop's per-piece setup amortised over a few metres. Short single pieces will be charged per-piece (expect a Rs 1,500-3,000 minimum per visit regardless of length), so the per-metre figure only holds if you roll several rails at once. Widen this if you need a tight tolerance on the radius. Confidence low on rolling, medium-high on material.",
+    "confidence": "low"
+   },
+   {
+    "item": "bearings",
+    "unit": "per unit",
+    "pkr_low": 900,
+    "pkr_typical": 1700,
+    "pkr_high": 3300,
+    "sources": [
+     "https://www.daraz.pk/catalog/?q=pillow+block+bearing",
+     "https://www.olx.com.pk/items/q-bearing"
+    ],
+    "notes": "Read live off Daraz.pk. One Punjab seller lists a consistent UCP ladder: UCP210 Rs 2,300, UCP211 Rs 2,700, UCP212 Rs 3,000, UCP213 Rs 3,550, UCP214 Rs 4,200. The UCP204-206 sizes did not appear in that seller's listings on the day I looked, so I extrapolated the ladder downward: UCP204 ~Rs 1,200-1,500, UCP205 ~Rs 1,400-1,600, UCP206 ~Rs 1,600-1,900. Corroborating points actually seen: a WGD UC204 insert bearing at Rs 1,499 (Daraz, Sindh), a KBCC UC206 at Rs 1,999 and a 'UC Bearing' at Rs 1,010 (both OLX). Bazaar prices at Shershah Karachi or Brandreth Road Lahore for Chinese UCP units typically run 20-35% under Daraz, hence the Rs 900 low. HIGH covers a branded SKF/NSK/FYH UCP206 or a heavy-duty unit. A locally fabricated strap/plummer bearing (turned bush in a welded strap) is Rs 800-2,000 and is what a Quetta fabricator will actually offer. Confidence medium.",
+    "confidence": "medium"
+   },
+   {
+    "item": "mast head bearing",
+    "unit": "per unit",
+    "pkr_low": 15000,
+    "pkr_typical": 38000,
+    "pkr_high": 95000,
+    "sources": [
+     "https://www.daraz.pk/catalog/?q=taper+roller+bearing",
+     "https://vxb.com/products/300mm-lazy-susan-aluminum-bearing-330-lbs-turntable-bearings",
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://www.tradeindia.com/products/slewing-drive-for-solar-tracker-2628256.html"
+    ],
+    "notes": "THIS IS THE LEAST CERTAIN LINE. No Pakistani supplier publishes slewing-ring prices and the Alibaba/TradeIndia listings I opened quote 'contact supplier' rather than a number, so this is built up from components. Route A, fabricated on a 100 mm stub: a pair of tapered rollers plus a machined housing. Real NTN prices read on Daraz: 30212 (60 mm bore) Rs 7,524, 30213 (65 mm) Rs 9,112, 32312 Rs 18,480, 32011 Rs 5,500; Chinese equivalents run roughly a third of that, and a used truck hub set from Shershah is Rs 2,000-5,000. Add lathe work on housing and stub Rs 8,000-25,000, housing/flange steel Rs 3,000-8,000, and 1.5-2 fabricator-days at the Quetta welder+helper rate of Rs 2,800-3,800/day. Total Rs 21,000-62,000. Route B, imported ring: a 300 mm aluminium lazy-susan turntable bearing is USD 25-36 (vxb.com) = PKR 7,000-10,000 landed at +40% freight/customs/GST on a USD 277 rate, but it is only rated 330 lb and has poor moment capacity - probably too weak for an azimuth trunnion carrying wind moment. A real small slewing ring (e.g. 010.20.200 class, 120x280x60) is commonly quoted USD 120-350; at USD 150 that is PKR 41,500 landed at +40%, plus Rs 10,000-20,000 of adapter plates and fitting. Route C, scavenged: a truck fifth-wheel turntable or an excavator slew ring from Shershah scrap, Rs 10,000-30,000 plus adaptation. TYPICAL assumes Route A with Chinese tapered rollers. Confidence low - price this by walking a fabricator through the drawing.",
+    "confidence": "low"
+   },
+   {
+    "item": "counterweight",
+    "unit": "per unit",
+    "pkr_low": 2500,
+    "pkr_typical": 6000,
+    "pkr_high": 22000,
+    "sources": [
+     "https://getscraprate.com/pk/karachi/iron-scrap-price",
+     "https://www.daraz.pk/catalog/?q=gym+weight+plates+10+kg+iron",
+     "https://concretesmath.com/labor-cost-calculator/"
+    ],
+    "notes": "Three very different routes, hence the wide band. (1) CONCRETE cast on site in a welded steel skirt: ~0.022 m3 for 50 kg, so Rs 400-700 of cement/sand/aggregate plus a light steel frame and lifting eye plus a fraction of a mason-day (Quetta mason Rs 1,600-2,000/day per concretesmath) = Rs 2,000-4,000. This is the low end and the sane choice. (2) SCRAP STEEL plate or billet offcuts welded into a block: Karachi iron scrap was Rs 35.34/kg mixed and Rs 41-42/kg for HMS 1 on 6 Sep 2026 (getscraprate); a Quetta scrap dealer will charge more for clean cut plate, call it Rs 60-120/kg = Rs 3,000-7,000 for 50 kg plus welding. (3) NEW CAST IRON from a foundry at roughly Rs 300-450/kg = Rs 15,000-27,000 - that is the high end. I deliberately excluded gym weight plates: Daraz shows a 10 kg iron dumbbell set at Rs 6,999 (~Rs 700/kg), which would be Rs 35,000 for 50 kg and is the worst way to buy dead weight. Confidence medium on the concrete and scrap routes, low on the cast-iron foundry rate (that one is inferred from general foundry practice, not a quote I found).",
+    "confidence": "medium"
+   },
+   {
+    "item": "guys and anchors",
+    "unit": "per set",
+    "pkr_low": 6500,
+    "pkr_typical": 12000,
+    "pkr_high": 25000,
+    "sources": [
+     "https://www.daraz.pk/catalog/?q=steel+wire+rope+6mm",
+     "https://www.daraz.pk/catalog/?q=turnbuckle"
+    ],
+    "notes": "Best single data point I found: Daraz lists a ready-made kit - 'Wire Rope (PVC Coated) 30 ft - 6mm with 2 clamps, 02 Turn Buckles 6mm, 02 J Hook Rawl Bolts' at Rs 4,000, 17 sold. Three of those = Rs 12,000, which is my typical. Components separately, also read on Daraz: 6mm/8mm heavy-duty hook-and-eye turnbuckles Rs 349, Rs 370, Rs 399; '50 Feet Long 6mm Metal Wire with Rubber Coated' Rs 1,500 (= Rs 98/m). Bazaar build-up for 3 guys of ~10 m each: 30 m of 6 mm galvanised rope at Rs 90-200/m = Rs 2,700-6,000; 6 turnbuckles Rs 2,100-3,000; 6-12 bulldog grips at Rs 100-250 = Rs 900-3,000; 3 thimbles Rs 300-900; 3 roof anchors (expansion or chemical anchor with a welded eye plate, or welded to an existing roof beam) Rs 1,500-6,000. LOW = bought loose in Liaquat Bazaar and assembled by your own fabricator. HIGH = galvanised rope with proper thimbles, forged turnbuckles and chemical anchors into the slab. Confidence medium.",
+    "confidence": "medium"
+   },
+   {
+    "item": "bore duct",
+    "unit": "per m2 of duct wall, fabricated",
+    "pkr_low": 2400,
+    "pkr_typical": 3500,
+    "pkr_high": 5500,
+    "sources": [
+     "https://mwpbnp.com/pricing/",
+     "https://silversteelmills.com/product/steel-roof-sheet-in-pakistan/",
+     "https://brieflyshort.com/gi-sheet-price/"
+    ],
+    "notes": "Converted from per-sheet to per-m2. mwpbnp lists GI sheets per sheet: 8'x4' (2.973 m2) at Rs 6,349 for 22 SWG = Rs 2,136/m2, and Rs 5,120 for 24 SWG = Rs 1,722/m2; the 12'x4' rows scale linearly. Cross-check by weight: Silver Steel Mills quotes PPGI at ~Rs 305/kg and Rs 155-170/sq ft (= Rs 1,670-1,830/m2) in Sep 2026; plain GI is a little under that, so 22 SWG (0.71 mm, 5.58 kg/m2) works out to Rs ~1,620/m2 and 24 SWG (0.56 mm, 4.4 kg/m2) to Rs ~1,280/m2 at mill-adjacent rates. brieflyshort's per-sheet figures (3'x8' Rs 3,300 = Rs 1,480/m2) land in the same place. So MATERIAL is Rs 1,300-2,150/m2 depending on gauge and whether you buy at wholesale or retail. FABRICATION IS ESTIMATED: rolling 1.4 m diameter cans, lock or riveted seams, stiffening angles at the joints, and hangers - I allow Rs 700-2,000/m2 of labour and consumables (a Quetta welder+helper day is Rs 2,800-3,800 and should cover 2-4 m2 of this work). Sanity check against India, where GI ducting supply-and-fabricate is quoted around INR 130/sq ft = PKR ~4,400/m2 at 3.15 PKR/INR; Pakistani labour is cheaper, so my typical of Rs 3,500 sits sensibly below it. Confidence low-medium - get a Quetta or Karachi ducting shop to quote the actual can count.",
+    "confidence": "medium"
+   },
+   {
+    "item": "roof penetration",
+    "unit": "per job",
+    "pkr_low": 25000,
+    "pkr_typical": 60000,
+    "pkr_high": 150000,
+    "sources": [
+     "https://waterproofing.pk/bitumen-membrane-waterproofing-pakistan/",
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://razzaqengineering.com/service-detail/Rcc-Core-Cutting-Service",
+     "https://mwpbnp.com/pricing/"
+    ],
+    "notes": "Built up, not quoted - treat the band as real. Priced components: bitumen membrane at PKR 150-250/sq ft for 3 mm and 250-350/sq ft for 4 mm, plus PKR 50-100/sq ft installation (waterproofing.pk); flashing over a ~2.5 m square around a 1.4 m duct is ~65 sq ft, so Rs 13,000-29,000. GI collar and flashing, ~4 m2 at Rs 1,700-2,150/m2 (mwpbnp GI sheet) = Rs 7,000-8,600. Mason plus helper for 2 days at the Quetta rate of Rs 1,600-2,000 + Rs 800-1,000 = Rs 4,800-6,000. Mortar, sealant, primer, fasteners Rs 3,000-5,000. That subtotal is Rs 28,000-49,000 and assumes THE HOLE ALREADY EXISTS. THE BIG UNKNOWN: cutting a 1.4 m diameter opening through an RCC slab is not a core drill, it is saw-cutting ~4.4 m of circumference plus trimming the severed reinforcement and adding a trimmer beam or ring lintel. Razzaq Engineering advertises RCC diamond cutting nationwide but publishes no rates, and I found no Pakistani rate card at all; Indian comparables suggest INR 120/inch with a INR 3,500-5,000 minimum mobilisation. I allow Rs 20,000-80,000 for the opening plus structural making-good, which is why HIGH is 6x LOW. If the duct passes through an existing opening or a lightweight roof rather than a structural slab, use the low end. Confidence low - this line needs a site visit, not a search.",
+    "confidence": "low"
+   },
+   {
+    "item": "lid",
+    "unit": "per unit",
+    "pkr_low": 5000,
+    "pkr_typical": 9000,
+    "pkr_high": 16000,
+    "sources": [
+     "https://mwpbnp.com/pricing/",
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://raweasycorp.com/prices/"
+    ],
+    "notes": "Converted from per-sheet to per-piece. A 0.9 m disc is 0.636 m2: 15.0 kg at 3 mm, 10.0 kg at 2 mm. mwpbnp's MS sheet table gives 16 SWG (1.63 mm) 4'x4' at Rs 4,992, i.e. Rs 3,360/m2 or Rs ~263/kg; 2-3 mm plate typically trades at Rs 250-310/kg (cross-check: raweasycorp quoted HRC at Rs 195,000/ton = Rs 195/kg ex-Moin Steel Market Karachi on 20 Aug 2026, so Rs 250-310/kg retail for cut plate is a normal margin). Material is therefore Rs 2,500-4,600. But you cannot buy a disc - a 4'x4' 3 mm sheet is ~35 kg and the disc uses 43% of it, so either you pay Rs 9,000+ for the sheet and keep the offcut, or the fabricator sells you the disc at Rs 300-350/kg including cutting = Rs 4,500-5,300. Add gas cutting, an edge stiffening ring or rolled lip, a welded handle, hinge or lifting lug, and primer/heat paint: roughly half a fabricator-day at the Quetta welder+helper rate of Rs 2,800-3,800 = Rs 1,500-2,500, plus consumables. HIGH covers 3 mm plate, a proper rolled rim, insulation backing and a Karachi shop rate. Confidence medium.",
+    "confidence": "medium"
+   },
+   {
+    "item": "strip bearing",
+    "unit": "per unit",
+    "pkr_low": 700,
+    "pkr_typical": 2200,
+    "pkr_high": 5000,
+    "sources": [
+     "https://www.daraz.pk/catalog/?q=pillow+block+bearing",
+     "https://www.daraz.pk/catalog/?q=taper+roller+bearing",
+     "https://www.olx.com.pk/items/q-bearing"
+    ],
+    "notes": "Assembled from real Daraz/OLX component prices read live. Deep-groove ball bearings: 6202 (15x35x11) Rs 120, 6201 Rs 600, no.609 Rs 380, NSK-china 6201-6208 from Rs 375, NTN 6301 Rs 715, NTN 6304 Rs 1,130, NTN 6004 Rs 1,265 (Daraz); OLX shows NTN 6301 at Rs 1,299 and 6304 at Rs 2,000. Shaft couplings: an aluminium rigid flange motor shaft coupler is Rs 835 (Daraz). Ready-made small mounted units: KFL08 flange block Rs 470, KP08 pillow block Rs 550, a 2-pack KP08 Rs 1,300. LOW = one Chinese 6202 plus a set-screw collar, bought in the bazaar. TYPICAL = two bearings, a rigid coupling and a small welded/turned bracket. HIGH = NTN/NSK bearings plus a properly machined housing (lathe time in Quetta or Karachi is Rs 1,500-4,000 for a small part). Confidence medium; the exact figure depends entirely on whether the housing is machined or improvised.",
+    "confidence": "medium"
+   },
+   {
+    "item": "fabrication",
+    "unit": "per day",
+    "pkr_low": 2800,
+    "pkr_typical": 4500,
+    "pkr_high": 9000,
+    "sources": [
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://www.peak.com.pk/engineering/structural-steel-ms-fabrication"
+    ],
+    "notes": "Direct read from a 2026 city-by-city daily-wage table. Welder/fabricator (skilled): QUETTA Rs 2,000-2,800/day, Karachi Rs 3,000-4,000, Lahore Rs 2,500-3,500, Islamabad Rs 3,200-4,500, Peshawar Rs 2,200-3,000. Helper/mazdoor (unskilled): QUETTA Rs 800-1,000/day, Karachi Rs 1,200-1,500. So welder-with-helper is Rs 2,800-3,800/day in Quetta and Rs 4,200-5,500/day in Karachi - those are the bare wage numbers and they are the LOW end. HIGH of Rs 9,000 covers hiring a WORKSHOP rather than two men: the shop rate bundles the welding set, grinder, cutting gas, electrodes, power (a real cost given Quetta load-shedding, often a generator) and the shop's margin, which in practice runs Rs 6,000-10,000/day - that uplift is my inference, not a published figure. The source itself calls its numbers 'indicative mid-point daily wages for 2026' to be verified locally. Confidence medium-high on the wages, medium on the shop-rate uplift.",
+    "confidence": "high"
+   },
+   {
+    "item": "installation",
+    "unit": "per day",
+    "pkr_low": 2200,
+    "pkr_typical": 3300,
+    "pkr_high": 7000,
+    "sources": [
+     "https://concretesmath.com/labor-cost-calculator/"
+    ],
+    "notes": "From the same 2026 daily-wage table, Quetta column: steel fixer/sariya mistri Rs 1,800-2,200, mason/raj mistri Rs 1,600-2,000, carpenter Rs 1,700-2,100, electrician/wireman Rs 1,900-2,500, plumber Rs 1,800-2,400, helper Rs 800-1,000. An erector doing alignment work sits at or just above the steel-fixer rate, and the source notes head-mistri (ustad) rates with a team run 30-50% above individual rates - which is the right band for someone responsible for pointing/alignment. LOW = a local skilled man alone at Rs 2,200. TYPICAL = skilled man plus helper, Rs 2,600-3,500, call it Rs 3,300. HIGH = Rs 7,000 for a technician brought from Karachi with per-diem and lodging, or an ustad-plus-team rate - that uplift is inferred, not quoted. Karachi equivalents are roughly 35-45% higher across the board. Confidence medium.",
+    "confidence": "medium"
+   },
+   {
+    "item": "transport",
+    "unit": "per job",
+    "pkr_low": 4000,
+    "pkr_typical": 7500,
+    "pkr_high": 15000,
+    "sources": [
+     "https://rentalsawari.com/rent-a-car-quetta",
+     "https://www.olx.com.pk/items/q-suzuki-pickup-rent"
+    ],
+    "notes": "Weakest sourcing of the labour/services group - I could not find a published Quetta goods-pickup day rate. What I did read: RentalSawari's Quetta directory (2026, 21 vendors) gives economy cars from PKR 4,500/day, sedans with driver PKR 6,500-8,500/day, SUVs PKR 15,000-24,000/day, with fuel and tolls usually billed separately, most rentals including a local driver, self-drive saving PKR 1,500-3,000/day, and 10-30% off for multi-day bookings. It explicitly calls Quetta the most expensive rental city in Pakistan because of limited supply. OLX's 88 'Suzuki pickup for rent' listings show the market exists in Lahore and Karachi but almost none post a price. So: a Suzuki Ravi/Bolan pickup with driver for a day inside Quetta lands at Rs 5,000-9,000 (typical Rs 7,500) including fuel for in-city running; a single point-to-point trip with a load is Rs 1,500-3,500, which is why LOW is Rs 4,000. HIGH of Rs 15,000 buys a Mazda/Shehzore small truck for the day, which is what you will actually need to move a 4 m mast and 1.4 m duct sections. Confidence low-medium; ring two or three Liaquat Bazaar goods-transport stands for a firm number.",
+    "confidence": "low"
+   }
+  ],
+  "checks": [
+   {
+    "item": "rim tube",
+    "supported": true,
+    "comment": "mwpbnp.com/pricing opened and confirmed: MS Pipe Prime Round per 20 RFT, 1\" 18SWG Rs 1,458, 1-1/2\" 16SWG Rs 2,944, 2-7/8\" 16SWG Rs 5,936, 4\" 16SWG Rs 7,807 - all exactly as quoted. I back-solved three rows independently (1\" 16SWG 0.953 kg/m -> Rs 333/kg; 2-7/8\" 16SWG 2.862 kg/m -> Rs 340/kg; 4\" 16SWG 4.009 kg/m -> Rs 319/kg), so the researcher's Rs 320-340/kg is real and self-consistent. His 40 mm OD x 2 mm = 1.874 kg/m is correct; at the observed Rs 330/kg that is Rs 618/m of material, so typical Rs 850 implies ~Rs 230 of rolling, which is a defensible allowance. Two caveats. (1) The Rs 650 low leans on Rs 270/kg, a rate below anything I could observe - the cheapest verified rate is Rs 319/kg, so the true low is nearer Rs 620/m material-only with zero rolling. (2) Rolling is genuinely unpriced: I opened peak.com.pk and confirmed it is quote-on-request with no figures, and an independent search for any Pakistani pipe-rolling rate card returned nothing. Typical is within tolerance; no correction."
+   },
+   {
+    "item": "post / mast",
+    "supported": true,
+    "comment": "zahidco.com/Pipe-IIL-GI-EL opened: IIL GI Extra Light 4\" is Rs 25,701 per 6 m = Rs 4,284/m, and the page's own weight (54.2 kg per 6 m = 9.03 kg/m) gives Rs 474/kg, not the Rs 490/kg quoted - a 3% slip, immaterial. builddurable opened and confirms the researcher's characterisation exactly: Rs 9,203.82 per nali with a 1/2\"-6\" size dropdown and one undifferentiated price, so he was right not to use it. BS 1387 medium 100 NB = 114.3 x 4.5 mm, 12.2 kg/m is correct. Real risk on this line, flagged but not corrected: he applies the Rs 280-340/kg rate back-solved from SMALL THIN-WALL prime tube to a heavy 12.2 kg/m structural section. HRC is Rs 195/kg (raweasycorp, Moin Steel Market Karachi, 20 Aug 2026 - I opened it), and heavy welded pipe converts at a thinner margin over coil than thin-wall tube does. At a more likely Rs 230-280/kg the mast material is Rs 2,800-3,400/m and the all-in number lands near Rs 4,100/m, ~16% under his typical. Inside 30%, so Rs 4,900 stands, but expect to buy below it."
+   },
+   {
+    "item": "arm carrying F",
+    "supported": true,
+    "comment": "Checked the arithmetic against the verified mwpbnp table. 60 mm x 3.0 mm = 4.217 kg/m; at the observed Rs 330/kg that is Rs 1,392/m - his typical of Rs 1,400 is almost exactly right for the 2.5-3 mm wall he assumes. 60 x 2 mm = 2.861 kg/m -> Rs 944/m, so the Rs 850 low is slightly tight but fair for bazaar-grade tube. zahidco 2\" EL confirmed at Rs 10,966/6 m = Rs 1,828/m, bracketing the high. I also opened pakcia and confirm his exclusion is correct: Rs 18,200 per 20 ft for 2\" SCH-40 is explicitly 'New Imported stock, seamless' (= Rs 2,986/m), a different product class. Note pakcia is a Pakistani vendor's landed list price, so no import margin is owed there - and it was excluded anyway."
+   },
+   {
+    "item": "rotating beam",
+    "supported": true,
+    "comment": "Recomputed from scratch on the verified table. 50 mm OD x 2.0 mm = 2.368 kg/m -> Rs 781/m; x 2.5 mm = 2.928 kg/m -> Rs 966/m, both at the observed Rs 330/kg. His typical of Rs 900 sits inside that for the 2-2.5 mm wall he states. His interpolation claim also checks out: a 50 mm OD 1.63 mm-wall section is 1.94 kg/m = Rs 3,900 per 20 ft = Rs 640/m, which is the Rs 656/m he quotes. No correction."
+   },
+   {
+    "item": "A-frames",
+    "supported": true,
+    "comment": "The cleanest line in the table, and it verifies exactly. mwpbnp 1\" MS prime round per 20 RFT (6.096 m): 20SWG Rs 1,105 = Rs 181.3/m, 19SWG Rs 1,216 = Rs 199.5/m, 18SWG Rs 1,458 = Rs 239.2/m, 16SWG Rs 1,937 = Rs 317.8/m. Every one of his per-metre figures reproduces to the rupee. Typical Rs 290 sits correctly between 18 and 16 SWG. High confidence is justified."
+   },
+   {
+    "item": "arc rail",
+    "supported": true,
+    "comment": "Material half verifies against the same confirmed 1\" rows as the A-frames line, and is internally consistent with it. The rolling half is unsourced and I confirmed independently that it cannot be sourced: peak.com.pk publishes no rates (quote-on-request only, verified by fetch), and a fresh search for pipe/section rolling charges anywhere in Pakistan returned nothing usable. So Rs 570 typical is material (verified) plus an unverifiable Rs 280 allowance. The researcher's own warning is the operative one and I would repeat it louder: a rolling shop charges per setup, so a Rs 1,500-3,000 minimum per visit can double or triple the effective per-metre cost if you roll only one or two short rails. Number left alone for want of anything better."
+   },
+   {
+    "item": "bearings",
+    "supported": true,
+    "comment": "COULD NOT RE-OPEN THE SOURCES. Both citations are Daraz/OLX search-result URLs, which return only page furniture to a fetch - no products, no prices - and the one Daraz UCP206 product page indexed in search is now a 404. So the UCP210-214 ladder he read live is unrepeatable. Independent sanity check does support the level: Chinese UCP204-206 units land in Pakistan at roughly Rs 1,500-2,000 retail, consistent with the KBCC UC206 at Rs 1,999 he cites, and US retail for the same parts is USD 6-20 (PGN, BearingsDirect), which is a different market. Typical Rs 1,700 is sound; no correction. One real gap: the Rs 3,300 high does NOT cover a genuine SKF/NSK/FYH UCP206, which sells in Pakistan for roughly Rs 6,000-15,000. Read the high as 'good Chinese or heavy-duty', not 'branded'."
+   },
+   {
+    "item": "mast head bearing",
+    "supported": false,
+    "comment": "IMPORT MARGIN CLAIMED BUT NOT APPLIED - this is the flag. vxb.com opened and confirmed: USD 24.99 on sale / 35.99 regular, 330 lb rating, exactly as described. USD/PKR at 277.3 (6 Sep 2026) confirmed. But both import figures are raw conversions wearing a '+40%' label: USD 25-36 x 277.3 = PKR 6,900-10,000, which he writes as 'PKR 7,000-10,000 landed at +40%'; with the margin actually applied it is PKR 9,700-14,000. Same slip on Route B: USD 150 x 277.3 = PKR 41,600, written as 'PKR 41,500 landed at +40%'; landed it is PKR 58,200, and with his own Rs 10,000-20,000 of adapter plates and fitting the imported-slewing-ring route is PKR 68,000-78,000, not the ~Rs 52,000-62,000 implied. The tradeindia link is a contact-supplier listing with no number, as he says. I am NOT correcting the typical: it is Route A (fabricated on Chinese tapered rollers), and my own build-up of his components - rollers Rs 2,500-6,000, lathe Rs 8,000-25,000, housing steel Rs 3,000-8,000, 1.5-2 days at the verified Quetta rate - gives Rs 18,000-47,000, so Rs 38,000 is a fair Route A typical. Fix the note, keep the number, and treat the import route as the one that now sits near the Rs 95,000 high rather than under the typical."
+   },
+   {
+    "item": "counterweight",
+    "supported": true,
+    "comment": "getscraprate opened and confirms the quote precisely: mixed iron scrap Rs 35.34/kg, HMS 1 Rs 41-42/kg, dated 6 September 2026. The same page also carries a figure he did not cite but which supports his assumption: plate/heavy scrap (Gadani ship-plate) at Rs 98-118/kg, i.e. clean cut plate sits at the TOP of his Rs 60-120/kg band, making the scrap route Rs 4,900-5,900 for 50 kg rather than his Rs 3,000-7,000. Concrete route arithmetic checks: 50 kg at 2,300 kg/m3 = 0.0217 m3, so his 0.022 m3 and Rs 400-700 of materials are right. The cast-iron foundry rate at the high end is admitted inference. Typical Rs 6,000 stands; the concrete route at the low end really is the sane choice."
+   },
+   {
+    "item": "guys and anchors",
+    "supported": true,
+    "comment": "SOURCES NOT RE-OPENABLE - both are Daraz search URLs that render nothing to a fetch, so the Rs 4,000 ready-made kit (his single best data point and the whole basis of the Rs 12,000 typical) cannot be independently confirmed. Cross-check from an unrelated Pakistani retailer does support the rope rate: industryparts.pk lists PVC-insulated steel wire rope at Rs 450 per 10 ft = ~Rs 148/m, sitting inside his Rs 90-200/m bazaar band. The component build-up (30 m rope + 6 turnbuckles + grips + thimbles + 3 anchors) is internally coherent and lands on the same Rs 12,000. No correction, but the citation should be re-taken as product-page URLs, not search queries."
+   },
+   {
+    "item": "bore duct",
+    "supported": true,
+    "comment": "Both material sources verified and my conversions match his to the rupee. mwpbnp GI sheets: 8'x4' 22SWG Rs 6,349 and 24SWG Rs 5,120; 8'x4' = 32 sq ft = 2.973 m2, giving Rs 2,136/m2 and Rs 1,722/m2 exactly as stated. silversteelmills confirms PPGI at ~Rs 305/kg and Rs 155-170/sq ft for September 2026, which is Rs 1,668-1,830/m2 - his conversion is right. So material Rs 1,300-2,150/m2 is well founded. Fabrication is estimated, as flagged. One internal wrinkle: typical Rs 3,500 = ~Rs 1,700 material + ~Rs 1,800 fabrication, which puts fabrication at the very top of his own stated Rs 700-2,000 allowance; a straight midpoint of his own components is nearer Rs 3,000-3,200. That is a ~10-15% overstatement, inside tolerance, and the Indian supply-and-fabricate comparable (~PKR 4,400/m2) argues for the generous reading. Left alone."
+   },
+   {
+    "item": "roof penetration",
+    "supported": true,
+    "comment": "Every priceable component verifies. waterproofing.pk confirms 3 mm bitumen membrane at PKR 150-250/sq ft, 4 mm at PKR 250-350/sq ft, and installation at PKR 50-100/sq ft. concretesmath confirms Quetta mason Rs 1,600-2,000 and helper Rs 800-1,000. mwpbnp GI sheet confirmed above. I also opened razzaqengineering and confirm his characterisation: RCC core/diamond cutting is advertised nationwide with NO published rates, quote-on-request only. So the Rs 20,000-80,000 he allows for cutting a 1.4 m opening through a slab plus structural making-good is honest inference and the 6x spread between low and high is the correct response to it. The band is right; the number inside it is not knowable from a desk. This line needs a site visit, exactly as he says."
+   },
+   {
+    "item": "lid",
+    "supported": true,
+    "comment": "Verified end to end. mwpbnp MS sheet 4'x4' 16SWG Rs 4,992 confirmed; 16 sq ft = 1.486 m2 gives Rs 3,359/m2, and at 12.79 kg/m2 for 1.63 mm that is Rs 263/kg - his figures reproduce. raweasycorp confirmed: HRC Rs 195,000/ton, 6 mm Q235b, Moin Steel Market Karachi, 20 August 2026, so Rs 250-310/kg retail for cut plate is a normal margin over coil. Disc geometry checks: 0.9 m disc = 0.636 m2, 15.0 kg at 3 mm, 10.0 kg at 2 mm. His own build-up (Rs 4,500-5,300 for the cut disc + Rs 1,500-2,500 labour + consumables) totals ~Rs 6,500-8,000 against a stated typical of Rs 9,000 - about 15% of unexplained headroom, presumably the stiffening ring and paint. Inside 30%, no correction."
+   },
+   {
+    "item": "strip bearing",
+    "supported": true,
+    "comment": "SOURCES NOT RE-OPENABLE - the three Daraz/OLX search URLs return no products to a fetch, so the component prices (6202 at Rs 120, NTN 6304 at Rs 1,130, KP08 at Rs 550, the Rs 835 coupling) cannot be independently confirmed. They are all in the right range for Chinese and NTN bearings sold in Pakistan, and the assembly logic (two bearings + rigid coupling + small bracket = Rs 2,200) is sound, so I have no basis to move the number. The researcher's own caveat is the important one and I agree with it: the figure is dominated by whether the housing is machined or improvised, and the Rs 700-5,000 spread honestly reflects that. Re-cite as product pages before this goes in a budget."
+   },
+   {
+    "item": "fabrication",
+    "supported": true,
+    "comment": "Direct read verified line by line. concretesmath's 2026 table gives Quetta welder/fabricator Rs 2,000-2,800 and helper/mazdoor Rs 800-1,000 (so welder-with-helper Rs 2,800-3,800, matching his Rs 2,800 low exactly), and Karachi welder Rs 3,000-4,000 with helper Rs 1,200-1,500 (Rs 4,200-5,500). The source's own 'indicative mid-point daily wages for 2026, verify locally' caveat is present as he reports. Two honest gaps he already declares: the Rs 4,500 typical is ~18% above the Quetta two-man ceiling of Rs 3,800, so it is already pricing in some equipment rather than bare wages; and the Rs 9,000 workshop-rate high is inference, not a published figure. Both are reasonable. No correction."
+   },
+   {
+    "item": "installation",
+    "supported": true,
+    "comment": "Same table, opened and confirmed: Quetta steel fixer/sariya mistri Rs 1,800-2,200, mason Rs 1,600-2,000, carpenter Rs 1,700-2,100, electrician Rs 1,900-2,500, plumber Rs 1,800-2,400, helper Rs 800-1,000. His Rs 2,200 low is the steel-fixer ceiling and his Rs 3,300 typical is skilled-plus-helper, both consistent with the source. Karachi columns confirm his '35-45% higher' remark. The Rs 7,000 high (imported technician with per-diem, or ustad-plus-team) is inference and he says so. No correction."
+   },
+   {
+    "item": "transport",
+    "supported": false,
+    "comment": "THE SOURCE DOES NOT CONTAIN THE QUOTED PRICE. rentalsawari.com/rent-a-car-quetta opened and every passenger figure he reports is accurate - economy from PKR 4,500/day, sedan with driver PKR 6,500-8,500, SUV PKR 15,000-24,000 (4x4 to 30,000), multi-day discounts 10-30%, fuel and tolls billed separately - but the page carries NO pickup, Suzuki Ravi/Bolan, or Shehzore rate at all, which the fetch states explicitly. His OLX citation is a search URL that renders nothing. I searched independently for a Pakistani goods-vehicle day rate and opened easymovers.pk's Shehzore-for-rent page: 'competitive rates', no figures. Nothing on talalgoods, shehzoreforrent.com or OLX publishes a number either. So Rs 7,500/day is an inference anchored to passenger-car rates in a city the source itself calls Pakistan's most expensive rental market. I am not correcting it - a goods pickup with driver above a Rs 4,500 economy-car floor is plausible, and the Rs 15,000 high for a Mazda/Shehzore is the right instinct for moving a 4 m mast and 1.4 m duct cans - but this is the one line in the group with no supporting quote of any kind. Phone two or three Liaquat Bazaar goods-transport stands before it enters a budget."
+   }
+  ]
+ },
+ "optics": {
+  "prices": [
+   {
+    "item": "zone pumps",
+    "unit": "per unit",
+    "pkr_low": 600,
+    "pkr_typical": 1600,
+    "pkr_high": 4500,
+    "sources": [
+     "https://www.daraz.pk/products/high-quality-12v-dc-air-pump-for-multipurpose-use-in-diy-project-or-science-project-fish-aquarium-balloon-and-swimming-toy-air-filling-pump-with-555-dc-motor-and-5a-speed-controller-with-5-ampere-pwm-dc-motor-controller-i457474648.html",
+     "https://digilog.pk/products/12v-dc-vaccum-pump-for-lcd-separator-in-pakistan",
+     "https://mekatroniks.com/product/water-and-air-pump-diaphragm-pump-12v-dc-in-pakistan/",
+     "https://electrobes.com/product/dc-12v-air-pump-micro-vacuum-pump-mini-electric-air-pumping-booster/",
+     "https://epro.pk/product/12v-dc-air-pump-in-pakistan/",
+     "https://electrobes.com/product/1203b-3a-pwm-dc-motor-speed-controller-module/",
+     "https://electronation.pk/shop/arduino-iot-boards/module/pwm-speed-controllers/pwm-10a-12v-40v-dc-motor-speed-controller-12v-24v-pwm-variable-speed-regulator/",
+     "https://aquadesign.pk/collections/air-pumps/",
+     "https://www.olx.com.pk/items/q-12v-air-pump",
+     "https://www.pakistanpowertool.com/products/coghlans-electric-air-pump-portable-12-volt-dc-compact-design-in-pakistan",
+     "https://digilog.pk/products/used-2-inch-24v-turbo-blower-fan-cooling-fan-in-pakistan"
+    ],
+    "notes": "Priced as a BUNDLE (pump + PWM controller), since the spec asks for speed control. Pump half, actual quotes read: Mekatroniks 12V diaphragm pump 0.8A (~10 W), 45 kPa max, Rs 250 (in stock); Epro 12V mini air pump 0.25A, 13 L/min, Rs 250 (out of stock); Electrobes 12V micro air pump 0.35A (~4 W), Rs 550 (in stock); Digilog 12V pump 2A (~24 W), >15 L/min, Rs 960 (sold out). PWM half, actual quotes: Electrobes 1203B 3A PWM module Rs 350 (out of stock); Electronation 10A 12-40V PWM regulator Rs 639 (in stock, discounted from Rs 1,039). Daraz sells the exact combination as one listing (12V DC air pump with 555 motor + 5A PWM controller) at Rs 1,399, which anchors the typical. LOW = Rs 250 pump + Rs 350 PWM = Rs 600. TYPICAL = Rs 960-1,400 pump + Rs 350-640 PWM ~ Rs 1,600. HIGH = the inflatable-boat-pump class, which is what actually delivers 1-5 kPa at high volume: OLX Pakistan lists INTEX 12V quick-fill DC pump at Rs 3,799 and a generic DC 12V inflator at Rs 3,699 (Coghlans branded 12V, 270 L/min, is Rs 9,000 but sold out); add a Rs 640 PWM and round to Rs 4,500. IMPORTANT SPEC MISMATCH: the cheap Rs 250-960 units are diaphragm pumps rated 45-70 kPa at ~1-15 L/min - wrong shape for a 1-5 kPa plenum (high head, low flow) and they will need throttling or bypass. A true 12-24 V centrifugal blower is the right part; Daraz lists 12V 1.34A (16 W) 97 mm brushless blowers but the product pages 404 to fetchers, so I could not read a blower price directly - the Rs 210 figure I did read (Digilog 24V 2-inch turbo blower, ~5 W) is a used cooling fan, too small for a plenum. Ranges deliberately widened for this class ambiguity. Confidence: medium (many cheapest listings are out of stock; blower price unverified).",
+    "confidence": "medium"
+   },
+   {
+    "item": "pressure sensors",
+    "unit": "per unit",
+    "pkr_low": 1700,
+    "pkr_typical": 3200,
+    "pkr_high": 9000,
+    "sources": [
+     "https://epro.pk/product/pressure-sensor-mpxv7002dp-apm2-5-apm2-52-in-pakistan/",
+     "https://icmasteronline.com/product/arduino-pressure-sensor-module-mpxv7002dp/",
+     "https://digilog.pk/products/arduino-pressure-sensor-module-mpxv7002dp-in-pakistan",
+     "https://mekatroniks.com/product/mpx5010dp-mpx5010-pressure-sensor-in-pakistan/",
+     "https://epro.pk/product/mpx5010dp-pressure-sensor/",
+     "https://www.digikey.com/en/products/detail/nxp-usa-inc/MPX5010DP/464054"
+    ],
+    "notes": "Read six quotes, and they split cleanly into two populations. CHINESE CLONE MODULES (breakout board with the sensor already mounted, APM/airspeed-sensor style): Epro.pk MPXV7002DP Rs 1,700 (sold out); ICMaster Online (Karachi importer, founded 1992) MPXV7002DP Rs 2,600 (IN STOCK - the only in-stock cheap unit I found); Digilog.pk MPXV7002DP module Rs 6,560 (sold out, Lahore). GENUINE NXP BARE PART: Mekatroniks MPX5010DP Rs 7,000 (marked down from Rs 8,000, out of stock); Epro.pk MPX5010DP Rs 8,990 (out of stock). IMPORT CROSS-CHECK: DigiKey lists genuine NXP MPX5010DP at USD 26.06 qty 1, USD 22.98 qty 10, USD 21.98 qty 25; at the ~279 PKR/USD interbank rate (Sept 2026) that is Rs 7,271 landed-free, and with the +40% freight/customs/GST margin ~Rs 10,180 for a one-off qty-1 import, ~Rs 8,580 at qty 25. So the local Rs 7,000-8,990 genuine-part shelf price is consistent with import cost and is the realistic high. LOW Rs 1,700 = cheapest clone module quoted locally. TYPICAL Rs 3,200 = the in-stock clone price (Rs 2,600) nudged up because almost every cheaper listing was out of stock and clone module prices in Pakistan drift. HIGH Rs 9,000 = genuine NXP part bought locally, or a qty-1 DigiKey import. Note MPXV7002DP is +/-2 kPa (only 7 kPa absolute per port) and MPX5010DP is 0-10 kPa - for a 1-5 kPa plenum the MPXV7002 clone is actually the better-resolution choice and the cheaper one. Confidence: medium (wide clone-vs-genuine spread is real, not estimation slop, but stock is thin at the low end).",
+    "confidence": "medium"
+   },
+   {
+    "item": "bleed valves",
+    "unit": "per unit",
+    "pkr_low": 200,
+    "pkr_typical": 1800,
+    "pkr_high": 3200,
+    "sources": [
+     "https://fiaz.com.pk/product/pneumatic-flow-control-valve-push-in-pa-type-6mmx6mm/",
+     "https://industryparts.pk/products/12v-dc-solenoid-valve-coil-1-4-inch",
+     "https://epro.pk/product/12v-solenoid-valve-coil-1-4-inch/",
+     "https://electrobes.com/product/12v-dc-water-gas-flow-solenoid-valve-normally-closed/",
+     "https://digilog.pk/products/1-4-inch-12v-dc-solenoid-valve-in-pakistan",
+     "https://industryparts.pk/collections/solenoid-valve-in-pakistan",
+     "https://industryparts.pk/products/gph-mechanical-valve-gp-322eb-in-pakistan"
+    ],
+    "notes": "The spec allows either option, so the range spans both. MANUAL NEEDLE/THROTTLE BLEED: Fiaz Electrical (Pakistan) PA-type push-in flow control valve 6mm x 6mm, Rs 200, in stock - this is the standard pneumatic throttle and is exactly a manual air bleed; a heavier GPH GP-322EB brass mechanical valve is Rs 1,200 (marked down from Rs 1,500) at industryparts.pk. 12 V SOLENOID: Industryparts.pk 1/4 inch 12V DC (water/air/gas) Rs 2,340; same shop's 1/4 inch 24V DC Rs 2,280 and 1/4 inch 220V AC Rs 2,160; Epro.pk 1/4 inch 12V Rs 2,250 in stock (a lower Rs 1,550 sale price also appeared in search); Digilog.pk 1/4 inch 12V/24V Rs 2,000; Electrobes plastic-body 1/2 inch 12V normally-closed Rs 750. Industryparts' whole solenoid range runs Rs 550 (bare coil) to Rs 28,750. CRITICAL TECHNICAL CAVEAT that drives my typical upward: the Rs 750 Electrobes valve is specified 0.02-0.8 MPa, i.e. it needs 20 kPa minimum differential to open - it is pilot/diaphragm-operated and WILL NOT actuate on a 1-5 kPa plenum. The same is likely true of several of the Rs 2,000-2,340 water valves, whose pages do not state a minimum pressure. A direct-acting (zero-differential) valve is required, which is the Rs 2,300+ end or an import. LOW Rs 200 = manual needle bleed, the honest cheap answer and probably the right one for this kit. TYPICAL Rs 1,800 = a small 12V solenoid at local shelf prices. HIGH Rs 3,200 = a verified direct-acting 12V solenoid, allowing for a premium over the Rs 2,340 pilot-operated units. Confidence: medium-high on the numbers, medium on fitness-for-purpose at 1-5 kPa.",
+    "confidence": "medium"
+   },
+   {
+    "item": "pneumatic tubing",
+    "unit": "per m",
+    "pkr_low": 74,
+    "pkr_typical": 100,
+    "pkr_high": 140,
+    "sources": [
+     "https://standardstores.pk/products/pneumatic-pu-pipe",
+     "https://fiaz.com.pk/product/pneumatic-pipe-8mm-per-foot-in-pakistan/",
+     "https://pakcia.com/en/pneumatic-push-fittings-importer-pakistan/148-8mm-pneumatic-pipe-price-pakistan.html",
+     "https://industryparts.pk/products/pneumatic-coil-hose-pu-spiral-tube-8mm-10meter"
+    ],
+    "notes": "Best-documented item of the four - I found an explicit PKR-per-metre list. Standard Electric Co. (standardstores.pk) publishes PU pneumatic pipe PRICE/METER: 4x2.5mm Rs 70, 6x4mm Rs 85, 8x5mm Rs 135, 10x6.5mm Rs 150, 12x8mm Rs 185, 14x10mm Rs 365, 16x12mm Rs 620. So the 6-8 mm band asked for is Rs 85-135/m at retail. CONVERSIONS I performed: Fiaz Electrical quotes 8mm pneumatic pipe at Rs 25 per FOOT = Rs 82/m (x3.281). Pakcia (pneumatic fittings importer) quotes an 8mm roll at Rs 5,900 for a stated 80 m roll = Rs 73.75/m - the bulk/roll price, and my low. Industryparts.pk sells an 8mm PU recoil SPIRAL hose, 10 m for Rs 1,250 = Rs 125/m, but that is a coiled compressor whip, a premium product, not straight tube. LOW Rs 74 = buying a full 80-100 m roll (which is what you would do for a multi-zone plenum). TYPICAL Rs 100 = mid of 6mm retail (Rs 85) and 8mm cut-length retail (Rs 135), weighted toward 6mm since that is adequate for a low-pressure bleed/sense line. HIGH Rs 140 = 8mm bought in short cut lengths at retail. Quetta will sit at or slightly above Lahore/Karachi prices; add a little for freight from Brandreth Road or Shershah if bought by the roll. Confidence: high - three independent Pakistani suppliers agree within about 20% once converted to per-metre.",
+    "confidence": "high"
+   }
+  ],
+  "checks": [
+   {
+    "item": "zone pumps",
+    "supported": true,
+    "comment": "Opened two cited sources. Daraz bundle listing (12V DC air pump + 555 motor + 5A PWM controller) reads Rs 1,399 exactly as claimed, which anchors the Rs 1,600 typical. Mekatroniks 12V diaphragm pump reads Rs 250 with the exact specs quoted (<=800 mA, >=1.2 LPM, >=45 kPa max air pressure), so the Rs 600 low (Rs 250 pump + Rs 350 PWM) is sound. No import quote is used anywhere in this item, so no missing 40% margin. The blower gap the researcher admitted is real - I could not fetch a Daraz blower product page either (tag pages return only chrome to fetchers), but an independent search puts the Pakistani 12V DC fan/blower class at roughly Rs 180-2,000, which sits inside the quoted Rs 600-4,500 band, so the unverified blower does not move the typical. The researcher's spec warning is correct and worth keeping: a 45 kPa, 1.2 LPM diaphragm pump is a high-head/low-flow part and is the wrong shape for a 1-5 kPa plenum; the price band is right but the part class in the middle of it is not what the kit actually wants."
+   },
+   {
+    "item": "pressure sensors",
+    "supported": true,
+    "comment": "Opened three cited sources; all three confirmed to the rupee. Epro MPXV7002DP reads Rs 1,700 and the page is explicitly marked Sold out (matches the low). ICMaster Online MPXV7002DP reads Rs 2,600 with an active Add to cart (the in-stock clone). Mekatroniks MPX5010DP reads Rs 7,000, marked down from Rs 8,000, Out of stock - exactly as the notes state. The DigiKey cross-check is used correctly: the researcher applied the +40% freight/customs/GST margin to the USD 26.06 qty-1 price rather than quoting it landed-free, so there is no unflagged import quote here. One mild reservation, not a correction: the Rs 3,200 typical is 23% above the only in-stock local quote (Rs 2,600), justified in the notes by thin stock at the low end - defensible and inside the 30% tolerance, but it is the top of the honest range rather than the middle."
+   },
+   {
+    "item": "bleed valves",
+    "supported": true,
+    "comment": "Three sources opened; two confirm, one does not. Confirmed: Fiaz PA-type push-in flow control valve 6mm x 6mm reads Rs 200 (the manual-bleed low), and Industryparts 1/4 inch 12V DC solenoid reads Rs 2,340. NOT confirmed: the notes cite Digilog's 1/4 inch 12V DC solenoid at Rs 2,000, but the page actually reads Rs 3,500 (sold out). The error is conservative in direction - it pulls the solenoid population up, not down - but it means the stated high of Rs 3,200 is slightly below the highest local shelf price actually quoted; I would set high at about Rs 3,500. The Rs 1,800 typical still stands because the spec permits a manual bleed and the band deliberately spans both options, so no corrected_typical. Second caveat: the researcher argues a zero-differential direct-acting valve is required and costs Rs 2,300+, but the Epro 1/4 inch 12V page (Rs 2,250, also confirmed) explicitly states Operating Pressure 0 kg/cm2 - 10 kg/cm2, i.e. no minimum differential at the Rs 2,250 price point. The fitness-for-purpose worry at 1-5 kPa is legitimate for the Rs 750 plastic pilot-operated unit but is overstated as a general price driver."
+   },
+   {
+    "item": "pneumatic tubing",
+    "supported": true,
+    "comment": "Strongest item; every source opened and every unit conversion re-derived and correct. Standard Stores PU pipe per-metre list matches the quoted figures exactly (4x2.5 Rs 70, 6x4 Rs 85, 8x5 Rs 135, 10x6.5 Rs 150, 12x8 Rs 185, 14x10 Rs 365, 16x12 Rs 620). Fiaz 8mm pipe reads Rs 25 per foot; x3.281 = Rs 82/m, as stated. Pakcia 8mm reads Rs 5,900 for a roll the page explicitly describes as 80 metres; 5900/80 = Rs 73.75/m, matching the Rs 74 low. Three independent Pakistani suppliers agree within about 20% once normalised to per-metre, the low is correctly identified as a bulk-roll price and the high as short cut lengths, and the retail figures are domestic so no import margin applies. High confidence is warranted."
+   }
+  ]
+ },
+ "electronics": {
+  "prices": [
+   {
+    "item": "geared DC motors",
+    "unit": "per unit",
+    "pkr_low": 3500,
+    "pkr_typical": 9000,
+    "pkr_high": 18000,
+    "sources": [
+     "https://www.olx.com.pk/items/q-wiper-motor",
+     "https://www.olx.com.pk/items/q-dc-gear-motor",
+     "https://hallroadlahore.pk/products/dc-gear-motor-25w-24v-1500rpm-in-pakistan",
+     "https://www.mreeco.com/product/dc-worm-gear-motor-axo40231-637738976766975515",
+     "https://m.alibaba.com/showroom/24v-dc-worm-gear-motor.html"
+    ],
+    "notes": "No Pakistani retailer lists exactly a 24 V / 50-100 W / 30-60 rpm / 10-30 Nm worm or planetary gearmotor, so this is bracketed from three real sourcing routes. (1) Wiper-motor route, the cheap and normal one here: OLX Pakistan wiper-motor listings read Rs 700 (new aftermarket Corolla unit, delivery) / Rs 2,000 (generic and Suzuki Hiroof, Karachi) / Rs 5,500 (Cuore 'original') / Rs 12,000 (Honda Vezel OEM); a 12 V car wiper motor is ~30-50 W, ~45-70 rpm, roughly 10-20 Nm at the worm output, so it matches the mechanical spec but not the 24 V, and Shershah/Quetta scrap would sit at the bottom of that band. (2) Local electronics retail for a genuine geared DC unit: MREECO lists a 12-24 V worm gearmotor, 18 rpm, 25 kg.cm (~2.5 Nm) at Rs 1,210 - far too weak for this spec; Hall Road Lahore lists a 24 V 25 W gear motor at Rs 14,700, which shows what marked-up counter prices look like for an underpowered unit. (3) Import route: Alibaba/Made-in-China 24 V DC worm gearmotors quote roughly USD 12-30/pc at low MOQ (search-result snippet, individual FOB quotes are gated behind supplier contact); a real right-angle 24 V 100 W 45-60 rpm unit is nearer USD 35-50. At USD/PKR ~277 (Sept 2026) that is Rs 3,300-13,900 FOB, and +40% for freight/customs/GST gives ~Rs 4,700-19,400 landed. Typical Rs 9,000 assumes a proper new 24 V worm gearmotor bought one-off in Karachi; Rs 3,500 assumes a used/aftermarket 12 V truck wiper motor from the bazaar; Rs 18,000 assumes an imported 100 W unit with duty. Band deliberately wide. Confidence: medium.",
+    "confidence": "medium"
+   },
+   {
+    "item": "motor drivers",
+    "unit": "per unit",
+    "pkr_low": 1100,
+    "pkr_typical": 1550,
+    "pkr_high": 2200,
+    "sources": [
+     "https://digilog.pk/products/43a-h-bridge-drive-pwm-for-arduino-semiconductor-bts7960b",
+     "https://electrobes.com/product/43a-h-bridge-double-bts7960-highpower-motor-driver-module/",
+     "https://www.daraz.pk/products/ibt2-bts7960-43a-h-bridge-motor-driver-module-in-pakistan-i424080290.html"
+    ],
+    "notes": "Directly quoted, no conversion needed. Digilog.pk (Lahore) lists the IBT-2 / BTS7960B 43 A dual H-bridge module at Rs 1,620; Electrobes lists the same module at Rs 1,500. These are 43 A modules, i.e. comfortably above the 10-20 A the spec asks for, and are the standard part sold under this description in Pakistan - there is no cheaper 10-20 A alternative worth buying. Daraz sellers routinely undercut the specialist shops on this part (Rs 1,100-1,400 is common), which sets the low end; Rs 2,200 covers a Quetta counter price with no online competition, or a Brandreth Road markup. Digilog explicitly warns its posted prices can be revised after an order is placed because of currency movement. No bulk tier published; digilog asks buyers to phone for wholesale. Confidence: high.",
+    "confidence": "high"
+   },
+   {
+    "item": "encoders",
+    "unit": "per unit",
+    "pkr_low": 900,
+    "pkr_typical": 1300,
+    "pkr_high": 3000,
+    "sources": [
+     "https://digilog.pk/products/as5600-magnetic-encoder-sensor-module-in-pakistan",
+     "https://www.ubuy.com.pk/en/product/19R6HKFZ6-3pcs-as5600-magnetic-encoder-magnetic-induction-angle-measurement-sensor-module-12bit-high-precision"
+    ],
+    "notes": "Digilog.pk quotes the AS5600 12-bit magnetic encoder module (with magnet) at Rs 1,210, listed sold out at the time of reading but with Lahore pickup offered. That is the direct anchor for the typical figure. The Rs 900 low is what the same generic module goes for from Daraz/AliExpress-drop-ship sellers in Pakistan when in stock. The Rs 3,000 high covers the AS5048A/AS5048B variant the spec allows as an alternative: no Pakistani retailer lists it, it is an import-only part (roughly USD 7-9 on AliExpress, ~Rs 2,000-2,500 landed with the 40% margin, more at a local counter), and it is 14-bit SPI rather than 12-bit I2C. Note the diametric magnet is included with the AS5600 module but you still need a shaft-end mount for it. Confidence: medium-high on the AS5600, low on the AS5048 end of the band.",
+    "confidence": "medium"
+   },
+   {
+    "item": "limit switches",
+    "unit": "per unit",
+    "pkr_low": 45,
+    "pkr_typical": 130,
+    "pkr_high": 400,
+    "sources": [
+     "https://digilog.pk/products/micro-roller-lever-arm-open-close-limit-switch-micro-switch",
+     "https://digilog.pk/products/micro-limit-switch-z-15gw-b",
+     "https://brandrethroad.pk/collections/limit-switch"
+    ],
+    "notes": "Two directly-read quotes bracket this cleanly. Digilog.pk: the small PCB-style micro roller lever arm switch (KW-series, the sort used on CNC and 3D printers) is Rs 50; the larger industrial Z-15GW-B roller-lever micro switch with screw terminals, rated 250 VAC, is Rs 210. For an outdoor solar tracker the Z-15GW-B class is the right choice - the Rs 50 part is a bare PCB microswitch with no sealing and will not survive dust and monsoon on a Quetta roof. Typical Rs 130 is a mid-grade Chinese Z-15 clone. The Rs 400 high covers a genuine Omron/branded unit from the Brandreth Road industrial dealers (their limit-switch collection runs well above the hobby shops; I read the collection page but individual prices were not rendered). Add ~Rs 300-600 more per switch if you want a fully IP65 metal-bodied roller limit switch instead. Confidence: high on the hobby/mid grades.",
+    "confidence": "high"
+   },
+   {
+    "item": "controller",
+    "unit": "per unit (set)",
+    "pkr_low": 1900,
+    "pkr_typical": 3000,
+    "pkr_high": 5000,
+    "sources": [
+     "https://robostan.pk/product/wroom-esp32-wifi-microcontroller/",
+     "https://digilog.pk/products/ds3231-rtc-module",
+     "https://digilog.pk/products/esp32-nodemcu",
+     "https://digilog.pk/collections/iot-esp-boards"
+    ],
+    "notes": "Built up from directly-read component prices, not a packaged product. ESP32: Robostan.pk quotes the WROOM ESP32 WiFi dev board at Rs 950 (down from Rs 1,100, 454 in stock); Digilog quotes its ESP32 NodeMCU at Rs 1,090 and the MH-ET Live ESP32 Mini at Rs 1,570 (search-visible prices on digilog listings). RTC: Digilog quotes the ZS-042 DS3231 precision RTC at Rs 550 (without the CR2032 cell); other Pakistani vendors sit at Rs 350-600, so add ~Rs 60 for the coin cell. Small IO board: no single catalogue part - in practice this is a perfboard plus screw terminals (Rs 300-600), or a 4-8 channel opto-isolated relay/level-shift board (Rs 800-2,000). So low = 950 + 400 + 550; typical = 1,090 + 550 + 1,350; high = 1,570 + 600 + 2,000 plus headers, a 5 V buck from the 12 V rail (~Rs 250-400) and a fuse holder. The buck converter is not in the spec but the set is not usable off a 12 V battery without it, which is part of why I put the high at Rs 5,000. Confidence: medium-high (each component price is firm; what counts as 'a small IO board' is not).",
+    "confidence": "medium"
+   },
+   {
+    "item": "sun sensor",
+    "unit": "per unit",
+    "pkr_low": 1200,
+    "pkr_typical": 2800,
+    "pkr_high": 6000,
+    "sources": [
+     "https://digilog.pk/products/5mm-light-dependent-resistor-ldr-sensor-in-pakistan",
+     "https://digilog.pk/products/20mm-ldr-sensor-light-dependent-resistor-sensor-in-pakistan",
+     "https://digilog.pk/products/ky-018-ldr-light-sensor-module-in-pakistan",
+     "https://w11stop.com/simple-dual-solar-tracker"
+    ],
+    "notes": "No off-the-shelf 4-quadrant sun sensor is sold in Pakistan; this is a fabricate-in-shop cost built from read component prices plus assembly labour, and it is the least firm line in this table. Components: 4x 5 mm LDR at Rs 20 each = Rs 80 (digilog, directly read), or 4x 20 mm LDR at Rs 100 each = Rs 400, or 4x KY-018/LM393 LDR modules at ~Rs 160 each = Rs 640 (search-result snippet); photodiodes proper (BPW34 class) are import-only, ~Rs 150-250 each = Rs 600-1,000 landed. Add perfboard + precision resistors + a quad op-amp or just four ADC inputs, Rs 300-800; the shade tube and four-quadrant septum in PVC or turned aluminium with a glass/acrylic window, Rs 300-1,200 depending on whether a lathe is involved; potted cable gland and 4-core lead, Rs 200-500. Assembly: 1-3 hours of an electronics technician at Quetta/Karachi rates (~Rs 2,000-3,500/day skilled) = Rs 400-1,300. Upper bound sanity check: w11stop lists a complete 'Simple Dual Axis Solar Tracker' at Rs 33,500 (search-result snippet, page 403s to direct fetch), which is the whole tracker including motors, so it only bounds this from far above. Band is deliberately wide. Confidence: low-medium - the component prices are real, the assembled figure is an estimate.",
+    "confidence": "low"
+   },
+   {
+    "item": "power",
+    "unit": "per set",
+    "pkr_low": 19000,
+    "pkr_typical": 26000,
+    "pkr_high": 36000,
+    "sources": [
+     "https://skylinesolar.pk/best-deal-on-100w-solar-panels-price-in-pakistan/",
+     "https://www.olx.com.pk/solar-panels_c708274?filter=wattage_eq_100-150-watt",
+     "https://powerhouseexpress.com.pk/collections/solar-panel-price-in-pakistan",
+     "https://solarpanelpriceinpakistan.pk/",
+     "https://checkprice.pk/osaka-battery-price-in-pakistan/",
+     "https://www.zamzamstore.com.pk/collections/pwm-solar-charge-controllers"
+    ],
+    "notes": "Three sub-items, each with a read source. PANEL: SkyLine Solar quotes 100 W panels at Rs 11,500-13,000 (also citing a wider Rs 8,000-15,000 market range; no date given on that page). OLX 100-150 W listings run Rs 5,999-8,000 for used 120-150 W panels in Faisalabad/Karachi/Hasan Abdal. Cross-check on the per-watt market: solarpanelpriceinpakistan.pk (dated 3 Sept 2026) has A-grade Tier-1 panels at Rs 36-42.50/W and PowerHouse Express (checked 28 Aug 2026) at Rs 48-52/W - but those are 580-720 W modules; small 100 W 12 V panels always carry a premium, so Rs 60-110/W is the right band, giving Rs 6,000-11,000 new. I use Rs 6,000 low / Rs 9,500 typical / Rs 13,000 high. BATTERY: checkprice.pk (updated 2026) lists Osaka NP-60 (45 Ah) Rs 10,900-11,500, NP-70 (50 Ah) Rs 12,200-12,800, N50 MF 80 (50 Ah) Rs 12,626, N50 MF 85 (75 Ah) Rs 15,222 - all 6-month-warranty flooded automotive types. Rs 11,000 low / Rs 13,500 typical / Rs 20,000 high, the high covering a deep-cycle or solar-specific 12 V 65 Ah rather than a car battery. Note these are automotive batteries and will not last on daily deep cycling - budget a replacement every 12-18 months. CONTROLLER: Zam Zam Store lists the HIPER 20 A PWM 12/24 V at Rs 3,500 (sold out at time of reading); w11stop quotes a generic 20 A PWM at Rs 1,600 and a SunMaxx 20 A with dual USB at Rs 3,000 (26 Sept 2025, search-result snippets - w11stop 403s to direct fetch). Rs 1,600 low / Rs 2,500 typical / Rs 3,500 high. Set totals are the three sub-items summed; add ~Rs 2,000-4,000 more if you want a battery box, fuses and a mounting frame, which are not in the spec. Confidence: medium-high.",
+    "confidence": "medium"
+   },
+   {
+    "item": "wiring",
+    "unit": "per set",
+    "pkr_low": 9000,
+    "pkr_typical": 13000,
+    "pkr_high": 18500,
+    "sources": [
+     "https://www.anwarcables.pk/product/7-29-single-core-cable-wire/",
+     "https://coppergat.com/wp-content/uploads/2025/10/General-Wiring-Price-List-1st-October-2025.pdf",
+     "https://aampipes.pk/blog/pvc-electrical-pipe-price",
+     "https://w11stop.com/industrial-automation-circuit-protection/circuit-protections/terminal-blocks"
+    ],
+    "notes": "CABLE, converted from coil to metre: in Pakistan a coil is 90 m, not 90 yards, and 2.5 mm2 is sold as 7/029. Anwar Cables quotes 7/29 single-core at Rs 12,500 per full 90 m coil (4 kg, 99.99% copper) = Rs 139/m. The Coppergat general wiring list valid from 1 Oct 2025 (PDF, extracted directly) gives, per 90 m coil: 7/.029 stranded imperial Rs 15,720 (= Rs 175/m) and metric 2.5 mm2 plain-copper single core Rs 19,685 (= Rs 219/m); that list notes prices track LME and that dealer discounts run 10-20% by quantity and are inclusive of 18% GST for registered buyers. So 40 m of 2.5 mm2 single core = Rs 5,560 (local brand) to Rs 8,760 (branded list), ~Rs 7,000 typical. CONDUIT: AAM Pipes quotes 3/4 inch (20 mm) PVC electrical conduit at Rs 70/m (page dated March 2024, so treat as stale and low); 40 m = Rs 2,800, and I widen to Rs 2,000-3,500 for 2025-26. CONNECTORS/GLANDS/LUGS: Rs 800-2,000 for cable glands, ferrules, ring lugs and a few IP-rated connectors. TERMINAL BLOCKS: w11stop's terminal-block category shows an average around Rs 4,444 for industrial DIN blocks (search-result snippet; the page 403s to direct fetch), but for this kit two or three 12-way connector strips or a short DIN rail with 10-15 push-in blocks is Rs 600-2,500. Set = cable + conduit + connectors + blocks. Confidence: medium-high on the cable (two independent read lists), medium on the rest.",
+    "confidence": "medium"
+   },
+   {
+    "item": "enclosure",
+    "unit": "per unit",
+    "pkr_low": 2000,
+    "pkr_typical": 3800,
+    "pkr_high": 7000,
+    "sources": [
+     "https://industryparts.pk/products/ip65-water-proof-dust-proof-plastic-electrical-junction-box-in-pakistan",
+     "https://industryparts.pk/products/ht-5-way-ip65-waterproof-outdoor-electrical-enclosure-distribution-plastic-box",
+     "https://www.cncelectric.pk/collections/db-boxes",
+     "https://epro.pk/product/abs-material-plastic-enclosure-waterproof-junction-connector-boxes-ip65-project-electronics-enclosure-weatherproof-electrical-outlet-box-in-pakistan/"
+    ],
+    "notes": "No Pakistani retailer I could read lists the exact 300x200x150 mm size, so this is interpolated from bracketing sizes that I did read. Below: IndustryParts (Brandreth Road, Lahore) quotes an IP65 ABS junction box 150x110x70 mm at Rs 800; Epro.pk quotes a 4x4 inch ABS IP65 box at Rs 180 and a larger one at Rs 300; digilog quotes an ABS 150x150x70 dust-proof box at ~Rs 660. Above and around: IndustryParts quotes the HA 12-way IP65 outdoor enclosure at Rs 6,000 (marked down from Rs 8,000), and CNC Electric's DB-box collection (site footer dated August 2026) lists IP65 waterproof 12-18 way boxes at Rs 4,700 (HA series) and Rs 6,150 (YCX8), plus a 20-way steel body at Rs 3,600 - a 12-18 way IP65 DB box is roughly 300x230x130 mm, i.e. the closest real match to the requested size. So: Rs 2,000 low for a generic imported ABS 300x200x150 box off Daraz or a locally-fabricated painted sheet-metal box with a gasket; Rs 3,800 typical for a decent Chinese ABS IP65 box with a clear or hinged lid bought in Karachi/Lahore; Rs 7,000 high for a branded IP65 unit (Himel/CNC/YCX8 class) or a metal one bought at a Quetta counter. Add Rs 300-600 for the cable glands needed to keep the IP65 rating honest. Confidence: medium - the size is interpolated, not quoted.",
+    "confidence": "medium"
+   }
+  ],
+  "checks": [
+   {
+    "item": "geared DC motors",
+    "supported": true,
+    "comment": "All three cited anchors verified verbatim. hallroadlahore.pk lists the 24V 25W 1500rpm gear motor at Rs 14,700 with no torque spec published (confirmed). mreeco.com lists the AXO40231 worm gearmotor, 1-24V, 18 rpm, 25 kg-cm at Rs 1,210, sold out (confirmed, and correctly characterised as far too weak at ~2.5 Nm). The OLX wiper-motor page returns exactly the quoted ladder: Rs 700 Corolla, Rs 1,399 Mehran, Rs 2,000 generic (Drigh Colony Karachi), Rs 2,000 Suzuki Hiroof (Gulistan-e-Jauhar), Rs 5,500 Cuore original (Lahore), Rs 12,000 Honda Vezel (Lahore), plus a Rs 19,800 Mini rear unit the researcher sensibly ignored. The OLX dc-gear-motor page adds a datapoint the researcher did not use but which supports the middle of the band: a 24V Dunkermotoren gearmotor with gearbox at Rs 5,000 in Lahore. IMPORT MARGIN IS APPLIED and stated explicitly (+40% freight/customs/GST, Rs 4,700-19,400 landed), so no flag. I independently verified USD/PKR at 277.3 on 6 Sept 2026, so the FX basis is right. One arithmetic nit that does not move the price: the note reads 'USD 12-30/pc ... Rs 3,300-13,900 FOB', but 30x277 is Rs 8,310 - the Rs 13,900 top actually comes from the separate USD 35-50 estimate quoted in the following clause. The Rs 9,000 typical is a judgement call rather than a quote (no Pakistani retailer sells this exact 24V / 50-100 W / 30-60 rpm / 10-30 Nm spec), but it falls sensibly between the Rs 5,000 used industrial gearmotor and the Rs 14,700 counter price for a weaker new unit. Wide band is honest. No correction."
+   },
+   {
+    "item": "motor drivers",
+    "supported": true,
+    "comment": "Typical is firmly supported: digilog.pk reads Rs 1,620 (confirmed, though the page is marked sold out - the researcher did not mention this) and electrobes.com reads Rs 1,500 in stock (confirmed). Rs 1,550 sits exactly between them. HOWEVER the low bound is contradicted by the researcher's own third source: the cited Daraz listing (i424080290) reads Rs 1,999, marked down from Rs 2,100 - it does not show the 'Rs 1,100-1,400 is common' undercut the note claims, and my independent search for a cheaper Pakistani listing turned up nothing below the digilog price. The Daraz evidence in fact sits at the researcher's HIGH (Rs 2,200), not the low. So Rs 1,100 should be read as unsourced; a defensible low is nearer Rs 1,400-1,500. Typical unaffected and well within 30%, so no correction. Note also the researcher's fair caveat that digilog warns posted prices may be revised after order due to currency movement - I saw that language on the site."
+   },
+   {
+    "item": "encoders",
+    "supported": true,
+    "comment": "Primary anchor verified exactly: digilog.pk lists the AS5600 12-bit magnetic encoder module at Rs 1,210 and it is indeed shown sold out, as the researcher stated. Rs 1,300 typical is a reasonable small uplift on that. The second source is DEAD for verification: ubuy.com.pk returns HTTP 403, so the AS5048 high-end reasoning rests on nothing readable. IMPORT-MARGIN ERROR on that high end, worth flagging: the note says AS5048 is 'roughly USD 7-9 on AliExpress, ~Rs 2,000-2,500 landed with the 40% margin', but USD 7-9 at 277 PKR/USD is Rs 1,940-2,490 BEFORE the margin; with +40% it is Rs 2,715-3,490. The margin is named but not actually applied in the arithmetic. Coincidentally this makes the stated Rs 3,000 high MORE defensible rather than less (correct landed cost is Rs 2,715-3,490), so the band survives; only the derivation is wrong. My independent search found no Pakistani retailer listing the AS5048A/B, confirming it is import-only. No correction to the typical."
+   },
+   {
+    "item": "limit switches",
+    "supported": true,
+    "comment": "Both bracketing quotes verified to the rupee. digilog.pk micro roller lever arm switch: Rs 50 (confirmed). digilog.pk Z-15GW-B roller-lever micro switch: Rs 210 (confirmed, and the page shows it in the frequently-bought-together strip at the same price). Rs 130 typical sits between them, which is the right call given the researcher's sound engineering argument that the bare Rs 50 PCB microswitch will not survive dust and monsoon on a Quetta roof. The Brandreth Road collection page is the weakest leg - the researcher was upfront that individual prices did not render there, so the Rs 400 high for a genuine Omron unit is inference, not a quote. That is honestly disclosed and only affects the upper bound. Highest-confidence line in the table."
+   },
+   {
+    "item": "controller",
+    "supported": true,
+    "comment": "Every component price verified exactly, and the arithmetic checks out. robostan.pk: ESP32 WROOM at Rs 950, discounted from Rs 1,100, 454 in stock (all three details confirmed). digilog.pk DS3231: Rs 550, and the page does explicitly say 'ZS 042 ... without cell', exactly as the researcher reported - the CR2032 is offered alongside at Rs 40, slightly cheaper than the ~Rs 60 they budgeted, so the estimate is mildly conservative. digilog.pk ESP32 NodeMCU: Rs 1,090 confirmed (sold out, not mentioned). Sums verify: low 950+400+550 = 1,900; typical 1,090+550+1,350 = 2,990 ~ 3,000; high 1,570+600+2,000 = 4,170 plus headers, a 5V buck and a fuse holder reaching 5,000. The one soft element is what counts as 'a small IO board', which the researcher flags themselves. The point about needing a 5V buck off the 12V rail is correct and often missed. No correction."
+   },
+   {
+    "item": "sun sensor",
+    "supported": true,
+    "comment": "Component prices verified, and the central claim holds. digilog.pk 5mm LDR: Rs 20 (confirmed). 20mm LDR: actually Rs 110, not the Rs 100 quoted - a trivial 10% on a sub-item worth Rs 400. KY-018 LM393 module: Rs 160 (confirmed directly, upgrading what the researcher had only from a search snippet). I independently searched Daraz and the Pakistani electronics retailers and found NO off-the-shelf 4-quadrant sun sensor, which confirms the researcher's premise that this must be shop-fabricated. The only near-miss is a single-axis light-source tracking sensor module on Daraz, whose listing is now 404 and which would not serve as a weatherproof four-quadrant sensor anyway. Caveats: this is a build-up estimate, not a quote, and the researcher says so (confidence low). Its own component build-up sums to roughly Rs 1,280 low / Rs 2,900 mid / Rs 4,800 high, so the stated Rs 6,000 high is about 25% above what the itemisation supports - padding for a lathe-turned housing, which is defensible but should be read as cushion. The w11stop Rs 33,500 upper-bound cite is a search snippet only (the site 403s to direct fetch, which I reproduced) and in any case bounds only from far above. Estimate stands; no correction."
+   },
+   {
+    "item": "power",
+    "supported": true,
+    "comment": "All three sub-items verified. checkprice.pk is exact on every Osaka figure quoted - NP-60 45Ah Rs 10,900-11,500, NP-70 50Ah Rs 12,200-12,800, N50 MF80 50Ah Rs 12,626, N50 MF85 75Ah Rs 15,222 - and the page is dated May 2026. Zam Zam Store: HIPER 20A PWM 12/24V at Rs 3,500, sold out, confirmed exactly. SkyLine Solar: the page does say Rs 11,500-13,000 for 100W with the wider Rs 8,000-15,000 range and an Rs 8,000-12,000 FAQ figure, and it is indeed undated, as the researcher noted. The one soft spot is the panel typical: the researcher set Rs 9,500, which is at the bottom edge of both their own cited source (Rs 11,500-13,000) and my independent 2026 check, which puts a 100W panel at Rs 9,000-13,000. Nudging the panel to a mid-market Rs 11,000 lifts the set to about Rs 27,500 against the stated Rs 26,000 - a 6% move, far inside tolerance, so no correction. The researcher's warning that these are flooded automotive batteries needing replacement every 12-18 months under daily deep cycling is correct and material to the kit's lifecycle cost."
+   },
+   {
+    "item": "wiring",
+    "supported": true,
+    "comment": "TWO MISREADINGS OF THE COPPERGAT PDF, which I extracted directly (WebFetch could not render it; pdftotext could). (1) The note gives '7/.029 stranded imperial Rs 15,720 (= Rs 175/m)'. That is wrong - Rs 15,720 is the Three Pairs entry in the Telephone & Intercom Cables table. The actual 7/.029 Stranded imperial single core is Rs 18,591 per coil = Rs 207/m. (2) The note gives 'metric 2.5 mm2 plain-copper single core Rs 19,685 (= Rs 219/m)'. Rs 19,685 is from the DC Solar Flexible Photovoltaic UV-Resistant Cable table (plain copper), not the building-wire metric table, where 2.5 mm2 Stranded is Rs 16,270/coil = Rs 181/m and 2.5 mm2 Solid is Rs 14,891 = Rs 165/m. Since this is an outdoor solar kit the PV cable is arguably the correct part, so that figure is mislabelled rather than inapplicable. NET EFFECT IS SMALL and the two errors partly cancel: 40 m of cable comes to Rs 5,560 (Anwar, verified at Rs 12,500 per 90 m coil discounted from Rs 13,000, 4 kg - all confirmed, = Rs 139/m) up to Rs 8,264 (corrected 7/.029) or Rs 8,748 (PV cable), against the researcher's stated Rs 5,560-8,760. So the ~Rs 7,000 cable line and the Rs 13,000 set typical both stand. Confirmed from the PDF header: coil = 90 metres, valid from 1 October 2025, discounts 10-20% by volume, prices inclusive of 18% GST for registered customers - the researcher missed the rider that unregistered buyers pay 4% extra GST, which applies to an informal Quetta install. AAM Pipes 3/4in conduit at Rs 70/m dated 12 March 2024 confirmed, and the researcher correctly treats it as stale and widens. The Rs 18,500 high is about 10% above its own sub-item build-up (~Rs 16,800). No correction to the typical."
+   },
+   {
+    "item": "enclosure",
+    "supported": true,
+    "comment": "Every bracketing quote verified. industryparts.pk IP65 ABS 150x110x70mm: Rs 800 confirmed (the page oddly shows Rs 750 struck through against an Rs 800 current price, so Rs 800 is right). industryparts.pk HA 12-way IP65 outdoor enclosure: Rs 6,000 marked down from Rs 8,000, confirmed exactly, now sold out. cncelectric.pk: HA 12-way Rs 4,700 and YCX8 12-way IP65 Rs 6,150 confirmed exactly (also 18-way at Rs 5,300 and Rs 6,950). epro.pk: 4x4in at Rs 180 and the larger box at Rs 300 confirmed. Two minor unverified details in the note: the claimed CNC '20-way steel body at Rs 3,600' and the 'site footer dated August 2026' did not appear in what I could read, and CNC does not publish dimensions, so the researcher's assertion that a 12-18 way box is roughly 300x230x130mm is their own inference. I independently searched for a 300x200x150 IP65 box in Pakistan and likewise found none listed, which confirms the researcher's disclosure that the size is interpolated rather than quoted. Rs 3,800 typical sits sensibly between the Rs 800 small-box anchor and the Rs 4,700-6,150 DB-box anchors. No correction."
+   }
+  ]
+ },
+ "pneumatics": {
+  "prices": [
+   {
+    "item": "reflective film",
+    "unit": "per m2",
+    "pkr_low": 300,
+    "pkr_typical": 700,
+    "pkr_high": 1700,
+    "sources": [
+     "https://www.daraz.pk/catalog/?q=mylar%20reflective%20film",
+     "https://focuspacking.en.made-in-china.com/product/ZSdnXoGALOpI/China-Pet-Solar-Reflective-Film-Aluminized-Mylar-Film-Mirror-Reflective-Film.html",
+     "https://www.chalcoaluminum.com/knowledge/ultra-thin-mirror-aluminum-sheet/"
+    ],
+    "notes": "Hard local anchor: Daraz.pk listing '1pc Silver 210x130cm High Reflective Polyester Film' (grow-tent mylar, overseas seller) at Rs 839 for 2.10 x 1.30 m = 2.73 m2 -> PKR 307/m2, read off the Daraz search page 7 Sep 2026. That film is thin (~20-25 um) and uncoated, so it sets the LOW bound, not the spec. Import route: Shandong Focus (made-in-china.com) quotes aluminized/metallised PET solar reflective film at US$1.00-1.70/kg, MOQ 10 kg, 4.5-200 um. Converted: 50 um PET at density 1.39 g/cm3 = 0.0695 kg/m2, so that per-kg quote implies only ~US$0.07-0.12/m2 - implausibly low as a delivered price, it is a base-resin teaser rate, so I did NOT use it directly. I used a realistic FOB of US$1-3/m2 for hard-coated solar-grade aluminised PET, x1.4 import margin (freight+customs+GST) at PKR 277/USD = PKR 390-1,160/m2, which brackets the typical. HIGH covers a single small roll bought retail through a Karachi importer. SILVERED POLYMER (ReflecTech-class): I could NOT find any quotable price - SkyFuel/ReflecTech publish no list price and no Pakistani or Alibaba reseller surfaced. Industry literature puts it near US$10-15/m2, which lands at roughly PKR 3,900-5,800/m2 after the 40% import margin; treat that figure as INFERENCE, low confidence, and not included in the low/typical/high above. Confidence: medium.",
+    "confidence": "medium"
+   },
+   {
+    "item": "plenum back sheet",
+    "unit": "per m2",
+    "pkr_low": 250,
+    "pkr_typical": 600,
+    "pkr_high": 1300,
+    "sources": [
+     "https://hjtarpaulin.en.made-in-china.com/product/IJeUnuEDTLpK/China-Waterproof-Tarpaulin-Fabric-650GSM-PVC-Coated-Polyester-Tarpaulin-for-Truck-Cover.html",
+     "https://www.habibtarpal.com/plastic-tarpal",
+     "https://uni-tarp.com/pvc-tarpaulin-pakistan/"
+    ],
+    "notes": "Import anchor: Haijie (made-in-china.com) quotes 650 GSM 100% polyester yarn with PVC coating at US$1.65/m2 for 3,000-5,999 m2 and US$1.34/m2 for 6,000+ m2. At PKR 277/USD x 1.4 import margin that is PKR 520-640/m2 - but the MOQ is 3,000 m2, far beyond one kit, so this is a floor for a bulk buyer, not a kit price. Local anchor: Habib Tarpal (Pakistani retailer) - 18ft x 24ft (40.1 m2) Korean 180 GSM tarp at Rs 3,800 = PKR 95/m2 (too light for the spec, gives the absolute floor), and a 12ft x 12ft (13.4 m2) heavier tarp at Rs 5,000 = PKR 373/m2. The realistic Pakistani route is PVC flex/banner stock (PVC-coated polyester, 280-450 gsm) sold by the roll on Brandreth Road / Shershah at roughly Rs 25-45 per sq ft = PKR 270-490/m2, which is where my low-to-typical sits. HIGH is genuine 500-650 gsm imported truck tarpaulin bought as a cut piece at Karachi retail. The uni-tarp.com Pakistan page would not load (TLS certificate error) - listed as attempted, no price taken from it. Confidence: medium; widen if you need true 650 gsm certified airtight fabric rather than flex stock.",
+    "confidence": "medium"
+   },
+   {
+    "item": "zone partitions",
+    "unit": "per m of partition",
+    "pkr_low": 70,
+    "pkr_typical": 160,
+    "pkr_high": 380,
+    "sources": [
+     "https://www.daraz.pk/catalog/?q=foam%20seal%20strip%20adhesive%20weather",
+     "https://www.daraz.pk/catalog/?q=aluminium%20foil%20tape"
+    ],
+    "notes": "Built from two Daraz.pk search pages read 7 Sep 2026. Foam seal strip: 10 M self-adhesive sponge weather strip Rs 1,006 = PKR 101/m; 6 m D-type Rs 999 = PKR 167/m; 5 m D-type Rs 1,200 = PKR 240/m; 2.5 m D-type Rs 615 = PKR 246/m. NOTE these are 6-9 mm strips, not the 20 mm called for - for 20 mm closed-cell you cut your own strips from an EVA/EPE foam sheet at a local foam shop, which is CHEAPER per metre (roughly PKR 40-100/m), so the Daraz figures are an upper anchor on the foam line. Tape: Lord Tapes aluminium foil adhesive tape 2 inch x 15 yards (13.7 m) Rs 299 = PKR 22/m of tape; a two-run seal costs ~PKR 45/m of partition. Sum per metre of partition: foam PKR 50-200 + tape PKR 20-45 + a small allowance for contact adhesive. LOW = self-cut EPE foam + one tape run; TYPICAL = self-cut 20 mm foam + foil tape both sides; HIGH = ready-made D-profile weatherstrip bought retail in short lengths. Confidence: medium - the 20 mm closed-cell strip itself is a conversion, not a direct quote.",
+    "confidence": "medium"
+   },
+   {
+    "item": "strip mirror",
+    "unit": "per m2 (material + frame)",
+    "pkr_low": 5000,
+    "pkr_typical": 9500,
+    "pkr_high": 17000,
+    "sources": [
+     "https://www.chalcoaluminum.com/knowledge/ultra-thin-mirror-aluminum-sheet/",
+     "https://www.akbarigroup.pk/aluminium-cladding-sheet/",
+     "https://www.pricedata.pk/construction/steel-rate-in-pakistan",
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://www.daraz.pk/catalog/?q=mirror%20sheet%20aluminium"
+    ],
+    "notes": "Built up as mirror skin + steel frame + Quetta fabrication. MIRROR SKIN: Chalco quotes 0.5 mm mirror aluminium at US$6.43/kg (and US$9.29/kg for ultra-thin 0.08 mm), grades 1050/1060/1085, reflectivity 86% standard and 95% for the ultra-high grade, production MOQ 500 kg. Converted: 0.5 mm x 2,700 kg/m3 = 1.35 kg/m2, so US$8.68/m2 FOB = PKR 2,405/m2, x1.4 import margin = PKR 3,370/m2; at 1 mm it doubles to ~PKR 6,700/m2. Cross-check from the local market: Akbari Group (Pakistani) sells 8ft x 4ft (2.97 m2) ACP at Rs 10,000-13,700 per sheet = PKR 3,370-4,610/m2, and mirror-finish ACP runs above plain; general Pakistani ACP is quoted at PKR 200-700 per sq ft = PKR 2,150-7,530/m2. Daraz has NO mirror aluminium sheet stock (search returned 1 irrelevant decorative sticker), so this has to be imported or bought as mirror ACP - I used PKR 3,000-7,000/m2, typical 4,800. STEEL FRAME: rebar is PKR 285-310/kg (pricedata.pk, 6 Sep 2026); MS square tube/angle carries a fabrication premium, so ~PKR 320-380/kg. A rolled 25x25x2 SHS perimeter plus ribs is ~7 kg/m2 -> PKR 2,000-3,500/m2. LABOUR: Quetta welder/fabricator PKR 2,000-2,800/day plus helper PKR 800-1,000/day; a curved strip frame runs ~0.4 team-days/m2 -> PKR 1,200-2,600/m2 (rolling/press charges are extra and sit in the HIGH). Plus PKR 300-700/m2 consumables, adhesive and paint. LOW assumes the cheap route - aluminised PET film stretched on the rolled frame instead of solid mirror sheet. Confidence: medium-low - the mirror sheet is quoted, the frame and labour are a build-up, no Pakistani shop quote for a finished curved mirror panel was found.",
+    "confidence": "low"
+   },
+   {
+    "item": "M4 mirror",
+    "unit": "per m2 (material + frame)",
+    "pkr_low": 8000,
+    "pkr_typical": 16000,
+    "pkr_high": 32000,
+    "sources": [
+     "https://www.chalcoaluminum.com/knowledge/ultra-thin-mirror-aluminum-sheet/",
+     "https://www.pricedata.pk/construction/steel-rate-in-pakistan",
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://www.akbarigroup.pk/aluminium-cladding-sheet/"
+    ],
+    "notes": "Same sources as the strip mirror, re-costed for double curvature at ~2.6 m across (~5.3 m2, so the whole M4 lands near PKR 42,000 / 85,000 / 170,000 - flag that against a 100k PKR kit budget). A doubly-curved ellipsoid cannot be single-roll formed: the skin must be cut into gores or facets, which adds ~25% material waste (mirror skin PKR 3,800-9,000/m2, typical 6,000), the frame needs hoops plus meridional ribs at roughly 12 kg/m2 of MS at PKR 320-380/kg (PKR 3,000-5,500/m2, typical 4,100), and the fitting labour rises to ~1-1.5 team-days/m2 at Quetta welder PKR 2,000-2,800/day + helper PKR 800-1,000/day = PKR 3,500-8,500/m2, typical 5,200. Backing, adhesive and fasteners add PKR 500-1,500/m2. LOW assumes aluminised PET film tensioned over a light formed shell (no solid mirror sheet, minimal ribs); HIGH assumes 1 mm mirror sheet on a jig-built faceted frame with a one-off former. Confidence: LOW - this is an engineering build-up from quoted material and labour rates, not a fabricator's quote; no Pakistani shop was found that has priced a doubly-curved mirror of this size. Get two Quetta/Karachi fabricator quotes before using it.",
+    "confidence": "low"
+   },
+   {
+    "item": "slot flaps",
+    "unit": "per set",
+    "pkr_low": 4500,
+    "pkr_typical": 9000,
+    "pkr_high": 16000,
+    "sources": [
+     "https://epro.pk/product/servo-motor-mg996r-180-degree-in-pakistan/",
+     "https://www.daraz.pk/catalog/?q=stainless%20steel%20hinges%203%20inch",
+     "https://brieflyshort.com/gi-sheet-price/",
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://www.chalcoaluminum.com/knowledge/ultra-thin-mirror-aluminum-sheet/"
+    ],
+    "notes": "Per set = 2 hinged flaps of 0.4 x 0.7 m (0.56 m2 of mirror total). Bill of materials, all from read pages: mirror skin 0.56 m2 at PKR 3,000-7,000/m2 (Chalco conversion above) = PKR 1,700-4,000, typical 2,700. Flap backing and light angle frame ~5 kg of GI - brieflyshort.com quotes GI sheet at Rs 2,500 for 3x6 ft (1.67 m2) and Rs 3,300 for 3x8 ft (2.23 m2), i.e. PKR 1,480-1,500/m2 - giving PKR 900-2,500, typical 1,500. Four hinges: Daraz shows a 3-pack of stainless non-mortise leaf hinges at Rs 280 (PKR ~95 each) up to Rs 1,655-2,030 for heavy 4-inch bearing hinges; plain bazaar hinges are Rs 60-150 each - so PKR 400-1,600, typical 700. Actuation: epro.pk MG996R metal-gear servo Rs 880 (SG90 Rs 320, MG-945 Rs 500 on the same page) plus horn and linkage, OR a manual latch at PKR ~350 - so PKR 350-2,500, typical 1,300. Fabrication ~0.5 team-day at Quetta welder PKR 2,000-2,800 + helper PKR 800-1,000 = PKR 1,200-3,000, typical 1,800. Fasteners and paint PKR 300-800. LOW = manual latch, film-on-frame mirror, bazaar hinges; HIGH = mirror sheet, bearing hinges, servo with driver. Confidence: low-medium - every component is separately quoted but the assembled set is not.",
+    "confidence": "low"
+   },
+   {
+    "item": "elbow mirror",
+    "unit": "per unit",
+    "pkr_low": 6500,
+    "pkr_typical": 13000,
+    "pkr_high": 28000,
+    "sources": [
+     "https://www.daraz.pk/catalog/?q=concave%20mirror",
+     "https://www.daraz.pk/catalog/?q=pan%20tilt%20bracket%20servo%20sg90",
+     "https://epro.pk/product/servo-motor-mg996r-180-degree-in-pakistan/",
+     "https://concretesmath.com/labor-cost-calculator/"
+    ],
+    "notes": "NO off-the-shelf 0.4 m concave mirror exists in the Pakistani market. Daraz concave mirrors are physics-lab pieces at Rs 349-450 and car blind-spot mirrors at Rs 198-1,599 - all roughly 5-10 cm, so they set no useful anchor; the largest related item is a Rs 4,350 outdoor convex traffic mirror. The 0.4 m dish therefore has to be made: either a spun/pressed aluminium dish skinned with mirror film, or a 60 cm offset satellite dish reskinned. Costing: mirror skin 0.13-0.3 m2 = PKR 600-1,500; one-off forming or a reskinned dish = PKR 2,500-8,000 (labour-dominated, no die amortisation). 2-AXIS MOUNT: the Daraz SG90/MG90 pan-tilt bracket at Rs 270-399 is far too light for a 0.4 m mirror and is quoted only to show the hobby-class floor; a real mount needs 2x MG996R at Rs 880 each (epro.pk) = Rs 1,760 plus a fabricated yoke with bearings at PKR 1,500-4,000. Controller share (ESP32/Arduino, driver, wiring) PKR 800-2,500. Assembly ~0.5 team-day at Quetta rates (welder PKR 2,000-2,800/day + helper PKR 800-1,000/day) = PKR 1,400-2,000. Confidence: LOW - the dish is the uncertain half and the range is deliberately wide; if you can use the satellite-dish route the answer collapses toward the low end.",
+    "confidence": "low"
+   },
+   {
+    "item": "shutter",
+    "unit": "per unit",
+    "pkr_low": 3000,
+    "pkr_typical": 5500,
+    "pkr_high": 11000,
+    "sources": [
+     "https://brieflyshort.com/gi-sheet-price/",
+     "https://epro.pk/product/servo-motor-mg996r-180-degree-in-pakistan/",
+     "https://www.pricedata.pk/construction/steel-rate-in-pakistan",
+     "https://concretesmath.com/labor-cost-calculator/"
+    ],
+    "notes": "A ~0.4 m sheet-metal damper blade with a servo, costed from read sources. Blade and collar/housing: GI sheet at Rs 2,500 per 3x6 ft (1.67 m2) and Rs 3,300 per 3x8 ft (2.23 m2) = PKR ~1,500/m2; a 0.4 m blade plus a short duct collar is ~0.4-0.8 m2 -> PKR 600-1,800, typical 1,000. Pivot shaft, bushings and stiffening frame from MS bar at PKR 285-310/kg rebar rate (pricedata.pk, 6 Sep 2026), plus a fabrication premium for section: PKR 800-2,500, typical 1,300. Actuation: epro.pk SG90 Rs 320 / MG-945 Rs 500 / MG996R Rs 880; a geared DC actuator for a stiff damper runs to ~Rs 2,500 - so PKR 320-2,500, typical 900. Linkage, horn, fasteners PKR 300-800. Fabrication ~0.4 team-day at Quetta welder PKR 2,000-2,800/day + helper PKR 800-1,000/day = PKR 900-2,400, typical 1,400. High-temp paint PKR 200-700. LOW = plain GI blade on a simple pivot with an SG90; HIGH = stainless or insulated blade, bearings, geared actuator. Confidence: low-medium - components quoted, assembly estimated.",
+    "confidence": "medium"
+   }
+  ],
+  "checks": [
+   {
+    "item": "reflective film",
+    "supported": true,
+    "comment": "Import anchor CONFIRMED verbatim: Shandong Focus (made-in-china.com) quotes US$1.00-1.70/kg, MOQ 10 kg, 4.5-200 micron. The researcher's refusal to use that per-kg figure is correct - 50 um PET at 1.39 g/cm3 = 0.0695 kg/m2 implies $0.07-0.12/m2, a base-resin teaser. USD/PKR 277 confirmed for 6 Sep 2026 (277.30 mid-market). Import margin (1.4x) IS applied - no unmargined import quote here. WEAKNESS: the hard local anchor (Daraz 'Silver 210x130cm', Rs 839 = PKR 307/m2) could NOT be re-verified - Daraz search and tag pages return only the site footer to a server-side fetch, and the specific product URLs 404. I corroborated the band independently instead: an Alibaba bulk metallized reflective film at US$0.60/m2 (MOQ 5,000 m2) = PKR 233/m2 landed at 1.4x, sitting just under the stated low; and a live Daraz listing (Greenhouses Foil Covering Reflective Mylar Film, Shiwaki) at Rs 3,760 for 1 pc, above the high. The 300/700/1700 band stands for commodity metallized PET. The material risk is the one the researcher already flags: ReflecTech-class silvered polymer, which is what a concentrator actually wants, lands near PKR 3,900-5,800/m2 - 5-8x the typical - and is inference with no quotable source. Do not let the 700 figure carry a spec-grade line item."
+   },
+   {
+    "item": "plenum back sheet",
+    "supported": true,
+    "comment": "Both live sources CONFIRMED verbatim. Haijie (made-in-china.com): US$1.65/m2 at 3,000-5,999 m2 and US$1.34/m2 at 6,000+, 650 GSM, PVC-coated polyester, range 300-1500 gsm. Conversion checks out: 1.65 x 277 x 1.4 = PKR 640; 1.34 x 277 x 1.4 = PKR 520. The MOQ caveat is real and honestly disclosed. Habib Tarpal CONFIRMED exactly: 18ft x 24ft 180 GSM at Rs 3,800 (432 sq ft = 40.1 m2 = PKR 95/m2) and 12ft x 12ft at Rs 5,000 (13.4 m2 = PKR 373/m2). Independent corroboration for the local flex route: Pakistani digital flex banner printing quoted at Rs 60/sq ft = PKR 646/m2 INCLUDING printing, so unprinted PVC flex stock at Rs 25-45/sq ft (PKR 270-490/m2) is consistent. The uni-tarp.com TLS failure is correctly disclosed and no number was taken from it - good practice. Typical 600 is well bracketed by both routes."
+   },
+   {
+    "item": "zone partitions",
+    "supported": true,
+    "comment": "Half directly CONFIRMED, half is an honest conversion. Aluminium foil tape verified on the live product page: Lord Tapes 2 inch x 15 yards at Rs 299 (down from Rs 599). 15 yd = 13.72 m, so PKR 21.8/m - the researcher's PKR 22/m is exact, and the two-run allowance of ~PKR 45/m of partition follows. The foam half could NOT be re-verified: Daraz search pages render only the footer server-side and the individual D-type strip product URLs 404. The researcher already labels the 20 mm closed-cell strip a conversion rather than a quote and notes the Daraz strips are 6-9 mm, which is the right caveat - a 6 mm D-profile at PKR 167-246/m is not the 20 mm item. The build-up (foam 50-200 + tape 20-45 + adhesive) sums to the stated 70/160/380 band. No correction; confidence medium is right, and the cheaper self-cut EPE route is the one to price against a real Quetta foam shop before committing."
+   },
+   {
+    "item": "strip mirror",
+    "supported": true,
+    "comment": "Every source re-opened and CONFIRMED. Chalco: US$6.43/kg at 0.5 mm and US$9.29/kg at 0.08 mm, grades 1050/1060/1070/1085/3003/3105/5052/5005, reflectivity 80/86/95%, production MOQ 500 kg - all exactly as quoted. Conversion audited: 0.5 mm x 2700 kg/m3 = 1.35 kg/m2 -> US$8.68/m2 FOB -> PKR 2,404 -> PKR 3,366 landed at 1.4x (stated 3,370, correct), and the 1 mm doubling to PKR 6,732 is right. Akbari Group CONFIRMED: Dubond ACP from Rs 10,000 and Eurobond from Rs 13,700 per 4ft x 8ft (2.973 m2) = PKR 3,367-4,613/m2, exactly as stated. pricedata.pk CONFIRMED dated 6 Sep 2026 at PKR 278-305/kg across 10-32 mm (researcher said 285-310, ~2% high, immaterial). Quetta labour CONFIRMED on concretesmath.com, which despite the misleading URL does carry a 2026 Pakistani trade-wage table: Quetta welder/fabricator 2,000-2,800/day and helper/mazdoor 800-1,000/day, verbatim. Independent check on the local mirror route: Pakistani ACP is quoted at PKR 200-700/sq ft = PKR 2,153-7,535/m2, matching. Build-up sums to ~9,400 against the stated typical 9,500. ONE CAVEAT, under the correction threshold: the 7 kg/m2 frame allowance is thin for a narrow strip - a 0.3 x 3 m strip perimeter-framed in 25x25x2 SHS (1.41 kg/m) is ~10 kg/m2, which lifts the frame line to PKR 3,200-3,800 and the typical to ~10,500 (+11%). Widen rather than re-price."
+   },
+   {
+    "item": "M4 mirror",
+    "supported": true,
+    "comment": "All four sources re-opened and CONFIRMED (Chalco, Akbari, pricedata.pk steel, Quetta wage table - see the strip mirror comment for the verbatim figures). The arithmetic holds: 2.6 m across gives a flat-disc area of 5.31 m2, so 5.3 m2 is a FLOOR for a doubly-curved surface, and 5.3 x 16,000 = PKR 84,800, matching the stated 85,000. The flag against the 100k PKR kit budget is correct and is the single most important line in this whole table - the M4 alone at typical eats 85% of the kit budget, and at the high end it is 1.7x the entire budget. Component sums check: 6,000 + 4,100 + 5,200 + 1,000 = 16,300 vs stated typical 16,000. Import margin applied on the skin. TWO NOTES, neither large enough to correct: (a) the HIGH of 32,000/m2 exceeds its own component sum (~24,500) - the gap is the one-off former, which is a legitimate cost but is tooling, not a per-m2 rate, and should be broken out as a fixed line so it is not multiplied by 5.3 m2; (b) the 5.3 m2 floor plus the acknowledged ~25% gore waste means the material line is optimistic. The declared LOW confidence is honest and the instruction to get two Quetta/Karachi fabricator quotes before using this number should be treated as binding."
+   },
+   {
+    "item": "slot flaps",
+    "supported": true,
+    "comment": "CONFIRMED on the two load-bearing sources. epro.pk verbatim: MG996R PKR 880, SG90 PKR 320, MG945 PKR 500 - exactly as quoted. brieflyshort.com GI sheet verbatim: Rs 2,500 for 3x6 ft and Rs 3,300 for 3x8 ft; converted, 18 sq ft = 1.672 m2 -> PKR 1,495/m2 and 24 sq ft = 2.230 m2 -> PKR 1,480/m2, matching the stated ~1,500/m2. Chalco mirror-skin conversion confirmed under the strip mirror item; the 3,000-7,000/m2 range used here is the already-landed figure, so the import margin is carried through correctly. Geometry checks: 2 flaps at 0.4 x 0.7 m = 0.56 m2. Component sum 2,700 + 1,500 + 700 + 1,300 + 1,800 + 500 = 8,500 against the stated typical 9,000 - internally consistent. Two minor blemishes, neither material: the hinge line (PKR 700 typical, 8% of the set) is not price-confirmed - the Daraz 3-inch 3-pack exists but no price rendered; and the notes say '~5 kg of GI' then price the item by m2, mixing units, though the m2 route is the one actually used and it is sound."
+   },
+   {
+    "item": "elbow mirror",
+    "supported": true,
+    "comment": "The central claim is CONFIRMED - there is no off-the-shelf 0.4 m concave mirror in the Pakistani market - and the servo line is exact (epro.pk MG996R PKR 880, so 2x = PKR 1,760). But I found a real anchor the researcher missed that pulls the answer toward the low end. MJS Traders (Pakistani retailer) sells an outdoor traffic CONVEX mirror at PKR 3,800 for 18 inch (0.46 m), PKR 5,000 for 24 inch, PKR 7,000 for 32 inch - a formed ~0.4 m curved shell with mount, delivered, for less than the researcher's PKR 2,500-8,000 forming line alone. It is convex not concave and is acrylic/polycarbonate grade, so it is not a drop-in optic, but it establishes that formed shells of this diameter are a stocked commodity here, not a one-off fabrication. Second: satellite dish kits (dish + receiver + cable + tools) run Rs 6,000-9,000 complete, implying the bare 60 cm dish is Rs 1,500-3,000 - the reskinned-dish route the researcher names as the cheap path is cheaper and more available than the write-up implies. Net: the build-up is defensible and the LOW of 6,500 is the likelier outcome than the typical. I would run the typical at about 10,500 rather than 13,000, a 19% move that sits under the 30% correction threshold, so I am not formally correcting it - but treat 13,000 as conservative and price the satellite-dish route first."
+   },
+   {
+    "item": "shutter",
+    "supported": true,
+    "comment": "Best-supported of the fabricated items. Every quoted input CONFIRMED at the cited figure: GI sheet Rs 2,500 per 3x6 ft and Rs 3,300 per 3x8 ft = PKR ~1,490/m2 (brieflyshort.com); SG90 PKR 320, MG945 PKR 500, MG996R PKR 880 (epro.pk); rebar PKR 278-305/kg dated 6 Sep 2026 (pricedata.pk); Quetta welder 2,000-2,800/day and helper 800-1,000/day (concretesmath.com 2026 Pakistani wage table). Component sum 1,000 + 1,300 + 900 + 500 + 1,400 + 400 = 5,500, exactly the stated typical - the build-up reconciles precisely. Two small things: the confidence field says 'medium' while the notes say 'low-medium', an inconsistency worth resolving toward medium given how well the inputs check out; and the 'geared DC actuator ~Rs 2,500' is the single component not taken from a read page, though it only sets the high end. No correction."
+   }
+  ]
+ },
+ "civil": {
+  "prices": [
+   {
+    "item": "insulation trench dig",
+    "unit": "per job",
+    "pkr_low": 2000,
+    "pkr_typical": 4500,
+    "pkr_high": 10000,
+    "sources": [
+     "https://www.bppra.gob.pk/uploads/fck_uploads/CSRVol-1.pdf",
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://hadesignstudio.pk/construction-cost-per-square-foot-in-pakistan-2026-rates/",
+     "https://civilconstructionguide.com/foundation-cost-calculator-pakistan/"
+    ],
+    "notes": "Trench volume is 0.2 x 1.0 x 4.0 = 0.8 m3. Anchored on the Government of Balochistan Composite Schedule of Rates 2018 (NESPAK, priced on Quetta market rates Feb/Mar 2018), which I downloaded and text-extracted: item 3-21 A(iii) 'Excavation in foundation of buildings, manual, hard soil or soft murum' = Rs 279.30/cu.m (Rs 7.90/cu.ft), item 3-42 A(iii) 'Excavation in open cutting for sewers, hard soil, upto 1.5 m depth' composite = Rs 155.25/cu.m. Escalated by cumulative Pakistan CPI 2018->2026 (~2.6x, compounding the 7/10.7/8.9/12.2/29.2/23.4/~6/~6 % annual series) that is ~Rs 730/m3 and ~Rs 400/m3 respectively, i.e. only ~600-900 PKR of pure earthwork for 0.8 m3. That is a floor, not a price: a 0.2 m wide, 1 m deep ring trench is 2-3x slower per m3 than open foundation digging, Quetta ground is stony/shingly (CSR charges shingle 15-20% over hard soil), the shop floor has to be broken and the spoil carried out of a working shop, and a one-off job of under a day attracts a full-day minimum. Practical build-up: 1 to 1.5 days of a Quetta labourer at 1,200-1,800/day plus 500-1,500 for floor breaking/pick-and-shovel hire and debris removal. The 10,000 high end covers a concrete (not mud/brick) shop floor needing a hired jackhammer and floor reinstatement, or a two-man crew for a day. Excludes any floor reinstatement finish. I could not find a Quetta-specific 2025-26 trench-digging quote; the CSR is the only authoritative Quetta document and it is 2018.",
+    "confidence": "medium"
+   },
+   {
+    "item": "trench fill",
+    "unit": "per job",
+    "pkr_low": 3000,
+    "pkr_typical": 25000,
+    "pkr_high": 75000,
+    "sources": [
+     "https://bagh.pk/product/perlite-100l-gulfperlite/",
+     "https://zarkhaizbee.com/product/perlite-price-in-pakistan/",
+     "https://industryparts.pk/products/ceramic-fiber-blanket-thermal-insulation-in-pakistan",
+     "https://refra.com.pk/ceramic-fiber-blanket/",
+     "https://www.indiamart.com/proddetail/ceramic-fibre-blanket-21925492155.html",
+     "https://fblgroup.com.pk/index.php/2025/05/24/biomass-boiler-cost-per-kwh-in-pakistan-2025-a-comprehensive-analysis/"
+    ],
+    "notes": "Filling 0.8 m3 (800 litres). Three material bases, all quoted per job for 0.8 m3.\n(a) EXPANDED PERLITE, retail: bagh.pk sells a 100 L bag of Gulf Perlite (UAE import, 8-9 kg/bag) at PKR 9,000; ZarkhaizBee sells a 100 L bag at PKR 6,900 (and 1 kg at 1,199, 5 kg at 4,299). 8 bags for 800 L = PKR 55,200-72,000. These are horticultural retail prices; buying insulation-grade perlite in bulk from a refractory/insulation trader should be roughly half, so ~25,000-35,000, which is where my typical sits. I found no Pakistani industrial-grade perlite price list to confirm that discount, so the discount is an estimate.\n(b) RICE-HUSK ASH / RICE HUSK, the cheap option: rice husk trades in Pakistan at ~PKR 18/kg as boiler fuel (FBL Group 2025). Loose husk is ~100-120 kg/m3, so 0.8 m3 is ~90 kg = ~1,600 PKR of material; carbonised husk ash is denser (~200-400 kg/m3), so 160-320 kg. Quetta is not a rice district (nearest supply is the Sindh/Punjab rice belt or a local brick kiln), so freight and bagging dominate: 3,000-12,000 delivered. This is what sets my low bound. Retail 1 kg gardening packs of carbonised husk on seedbeej.pk are PKR 299+ and are irrelevant at this volume.\n(c) CERAMIC-FIBRE BLANKET 25 mm 128 kg/m3: the standard roll is 25 x 610 x 7200 mm = 4.39 m2 (confirmed spec at refra.com.pk Karachi, who publish sizes but not prices). Filling 0.8 m3 at 25 mm needs ~32 m2 = 7.3 rolls; lining the trench walls only (~9 m2) needs ~2 rolls. industryparts.pk lists PKR 14,500 for a ceramic fibre blanket but its stated dimensions (24 in x 12 in x 1 in, density 100) are internally inconsistent, so I treat it as an unreliable retail anchor. Indian trade quotes for the identical 25 mm/128 kg/m3 roll are INR 900-1,600/roll (IndiaMART), = PKR 2,900-5,200 at ~3.2 PKR/INR, plus your 40% freight+customs+GST margin = PKR 4,100-7,300/roll landed, i.e. 30,000-53,000 to fill and 8,000-15,000 to line. Real Pakistani retail is well above landed cost. The 75,000 high end is either retail-bag perlite or a blanket fill.\nConfidence low: no single Pakistani supplier publishes a price for any of the three at this quantity.",
+    "confidence": "low"
+   },
+   {
+    "item": "sand",
+    "unit": "per m3",
+    "pkr_low": 2000,
+    "pkr_typical": 3300,
+    "pkr_high": 5500,
+    "sources": [
+     "https://checkprice.pk/sand-price-in-pakistan/",
+     "https://priceinfo.pk/sand-price-in-pakistan/",
+     "https://materialrate.pk/sand-price-in-pakistan/"
+    ],
+    "notes": "Converted from PKR/cft using 1 m3 = 35.315 cft. Three independent Pakistani price lists disagree substantially, which is why the band is wide: checkprice.pk (Sep 2026) gives Ravi Rs 5,000-6,500 and Chenab Rs 6,500-8,000 per 100 cft (= 50-80 PKR/cft) with Karachi Rs 7,000-9,500 per 100 cft (70-95 PKR/cft); priceinfo.pk (16 Jun 2026) gives Ravi 85-90, Chenab A-grade 95-100, Ghassu fill sand 70 PKR/cft; materialrate.pk gives Ravi 40-50 and Chenab 45-55 PKR/cft. Taking 55/85/120 PKR/cft as low/typical/high gives 1,940 / 3,000 / 4,240 PKR/m3; I have rounded up to 2,000 / 3,300 / 5,500 because none of these lists covers Quetta and every source states Karachi and Quetta run higher on freight-heavy materials (Quetta draws washed sand from the Bolan/Hanna/Pishin nullahs and from Sindh, both trucked). IMPORTANT minimum-load caveat: these are trolley/dumper rates (a small Mazda trolley is 200-300 cft = 5.7-8.5 m3, a dumper 800-1000 cft = 22-28 m3, priced at Rs 14,000-20,000 and Rs 38,000-55,000 respectively). Buying a single m3 means paying a delivery minimum, so the effective cost of a one-off 1 m3 order in Quetta is realistically 6,000-9,000 PKR; the per-m3 figures above only apply if you buy a trolley-load or share one. No Quetta-specific sand price list was found.",
+    "confidence": "medium"
+   },
+   {
+    "item": "sand box",
+    "unit": "per job",
+    "pkr_low": 4000,
+    "pkr_typical": 9000,
+    "pkr_high": 20000,
+    "sources": [
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://hadesignstudio.pk/construction-cost-per-square-foot-in-pakistan-2026-rates/",
+     "https://www.tilesprice.com.pk/bricks-price-in-pakistan/",
+     "https://bloomenterprisess.com/product/fire-bricks-high-alumina-bricks/",
+     "https://www.bppra.gob.pk/uploads/fck_uploads/CSRVol-1.pdf"
+    ],
+    "notes": "No one quotes this as a job; it is a build-up, so the band is deliberately wide. Assumed a 0.6-0.9 m diameter tandoor floor = 0.3-0.6 m2, dug down 0.2 m = 0.06-0.12 m3 of excavation inside an existing pit (awkward, kneeling work; CSR-2018 escalated gives only ~100 PKR of nominal earthwork, so labour is charged by time not volume). Components: (i) breaking out and excavating the existing floor, ~0.5 labourer-day = 600-900; (ii) lining. Common-brick lining needs ~40-60 bricks at PKR 12-18 each (tilesprice.com.pk: 12-18/brick, 12,000-18,000 per 1,000) = 500-1,100; a firebrick lining at the Bloom Enterprises quote of Rs 250/brick (4x8x3 in, MOQ 20) = 10,000-15,000 for 40-60; a fabricated mild-steel box of ~0.5-1.0 m2 in 16-18 gauge sheet with welding is roughly 3,000-8,000 in a Quetta fabrication shop; (iii) mortar/refractory mortar 500-2,500; (iv) 0.5-1 day mason at Quetta rates 1,600-2,500/day = 800-2,500 plus a helper 600-900. Low end = brick lining, half a day, owner supplies sand. Typical = brick box, mason + helper for a day, mortar. High end = firebrick or welded steel box, full day of a mason and helper, materials bought retail. Sand to fill the box is NOT included here (see the sand line). Confidence low-medium: labour rates are sourced, the scope and quantities are my assumption.",
+    "confidence": "low"
+   },
+   {
+    "item": "rebar fins",
+    "unit": "per kg",
+    "pkr_low": 240,
+    "pkr_typical": 268,
+    "pkr_high": 305,
+    "sources": [
+     "https://icons.com.pk/steel-rate-today",
+     "https://www.pricedata.pk/construction/steel-rate-in-pakistan",
+     "https://blog.olx.com.pk/classified/latest-steel-price-in-pakistan/",
+     "https://hadesignstudio.pk/construction-cost-per-square-foot-in-pakistan-2026-rates/"
+    ],
+    "notes": "Quoted directly in PKR/kg, no conversion needed. icons.com.pk (dated 6 Sep 2026) gives Grade 40 at 258/kg for 10 mm and 260/kg for 12-25 mm, Grade 60 at 262/kg for 10 mm and 265/kg for 12-25 mm, brand rates 254-261/kg (Moiz 254-256, Union 255-257, Mughal 255-261, Amreli 258-260, Agha 259-261), and city-wise Quetta 247, Karachi 248, Lahore 246 PKR/kg. pricedata.pk (6 Sep 2026) is higher, 295-305/kg for 10 mm and 290-300/kg for 12 mm, and notes Karachi/South Punjab run 2-3% above on freight. OLX (19 Jan 2026) had branded bar at 220-232/kg, so the market has risen ~15% over 2026. hadesignstudio quotes 275,000-320,000 PKR/ton (275-320/kg) for 2026. I set low = the Quetta city rate, typical = the middle of the Grade 40/60 10-12 mm cluster, high = the pricedata.pk small-size rate.\nPER-METRE CONVERSION using standard nominal unit weights (10 mm = 0.617 kg/m, 12 mm = 0.888 kg/m): 10 mm bar = 148 / 165 / 188 PKR per metre (low/typical/high); 12 mm bar = 213 / 238 / 271 PKR per metre. A standard 40 ft (12.19 m) bar is therefore ~2,000 PKR in 10 mm and ~2,900 PKR in 12 mm at the typical rate. Add 5-15% if buying single bars retail from a Quetta dealer rather than by the ton, plus cutting/bending charges (typically 8-15 PKR/kg). Grade 40 runs 5-8% under Grade 60. Confidence high on the per-kg market rate, medium on the small-quantity Quetta retail premium.",
+    "confidence": "high"
+   },
+   {
+    "item": "inlet work",
+    "unit": "per job",
+    "pkr_low": 2500,
+    "pkr_typical": 5000,
+    "pkr_high": 12000,
+    "sources": [
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://hadesignstudio.pk/construction-cost-per-square-foot-in-pakistan-2026-rates/",
+     "https://www.pakistanchemical.com/product/alumina-cement-refractory-castable-mortar/",
+     "https://www.bppra.gob.pk/uploads/fck_uploads/CSRVol-1.pdf"
+    ],
+    "notes": "Half a day of a mason plus refractory mortar, built up rather than quoted. Labour: Quetta mason 1,600-2,000/day (concretesmath 2026 city table), national 2,500-3,500/day (hadesignstudio 2026); a half day is 800-1,750 but in practice a callout for a small job in a working tandoor shop is charged as most of a day, and a helper (600-900) is usually needed to mix and fetch. Materials: a high-alumina refractory castable/mortar is listed by Pakistan Chemical at PKR 12,000 (the listing does not state the pack size; if it is the usual 25 kg bag that is ~480/kg, if 50 kg then ~240/kg) - you need only 3-6 kg for widening an inlet, so 1,500-3,000 if you must buy a whole bag, or 500-1,500 if bought loose from a refractory dealer. Traditional tandoor practice uses fireclay (chikni mitti) with grog and a little cement at well under 100 PKR/kg, which is the low end. Also allow for chipping out and re-forming the existing firebrick throat - CSR-2018 item 4-11 (dismantling brick masonry) escalated is a few hundred rupees at this size. Low = local fireclay mortar, half a day, no helper. Typical = a day of a mason, a part-bag of proper refractory mortar. High = a full day of mason + helper, a whole bag of high-alumina castable, and a damper/flap plate fitted. Confidence medium-low: the mortar pack size on the only Pakistani price I found is unstated.",
+    "confidence": "low"
+   },
+   {
+    "item": "unskilled labour",
+    "unit": "per day",
+    "pkr_low": 1000,
+    "pkr_typical": 1500,
+    "pkr_high": 2200,
+    "sources": [
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://hadesignstudio.pk/construction-cost-per-square-foot-in-pakistan-2026-rates/",
+     "https://legalpk.com/blog-post/minimum-wage-pakistan-2026",
+     "https://blogs.lse.ac.uk/southasia/2026/06/08/everyday-lives-and-labour-in-quettas-urban-spaces/"
+    ],
+    "notes": "Three anchors that disagree, hence the band. (1) ConcretesMath's 2026 Pakistan labour-cost calculator gives a Quetta 'helper/mazdoor (unskilled)' rate of PKR 800-1,000/day, against Karachi 1,200-1,500 and Lahore 1,000-1,200; its rates are described as indicative mid-point daily wages excluding contractor markup, EOBI and overtime. (2) HA Design Studio's 2026 national table gives helper/labourer 1,200-1,800/day. (3) The legal floor: Balochistan's notified minimum wage for an unskilled adult is PKR 37,000/month, computed on 26 working days = PKR 1,423/day (legalpk 2026 provincial table). Since the ConcretesMath Quetta figure sits below the statutory floor it is almost certainly stale, so I set the low bound at 1,000 (what a casual chowk labourer is actually paid on a slack day in Quetta, and consistent with informal-sector reporting - the LSE Quetta labour field piece records informal piece-work as low as PKR 50/day, i.e. the informal floor is far below any published rate) and the typical at 1,500, just above the legal daily equivalent. The 2,200 high covers a full day of heavy pick-and-shovel work or a labourer supplied through a contractor with markup. Add 10-25% if hired through a contractor rather than direct from the chowk.",
+    "confidence": "medium"
+   },
+   {
+    "item": "mason",
+    "unit": "per day",
+    "pkr_low": 1700,
+    "pkr_typical": 2400,
+    "pkr_high": 3500,
+    "sources": [
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://hadesignstudio.pk/construction-cost-per-square-foot-in-pakistan-2026-rates/",
+     "https://legalpk.com/blog-post/minimum-wage-pakistan-2026"
+    ],
+    "notes": "ConcretesMath's 2026 city table gives mason (raj mistri) Quetta PKR 1,600-2,000/day, the lowest of the six cities it lists (Lahore 2,000-2,400, Karachi 2,200-2,800, Islamabad 2,400-3,000, Faisalabad 1,800-2,200, Peshawar 1,700-2,100). HA Design Studio's 2026 national figure is 2,500-3,500/day, and the same source family reports Karachi masons at 2,200-2,800. I take the Quetta city figure as the low bound and pull the typical up to 2,400 because the national 2025-26 surveys all sit above the ConcretesMath Quetta band and Balochistan's skilled-worker minimum-wage floors are notified above the PKR 37,000 unskilled floor (the provinces that publish skilled floors put them roughly 20-25% above unskilled; Balochistan does not publish a Quetta-specific skilled figure). The 3,500 high covers a head mason (ustad) who brings his own helper - contractor-supplied masons cost 10-25% more than direct hire, and an ustad with a team is quoted 30-50% above the individual rate. A tandoor/bhatti specialist mistri, of which there are few, will quote above this band for a one-off retrofit. Half-day rates are rarely honoured; expect to pay a full day.",
+    "confidence": "medium"
+   },
+   {
+    "item": "electrician",
+    "unit": "per day",
+    "pkr_low": 2000,
+    "pkr_typical": 2800,
+    "pkr_high": 4000,
+    "sources": [
+     "https://concretesmath.com/labor-cost-calculator/",
+     "https://hadesignstudio.pk/construction-cost-per-square-foot-in-pakistan-2026-rates/"
+    ],
+    "notes": "ConcretesMath's 2026 city table gives electrician/wireman Quetta PKR 1,900-2,500/day and Karachi PKR 2,800-3,800/day (Lahore 2,400-3,200, Islamabad 3,000-4,000). HA Design Studio's 2026 national table gives electrician 2,000-3,000/day, same as plumber. I span the two cities the item asks for: low = the Quetta floor, typical = the middle of the combined Quetta/Karachi range, high = the Karachi ceiling. I deliberately did NOT use the salary-aggregator results (Glassdoor/PayScale/ERI) for this: their Pakistan electrician figures are wildly inconsistent (PKR 44,583/yr on one, PKR 1.6 m/yr on another) and are employment salaries, not day-rate call-outs. For a retrofit kit needing a low-voltage controller, sensor wiring and a small PV/battery tie-in, a day-rate electrician is the right basis but expect a call-out minimum and 10-25% contractor markup if hired through a firm; a specialist solar/PV installer in Quetta will quote above the top of this band.",
+    "confidence": "medium"
+   }
+  ],
+  "checks": [
+   {
+    "item": "insulation trench dig",
+    "supported": true,
+    "comment": "CSR citation verified line-for-line. I downloaded the 2.2 MB PDF and text-extracted it: the preface confirms 'Government of Balochistan Composite Schedule of Rates Version 2018', NESPAK, and that 'rates included in the Schedule are based on the prevailing prices in and around Quetta during the months of February/March 2018' - exactly as claimed. Item 3-21 A(iii) 'Hard soil or soft murum', manual = Rs 279.30/Cu.m and Rs 7.90/Cu.ft (exact match). Item 3-42 A(iii) 'Hard soil', upto 1.5 m depth = Rs 5.25 labour / Rs 155.25 composite per Cu.m, Rs 4.40/Cu.ft (exact match, and the researcher correctly used the composite column). The shingle-premium claim also checks: 3-21 A(iv) shingle/gravel = Rs 325.50 vs 279.30 hard soil = +16.5%, inside the stated '15-20%'. CPI compounding arithmetic verified: 1.07 x 1.107 x 1.089 x 1.122 x 1.292 x 1.234 x 1.06 x 1.06 = 2.593, so 279.30 x 2.6 = Rs 726/m3 and 155.25 x 2.6 = Rs 404/m3 as stated; 0.8 m3 gives Rs 323-581 of nominal earthwork ('600-900' is generous by ~25% but immaterial). Build-up sanity check against the labour rates verified below: 1-1.5 Quetta labourer-days at 1,200-1,800 plus 500-1,500 floor-breaking = 1,700-4,200, so 4,500 typical sits just above the arithmetic top - defensible for a one-off callout with a full-day minimum, but it is the ceiling of its own build-up rather than the middle. ONE OVERSTATEMENT: the note says the 2018 CSR 'is the only authoritative Quetta document'. A Balochistan CSR 2023 exists (P&D Department CSR Cell, notified for PSDP schemes approved after 1 July 2023, with a CSR 2025 revision under way per the P&D notification), which would be a far better anchor than an 8-year escalation. It is not freely downloadable (Scribd/paywalled reprints only), so the escalation method stands, but the claim of uniqueness is wrong. No import quote here; nothing to flag on margin. Price stands."
+   },
+   {
+    "item": "trench fill",
+    "supported": true,
+    "comment": "All six sources reachable and quoted accurately. bagh.pk: Perlite 100L Gulf Perlite (UAE), PKR 9,000, stated weight 8-9 kg - exact match. zarkhaizbee.com: 1 KG Rs 1199, 5 KG Rs 4299, 100 Litre Rs 6900 - exact match. refra.com.pk (Karachi, est. 1986): confirms roll sizes 25 x 610 x 7200 mm and 50 x 610 x 3600 mm at 96 & 128 kg/m3, 1260 C, and confirms the researcher's statement that they publish sizes but no prices. fblgroup: rice husk 18 PKR/kg (against wood pellets 55, cotton stalks 22) - exact match. IMPORT MARGIN CORRECTLY APPLIED: the IndiaMART quote (INR 900-1,600/roll) was explicitly grossed up by 40% for freight+customs+GST to PKR 4,100-7,300 landed. No unmargined import quote anywhere in this line. ONE SOURCE THE RESEARCHER DISCARDED TOO FAST, in their own favour: they called the industryparts.pk Rs 14,500 listing 'internally inconsistent' because the description says 24 in x 12 in x 1 in. But the page's variant selector reads '1\" x 2ft x 24ft' and '2\" x 2ft x 12ft' - i.e. 48 sq ft = 4.46 m2, which matches the standard 25 mm x 610 mm x 7.2 m roll (4.39 m2) almost exactly. So Rs 14,500 IS a usable Pakistani retail per-roll price (~3,300 PKR/m2), roughly 2-3x their landed-cost estimate, which corroborates their 'real Pakistani retail is well above landed cost' remark. Usefully, it anchors the typical they could not otherwise source: lining the trench walls (~9 m2) = 2 rolls = ~29,000 PKR, right next to their 25,000 typical. (Listing is marked Sold out.) Independent searching found no Pakistani industrial/bulk perlite price list, so the 'bulk is roughly half of horticultural retail' assumption behind 25,000 remains unsourced - the only fully-sourced perlite route is 8 retail bags at 55,200-72,000. This is the weakest number in the table, but the 3,000-75,000 band covers every sourced route and 'low' confidence is the honest label. No correction."
+   },
+   {
+    "item": "sand",
+    "supported": true,
+    "comment": "All three price lists verified verbatim. checkprice.pk: Ravi Rs 5,000-6,500 and Chenab Rs 6,500-8,000 per 100 cft, Karachi Rs 7,000-9,500 per 100 cft, no Quetta row - exact match. priceinfo.pk (dated 16 June 2026): Ravi 85-90 PKR/cft, Chenab A-grade 95-100 PKR/cft, Ghassu fill sand 70 PKR/cft, and 900-cft trolley rates of 76,500-81,000 / 85,500-90,000 / 63,000 - exact match, and it explicitly has no Balochistan data. materialrate.pk: Ravi 40-50, Chenab 45-55 PKR/cft, no Quetta - exact match. Conversion verified: 85 PKR/cft x 35.315 cft/m3 = 3,002 PKR/m3, so the 3,300 typical is a ~10% round-up, as the notes disclose. The wide band is justified because the three lists genuinely disagree by 2x. EXTRA CORROBORATION I FOUND that the researcher missed, and it cuts against their low bound: the same Balochistan CSR 2018 they cite elsewhere carries item 3-41-1, 'Supplying clean and screened river or pit sand within 500 ft (150m)' = Rs 630.00/Cu.m at Quetta Feb/Mar 2018 prices. Escalated by their own 2.6x factor that is ~1,640 PKR/m3 - below their 2,000 low. That is a supply-at-site government estimate rather than a small-order market price, so it does not overturn the typical, but a bulk trolley-load in Quetta could plausibly land under 2,000/m3 and the low bound is a little tight. The minimum-load caveat in the notes (trolley 200-300 cft, dumper 800-1,000 cft) is consistent with the trolley figures on priceinfo.pk. Typical stands."
+   },
+   {
+    "item": "sand box",
+    "supported": true,
+    "comment": "Verified what is verifiable; the scope is the researcher's own assumption and is flagged as such. tilesprice.com.pk confirmed exactly: 'PKR 12 to PKR 18 per brick', standard clay Rs 12,000-18,000 per 1,000, fly-ash Rs 10,000-15,000 per 1,000, and no city-specific Quetta rate. Labour components confirmed against the ConcretesMath Quetta rows verified below (mason 1,600-2,000, helper 800-1,000). ONE DEAD SOURCE: bloomenterprisess.com does not resolve for me (getaddrinfo ENOTFOUND on both the fire-brick and the castable pages). However the figure is real - the search index returns the same page with 'Rs 250 per brick, minimum order quantity 20, dimensions 4\" x 8\" x 3\"', matching the researcher's quote, so the number is corroborated even though the page is currently unreachable. I could not find a second live Pakistani firebrick price list: pakclay.com also fails to resolve, htp.com.pk fails to resolve, and mibindustries.com.pk publishes no prices, quote-on-request only. MINOR UNDERSTATEMENT: the common-brick component may be ~30-40% higher than assumed. The researcher's own second source, hadesignstudio, gives bricks at PKR 18,000-25,000 per 1,000 (18-25/brick), and other 2026 lists put A-class at 18-19/brick, against the 12-18/brick they used. At 40-60 bricks that moves the lining from 500-1,100 to 700-1,500 - a few hundred rupees on a 9,000 job, immaterial. Typical stands; low confidence correctly declared."
+   },
+   {
+    "item": "rebar fins",
+    "supported": true,
+    "comment": "The best-evidenced line in the table; every figure I could check reproduced exactly. icons.com.pk (page dated 6 September 2026): Grade 40 at 258 for 10 mm and 260 for 12-25 mm, Grade 60 at 262 and 265, Amreli 258-260, Agha 259-261, Mughal 255-261, and city-wise Quetta 247 / Karachi 248 / Lahore 246 - all exact. pricedata.pk (6 September 2026): 10 mm 295-305, 12 mm 290-300, and the verbatim note that 'Karachi and South Punjab typically see 2-3% higher prices due to freight costs' - exact. blog.olx.com.pk (19 January 2026): Grade 40 220-230, Grade 60 222-232 per kg - matches the '220-232' claim and supports the stated ~15% rise over 2026. hadesignstudio: PKR 275,000-320,000 per ton - exact. UNIT CONVERSIONS ALL CHECK: 10 mm at 0.617 kg/m x 268 = 165.4 PKR/m (stated 165); 12 mm at 0.888 kg/m x 268 = 238.0 PKR/m (stated 238); a 40 ft = 12.19 m bar at 165.4 = 2,016 PKR (stated ~2,000) and at 238 = 2,901 PKR (stated ~2,900). Standard nominal unit weights used correctly. INDEPENDENT TRIANGULATION: a separate search returns Grade 40 at Rs 258-262/kg for August 2026 across other Pakistani trackers, i.e. the icons cluster, not the pricedata cluster. So the 268 typical sits about 3% above the weight of evidence - the researcher effectively split the difference toward the higher outlier. Well inside tolerance; no correction. 'High' confidence is warranted here."
+   },
+   {
+    "item": "inlet work",
+    "supported": true,
+    "comment": "Typical price is sound but the notes contain an arithmetic contradiction that makes the HIGH bound too low. pakistanchemical.com verified: High Alumina Cement Refractory Castable Mortar listed at PKR 12,000.00, and the researcher is right that the page states no pack size or weight anywhere - honest reporting. I then confirmed independently that 25 kg is the standard bag for high-alumina castable across the trade (multiple suppliers list '25 kg/bag' as the packing), so the Rs 12,000 listing is ~480 PKR/kg - the researcher's own upper reading. THE CONTRADICTION: the notes then say materials cost '1,500-3,000 if you must buy a whole bag'. That cannot be right against their own Rs 12,000 source - a whole bag IS 12,000, which on its own equals their entire 12,000 high bound before any labour. The scenario they describe for the high end (full day of mason + helper, a whole bag of high-alumina castable, plus a damper plate) actually totals ~15,000-16,000. The high should be raised to roughly 15,000. I am NOT correcting the typical: the realistic route for widening a tandoor throat is fireclay/chikni mitti with grog at well under 100 PKR/kg plus a mason's day, and both halves of that are verified (ConcretesMath Quetta mason 1,600-2,000/day, helper 800-1,000/day), which lands squarely on 5,000. CSR item 4-11 for dismantling brick masonry I did not separately extract, but the earthwork chapter's structure makes the 'few hundred rupees' claim plausible at this size. No import quote; nothing to flag on margin."
+   },
+   {
+    "item": "unskilled labour",
+    "supported": true,
+    "comment": "Verified and independently triangulated. concretesmath.com confirmed exactly: helper/mazdoor (unskilled) Quetta 800-1,000, Karachi 1,200-1,500, Lahore 1,000-1,200 PKR/day, with the page's own caveat that these are 'indicative daily wage ranges for 2026 based on market surveys across Pakistan'. (The researcher's added gloss that they exclude contractor markup, EOBI and overtime is not visible in the text I could read - a small over-specification, not a price error.) hadesignstudio confirmed: helpers/labourers 'PKR 1,200 to PKR 1,800 per day'. legalpk confirmed: Balochistan unskilled minimum wage PKR 37,000/month; the article adds that this was carried forward rather than newly notified, unlike Punjab, Sindh and KP at 40,000 - which strengthens rather than weakens the researcher's point that the ConcretesMath Quetta row is stale. The 37,000 / 26 = 1,423 per day arithmetic is independently confirmed by a second minimum-wage source. INDEPENDENT CHECK the researcher did not have: ERI's Quetta day-worker figure of PKR 525,219/year works out to roughly 1,680/day on 313 days or 2,020/day on 260 - which brackets the 1,500 typical from above and supports it. ONE WEAK CITATION: the LSE Quetta piece is real and reachable, but it contains exactly one wage figure - an Afghan refugee woman paid 50 rupees a day cleaning peanut husks. Using a single anecdote about piece-work to establish 'the informal floor' is a stretch, though the researcher did label it as such and did not let it move the number. Typical stands."
+   },
+   {
+    "item": "mason",
+    "supported": true,
+    "comment": "Sources verified exactly; the typical is a defensible judgement call but sits above every Quetta-specific figure. concretesmath.com confirmed line-for-line for the cities I could read: mason/raj mistri Quetta 1,600-2,000, Lahore 2,000-2,400, Karachi 2,200-2,800 PKR/day (the Islamabad/Faisalabad/Peshawar rows quoted were not contradicted). hadesignstudio confirmed: masons 'between PKR 2,500 and PKR 3,500 per day'. legalpk confirmed for the minimum-wage floor. THE JUDGEMENT: the researcher sets typical = 2,400, which is 20% above the top of the only Quetta-specific band they found (2,000) and is reached by pulling toward a national figure. They state this openly and the reasoning is sound - the ConcretesMath Quetta helper row already proved stale against the statutory floor, so its mason row is likely stale too, and 1,600/day for a skilled mason is barely above the 1,423 unskilled legal minimum, which is implausible. But a reader taking Quetta-only evidence at face value would price this at 1,800-2,000. 2,400 is exactly +20% on that, inside tolerance, so no correction - just be aware the typical leans on national data, not Quetta data. Their claim that Balochistan publishes no Quetta-specific skilled floor is consistent with what I found."
+   },
+   {
+    "item": "electrician",
+    "supported": true,
+    "comment": "Both sources verified exactly. concretesmath.com: electrician/wireman Quetta 1,900-2,500, Karachi 2,800-3,800, Lahore 2,400-3,200, Islamabad 3,000-4,000 PKR/day - every figure matches. hadesignstudio: 'Electricians and plumbers: PKR 2,000 to PKR 3,000 daily' - matches, including the observation that plumber and electrician are given the same rate. The construction of the band is transparent and the arithmetic is right: low 2,000 is the Quetta floor rounded, high 4,000 is the Karachi ceiling rounded, typical 2,800 is the mid of the combined Quetta-Karachi span. NOTE ON WHERE THE TYPICAL LANDS: 2,800 is the Karachi FLOOR and sits above the entire Quetta band (1,900-2,500). If the job is specifically a Quetta retrofit, the Quetta-only typical is ~2,200 - about 21% below the stated figure, inside tolerance and therefore not a correction, but worth knowing which city the number is really pricing. The researcher's decision to exclude Glassdoor/PayScale/ERI is methodologically correct and I confirmed the problem they describe: those aggregators return wildly inconsistent Pakistan figures (e.g. an ERI Quetta construction-worker salary of PKR 907,069/year, ~3,500/day, which is an annual employment salary and not a day-rate callout). No import quote; nothing to flag on margin."
+   }
+  ]
+ }
+}

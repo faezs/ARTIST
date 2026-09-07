@@ -124,7 +124,7 @@ def post_ok(width, depth, tx, ty, margin=0.3):
 def best_post(F, width, depth, deltas, caps=(np.inf,), h_side=None, grid=(np.linspace(0.1, 0.9, 9), np.linspace(0.2, 0.8, 7))):
     """for each (overhang cap, post rise): the best post position (with the pit on the roof) and its section area
     -> dict[(cap, delta)] = (area, tx, ty, need, over)"""
-    best = {}
+    best = {(c, d): (0.0, 0.5, 0.5, None, None) for c in caps for d in deltas}   # no legal post position: nothing admissible
     for tx in grid[0]:
         for ty in grid[1]:
             if not post_ok(width, depth, tx, ty):
@@ -134,7 +134,7 @@ def best_post(F, width, depth, deltas, caps=(np.inf,), h_side=None, grid=(np.lin
                 ok_c = over <= c
                 for d in deltas:
                     area = float(((need <= d) & ok_c).sum()) * GRID * GRID
-                    if (c, d) not in best or area > best[(c, d)][0]: best[(c, d)] = (area, tx, ty, need, over)
+                    if area > best[(c, d)][0] or best[(c, d)][3] is None: best[(c, d)] = (area, tx, ty, need, over)
     return best
 
 

@@ -65,9 +65,39 @@ UNIT = dict(
     transport=5000.0,
 )
 
+PK_PATH = "/Users/faezs/ARTIST/tutorials/data/tandoor/prices_pk.json"
+Z_M4 = 0.14                # M4 sits at the duct level, just above the pot floor: the duct runs from the roof deck down to it
+ROOF_PEN_D0 = 1.4          # the researched roof-penetration job is for a 1.4 m opening
 
-def bom(d):
-    """d: design values (both boxes) plus site/film_m2/rim_m/rise/dish_scale. -> itemised list"""
+
+def load_prices(path=PK_PATH, which="typical"):
+    """the researched Pakistani unit prices (2025-26, Quetta/Karachi/Lahore, with sources) mapped onto UNIT's keys;
+    which: 'low' | 'typical' | 'high'. Returns (unit dict, table) - the placeholders where an item was not researched."""
+    import json, os
+    U = dict(UNIT)
+    if not os.path.exists(path):
+        return U, {}
+    T = json.load(open(path)); g = lambda k: float(T[k][which]) if k in T else None
+    m = {"film_m2": "reflective film", "back_sheet_m2": "plenum back sheet", "rim_tube_m": "rim tube", "zone_wall_m": "zone partitions", "pump_unit": "zone pumps",
+         "press_sensor": "pressure sensors", "valve": "bleed valves", "tubing_m": "pneumatic tubing", "post_pipe_m": "post / mast", "arm_pipe_m": "arm carrying F",
+         "guy_set": "guys and anchors", "mast_head": "mast head bearing", "beam_pipe_m": "rotating beam", "aframe_pipe_m": "A-frames", "arc_pipe_m": "arc rail",
+         "bearing": "bearings", "counterweight": "counterweight", "motor_geared": "geared DC motors", "driver": "motor drivers", "encoder": "encoders", "limit_sw": "limit switches",
+         "controller": "controller", "sun_sensor": "sun sensor", "psu_solar": "power", "wiring_set": "wiring", "enclosure": "enclosure", "strip_m2": "strip mirror", "m4_m2": "M4 mirror",
+         "strip_bearing": "strip bearing", "bore_m2": "bore duct", "roof_pen": "roof penetration", "flap_set": "slot flaps", "elbow_mirror": "elbow mirror", "shutter": "shutter",
+         "inlet_work": "inlet work", "trench_dig": "insulation trench dig", "trench_fill_unit": "trench fill", "sand_m3": "sand", "sand_box": "sand box", "lid": "lid",
+         "labour_day": "fabrication", "transport": "transport"}
+    for k, item in m.items():
+        v = g(item)
+        if v is not None: U[k] = v
+    # derived: rebar fins per m2 of bed per W/mK: ~2% steel by volume over a 0.2 m bed raises k by ~1 W/mK -> ~31 kg/m2
+    if g("rebar fins") is not None: U["fins_m2_per_k"] = 31.0 * g("rebar fins")
+    U["install_day"] = g("installation") or U["labour_day"]
+    return U, T
+
+
+def bom(d, prices=None):
+    """d: design values (both boxes) plus site/film_m2/rim_m/rise/dish_scale. prices: a unit-price dict (UNIT's keys;
+    default the placeholders - pass load_prices()[0] for the researched Pakistani rates). -> itemised list"""
     s = d.get("dish_scale", 1.0); deck = d.get("deck_h", 4.0); rise = d.get("rise", 0.0) if d.get("site", 0) >= 0.5 else 0.0
     section = d.get("site", 0.0) >= 0.5
     a = A_MEM0 * s; g = G_ORBIT0 * s
@@ -81,13 +111,15 @@ def bom(d):
     th = np.radians(d.get("strip_th_hi", 100.0)); r_mean = 1.4 * d.get("d_strip", 0.6)
     A_strip = r_mean * th * d.get("strip_wk", 1.1) * r_mean
     A_m4 = np.pi * d.get("r_m4", 1.3) ** 2
-    L_bore = L_BORE0 + (deck - 4.0) + rise
+    # the descending beam is in open air above the deck; the DUCT runs from the deck (H_POT + deck) down to M4
+    L_bore = (1.0 + deck) - Z_M4
     A_bore = 2 * np.pi * d.get("r_bore", 0.7) * L_bore
+    roof_scale = max((2 * d.get("r_bore", 0.7) / ROOF_PEN_D0) ** 2, 0.25)          # the roof opening's area against the priced 1.4 m job
     rate = d.get("rate_scale", 1.0)
     ins = min(max(d.get("ins_scale", 1.0), 0.2), 1.0)
     sand_d = d.get("sand_depth", 0.0); sand_v = np.pi * R_POT ** 2 * sand_d * 1.3
     fins_k = max(d.get("sand_k", 0.3) - 0.3, 0.0)
-    U = UNIT; items = []
+    U = dict(UNIT) if prices is None else prices; items = []
     add = lambda group, item, spec, unit, qty, price: items.append(dict(group=group, item=item, spec=spec, unit=unit, qty=float(qty), unit_pkr=float(price), pkr=float(qty) * float(price)))
     add("primary", "reflective film", "aluminised PET 50 um, silvered", "m2", film * gore, U["film_m2"])
     add("primary", "plenum back sheet", "coated tarpaulin / PET", "m2", film * 1.1, U["back_sheet_m2"])
@@ -117,8 +149,8 @@ def bom(d):
     add("control", "enclosure", "IP65", "unit", 1, U["enclosure"])
     add("receiver", "strip mirror", "polished Al on curved frame", "m2", A_strip, U["strip_m2"])
     add("receiver", "strip bearing", "on the F-F2 axis", "unit", 1, U["strip_bearing"])
-    add("receiver", "bore duct", f"GI sheet, r {d.get('r_bore', 0.7):.2f} m x {L_bore:.1f} m", "m2", A_bore, U["bore_m2"])
-    add("receiver", "roof penetration", "collar, flashing", "unit", 1, U["roof_pen"])
+    add("receiver", "bore duct", f"GI sheet below the deck, r {d.get('r_bore', 0.7):.2f} m x {L_bore:.1f} m", "m2", A_bore, U["bore_m2"])
+    add("receiver", "roof penetration", f"opening {2*d.get('r_bore', 0.7):.1f} m: collar, flashing, waterproofing", "job", roof_scale, U["roof_pen"])
     add("receiver", "M4 mirror", "polished Al ellipsoid patch", "m2", A_m4, U["m4_m2"])
     add("receiver", "slot flaps", "mirrored, hinged", "set", 1, U["flap_set"])
     add("receiver", "elbow mirror", "concave, 2-DOF servo", "unit", 1, U["elbow_mirror"])
@@ -134,7 +166,7 @@ def bom(d):
             add("pit", "rebar fins", "per m2 of bed per W/mK", "m2.W/mK", 1.51 * fins_k, U["fins_m2_per_k"])
     add("pit", "lid", f"steel, leak {d.get('lid_leak', 0.18):.2f}", "unit", 0.18 / max(d.get("lid_leak", 0.18), 0.02), U["lid"])
     add("labour", "fabrication", "welding, rolling, assembly", "day", U["fabrication_days"], U["labour_day"])
-    add("labour", "installation", "erection, alignment, commissioning", "day", U["install_days"], U["labour_day"])
+    add("labour", "installation", "erection, alignment, commissioning", "day", U["install_days"], U.get("install_day", U["labour_day"]))
     add("labour", "transport", "", "job", 1, U["transport"])
     return items
 
@@ -153,6 +185,8 @@ def text(items):
 if __name__ == "__main__":
     nominal = dict(dish_scale=1.0, deck_h=4.0, site=0.0, r_bore=0.7, r_m4=1.3, d_strip=0.6, strip_wk=1.1, strip_th_hi=100.0, rate_scale=1.0, ins_scale=1.0, sand_depth=0.0, sand_k=0.3, lid_leak=0.18)
     section = dict(nominal, site=1.0, film_m2=16.1, rim_m=2 * np.pi * 2.6 + 2 * np.pi * 0.75, rise=1.0, ins_scale=0.7, sand_depth=0.25, sand_k=1.0)
+    PK, T = load_prices(); lo, _ = load_prices(which="low"); hi, _ = load_prices(which="high")
     for name, d in (("nominal circle (a 2.1 m, deck 4)", nominal), ("4 x 6 roof: 16 m2 section, F +1, trench, sand", section)):
-        print(f"\n== {name} ==\n" + text(bom(d)))
-    json.dump(dict(units=UNIT, nominal=bom(nominal), section=bom(section)), open("/Users/faezs/ARTIST/tutorials/data/tandoor/bom_placeholder.json", "w"), indent=1)
+        print(f"\n== {name} at the RESEARCHED Pakistani prices (typical) ==\n" + text(bom(d, PK)))
+        print(f"   band: low {sum(i['pkr'] for i in bom(d, lo))/1e3:.0f}k .. high {sum(i['pkr'] for i in bom(d, hi))/1e3:.0f}k")
+    json.dump(dict(units=PK, nominal=bom(nominal, PK), section=bom(section, PK)), open("/Users/faezs/ARTIST/tutorials/data/tandoor/bom_pk.json", "w"), indent=1)

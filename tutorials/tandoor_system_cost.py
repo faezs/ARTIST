@@ -50,31 +50,36 @@ A_PIT = 21.0            # pit wall area [m2] (the node areas' sum)
 BUDGET = 100000.0       # the target price of the kit [PKR]
 
 
-def capital(d):
-    """d: dict of design values (both boxes). The itemised bill of the kit."""
-    s = d.get("dish_scale", 1.0); deck = d.get("deck_h", 4.0)
-    section = d.get("site", 0.0) >= 0.5                     # the membrane is a section of the parent (surface block > 0)
-    rise = d.get("rise", 0.0) if section else 0.0
-    A_dish = d.get("film_m2", np.pi * (A_MEM0 * s) ** 2) if section else np.pi * (A_MEM0 * s) ** 2
-    th = np.radians(d.get("strip_th_hi", 100.0)); r_mean = 1.4 * d.get("d_strip", 0.6)
-    A_strip = r_mean * th * d.get("strip_wk", 1.1) * r_mean
-    A_m4 = np.pi * d.get("r_m4", 1.3) ** 2
-    A_bore = 2 * np.pi * d.get("r_bore", 0.7) * (L_BORE + (deck - 4.0) + rise)     # F higher = a longer bore
-    post = (d.get("mount_post", 0.0) >= 0.5) or section
-    ins = min(max(d.get("ins_scale", 1.0), 0.2), 1.0)
-    dish_cost = PRICES["dish_m2"] * A_dish * (PRICES["gores"] if section else 1.0) + (PRICES["rim_m"] * d.get("rim_m", 0.0) if section else 0.0)
-    # the structure that carries and slews the film grows with its reach: the mount with the moment (reach^2), the motors with reach^1.5
-    reach = (d.get("r_out_max", A_MEM0 * s) if section else A_MEM0 * s) / A_MEM0
-    items = dict(dish=dish_cost, tower=PRICES["tower_m"] * (deck + rise),
-                 mount=(PRICES["post_mount"] * max(reach, 0.5) ** 2) if post else PRICES["rail_m"] * 2 * np.pi * (G_ORBIT0 * s + 0.6),
-                 motors=PRICES["motors"] * d.get("rate_scale", 1.0) ** 1.5 * max(reach, 0.5) ** 1.5,
-                 strip=PRICES["strip_m2"] * A_strip, m4=PRICES["m4_m2"] * A_m4, bore=PRICES["bore_m2"] * A_bore,
-                 insulation=(PRICES["trench_dig"] + PRICES["trench_unit"] * (1.0 / ins - 1.0)) if ins < 0.98 else 0.0,
-                 sand=(PRICES["sand_fixed"] + PRICES["fins_m2_per_k"] * 1.51 * max(d.get("sand_k", 0.3) - 0.3, 0.0))
-                      if d.get("sand_depth", 0.0) > 0.01 else 0.0,
-                 lid=PRICES["lid"] * 0.18 / max(d.get("lid_leak", 0.18), 0.02), fixed=PRICES["fixed"])
-    items["total"] = sum(items.values())
-    return items
+_PK = None
+
+
+def _prices():
+    global _PK
+    if _PK is None:
+        import tandoor_bom
+        _PK = tandoor_bom.load_prices()[0]
+    return _PK
+
+
+GROUPS = dict(dish=("primary", None),
+              tower=("mount", ("post / mast", "arm carrying F", "guys and anchors")),
+              mount=("mount", ("mast head bearing", "rotating beam", "A-frames", "arc rail", "bearings", "counterweight")),
+              motors=("drive", None), strip=("receiver", ("strip mirror", "strip bearing")), m4=("receiver", ("M4 mirror",)),
+              bore=("receiver", ("bore duct", "roof penetration")), insulation=("pit", ("insulation trench dig", "trench fill")),
+              sand=("pit", ("sand", "sand box", "rebar fins")), lid=("pit", ("lid",)),
+              fixed=("*", ("controller", "sun sensor", "power", "wiring", "enclosure", "slot flaps", "elbow mirror", "shutter", "inlet work", "fabrication", "installation", "transport")))
+
+
+def capital(d, prices=None):
+    """d: dict of design values (both boxes, plus site/film_m2/rim_m/rise/r_out_max). The itemised bill of the
+    kit (tandoor_bom) at the researched Pakistani prices, summed into the model's groups; 'total' in PKR."""
+    import tandoor_bom
+    items = tandoor_bom.bom(d, prices or _prices())
+    out = {}
+    for g, (grp, names) in GROUPS.items():
+        out[g] = sum(i["pkr"] for i in items if (names is None and i["group"] == grp) or (names is not None and i["item"] in names))
+    out["total"] = sum(i["pkr"] for i in items)
+    return out
 
 
 def bom_text(d, budget=BUDGET):

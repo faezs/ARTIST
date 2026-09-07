@@ -45,6 +45,9 @@ if __name__ == "__main__":
         for ic, cap in enumerate(CAPS):
             for idl, dF in enumerate(RISES):
                 area_adm, tx, ty, need, over = bests[(cap, dF)]
+                if need is None:                                             # no post position keeps the pit on this roof
+                    lib["records"][(ir, ic, idl)] = dict(roof_pct=pct, W=W_, D=D_, cap=cap, rise=dF, tx=float(tx), ty=float(ty), area=0.0, empty=True)
+                    print(f"roof p{pct} ({W_:.1f}x{D_:.1f}) cap {cap} rise {dF}: no post position keeps the pit on the roof", flush=True); continue
                 mask = (need <= dF) & (over <= cap)
                 t0 = time.time()
                 d = None if mask.sum() * GRID * GRID < 1.0 else build_section(mask, X, Y, GRID, f, levels, P, loss_chain=1.0)

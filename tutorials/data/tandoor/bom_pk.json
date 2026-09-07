@@ -1,0 +1,801 @@
+{
+ "units": {
+  "film_m2": 700.0,
+  "back_sheet_m2": 600.0,
+  "rim_tube_m": 850.0,
+  "zone_wall_m": 160.0,
+  "pump_unit": 1600.0,
+  "press_sensor": 3200.0,
+  "valve": 1800.0,
+  "tubing_m": 100.0,
+  "post_pipe_m": 4900.0,
+  "arm_pipe_m": 1400.0,
+  "guy_set": 12000.0,
+  "mast_head": 38000.0,
+  "beam_pipe_m": 900.0,
+  "aframe_pipe_m": 290.0,
+  "arc_pipe_m": 570.0,
+  "bearing": 1700.0,
+  "counterweight": 6000.0,
+  "motor_geared": 9000.0,
+  "driver": 1550.0,
+  "encoder": 1300.0,
+  "limit_sw": 130.0,
+  "controller": 3000.0,
+  "sun_sensor": 2800.0,
+  "psu_solar": 26000.0,
+  "wiring_set": 13000.0,
+  "enclosure": 3800.0,
+  "strip_m2": 9500.0,
+  "m4_m2": 16000.0,
+  "strip_bearing": 2200.0,
+  "bore_m2": 3500.0,
+  "roof_pen": 60000.0,
+  "flap_set": 9000.0,
+  "elbow_mirror": 13000.0,
+  "shutter": 5500.0,
+  "inlet_work": 5000.0,
+  "trench_dig": 4500.0,
+  "trench_fill_unit": 25000.0,
+  "sand_m3": 3300.0,
+  "sand_box": 9000.0,
+  "fins_m2_per_k": 8308.0,
+  "lid": 9000.0,
+  "labour_day": 4500.0,
+  "fabrication_days": 6.0,
+  "install_days": 4.0,
+  "transport": 7500.0,
+  "install_day": 3300.0
+ },
+ "nominal": [
+  {
+   "group": "primary",
+   "item": "reflective film",
+   "spec": "aluminised PET 50 um, silvered",
+   "unit": "m2",
+   "qty": 14.962777490517468,
+   "unit_pkr": 700.0,
+   "pkr": 10473.944243362228
+  },
+  {
+   "group": "primary",
+   "item": "plenum back sheet",
+   "spec": "coated tarpaulin / PET",
+   "unit": "m2",
+   "qty": 15.239865962564087,
+   "unit_pkr": 600.0,
+   "pkr": 9143.919577538452
+  },
+  {
+   "group": "primary",
+   "item": "rim tube",
+   "spec": "rolled MS tube 40 mm ring",
+   "unit": "m",
+   "qty": 13.194689145077131,
+   "unit_pkr": 850.0,
+   "pkr": 11215.485773315562
+  },
+  {
+   "group": "primary",
+   "item": "zone partitions",
+   "spec": "5 plenum zones",
+   "unit": "m",
+   "qty": 32.98672286269283,
+   "unit_pkr": 160.0,
+   "pkr": 5277.875658030853
+  },
+  {
+   "group": "primary",
+   "item": "zone pumps",
+   "spec": "blower with speed control",
+   "unit": "unit",
+   "qty": 5.0,
+   "unit_pkr": 1600.0,
+   "pkr": 8000.0
+  },
+  {
+   "group": "primary",
+   "item": "pressure sensors",
+   "spec": "differential, per zone",
+   "unit": "unit",
+   "qty": 5.0,
+   "unit_pkr": 3200.0,
+   "pkr": 16000.0
+  },
+  {
+   "group": "primary",
+   "item": "bleed valves",
+   "spec": "per zone",
+   "unit": "unit",
+   "qty": 5.0,
+   "unit_pkr": 1800.0,
+   "pkr": 9000.0
+  },
+  {
+   "group": "primary",
+   "item": "pneumatic tubing",
+   "spec": "",
+   "unit": "m",
+   "qty": 25.0,
+   "unit_pkr": 100.0,
+   "pkr": 2500.0
+  },
+  {
+   "group": "mount",
+   "item": "post / mast",
+   "spec": "MS pipe 100 mm, deck to F",
+   "unit": "m",
+   "qty": 5.37,
+   "unit_pkr": 4900.0,
+   "pkr": 26313.0
+  },
+  {
+   "group": "mount",
+   "item": "arm carrying F",
+   "spec": "MS pipe 60 mm",
+   "unit": "m",
+   "qty": 3.0,
+   "unit_pkr": 1400.0,
+   "pkr": 4200.0
+  },
+  {
+   "group": "mount",
+   "item": "guys and anchors",
+   "spec": "3 wires, turnbuckles",
+   "unit": "set",
+   "qty": 1.0,
+   "unit_pkr": 12000.0,
+   "pkr": 12000.0
+  },
+  {
+   "group": "mount",
+   "item": "mast head bearing",
+   "spec": "azimuth trunnion",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 38000.0,
+   "pkr": 38000.0
+  },
+  {
+   "group": "mount",
+   "item": "rotating beam",
+   "spec": "MS pipe 50 mm",
+   "unit": "m",
+   "qty": 9.2,
+   "unit_pkr": 900.0,
+   "pkr": 8280.0
+  },
+  {
+   "group": "mount",
+   "item": "A-frames",
+   "spec": "MS tube 25 mm, two frames",
+   "unit": "m",
+   "qty": 12.8,
+   "unit_pkr": 290.0,
+   "pkr": 3712.0
+  },
+  {
+   "group": "mount",
+   "item": "arc rail",
+   "spec": "rolled MS tube 25 mm, two tubes",
+   "unit": "m",
+   "qty": 12.614999999999998,
+   "unit_pkr": 570.0,
+   "pkr": 7190.549999999999
+  },
+  {
+   "group": "mount",
+   "item": "bearings",
+   "spec": "strap / pillow block",
+   "unit": "unit",
+   "qty": 6.0,
+   "unit_pkr": 1700.0,
+   "pkr": 10200.0
+  },
+  {
+   "group": "mount",
+   "item": "counterweight",
+   "spec": "",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 6000.0,
+   "pkr": 6000.0
+  },
+  {
+   "group": "drive",
+   "item": "geared DC motors",
+   "spec": "24 V, x1.00^1.5 size",
+   "unit": "unit",
+   "qty": 2.0,
+   "unit_pkr": 9000.0,
+   "pkr": 18000.0
+  },
+  {
+   "group": "drive",
+   "item": "motor drivers",
+   "spec": "H-bridge",
+   "unit": "unit",
+   "qty": 2.0,
+   "unit_pkr": 1550.0,
+   "pkr": 3100.0
+  },
+  {
+   "group": "drive",
+   "item": "encoders",
+   "spec": "magnetic 12-bit",
+   "unit": "unit",
+   "qty": 2.0,
+   "unit_pkr": 1300.0,
+   "pkr": 2600.0
+  },
+  {
+   "group": "drive",
+   "item": "limit switches",
+   "spec": "",
+   "unit": "unit",
+   "qty": 4.0,
+   "unit_pkr": 130.0,
+   "pkr": 520.0
+  },
+  {
+   "group": "control",
+   "item": "controller",
+   "spec": "ESP32-class + RTC",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 3000.0,
+   "pkr": 3000.0
+  },
+  {
+   "group": "control",
+   "item": "sun sensor",
+   "spec": "4-quadrant",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 2800.0,
+   "pkr": 2800.0
+  },
+  {
+   "group": "control",
+   "item": "power",
+   "spec": "100 W PV + battery + charger",
+   "unit": "set",
+   "qty": 1.0,
+   "unit_pkr": 26000.0,
+   "pkr": 26000.0
+  },
+  {
+   "group": "control",
+   "item": "wiring",
+   "spec": "cable, conduit",
+   "unit": "set",
+   "qty": 1.0,
+   "unit_pkr": 13000.0,
+   "pkr": 13000.0
+  },
+  {
+   "group": "control",
+   "item": "enclosure",
+   "spec": "IP65",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 3800.0,
+   "pkr": 3800.0
+  },
+  {
+   "group": "receiver",
+   "item": "strip mirror",
+   "spec": "polished Al on curved frame",
+   "unit": "m2",
+   "qty": 1.3546547522279189,
+   "unit_pkr": 9500.0,
+   "pkr": 12869.22014616523
+  },
+  {
+   "group": "receiver",
+   "item": "strip bearing",
+   "spec": "on the F-F2 axis",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 2200.0,
+   "pkr": 2200.0
+  },
+  {
+   "group": "receiver",
+   "item": "bore duct",
+   "spec": "GI sheet below the deck, r 0.70 m x 4.9 m",
+   "unit": "m2",
+   "qty": 21.375396415024955,
+   "unit_pkr": 3500.0,
+   "pkr": 74813.88745258734
+  },
+  {
+   "group": "receiver",
+   "item": "roof penetration",
+   "spec": "opening 1.4 m: collar, flashing, waterproofing",
+   "unit": "job",
+   "qty": 1.0,
+   "unit_pkr": 60000.0,
+   "pkr": 60000.0
+  },
+  {
+   "group": "receiver",
+   "item": "M4 mirror",
+   "spec": "polished Al ellipsoid patch",
+   "unit": "m2",
+   "qty": 5.3092915845667505,
+   "unit_pkr": 16000.0,
+   "pkr": 84948.665353068
+  },
+  {
+   "group": "receiver",
+   "item": "slot flaps",
+   "spec": "mirrored, hinged",
+   "unit": "set",
+   "qty": 1.0,
+   "unit_pkr": 9000.0,
+   "pkr": 9000.0
+  },
+  {
+   "group": "receiver",
+   "item": "elbow mirror",
+   "spec": "concave, 2-DOF servo",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 13000.0,
+   "pkr": 13000.0
+  },
+  {
+   "group": "receiver",
+   "item": "shutter",
+   "spec": "damper + servo",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 5500.0,
+   "pkr": 5500.0
+  },
+  {
+   "group": "receiver",
+   "item": "inlet work",
+   "spec": "widen the native inlet",
+   "unit": "job",
+   "qty": 1.0,
+   "unit_pkr": 5000.0,
+   "pkr": 5000.0
+  },
+  {
+   "group": "pit",
+   "item": "lid",
+   "spec": "steel, leak 0.18",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 9000.0,
+   "pkr": 9000.0
+  },
+  {
+   "group": "labour",
+   "item": "fabrication",
+   "spec": "welding, rolling, assembly",
+   "unit": "day",
+   "qty": 6.0,
+   "unit_pkr": 4500.0,
+   "pkr": 27000.0
+  },
+  {
+   "group": "labour",
+   "item": "installation",
+   "spec": "erection, alignment, commissioning",
+   "unit": "day",
+   "qty": 4.0,
+   "unit_pkr": 3300.0,
+   "pkr": 13200.0
+  },
+  {
+   "group": "labour",
+   "item": "transport",
+   "spec": "",
+   "unit": "job",
+   "qty": 1.0,
+   "unit_pkr": 7500.0,
+   "pkr": 7500.0
+  }
+ ],
+ "section": [
+  {
+   "group": "primary",
+   "item": "reflective film",
+   "spec": "aluminised PET 50 um, silvered",
+   "unit": "m2",
+   "qty": 20.125,
+   "unit_pkr": 700.0,
+   "pkr": 14087.5
+  },
+  {
+   "group": "primary",
+   "item": "plenum back sheet",
+   "spec": "coated tarpaulin / PET",
+   "unit": "m2",
+   "qty": 17.710000000000004,
+   "unit_pkr": 600.0,
+   "pkr": 10626.000000000002
+  },
+  {
+   "group": "primary",
+   "item": "rim tube",
+   "spec": "rolled MS tube 40 mm, both rims",
+   "unit": "m",
+   "qty": 21.048670779051612,
+   "unit_pkr": 850.0,
+   "pkr": 17891.37016219387
+  },
+  {
+   "group": "primary",
+   "item": "zone partitions",
+   "spec": "5 plenum zones",
+   "unit": "m",
+   "qty": 52.62167694762903,
+   "unit_pkr": 160.0,
+   "pkr": 8419.468311620643
+  },
+  {
+   "group": "primary",
+   "item": "zone pumps",
+   "spec": "blower with speed control",
+   "unit": "unit",
+   "qty": 5.0,
+   "unit_pkr": 1600.0,
+   "pkr": 8000.0
+  },
+  {
+   "group": "primary",
+   "item": "pressure sensors",
+   "spec": "differential, per zone",
+   "unit": "unit",
+   "qty": 5.0,
+   "unit_pkr": 3200.0,
+   "pkr": 16000.0
+  },
+  {
+   "group": "primary",
+   "item": "bleed valves",
+   "spec": "per zone",
+   "unit": "unit",
+   "qty": 5.0,
+   "unit_pkr": 1800.0,
+   "pkr": 9000.0
+  },
+  {
+   "group": "primary",
+   "item": "pneumatic tubing",
+   "spec": "",
+   "unit": "m",
+   "qty": 25.0,
+   "unit_pkr": 100.0,
+   "pkr": 2500.0
+  },
+  {
+   "group": "mount",
+   "item": "post / mast",
+   "spec": "MS pipe 100 mm, deck to F",
+   "unit": "m",
+   "qty": 6.37,
+   "unit_pkr": 4900.0,
+   "pkr": 31213.0
+  },
+  {
+   "group": "mount",
+   "item": "arm carrying F",
+   "spec": "MS pipe 60 mm",
+   "unit": "m",
+   "qty": 3.0,
+   "unit_pkr": 1400.0,
+   "pkr": 4200.0
+  },
+  {
+   "group": "mount",
+   "item": "guys and anchors",
+   "spec": "3 wires, turnbuckles",
+   "unit": "set",
+   "qty": 1.0,
+   "unit_pkr": 12000.0,
+   "pkr": 12000.0
+  },
+  {
+   "group": "mount",
+   "item": "mast head bearing",
+   "spec": "azimuth trunnion",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 38000.0,
+   "pkr": 38000.0
+  },
+  {
+   "group": "mount",
+   "item": "rotating beam",
+   "spec": "MS pipe 50 mm",
+   "unit": "m",
+   "qty": 9.2,
+   "unit_pkr": 900.0,
+   "pkr": 8280.0
+  },
+  {
+   "group": "mount",
+   "item": "A-frames",
+   "spec": "MS tube 25 mm, two frames",
+   "unit": "m",
+   "qty": 12.8,
+   "unit_pkr": 290.0,
+   "pkr": 3712.0
+  },
+  {
+   "group": "mount",
+   "item": "arc rail",
+   "spec": "rolled MS tube 25 mm, two tubes",
+   "unit": "m",
+   "qty": 12.614999999999998,
+   "unit_pkr": 570.0,
+   "pkr": 7190.549999999999
+  },
+  {
+   "group": "mount",
+   "item": "bearings",
+   "spec": "strap / pillow block",
+   "unit": "unit",
+   "qty": 6.0,
+   "unit_pkr": 1700.0,
+   "pkr": 10200.0
+  },
+  {
+   "group": "mount",
+   "item": "counterweight",
+   "spec": "",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 6000.0,
+   "pkr": 6000.0
+  },
+  {
+   "group": "drive",
+   "item": "geared DC motors",
+   "spec": "24 V, x1.00^1.5 size",
+   "unit": "unit",
+   "qty": 2.0,
+   "unit_pkr": 9000.0,
+   "pkr": 18000.0
+  },
+  {
+   "group": "drive",
+   "item": "motor drivers",
+   "spec": "H-bridge",
+   "unit": "unit",
+   "qty": 2.0,
+   "unit_pkr": 1550.0,
+   "pkr": 3100.0
+  },
+  {
+   "group": "drive",
+   "item": "encoders",
+   "spec": "magnetic 12-bit",
+   "unit": "unit",
+   "qty": 2.0,
+   "unit_pkr": 1300.0,
+   "pkr": 2600.0
+  },
+  {
+   "group": "drive",
+   "item": "limit switches",
+   "spec": "",
+   "unit": "unit",
+   "qty": 4.0,
+   "unit_pkr": 130.0,
+   "pkr": 520.0
+  },
+  {
+   "group": "control",
+   "item": "controller",
+   "spec": "ESP32-class + RTC",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 3000.0,
+   "pkr": 3000.0
+  },
+  {
+   "group": "control",
+   "item": "sun sensor",
+   "spec": "4-quadrant",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 2800.0,
+   "pkr": 2800.0
+  },
+  {
+   "group": "control",
+   "item": "power",
+   "spec": "100 W PV + battery + charger",
+   "unit": "set",
+   "qty": 1.0,
+   "unit_pkr": 26000.0,
+   "pkr": 26000.0
+  },
+  {
+   "group": "control",
+   "item": "wiring",
+   "spec": "cable, conduit",
+   "unit": "set",
+   "qty": 1.0,
+   "unit_pkr": 13000.0,
+   "pkr": 13000.0
+  },
+  {
+   "group": "control",
+   "item": "enclosure",
+   "spec": "IP65",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 3800.0,
+   "pkr": 3800.0
+  },
+  {
+   "group": "receiver",
+   "item": "strip mirror",
+   "spec": "polished Al on curved frame",
+   "unit": "m2",
+   "qty": 1.3546547522279189,
+   "unit_pkr": 9500.0,
+   "pkr": 12869.22014616523
+  },
+  {
+   "group": "receiver",
+   "item": "strip bearing",
+   "spec": "on the F-F2 axis",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 2200.0,
+   "pkr": 2200.0
+  },
+  {
+   "group": "receiver",
+   "item": "bore duct",
+   "spec": "GI sheet below the deck, r 0.70 m x 4.9 m",
+   "unit": "m2",
+   "qty": 21.375396415024955,
+   "unit_pkr": 3500.0,
+   "pkr": 74813.88745258734
+  },
+  {
+   "group": "receiver",
+   "item": "roof penetration",
+   "spec": "opening 1.4 m: collar, flashing, waterproofing",
+   "unit": "job",
+   "qty": 1.0,
+   "unit_pkr": 60000.0,
+   "pkr": 60000.0
+  },
+  {
+   "group": "receiver",
+   "item": "M4 mirror",
+   "spec": "polished Al ellipsoid patch",
+   "unit": "m2",
+   "qty": 5.3092915845667505,
+   "unit_pkr": 16000.0,
+   "pkr": 84948.665353068
+  },
+  {
+   "group": "receiver",
+   "item": "slot flaps",
+   "spec": "mirrored, hinged",
+   "unit": "set",
+   "qty": 1.0,
+   "unit_pkr": 9000.0,
+   "pkr": 9000.0
+  },
+  {
+   "group": "receiver",
+   "item": "elbow mirror",
+   "spec": "concave, 2-DOF servo",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 13000.0,
+   "pkr": 13000.0
+  },
+  {
+   "group": "receiver",
+   "item": "shutter",
+   "spec": "damper + servo",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 5500.0,
+   "pkr": 5500.0
+  },
+  {
+   "group": "receiver",
+   "item": "inlet work",
+   "spec": "widen the native inlet",
+   "unit": "job",
+   "qty": 1.0,
+   "unit_pkr": 5000.0,
+   "pkr": 5000.0
+  },
+  {
+   "group": "pit",
+   "item": "insulation trench dig",
+   "spec": "narrow trench round the pit",
+   "unit": "job",
+   "qty": 1.0,
+   "unit_pkr": 4500.0,
+   "pkr": 4500.0
+  },
+  {
+   "group": "pit",
+   "item": "trench fill",
+   "spec": "perlite / rice-husk ash",
+   "unit": "unit",
+   "qty": 0.4285714285714286,
+   "unit_pkr": 25000.0,
+   "pkr": 10714.285714285716
+  },
+  {
+   "group": "pit",
+   "item": "sand",
+   "spec": "washed",
+   "unit": "m3",
+   "qty": 0.18010750683030283,
+   "unit_pkr": 3300.0,
+   "pkr": 594.3547725399993
+  },
+  {
+   "group": "pit",
+   "item": "sand box",
+   "spec": "dig-out + lining",
+   "unit": "job",
+   "qty": 1.0,
+   "unit_pkr": 9000.0,
+   "pkr": 9000.0
+  },
+  {
+   "group": "pit",
+   "item": "rebar fins",
+   "spec": "per m2 of bed per W/mK",
+   "unit": "m2.W/mK",
+   "qty": 1.057,
+   "unit_pkr": 8308.0,
+   "pkr": 8781.555999999999
+  },
+  {
+   "group": "pit",
+   "item": "lid",
+   "spec": "steel, leak 0.18",
+   "unit": "unit",
+   "qty": 1.0,
+   "unit_pkr": 9000.0,
+   "pkr": 9000.0
+  },
+  {
+   "group": "labour",
+   "item": "fabrication",
+   "spec": "welding, rolling, assembly",
+   "unit": "day",
+   "qty": 6.0,
+   "unit_pkr": 4500.0,
+   "pkr": 27000.0
+  },
+  {
+   "group": "labour",
+   "item": "installation",
+   "spec": "erection, alignment, commissioning",
+   "unit": "day",
+   "qty": 4.0,
+   "unit_pkr": 3300.0,
+   "pkr": 13200.0
+  },
+  {
+   "group": "labour",
+   "item": "transport",
+   "spec": "",
+   "unit": "job",
+   "qty": 1.0,
+   "unit_pkr": 7500.0,
+   "pkr": 7500.0
+  }
+ ]
+}
