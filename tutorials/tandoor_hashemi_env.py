@@ -1040,8 +1040,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 self.r_bore = 0.7
         if self.tri:
             # the three-mirror machine has no elbow: M3 throws the image straight at
-            # the bread, so the jet model in _bin_pot must not turn it again
-            self.duct_nozzle = 0
+            # the bread, so the jet model in _bin_pot must not turn it again. Set it
+            # in KWARGS, not on self - the base class assigns self.duct_nozzle from
+            # the kwarg later and would put the elbow back (the ini asks for 2).
+            if int(kwargs.get("duct_nozzle", 0)):
+                print(f"  [hashemi] receiver='tri': duct_nozzle={kwargs['duct_nozzle']} ignored, the three-mirror machine has no elbow")
+            kwargs["duct_nozzle"] = 0
         self.z_turn, self.r_m4, self.r_strut = z_turn, float(r_m4), float(r_strut)
         # fold_toroid: COMPLIANT SECONDARY. The fold becomes a weak
         # toroid whose meridian curvatures re-unify the sphere's
@@ -3385,6 +3389,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             pr.set_target_fps(24); self._window = True
             self._cam_th, self._cam_ph, self._cam_r = 1.05, 0.22, 20.0
             self._cam_tgt = np.array([1.0, 0.0, 3.0])
+            # TANDOOR_CAM="th,ph,r,tx,ty,tz" sets the opening view (the mouse still
+            # orbits from there, and R returns to this preset) - so a screenshot can
+            # be taken from a chosen angle without touching the machine
+            _cam = os.environ.get("TANDOOR_CAM")
+            if _cam:
+                try:
+                    v = [float(x) for x in _cam.split(",")]
+                    self._cam_th, self._cam_ph, self._cam_r = v[0], v[1], v[2]
+                    if len(v) >= 6: self._cam_tgt = np.array(v[3:6])
+                    self._cam_home = (self._cam_th, self._cam_ph, self._cam_r, self._cam_tgt.copy())
+                    print(f"  [hashemi] camera preset: th {self._cam_th:.2f} ph {self._cam_ph:.2f} r {self._cam_r:.1f} at {np.round(self._cam_tgt, 2)}")
+                except Exception as _ex:
+                    print(f"  [hashemi] TANDOOR_CAM ignored ({_ex})")
             # roti-lifecycle animation state (agent 0's kitchen)
             self._rvis = dict(prev=None, anims=[], flash=[],
                               stack=0, rej=0, prev_rot=0.0, prev_sc=0.0)
@@ -3400,8 +3417,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                   - fv * dd.y) * 0.004 * self._cam_r
             self._cam_tgt[2] += dd.y * 0.003 * self._cam_r
         if pr.is_key_pressed(pr.KeyboardKey.KEY_R):
-            self._cam_tgt = np.array([1.0, 0.0, 3.0])
-            self._cam_th, self._cam_ph, self._cam_r = 1.05, 0.22, 20.0
+            if getattr(self, "_cam_home", None) is not None:
+                self._cam_th, self._cam_ph, self._cam_r, _t = self._cam_home
+                self._cam_tgt = _t.copy()
+            else:
+                self._cam_tgt = np.array([1.0, 0.0, 3.0])
+                self._cam_th, self._cam_ph, self._cam_r = 1.05, 0.22, 20.0
         self._cam_r = float(np.clip(
             self._cam_r - pr.get_mouse_wheel_move() * 1.2, 3.0, 60.0))
         tgt = pr.Vector3(*[float(v) for v in self._cam_tgt])
@@ -4178,7 +4199,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             tilt_ = np.degrees(np.arccos(np.clip(-self.cs_A[2], -1, 1)))
             hud = [f"dish f {self.f_nom:.1f} m hinged at F, {self.post_offset:.1f} m N of wall",
                    f"{'ellipsoid' if self.sec_side == 'greg' else 'hyperboloid'} strip d {self.d_strip:.1f} m, foci F & F2, mag {self.cs_mag:.1f}",
-                   f"bore r {self.r_bore:.1f}, {tilt_:.0f} deg; F2 {self.u_f2:.1f} m up; M4 ellipsoid r {self.r_m4:.1f}",
+                   (f"bore r {self.r_bore:.1f}; M3 ellipsoid r {self.r_m4:.1f} aimed at the bread, "
+                    f"turn {np.degrees(float(self.spot_phi[0]) - _SP0):+.0f} deg -> slot {int(self.tri_aim_bin()[0])}; inlet r {self.r_duct:.2f}"
+                    if self.tri else
+                    f"bore r {self.r_bore:.1f}, {tilt_:.0f} deg; F2 {self.u_f2:.1f} m up; M4 ellipsoid r {self.r_m4:.1f}"),
                    f"strip {self.strip_th_lo:.0f}-{self.strip_th_hi:.0f} deg x {self.w_strip:.1f} m, shadow "
                    f"{self.obstruction*100:.0f}%"]
         elif self.receiver == "focus":
@@ -4231,7 +4255,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                       [(h_["rew"], (140, 220, 140, 255), "r/step"),
                        (h_["ret"], (200, 160, 240, 255), "ret/100")],
                       tspan=tsp, fmt=".1f")
-        if self._cass:
+        if self.tri:
+            foot1 = ("EXACT, THREE MIRRORS: dish -> rotating conic strip at the focus "
+                     "(foci F, F2) -> straight bore -> M3 at the turn -> THE BREAD. No elbow.")
+            foot2 = ("M3 turns about the bore's own axis to choose the roti, so the cone "
+                     "it sees never changes. The strip turns with the sun; nothing else moves.")
+        elif self._cass:
             foot1 = ("EXACT: dish -> rotating conic strip at the focus (foci F, F2) "
                      "-> straight bore -> ellipsoid M4 at the turn -> duct -> pot.")
             foot2 = ("The strip turns about the F-F2 axis with the sun; nothing else "
