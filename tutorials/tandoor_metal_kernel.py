@@ -93,7 +93,7 @@ kernel void mount_solve(
     device float*       Mt_o   [[buffer(1)]],   // (B,9)
     device float*       Cd_o   [[buffer(2)]],   // (B,3)
     device float*       Ac_o   [[buffer(3)]],   // (B,9)
-    device float*       scb_o  [[buffer(4)]],   // (B,6)
+    device float*       scb_o  [[buffer(4)]],   // (B,7): cosi, slot, kt, ks, ray_scale, el_ok, psi
     device float*       aux_o  [[buffer(5)]],   // (B,8) el,azd,elb,ub3,beta
     device const float* day    [[buffer(6)]],
     device const float* lat    [[buffer(7)]],
@@ -296,10 +296,22 @@ kernel void mount_solve(
                  ? 1e9f : sc1b;
     float rscale = cos(bt*PI_/360.0f);
     float elok = (el >= prm[40] && el <= prm[41]) ? 1.0f : 0.0f;
-    int sb2 = b*6;
+    int sb2 = b*7;
     scb_o[sb2+0] = cosi; scb_o[sb2+1] = fc_on ? fc_f2 : slot;
     scb_o[sb2+2] = kt;   scb_o[sb2+3] = ks;
     scb_o[sb2+4] = rscale; scb_o[sb2+5] = elok;
+    // psi: the turn about the normal from the trace's dish x axis (row 0 of
+    // Mt = column 0 of M) to the body 'up' (z-hat's part in the dish plane);
+    // a SECTION's body-frame film is turned by it in the trace (torch twin:
+    // tandoor_mount_batch)
+    {
+        float3 ex_w = float3(M9[0], M9[3], M9[6]);
+        float3 n_w  = float3(M9[2], M9[5], M9[8]);
+        float3 upv = zh - dot(zh, n_w)*n_w;
+        float upn = length(upv);
+        upv = (upn > 1e-6f) ? upv / upn : ex_w;
+        scb_o[sb2+6] = atan2(dot(cross(ex_w, upv), n_w), dot(ex_w, upv));
+    }
     aux_o[b*8+0] = el;
     aux_o[b*8+1] = az;                 // radians, dict contract
     aux_o[b*8+2] = elb;
@@ -389,7 +401,7 @@ kernel void tandoor_trace(
     if (tid >= uint(B*P)) return;
     const int b = tid / P, ip = tid % P;
     const int vb = b*21;
-    const int sb = b*6;
+    const int sb = b*7;
     const float3 ut   = float3(vp[vb+0],  vp[vb+1],  vp[vb+2]);
     const float3 Pf   = float3(vp[vb+3],  vp[vb+4],  vp[vb+5]);
     const float3 sdir = float3(vp[vb+6],  vp[vb+7],  vp[vb+8]);
@@ -413,6 +425,14 @@ kernel void tandoor_trace(
     float3 n_loc = (1.0f-fr)*float3(nrm_l[o0],nrm_l[o0+1],nrm_l[o0+2])
                  +        fr*float3(nrm_l[o1],nrm_l[o1+1],nrm_l[o1+2]);
     n_loc = normalize(n_loc);
+    if (sblk > 0) {
+        // a SECTION: its points live in the dish's BODY frame (x up the
+        // dish); the trace's dish frame is turned about the normal by
+        // psi (scb[6], from the mount solve) - turn the film to match
+        float cps = cos(scb[sb+6]), sps = sin(scb[sb+6]);
+        p_loc = float3(cps*p_loc.x - sps*p_loc.y, sps*p_loc.x + cps*p_loc.y, p_loc.z);
+        n_loc = float3(cps*n_loc.x - sps*n_loc.y, sps*n_loc.x + cps*n_loc.y, n_loc.z);
+    }
     // the dish scale (design table [40]): a uniform scaling of the
     // membrane about the frame origin keeps the paraboloid family,
     // f and a scale together (the mount's g_orbit and f_nom follow)
@@ -1507,7 +1527,7 @@ class MetalGeo:
         if bufs is None:
             z = lambda n: torch.empty(B, n, dtype=torch.float32,
                                       device=dev)
-            bufs = (z(21), z(9), z(3), z(9), z(6), z(8),
+            bufs = (z(21), z(9), z(3), z(9), z(7), z(8),
                     torch.tensor([B], dtype=torch.int32, device=dev),
                     torch.full((B, 2), -999.0, dtype=torch.float32, device=dev))
             self._mbuf[key] = bufs
@@ -1517,7 +1537,7 @@ class MetalGeo:
         if fct_t is None:
             # no design table: every env the nominal machine (from prm)
             fct_t = torch.zeros(B, 72, dtype=torch.float32, device=prm_t.device)
-            fct_t[:, 40] = 1.0; fct_t[:, 41] = 1.0; fct_t[:, 44:47] = 1.0; fct_t[:, 60:70] = 1.0
+            fct_t[:, 40] = 1.0; fct_t[:, 41] = 1.0; fct_t[:, 44:47] = 1.0; fct_t[:, 61:70] = 1.0   # [60] = block 0, the built dish
             fct_t[:, 42] = prm_t[4]; fct_t[:, 53] = prm_t[12]
             fct_t[:, 54] = prm_t[3]; fct_t[:, 55] = prm_t[5]
         self.lib.mount_solve(vp, Mt, Cd, Ac, scb, aux,

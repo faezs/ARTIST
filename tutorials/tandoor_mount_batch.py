@@ -252,7 +252,19 @@ def mount_batch(env, day, lat, hour, dev, pnt=None):
     el_ok = ((el >= env.el_min_h) & (el <= env.el_max_h)).to(u.dtype)
     if focus:
         slot = f2
-    scb = torch.stack([cosi, slot, kt, ks, rscale, el_ok], -1)
+    # psi: the trace's dish frame (rows of Mt in the world) is the minimal
+    # rotation of the world axes onto the normal, NOT body-fixed: relative to
+    # the dish's own frame (x up the dish, in the vertical plane of the beam;
+    # y horizontal across) it turns about the normal with the sun's azimuth
+    # (0 at noon, ~75 deg at the equinox's 8:00). A circle cannot tell; a
+    # SECTION's points, given in the body frame, are turned by psi in the
+    # cores before use. psi = angle from the dish x axis to the body 'up'.
+    ex_w, n_w = Mt[:, 0, :], Mt[:, 2, :]
+    up = zhat - (zhat * n_w).sum(-1, keepdim=True) * n_w
+    upn = up.norm(dim=-1, keepdim=True)
+    up = torch.where(upn > 1e-6, up / upn.clamp(min=1e-9), ex_w)
+    psi = torch.atan2((torch.linalg.cross(ex_w, up) * n_w).sum(-1), (ex_w * up).sum(-1))
+    scb = torch.stack([cosi, slot, kt, ks, rscale, el_ok, psi], -1)
     return dict(vp=vp, Mt=Mt, Cd=Cd, Acan=Acan, scb=scb,
                 el=el, az=az, el_b=el_b, u=u, ub=ub, naim=naim,
                 beta_t=beta_t)

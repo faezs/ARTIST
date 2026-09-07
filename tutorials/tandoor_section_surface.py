@@ -34,14 +34,25 @@ def _runs(ok):
     return out
 
 
-def annular_star(mask, X, Y, grid, r_hole, centre=(0.0, 0.0), mode="best"):
+# the fixed Cassegrain receiver's acceptance against the ray's radius on the parent (measured,
+# section_ladder.py, three poses): the film beyond ~3 m barely pays, so the film is chosen by USEFUL area
+ACC_R = np.array([0.0, 2.1, 2.5, 3.0, 4.0, 6.0, 9.0]); ACC_V = np.array([0.90, 0.55, 0.40, 0.25, 0.10, 0.05, 0.05])
+
+
+def acceptance(r):
+    return np.interp(np.asarray(r, dtype=float), ACC_R, ACC_V)
+
+
+def annular_star(mask, X, Y, grid, r_hole, centre=(0.0, 0.0), mode="useful"):
     """the one-piece film about the vertex: per angle bin one admissible run beyond the hole -
-    'first' (nearest the hole), 'largest' (most area), or 'best': whichever rule gives the larger film
+    'first' (nearest the hole), 'largest' (most area), 'useful' (most receiver-weighted area,
+    the default), or 'best' (the larger of first/largest by area)
     -> theta (NT,), r_in (NT,), r_out (NT,) (r_out = r_in where the direction has no film)"""
     cx, cy = centre; th = np.linspace(-np.pi, np.pi, NT, endpoint=False)
     x0, y0 = X[0, 0], Y[0, 0]; n0, n1 = mask.shape
     rr = np.arange(r_hole, 8.0, grid / 3)
-    films = {m: (np.full(NT, r_hole), np.full(NT, r_hole)) for m in ("first", "largest")}
+    films = {m: (np.full(NT, r_hole), np.full(NT, r_hole)) for m in ("first", "largest", "useful")}
+    useful = lambda k0, k1: float((acceptance(rr[k0:k1 + 1]) * rr[k0:k1 + 1]).sum())
     for i, t in enumerate(th):
         xs = cx + rr * np.cos(t); ys = cy + rr * np.sin(t)
         ii = np.rint((xs - x0) / grid).astype(int); jj = np.rint((ys - y0) / grid).astype(int)
@@ -51,9 +62,10 @@ def annular_star(mask, X, Y, grid, r_hole, centre=(0.0, 0.0), mode="best"):
         if not runs: continue
         k0, k1 = runs[0]; films["first"][0][i], films["first"][1][i] = rr[k0], rr[k1]
         k0, k1 = max(runs, key=lambda r: rr[r[1]] ** 2 - rr[r[0]] ** 2); films["largest"][0][i], films["largest"][1][i] = rr[k0], rr[k1]
+        k0, k1 = max(runs, key=lambda r: useful(*r)); films["useful"][0][i], films["useful"][1][i] = rr[k0], rr[k1]
     if mode in films:
         return th, films[mode][0], films[mode][1]
-    area = {m: float(((ro ** 2 - ri ** 2) * 0.5).sum() * (2 * np.pi / NT)) for m, (ri, ro) in films.items()}
+    area = {m: float(((ro ** 2 - ri ** 2) * 0.5).sum() * (2 * np.pi / NT)) for m, (ri, ro) in films.items() if m != "useful"}
     m = max(area, key=area.get)
     return th, films[m][0], films[m][1]
 

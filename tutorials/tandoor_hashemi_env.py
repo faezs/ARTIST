@@ -638,6 +638,15 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     p_loc = (1 - fr) * pts_l[i0] + fr * pts_l[i0 + 1]
     n_loc = (1 - fr) * nrm_l[i0] + fr * nrm_l[i0 + 1]
     n_loc = n_loc / n_loc.norm(dim=-1, keepdim=True)
+    if fct.shape[1] > 60 and pts_l.shape[0] > N_LEV_SURF and scb.shape[1] > 6:
+        # a SECTION's points live in the dish's body frame (x up the dish); the
+        # trace's frame is turned about the normal by psi = scb[:, 6]: turn the
+        # film to match (block 0, the circle, is left exactly as before)
+        sec = (fct[:, 60] > 0.5)[:, None]
+        cps = torch.where(sec, torch.cos(scb[:, 6:7]), torch.ones_like(sec, dtype=p_loc.dtype))[:, :, None]
+        sps = torch.where(sec, torch.sin(scb[:, 6:7]), torch.zeros_like(sec, dtype=p_loc.dtype))[:, :, None]
+        p_loc = torch.cat([cps * p_loc[..., :1] - sps * p_loc[..., 1:2], sps * p_loc[..., :1] + cps * p_loc[..., 1:2], p_loc[..., 2:]], -1)
+        n_loc = torch.cat([cps * n_loc[..., :1] - sps * n_loc[..., 1:2], sps * n_loc[..., :1] + cps * n_loc[..., 1:2], n_loc[..., 2:]], -1)
     # the dish scale (design table [40]): uniform scaling of the membrane
     # about the frame origin, f and a scale together (kernel twin)
     if fct.shape[1] > 40:
@@ -2081,7 +2090,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             rise = float(rec["rise"]) if rec is not None else 0.0
             if rec is not None:
                 s, post = 1.0, True                       # the parent as built; a post mount (no ring rail fits these roofs)
-                self.a_mem = float(rec["r_out_max"])      # the film's reach (the rim-height cap reads it); optics from the block
+                # the receiver chain's membrane-crossing test (the descending beam
+                # through the dish plane, always on the DOWNHILL meridian) must see
+                # the film that is there: its reach and inner rim along that
+                # meridian, not a disc of the maximum reach
+                r_out_dn, r_in_dn = self._film_downhill(rec)
+                self.a_mem = float(r_out_dn); self.r_hole = max(float(self.r_hole), float(r_in_dn))
                 self.f_nom = base["f_nom"]; self.g_orbit = base["g_orbit"]
             else:
                 # the dish, its focal length and the orbit scale together;
@@ -2100,7 +2114,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                         roti=float(self.roti_energy) * A / A0,
                         lfp=float(np.sqrt(A) / 2.0),
                         lpl=float(int(round(sv["loaves_per_load"]))),
-                        fnom=self.f_nom, amem=self.a_mem, gorb=self.g_orbit,
+                        fnom=self.f_nom, amem=(float(rec["r_out_max"]) if rec is not None else self.a_mem), gorb=self.g_orbit,
                         roof=roof, post=float(post),
                         rail=0.0 if post else base["g_orbit"] * s + self.RAIL_MARGIN,
                         sand_d=float(sv["sand_depth"]), sand_k=float(sv["sand_k"]),
@@ -2202,6 +2216,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._seclib = dict(lib=lib, blocks=blocks, recs=recs, roof_hw=np.asarray(lib["roof_hw"], dtype=np.float64),
                             caps=tuple(lib["caps"]), rises=np.asarray(lib["rises"], dtype=np.float64))
         print(f"  [hashemi] section library: {len(recs)} films installed from {len(keys)} (roof x cap x rise) records")
+
+    @staticmethod
+    def _film_downhill(rec, half_width_deg=20.0):
+        """the film's outer reach and inner rim along the downhill meridian (body theta = pi),
+        the max/min over +-half_width_deg of it (the bore's spread)"""
+        th = np.asarray(rec["th"]); d = np.abs((th - np.pi + np.pi) % (2 * np.pi) - np.pi)
+        m = d <= np.radians(half_width_deg)
+        return float(np.asarray(rec["rmax"])[m].max()), float(np.asarray(rec["rmin"])[m].min())
 
     def _pick_section(self, roof_hw, cap_u, rise):
         """nearest library record for a roof half-width [m], the over_cap site
