@@ -41,16 +41,20 @@ _SCAL = ("p_act", "p_set", "p_dist", "shutter", "jammed", "f_locked",
 
 def _step_params(env):
     """The sp float table + ip int table (layout in the MSL header)."""
-    from tandoor_polar_env import (SPOT_PHI_RANGE, SPOT_Z_RANGE,
+    from tandoor_polar_env import (SPOT_PHI0, SPOT_PHI_RANGE, SPOT_Z_RANGE,
                                    RATE_SPOT_PHI, RATE_SPOT_Z,
                                    SPOT_AREA, Z_BAKE_LO, Z_CROWN,
                                    R_SPH, Z_CPOT, SPOT_PHI0, SPOT_Z0)
     dt = float(env.dt)
     M = env._noz2["M"] if getattr(env, "_noz2", None) else (0.0,) * 3
     N = env.n_nodes
-    sp = np.zeros(71 + 7 * N, dtype=np.float32)
+    sp = np.zeros(72 + 7 * N, dtype=np.float32)
+    # the three-mirror machine turns M3 with the head the elbow used to steer, so its
+    # travel is the mirror's, not the elbow's
+    _pr = ((float(SPOT_PHI0 + env.M3_TURN[0]), float(SPOT_PHI0 + env.M3_TURN[1]))
+           if getattr(env, "tri", False) else SPOT_PHI_RANGE)
     sp[0:11] = [dt, env.p0, env.RATE_AZ, env.RATE_EL, RATE_SPOT_PHI,
-                RATE_SPOT_Z, SPOT_PHI_RANGE[0], SPOT_PHI_RANGE[1],
+                RATE_SPOT_Z, _pr[0], _pr[1],
                 SPOT_Z_RANGE[0], SPOT_Z_RANGE[1],
                 3.5 if env.wide_shutter else 0.5]
     sp[11:17] = [env.jam_gain, env.wall_shelter, env.sig_static,
@@ -80,11 +84,12 @@ def _step_params(env):
     sp[63] = float(getattr(env, "cut_penalty", 0.0))   # fixed cut penalty (raw)
     sp[64] = float(getattr(env, "lost_deg", 3.0))       # guillotine threshold (deg)
     sp[65] = float(getattr(env, "enc_clamp", 3.0))      # pointing encoder clamp
+    sp[71] = float(getattr(env, "inlet_esc", 1.0))       # the beam inlet's escape fraction
     for i, v in enumerate((env.node_area, env.node_heat_cap,
                            env.cap_sub, env.cap_deep, env.g01,
                            env.g12, env.g2s)):
-        sp[71 + i * N:71 + (i + 1) * N] = v
-    # the demand process (kernel sp[66..70]); the node tables start at 71
+        sp[72 + i * N:72 + (i + 1) * N] = v
+    # the demand process (kernel sp[66..70]); [71] the inlet; the node tables start at 72
     sp[66] = float(getattr(env, "demand", 0))            # on/off
     sp[67] = float(getattr(env, "demand_day", 500.0))    # base rotis/day (x the site's demand_scale, table col 56)
     sp[68] = float(getattr(env, "shelf_life", 45.0))     # minutes a baked roti keeps
@@ -267,6 +272,9 @@ def fused_full_step(env, actions):
         rr = torch.randn(2 * B, F.P, generator=env._gen, device=dev)
         uu = torch.rand(2 * B, F.P, generator=env._gen, device=dev)
         du, de, upick, us = rr[:B], rr[B:], uu[:B], uu[B:]
+    # AFTER step_pre, which is what moves the aim: the mirror must be where this
+    # step's action has just put it, exactly as on the torch path (_metal_trace)
+    env._apply_m3_turn()
     lib.tandoor_trace(F.thr, F.out6, env._pts_l, env._nrm_l, F.lv,
                       du, de, upick, F.sigb, F.dvec, F.off,
                       mnt["vp"], env._sc_base, mnt["Acan"], mnt["Mt"],

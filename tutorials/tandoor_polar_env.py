@@ -399,6 +399,14 @@ class TandoorPolarEnv(TandoorEnv):
         m = (self.T_sand * act[:, None, :]).sum(2) / np.maximum(ka, 1)[:, None]
         return np.where((ka > 0)[:, None], m, self.T[:, NB:NB + 2]) / 1000.0
 
+    def _inlet_r(self):
+        """the beam inlet's radius per agent [m] - the design table's column 39"""
+        f = getattr(self, "_fct", None)
+        if f is None:
+            return float(getattr(self, "r_duct", 0.20))
+        import torch as _t
+        return f[:, 39].detach().cpu().numpy() if _t.is_tensor(f) else np.asarray(f)[:, 39]
+
     def _bin_pot(self, pxp, pyp, dxw, dyw, dzw, through, soil,
                  B, P):
         """Duct-plane arrival -> pot floor / belt / crown node
@@ -765,8 +773,14 @@ class TandoorPolarEnv(TandoorEnv):
         # a loss the purpose-built cavities never had. Real tandoors are
         # kept lidded between batches; the lid lifts only to load.
         lid = np.where(self.load_timer < 4.0, 1.0, self._ds("_ds_lid", self.lid_leak))
+        # THE INLET IS AN APERTURE TOO (2026-09-07): the beam's hole in the pot's
+        # collar has no lid, so the cavity radiates through it all day. It was
+        # uncharged before; the three-mirror receiver wants to widen it, so it has
+        # to be paid for. inlet_esc scales what escapes (1 = a clear hole to
+        # ambient, 0 = the old, uncharged behaviour).
+        _re = self._inlet_r()
         q_ap = 0.75 * SIGMA * (t_cav4.squeeze(1) - T_AMB**4) \
-            * (np.pi * R_MOUTH**2) * lid
+            * (np.pi * (R_MOUTH**2 * lid + _re**2 * float(getattr(self, "inlet_esc", 1.0))))
         q01 = self._ds("_ds_g01", self.g01) * (T - self.T_sub)
         q12 = self._ds("_ds_g12", self.g12) * (self.T_sub - self.T_deep)
         q2s = self._ds("_ds_g2s", self.g2s) * (self.T_deep - self.T_halo[:, None])

@@ -122,8 +122,12 @@ def gpu_step(env, actions):
                                        RATE_SPOT_PHI, RATE_SPOT_Z)
         r_ph = (a[:, 5].clamp(0, 6).float() - 3) / 3.0 * RATE_SPOT_PHI
         r_zz = (a[:, 6].clamp(0, 6).float() - 3) / 3.0 * RATE_SPOT_Z
-        S.spot_phi = (S.spot_phi + torch.deg2rad(r_ph) * dt).clamp(
-            SPOT_PHI_RANGE[0], SPOT_PHI_RANGE[1])
+        # the three-mirror machine turns M3 with this head, so its travel is the
+        # mirror's, not the elbow's (kernel twin: sp[6], sp[7])
+        from tandoor_polar_env import SPOT_PHI0 as _SP0g
+        _pr = ((float(_SP0g + env.M3_TURN[0]), float(_SP0g + env.M3_TURN[1]))
+               if getattr(env, "tri", False) else SPOT_PHI_RANGE)
+        S.spot_phi = (S.spot_phi + torch.deg2rad(r_ph) * dt).clamp(_pr[0], _pr[1])
         S.spot_z = (S.spot_z + r_zz * dt).clamp(
             SPOT_Z_RANGE[0], SPOT_Z_RANGE[1])
     env._spot_view = (S.spot_phi, S.spot_z)
@@ -253,8 +257,10 @@ def gpu_step(env, actions):
     q_exch = 0.85 * SIGMA * S.node_area * (t_cav4 - t4)
     lid = torch.where(S.load_timer < 4.0, torch.ones_like(S.load_timer),
                       S.ds_lid)
+    # the inlet is an aperture too: an unlidded hole of radius fct[:,39] (numpy twin)
+    _re = env._fct[:, 39] if getattr(env, "_fct", None) is not None else float(getattr(env, "r_duct", 0.20))
     q_ap = 0.75 * SIGMA * (t_cav4.squeeze(1) - T_AMB**4) \
-        * (np.pi * R_MOUTH**2) * lid
+        * np.pi * (R_MOUTH**2 * lid + _re**2 * float(getattr(env, "inlet_esc", 1.0)))
     q01 = S.g01 * (T - S.T_sub)
     q12 = S.g12 * (S.T_sub - S.T_deep)
     q2s = S.g2s * (S.T_deep - S.T_halo[:, None])

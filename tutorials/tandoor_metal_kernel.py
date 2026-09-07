@@ -57,7 +57,7 @@ static inline bool hits_column(float px, float py, float pz,
 #define KSAND 8   // layers of the sand column under the hearth and the floor (>= 5 cm each)
 #define RU 20     // uniforms per agent per step: [0] cloud, [1..15] fresh-pot temps, [16..19] the demand process
 #define NDEM 3    // demand state per agent at the row's end: orders waiting, rotis on the shelf, sold today
-#define SPX 71    // the per-node thermal tables start here in sp; [66] demand on, [67] rotis/day, [68] shelf life min, [69] patience min, [70] stale penalty
+#define SPX 72    // the per-node thermal tables start here in sp; [66] demand on, [67] rotis/day, [68] shelf life min, [69] patience min, [70] stale penalty, [71] inlet escape
 inline float demand_rate(float t, float dem_day) {
     // customers per hour: three bands, breakfast / lunch / dinner, Gaussian
     // bumps in solar hours whose shares sum to one, scaled by the shop's
@@ -996,7 +996,7 @@ kernel void tandoor_trace(
 //   40 SPOT_PHI0 41 SPOT_Z0 42 dt_h 43 T_AMB 44 c_cloud 45 c_windg
 //   46 c_bore 47 p_collapse 48 dt/900 49 dt/600 50 dt/300
 //   51 ap_area 52 a_tot 53 bread_area 54..60 level_frac[7]
-//   61 loaves_per_load 62 load_ctrl
+//   61 loaves_per_load 62 load_ctrl 71 inlet_esc
 //   63.. node_area[N] heat_cap[N] cap_sub[N] cap_deep[N]
 //        g01[N] g12[N] g2s[N]
 // ip: 0 B 1 N 2 NB 3 NH 4 NS 5 OD 6 tick (host-written per step)
@@ -1232,7 +1232,8 @@ kernel void step_post(
     float tc4 = t4s / sp[52];
     float lid = (s[S0+8] < 4.0f) ? 1.0f : ds[47];
     float ta4 = sp[43]*sp[43]*sp[43]*sp[43];
-    float q_ap = 0.75f*SIG*(tc4 - ta4)*sp[51]*lid;
+    // the inlet is an aperture too: an unlidded hole of radius ds[39] (numpy twin)
+    float q_ap = 0.75f*SIG*(tc4 - ta4)*(sp[51]*lid + M_PI_F*ds[39]*ds[39]*sp[71]);
     float Th = s[3*N];
     float q2sum = 0.0f;
     for (int i = 0; i < N; i++) {

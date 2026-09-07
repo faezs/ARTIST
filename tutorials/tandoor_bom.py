@@ -129,6 +129,10 @@ def bom(d, prices=None):
     # ellipsoid in flat facets, or a flat M4 (u_f2 = 0) - the last two are cut from flat sheet
     m4_flat = d.get("m4flat", 0.0) >= 0.5; m4_chord = float(d.get("m4chord", 0.0))
     m4_faceted = m4_flat or m4_chord > 0.0
+    # the THREE-MIRROR receiver: M3 throws the image straight at the bread, so the
+    # elbow and its servo go, M3 gains a turn drive, and the inlet has to be opened
+    # wide enough to pass the beam (it is charged for the heat it then radiates)
+    tri = d.get("tri", 0.0) >= 0.5
     add = lambda group, item, spec, unit, qty, price: items.append(dict(group=group, item=item, spec=spec, unit=unit, qty=float(qty), unit_pkr=float(price), pkr=float(qty) * float(price)))
     add("primary", "reflective film", "aluminised PET 50 um, silvered", "m2", film * gore, U["film_m2"])
     add("primary", "plenum back sheet", "coated tarpaulin / PET", "m2", film * 1.1, U["back_sheet_m2"])
@@ -185,9 +189,18 @@ def bom(d, prices=None):
         m4_desc, m4_rate = "polished Al ellipsoid patch, doubly curved", U["m4_m2"]
     add("receiver", "M4 mirror", m4_desc, "m2", A_m4, m4_rate)
     add("receiver", "slot flaps", "mirrored, hinged", "set", 1, U["flap_set"])
-    add("receiver", "elbow mirror", "concave, 2-DOF servo", "unit", 1, U["elbow_mirror"])
+    if tri:
+        add("receiver", "M3 turn drive", "one axis about the bore: geared motor, driver, encoder, bearing",
+            "set", 1, U["motor_geared"] + U["driver"] + U["encoder"] + U["bearing"])
+    else:
+        add("receiver", "elbow mirror", "concave, 2-DOF servo", "unit", 1, U["elbow_mirror"])
     add("receiver", "shutter", "damper + servo", "unit", 1, U["shutter"])
-    add("receiver", "inlet work", "widen the native inlet", "job", 1, U["inlet_work"])
+    # the inlet: the native hole widened to pass the beam, priced by its area against
+    # the 0.20 m opening the researched job covers, with a lintel over anything bigger
+    _ri = d.get("r_duct", 0.20)
+    add("receiver", "inlet work", f"widen the native inlet to r {_ri:.2f} m", "job", max((_ri / 0.20) ** 2, 1.0), U["inlet_work"])
+    if _ri > 0.25:
+        add("receiver", "inlet lintel", "steel lintel and reinforcement over a wide opening", "job", 1, 6000.0)
     if ins < 0.98:
         add("pit", "insulation trench dig", "narrow trench round the pit", "job", 1, U["trench_dig"])
         add("pit", "trench fill", "perlite / rice-husk ash", "unit", 1.0 / ins - 1.0, U["trench_fill_unit"])
@@ -219,8 +232,10 @@ if __name__ == "__main__":
     section = dict(nominal, site=1.0, film_m2=16.1, rim_m=2 * np.pi * 2.6 + 2 * np.pi * 0.75, rise=1.0, ins_scale=0.7, sand_depth=0.25, sand_k=1.0)
     PK, T = load_prices(); lo, _ = load_prices(which="low"); hi, _ = load_prices(which="high")
     levers = dict(section, zones=1, m4flat=1.0, m4chord=0.10, roofl=1.0, grid=1.0)
+    tri3 = dict(nominal, tri=1.0, r_duct=0.40, roofl=1.0, grid=1.0)
     for name, d in (("nominal circle (a 2.1 m, deck 4)", nominal), ("4 x 6 roof: 16 m2 section, F +1, trench, sand", section),
-                    ("the same section kit with ALL FIVE LEVERS (one zone, flat facetted M4, masonry chase, light roof, grid)", levers)):
+                    ("the same section kit with ALL FIVE LEVERS (one zone, flat facetted M4, masonry chase, light roof, grid)", levers),
+                    ("THREE MIRRORS: dish, strip, an actuated M3 on the bread - no elbow, inlet r 0.40", tri3)):
         print(f"\n== {name} at the RESEARCHED Pakistani prices (typical) ==\n" + text(bom(d, PK)))
         print(f"   band: low {sum(i['pkr'] for i in bom(d, lo))/1e3:.0f}k .. high {sum(i['pkr'] for i in bom(d, hi))/1e3:.0f}k")
     json.dump(dict(units=PK, nominal=bom(nominal, PK), section=bom(section, PK)), open("/Users/faezs/ARTIST/tutorials/data/tandoor/bom_pk.json", "w"), indent=1)

@@ -225,7 +225,7 @@ def mount_batch(env, day, lat, hour, dev, pnt=None):
     else:
         # row 2 carries the DISH axis for the Cassegrain (its strip
         # follows the mount), -p_up for the stock chain
-        row2 = um if getattr(env, "receiver", "fold") == "cass" else -p_up
+        row2 = um if getattr(env, "receiver", "fold") in ("cass", "tri") else -p_up
         vp = torch.stack([u, P_fold, row2, e_pp, nf, e_par, e_prp], 1)
     Mt = M.transpose(1, 2)
     mu = torch.einsum("bij,bj->bi", Mt, -u)            # incident = the sun
