@@ -714,6 +714,19 @@ kernel void tandoor_trace(
     }
     cs_ok = cs_ok && (cs_d2.z < -0.2f) && (cs_adist < cs_rbore);
     cs_ok = cs_ok && cs_v4 && (length(cs_h4 - cs_P4) < cs_rm4);
+    {
+        // a FACETTED M4 (design table [66], rad rms): tilt the normal by a Gaussian of that width in a
+        // random tangent direction, the draw from the ray's two uniforms scrambled (torch twin)
+        float f4_sig = fct[b*FCTW + 66];
+        if (f4_sig > 0.0f) {
+            float f4_u1 = fract(upk[tid]*97.0f + 0.137f), f4_u2 = fract(us[tid]*89.0f + 0.618f);
+            float f4_r = sqrt(-2.0f*log(max(f4_u1, 1e-7f)));
+            float f4_g1 = f4_r*cos(6.2831853f*f4_u2), f4_g2 = f4_r*sin(6.2831853f*f4_u2);
+            float3 f4_t1 = cross(cs_n4, float3(0.0f, 1.0f, 0.0f)); f4_t1 = f4_t1/max(length(f4_t1), 1e-9f);
+            float3 f4_t2 = cross(cs_n4, f4_t1);
+            cs_n4 = normalize(cs_n4 + f4_sig*(f4_g1*f4_t1 + f4_g2*f4_t2));
+        }
+    }
     float3 cs_d5 = cs_d2 - 2.0f*dot(cs_d2, cs_n4)*cs_n4;
     float cs_t5 = (sc[12] - cs_h4.x)/min(cs_d5.x, -1e-9f);
     cs_ok = cs_ok && (cs_d5.x < -0.05f) && (cs_t5 < 4.0f);

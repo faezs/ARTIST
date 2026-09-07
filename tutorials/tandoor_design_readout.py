@@ -49,6 +49,7 @@ def env_kwargs(B, seed=1234, night_carry=0, roof_table="/Users/faezs/ARTIST/tuto
                sections="/Users/faezs/ARTIST/tutorials/data/tandoor/section_library.pt"):
     return dict(night_carry=night_carry, roof_table=roof_table, sections=sections, num_agents=B, seed=1, wide_shutter=1, device=DEV, gpu=1, n_rays=512, warm_frac=0.0,
                 demand=1, demand_day=500.0, day_start=6.0, day_end=21.5, form_drift=2.0,      # the evaluation env is the design run's (hashemi_design.ini)
+                lat=30.2,                                                                     # Quetta: the site the roof table and the section library were solved for
                 day_random=0, lat_random=0, wall_obs=1, n_zones=5, nurbs=1, flare_ratio=1.4, flare_reflect=0.6,
                 silvered=1, duct_nozzle=2, spot_bread=1, roti_kj=130.0, bread_area=0.12, loaves_per_load=8,
                 elbow_aim=1, load_ctrl=1, reward_div=75.0, receiver="cass", r_m4=1.3, g_orbit=4.0, zone_c=0.4,

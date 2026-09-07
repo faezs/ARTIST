@@ -828,5 +828,80 @@
   "notes": "ConcretesMath's 2026 city table gives electrician/wireman Quetta PKR 1,900-2,500/day and Karachi PKR 2,800-3,800/day (Lahore 2,400-3,200, Islamabad 3,000-4,000). HA Design Studio's 2026 national table gives electrician 2,000-3,000/day, same as plumber. I span the two cities the item asks for: low = the Quetta floor, typical = the middle of the combined Quetta/Karachi range, high = the Karachi ceiling. I deliberately did NOT use the salary-aggregator results (Glassdoor/PayScale/ERI) for this: their Pakistan electrician figures are wildly inconsistent (PKR 44,583/yr on one, PKR 1.6 m/yr on another) and are employment salaries, not day-rate call-outs. For a retrofit kit needing a low-voltage controller, sensor wiring and a small PV/battery tie-in, a day-rate electrician is the right basis but expect a call-out minimum and 10-25% contractor markup if hired through a firm; a specialist solar/PV installer in Quetta will quote above the top of this band.",
   "check": "Both sources verified exactly. concretesmath.com: electrician/wireman Quetta 1,900-2,500, Karachi 2,800-3,800, Lahore 2,400-3,200, Islamabad 3,000-4,000 PKR/day - every figure matches. hadesignstudio: 'Electricians and plumbers: PKR 2,000 to PKR 3,000 daily' - matches, including the observation that plumber and electrician are given the same rate. The construction of the band is transparent and the arithmetic is right: low 2,000 is the Quetta floor rounded, high 4,000 is the Karachi ceiling rounded, typical 2,800 is the mid of the combined Quetta-Karachi span. NOTE ON WHERE THE TYPICAL LANDS: 2,800 is the Karachi FLOOR and sits above the entire Quetta band (1,900-2,500). If the job is specifically a Quetta retrofit, the Quetta-only typical is ~2,200 - about 21% below the stated figure, ins",
   "supported": true
+ },
+ "masonry chase": {
+  "group": "civil",
+  "unit": "per m2 of wall",
+  "low": 1400,
+  "typical": 2000,
+  "high": 3000,
+  "confidence": "low",
+  "sources": [
+   "derived"
+  ],
+  "notes": "DERIVED (the lever-pricing agents hit the session limit): half-brick plastered wall, ~55 bricks/m2 at ~20 PKR (Quetta first class ~18-22k per 1000), cement mortar + inside plaster ~500/m2, mason 2,400/day (researched) at ~8 m2/day with a helper 1,500 -> ~490/m2 labour.",
+  "researcher_typical": 2000,
+  "check": "",
+  "supported": false
+ },
+ "light roof collar": {
+  "group": "civil",
+  "unit": "per job",
+  "low": 5000,
+  "typical": 8000,
+  "high": 15000,
+  "confidence": "low",
+  "sources": [
+   "derived"
+  ],
+  "notes": "DERIVED: a GI-sheet flashing collar (1-2 m2 at the researched 2,100-2,400/m2 sheet), sealant, half a day of a welder/carpenter (~2,000), through a corrugated-sheet or wood roof for a 0.5-1.4 m duct.",
+  "researcher_typical": 8000,
+  "check": "",
+  "supported": false
+ },
+ "grid power supply": {
+  "group": "electronics",
+  "unit": "per set",
+  "low": 6000,
+  "typical": 10000,
+  "high": 15000,
+  "confidence": "low",
+  "sources": [
+   "derived"
+  ],
+  "notes": "DERIVED: 24 V 12.5 A SMPS ~4,000 (Daraz class), surge protector ~1,500, two 12 V 7 Ah batteries ~2,500 each + a small charger/UPS module ~2,000 so the tracker can park in a power cut.",
+  "researcher_typical": 10000,
+  "check": "",
+  "supported": false
+ },
+ "fabricated trunnion": {
+  "group": "steel",
+  "unit": "per unit",
+  "low": 9000,
+  "typical": 12500,
+  "high": 18000,
+  "confidence": "low",
+  "sources": [
+   "derived"
+  ],
+  "notes": "DERIVED from researched parts: two UCP206 pillow blocks at 1,700, ~8 kg of shaft and plate at ~330/kg, turning ~2,000, one welder day 4,500 - against 38,000 for the imported slewing head.",
+  "researcher_typical": 12500,
+  "check": "",
+  "supported": false
+ },
+ "flat facet mirror": {
+  "group": "optics",
+  "unit": "per m2 installed",
+  "low": 4000,
+  "typical": 6000,
+  "high": 9000,
+  "confidence": "low",
+  "sources": [
+   "derived"
+  ],
+  "notes": "DERIVED: Chalco 0.5 mm mirror aluminium US$6.43/kg x 1.35 kg/m2 = ~2,430 PKR/m2, +40% landed = ~3,400; a steel-strip frame ~1,000/m2; cutting and fixing ~1,500/m2 (a welder day per ~3 m2). The facets stay flat: no forming, unlike the 16,000/m2 doubly-curved M4.",
+  "researcher_typical": 6000,
+  "check": "",
+  "supported": false
  }
 }

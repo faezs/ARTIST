@@ -696,7 +696,7 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     strip_wk, slot_el = g(37), g(38)
     r_duct = g(39)
     greg = bool(fct[0, 0] > 2.5)          # the receiver TYPE is global
-    m4_flat = float(fct[0, 27]) <= 0.0    # so is m4_mode (a_e = 0: flat)
+    m4_ell = a_e > 1e-6                   # PER ENV: an ellipsoid M4 (a_e > 0) or a flat one at the turn
     F = Pf                                # (B,1,3) per env
     xhat = torch.tensor([1.0, 0.0, 0.0], device=p.device, dtype=p.dtype)
     Ps = F + arm_n[..., None] * xhat
@@ -815,20 +815,37 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
         return (w - (w * axis).sum(-1, keepdim=True) * axis).norm(dim=-1)
     tdeck = (z_deck - h1[..., 2]) / d2[..., 2].clamp(max=-1e-9)
     hdeck = h1 + tdeck[..., None] * d2
-    if not m4_flat:
-        t4, h4, n4, v4 = _ellip_hit(h1, d2, Oe, Ae, a_e, c_e)
-    else:
-        # flat M4: plane through P4 with normal Ae
-        den4 = (d2 * Ae).sum(-1)
-        t4 = ((P4 - h1) * Ae).sum(-1) / torch.where(
-            den4.abs() > 1e-9, den4, torch.full_like(den4, 1e-9))
-        h4 = h1 + t4[..., None] * d2
-        n4 = Ae.expand_as(d2)
-        v4 = t4 > 0
+    # M4 per env: the ellipsoid patch (foci F2 and the duct mouth) where a_e > 0, else a FLAT
+    # mirror at the turn - the u_f2 = 0 design, in which the strip images F straight onto the
+    # mouth. Both are evaluated and selected elementwise: a batch may hold either (the kernel
+    # branches per env, so a batch-wide Python `if` here would break parity).
+    t4e, h4e, n4e, v4e = _ellip_hit(h1, d2, Oe, Ae, a_e.clamp(min=1e-3), c_e)
+    den4 = (d2 * Ae).sum(-1)
+    t4f = ((P4 - h1) * Ae).sum(-1) / torch.where(
+        den4.abs() > 1e-9, den4, torch.full_like(den4, 1e-9))
+    h4f = h1 + t4f[..., None] * d2
+    n4f = Ae.expand_as(d2)
+    t4 = torch.where(m4_ell, t4e, t4f)
+    h4 = torch.where(m4_ell[..., None], h4e, h4f)
+    n4 = torch.where(m4_ell[..., None], n4e, n4f)
+    v4 = torch.where(m4_ell, v4e, t4f > 0)
     ok = ok & (d2[..., 2] < -0.2) & (_axis_dist(hdeck) < r_bore)
     ok_post_tube = ok
     # ---- M4: ellipsoid patch (foci F2, duct mouth) or flat at the turn
     ok = ok & v4 & ((h4 - P4).norm(dim=-1) < r_m4)
+    if fct.shape[1] > 66:
+        # a FACETTED M4 (design table [66], rad rms): each ray's facet tilts its normal by a Gaussian
+        # of that width in a random direction in the mirror's tangent plane; the draw comes from the
+        # ray's two uniforms scrambled (kernel twin). sigma 0 = the smooth ellipsoid, exactly as before.
+        # LOCAL NAMES PREFIXED f4_: t1/t2/g1/g2 are the hyperboloid hit's, and w_ray is built from t1
+        f4_sig = fct[:, 66, None, None]
+        f4_u1 = torch.frac(upick * 97.0 + 0.137); f4_u2 = torch.frac(us * 89.0 + 0.618)
+        f4_r = torch.sqrt(-2.0 * torch.log(f4_u1.clamp(min=1e-7)))
+        f4_g1 = (f4_r * torch.cos(6.2831853 * f4_u2))[..., None]; f4_g2 = (f4_r * torch.sin(6.2831853 * f4_u2))[..., None]
+        f4_yh = torch.tensor([0.0, 1.0, 0.0], dtype=n4.dtype, device=n4.device).expand_as(n4)
+        f4_t1 = torch.linalg.cross(n4, f4_yh); f4_t1 = f4_t1 / f4_t1.norm(dim=-1, keepdim=True).clamp(min=1e-9)
+        f4_t2 = torch.linalg.cross(n4, f4_t1)
+        f4_n = n4 + f4_sig * (f4_g1 * f4_t1 + f4_g2 * f4_t2); n4 = f4_n / f4_n.norm(dim=-1, keepdim=True)
     d5 = d2 - 2.0 * (d2 * n4).sum(-1, keepdim=True) * n4
     # ---- the duct plane x = r_pot (the built mouth), as the stock chain;
     # the mouth radius is the per-env design's (fct[39])
@@ -1912,8 +1929,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         prm[41] = self.el_max_h
         self._mnt_prm = torch.tensor(prm, device=dev)
         self._finish_trace_build(a, g, f_design)
+        if self.receiver == "cass" and getattr(self, "design_rand", 0):
+            self._build_zone1_block(a, f_design)
         if self._sections_path:
             self._load_section_library(str(self._sections_path))
+        elif getattr(self, "_extra_blocks", None):
+            self.install_sections(list(self._extra_blocks))
         self._build_design_table()
 
     # ------------------------------------------------------ design #
@@ -1966,8 +1987,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                ("demand_scale", 0.5, 2.0),
                ("section", 0.0, 1.0),      # >= 0.5: the membrane is the SECTION of the parent the site allows (else the scaled circle)
                ("post_rise", 0.0, 3.0),    # F raised above the as-built under-swing height [m]: the tallness that lets a section overhang
-               ("over_cap", 0.0, 1.0))     # SITE: how far past the parapet the neighbours accept the rim (thirds: 1.0 / 2.0 / 3.5 m)
-    SITE_KEYS = ("roof_r", "cap_scale", "demand_scale", "over_cap")   # drawn with the site, never chosen
+               ("over_cap", 0.0, 1.0),     # SITE: how far past the parapet the neighbours accept the rim (thirds: 1.0 / 2.0 / 3.5 m)
+               ("zones", 0.0, 1.0),        # < 0.5: ONE plenum zone (one pump, the uniform-pressure figure) instead of five
+               ("m4_facet", 0.0, 1.0),     # < 1/3: the smooth ellipsoid M4; else flat facets of chord 0.05..0.25 m (a slope error at M4)
+               ("roof_light", 0.0, 1.0),   # SITE: >= 0.5 the shop's roof is light (GI sheet / wood), not a concrete slab
+               ("grid", 0.0, 1.0))         # SITE: >= 0.5 grid power at the shop (else PV + battery)
+    SITE_KEYS = ("roof_r", "cap_scale", "demand_scale", "over_cap", "roof_light", "grid")   # drawn with the site, never chosen
     #: THE SAND INSIDE THE TANDOOR (user): the hearth and floor sit on a
     #: sand bed of sand_depth [m] the beam charges directly and that
     #: gives the heat back to the cavity at night; sand_k [W/mK] is its
@@ -1977,7 +2002,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: the rest, an insulated bottom.
     SAND_RC = 1.28e6          # sand volumetric heat capacity [J/m3K]
     SAND_TOP = 0.08           # the sub layer's depth [m]
-    N_DESIGN = 9 + 15
+    N_DESIGN = 9 + 19
     FCT_W = 72
     #: system block layout in the design table (offset 40)
     DS = dict(s=40, s2=41, zfold=42, zdeck=43, rate=44, ins=45, cap=46,
@@ -1985,6 +2010,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
               amem=54, gorb=55, demand=56, roof=57, post=58, rail=59,
               site=60,                  # the primary's SURFACE BLOCK: 0 the built circle, k >= 1 the k-th installed section
               film=61, rim=62, rise=63, ocap=64,  # info for the bill and the readouts: film area [m2], rim length [m], post rise [m], overhang cap [m]
+              zones=65, m4sig=66, roofl=67, grid=68, m4c=69,   # plenum zones (1 or 5), M4 facet slope error [rad rms] (the kernels read it), light roof, grid power, facet chord [m]
               sand_d=70, sand_k=71)     # the sand column: depth [m], conductivity [W/mK]; [56] the shop's demand scale
 
 
@@ -2027,12 +2053,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  amem=float(self.a_mem), gorb=float(self.g_orbit),
                  roof=float(self.sweep0), post=0.0, rail=float(self.r_rail),
                  sand_d=0.0, sand_k=0.3, demand=1.0, site=0.0,
-                 film=float(np.pi * self.a_mem ** 2), rim=float(2 * np.pi * self.a_mem), rise=0.0, ocap=0.0)
+                 film=float(np.pi * self.a_mem ** 2), rim=float(2 * np.pi * self.a_mem), rise=0.0, ocap=0.0,
+                 zones=float(getattr(self, "n_zones", 5) or 5), m4sig=0.0, roofl=0.0, grid=0.0, m4c=0.0)
         if sys:
             d.update(sys)
         row = rec + [0.0] * (self.FCT_W - 40)
         for k, i in self.DS.items():
             row[i] = d[k]
+        self._last_row_extra = {k: v for k, v in d.items() if k not in self.DS}
         return row
 
     def _build_design_table(self):
@@ -2067,7 +2095,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         box; the dish is the largest that fits the roof and the deck."""
         B = u.shape[0]
         nominal = {k: getattr(self, k) for k, _, _ in self.DESIGN_BOX}
-        nominal["r_strip"] = self.r_strip
+        nominal["r_strip"] = self.r_strip; m4_mode0 = self.m4_mode
         base = {k: getattr(self, k) for k in ("a_mem", "f_nom", "g_orbit", "z_fold", "z_deck")}
         A0 = float(self.bread_area)
         nr = len(self.DESIGN_BOX)
@@ -2078,6 +2106,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self.r_strip = 0.5 * self.strip_wk * self.d_strip * 1.3
             sv = {k: lo + ub * (hi - lo)
                   for (k, lo, hi), ub in zip(self.SYS_BOX, u[b, nr:])}
+            # THE M4 MENU (design knob m4_facet): a smooth ellipsoid patch (< 1/3, doubly curved,
+            # the dearest mirror in the kit), the same ellipsoid built from flat facets (1/3..2/3,
+            # a slope error c/(2 R sqrt 3) at its 0.73 m vertex radius), or a FLAT M4 at the turn
+            # (> 2/3: u_f2 = 0, the strip images F straight onto the duct mouth) - a plane mirror
+            # needs no forming and facets cost it nothing.
+            uf_ = float(sv.get("m4_facet", 0.0))
+            if uf_ > 2.0 / 3.0:
+                self.u_f2 = 0.0; self.m4_mode = "relay"
+            else:
+                self.m4_mode = m4_mode0
             roof = float(self._roof_quantile(sv["roof_r"]))
             post = bool(sv["mount_post"] >= 0.5)
             s = float(self.roof_to_scale(roof, sv["deck_h"], post))
@@ -2086,9 +2124,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # legal over the year on this roof, with the post raised by
             # post_rise so it may overhang the neighbours at height; the
             # library holds the film and its optics per (roof, cap, rise)
+            nz = 1 if sv.get("zones", 1.0) < 0.5 else 5                     # one plenum zone or five
             rec, blk = (None, 0)
             if self._seclib is not None and sv.get("section", 0.0) >= 0.5:
-                rec, blk = self._pick_section(roof, sv.get("over_cap", 0.5), sv.get("post_rise", 0.0))
+                rec, blk = self._pick_section(roof, sv.get("over_cap", 0.5), sv.get("post_rise", 0.0), nz)
+            if rec is None and nz == 1 and getattr(self, "_zone1_block", 0):
+                blk = int(self._zone1_block)                                  # the one-zone CIRCLE (scaled like block 0)
+            if rec is not None:
+                nz = 5      # a SECTION's film is solved under the paraboloid's own pressure law: it needs the zoned pump
             rise = float(rec["rise"]) if rec is not None else 0.0
             if rec is not None:
                 s, post = 1.0, True                       # the parent as built; a post mount (no ring rail fits these roofs)
@@ -2108,6 +2151,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self.z_deck = H_POT + float(sv["deck_h"])
             self.z_fold = base["z_fold"] + (self.z_deck - base["z_deck"]) + rise
             self._build_cass_chain()
+            # a FACETTED M4: flat facets of chord c laid on the mirror's curve. Across a facet the true
+            # surface's slope runs +-c/(2R) about the facet's plane, R the mirror's vertex radius of
+            # curvature (b^2/a of the built ellipsoid), so the rms slope error is c/(2 R sqrt(3)).
+            # A FLAT M4 (the u_f2 = 0 design, a_e = 0) has R = inf: facets cost it nothing.
+            uf = uf_; chord = 0.0 if uf < 1.0 / 3.0 else 0.05 + 0.20 * min(uf - 1.0 / 3.0, 1.0 / 3.0) / (1.0 / 3.0)
+            R_m4 = (self.cs_ae ** 2 - self.cs_ce ** 2) / self.cs_ae if self.cs_ae > 1e-6 else np.inf
+            m4sig = 0.0 if (chord <= 0.0 or not np.isfinite(R_m4)) else chord / (2.0 * R_m4 * np.sqrt(3.0))
             A = float(sv["bread_area"])
             sysd = dict(s=s, s2=s * s, zfold=self.z_fold, zdeck=self.z_deck,
                         rate=float(sv["rate_scale"]), ins=float(sv["ins_scale"]),
@@ -2121,7 +2171,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                         rail=0.0 if post else base["g_orbit"] * s + self.RAIL_MARGIN,
                         sand_d=float(sv["sand_depth"]), sand_k=float(sv["sand_k"]),
                         demand=float(sv["demand_scale"]),
-                        site=float(blk), rise=rise,
+                        site=float(blk), rise=rise, zones=float(nz), m4sig=float(m4sig), m4c=float(chord),
+                        roofl=float(sv.get("roof_light", 0.0) >= 0.5), grid=float(sv.get("grid", 0.0) >= 0.5),
                         film=float(rec["area"]) if rec is not None else float(np.pi * (base["a_mem"] * s) ** 2),
                         rim=float(rec["perimeter"]) if rec is not None else float(2 * np.pi * base["a_mem"] * s),
                         ocap=float(rec["cap"]) if rec is not None else 0.0)
@@ -2130,6 +2181,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             setattr(self, k, vv)
         for k, vv in base.items():
             setattr(self, k, vv)
+        self.m4_mode = m4_mode0
         self._build_cass_chain()
         return rows
 
@@ -2202,9 +2254,43 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             d[k] = fct[:, self.DS[k]].astype(np.float64)
         d["film_m2"], d["rim_m"] = d["film"], d["rim"]
         d["r_out_max"] = np.where(d["site"] > 0.5, fct[:, self.DS["amem"]], 2.1 * d["dish_scale"]).astype(np.float64)   # the film's reach
+        for k in ("zones", "m4sig", "roofl", "grid", "m4c"):
+            d[k] = fct[:, self.DS[k]].astype(np.float64)
+        d["m4chord"] = d["m4c"]
+        d["m4flat"] = (fct[:, 27] <= 1e-6).astype(np.float64)      # a_e = 0: the flat M4 at the turn
         return d
 
     SEC_CAPS = (1.0, 2.0, 3.5)          # the library's overhang caps [m], picked by thirds of the over_cap site key
+
+    def _build_zone1_block(self, a, f_design):
+        """The ONE-ZONE circle: the same membrane pumped by a single plenum (uniform pressure) to the
+        same design focal length - the Hencky figure, no zone correction. Installed as surface block 1
+        (design knob zones < 0.5 on a circle); the section library's blocks follow."""
+        cfg = self.cfg
+        def _solve(p, n=400): return _sim.solve_membrane(cfg, p, n=n)
+        f_of = lambda p: _solve(p)["z0"] + _solve(p)["f_fit"] if False else (lambda m: m["z0"] + m["f_fit"])(_solve(p))
+        # bracket the root first: the uniform (Hencky) law needs ~1.5x the linear pressure
+        # T/f, and the zoned bracket's ceiling (T/(0.25 f)) sits BELOW it - the bisection
+        # then saturates at the ceiling and returns a membrane of the wrong focal length
+        lo, hi = cfg.T_pre / (8 * f_design), cfg.T_pre / (0.25 * f_design)
+        for _ in range(8):
+            if f_of(hi) <= f_design: break
+            hi *= 2.0
+        for _ in range(8):
+            if f_of(lo) >= f_design: break
+            lo *= 0.5
+        for _ in range(22):
+            mid = 0.5 * (lo + hi); m = _solve(mid)
+            if m["z0"] + m["f_fit"] > f_design: lo = mid
+            else: hi = mid
+        p0 = 0.5 * (lo + hi); mems = [_solve(p0 * fr) for fr in self.level_frac]
+        prim = AO.MembranePrimary(_sim, cfg, mems, self._hx, self._hy, self.device,
+                                  tag=f"hashemi2z1_{a:.2f}g{self.g_orbit:.1f}w{self.z_waist:.1f}", csr_frac=self.csr_frac)
+        self._zone1 = dict(pts=prim.membrane.points[..., :3].contiguous(), nrm=prim.membrane.normals[..., :3].contiguous(),
+                           ray_pw=self._ray_pw.clone(), loss_chain=float(self._loss_chain), p0=float(p0), f_fit=float(mems[4]["z0"] + mems[4]["f_fit"]))
+        self._extra_blocks = [self._zone1]; self._zone1_block = 1
+        print(f"  [hashemi] one-zone circle block: p0 {p0:.0f} Pa (zoned {self.p0:.0f}), f {self._zone1['f_fit']:.3f} vs {self.f_nom:.3f}")
+        assert abs(self._zone1["f_fit"] - f_design) < 0.05, f"one-zone membrane missed the design focal length: {self._zone1['f_fit']:.3f} vs {f_design:.3f}"
 
     def _load_section_library(self, path):
         """install every non-empty record of the library as a surface block and
@@ -2214,11 +2300,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         meta = lib.get("meta", {})
         assert abs(float(lib["f"]) - float(self.f_nom)) < 2e-3, f"section library built for f {lib['f']}, this machine has f_nom {self.f_nom:.4f}"
         assert [round(float(v), 4) for v in lib["levels"]] == [round(float(v), 4) for v in self.LEVEL_FRAC], "section library's pump levels differ from LEVEL_FRAC"
-        for k_, v_ in (("g_orbit", self.g_orbit), ("lat", getattr(self, "lat", None))):
-            if k_ in meta and v_ is not None: assert abs(float(meta[k_]) - float(v_)) < 1e-3, f"section library built at {k_} {meta[k_]}, env has {v_}"
+        assert "g_orbit" not in meta or abs(float(meta["g_orbit"]) - float(self.g_orbit)) < 1e-3, \
+            f"section library built at g_orbit {meta['g_orbit']}, env has {self.g_orbit}"
+        lat_ = getattr(self, "lat", None)          # a soft check: the films' legality was solved for one latitude's sun
+        if "lat" in meta and lat_ is not None and abs(float(meta["lat"]) - float(lat_)) > 0.05:
+            print(f"  [hashemi] WARNING: section library solved at lat {meta['lat']}, this env runs lat {lat_} - the films' legality is approximate")
         n_exp = len(lib["roof_hw"]) * len(lib["caps"]) * len(lib["rises"])
         if len(lib["records"]) != n_exp:
             print(f"  [hashemi] WARNING: section library has {len(lib['records'])} of {n_exp} records (a partial build?)")
+        extra = list(getattr(self, "_extra_blocks", []))                   # the one-zone circle first, if built
         recs, blocks, keys = [], {}, sorted(lib["records"].keys()); bad = 0
         for k in keys:
             r = lib["records"][k]
@@ -2226,10 +2316,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 continue
             if not r.get("ok", True):
                 bad += 1; continue                                           # the membrane solve did not converge / the mesh was bad
-            blocks[k] = 1 + len(recs); recs.append(r)
-        self.install_sections([dict(pts=r["pts"], nrm=r["nrm"], ray_pw=r["ray_pw"], loss_chain=float(lib.get("loss_chain", 1.0))) for r in recs])
+            blocks[k] = 1 + len(extra) + len(recs); recs.append(r)
+        self.install_sections(extra + [dict(pts=r["pts"], nrm=r["nrm"], ray_pw=r["ray_pw"], loss_chain=float(lib.get("loss_chain", 1.0))) for r in recs])
         self._seclib = dict(lib=lib, blocks=blocks, recs=recs, roof_hw=np.asarray(lib["roof_hw"], dtype=np.float64),
-                            caps=tuple(lib["caps"]), rises=np.asarray(lib["rises"], dtype=np.float64))
+                            caps=tuple(lib["caps"]), rises=np.asarray(lib["rises"], dtype=np.float64),
+                            zones=tuple(lib.get("zones", (5,))), four=bool(keys and len(keys[0]) == 4))
         print(f"  [hashemi] section library: {len(recs)} films installed from {len(keys)} (roof x cap x rise) records" + (f", {bad} rejected (solver)" if bad else ""))
 
     @staticmethod
@@ -2240,10 +2331,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         m = d <= np.radians(half_width_deg)
         return float(np.asarray(rec["rmax"])[m].max()), float(np.asarray(rec["rmin"])[m].min())
 
-    def _pick_section(self, roof_hw, cap_u, rise):
-        """nearest library record for a roof half-width [m], the over_cap site
-        coordinate (0..1) and a post rise [m] -> (record, block) or (None, 0)"""
+    def _pick_section(self, roof_hw, cap_u, rise, zones=5):
+        """the library record for a roof half-width [m] (a floor), the over_cap site
+        coordinate (0..1), a post rise [m] and the plenum zones -> (record, block) or (None, 0)"""
         L = self._seclib
+        iz = list(L.get("zones", (5,))).index(zones) if zones in L.get("zones", (5,)) else 0
         # the roof bin is a FLOOR: the largest library roof not larger than the agent's (a film
         # made for a bigger roof would overhang this one); below the smallest bin, no film
         fits = np.where(L["roof_hw"] <= float(roof_hw) + 1e-6)[0]
@@ -2252,7 +2344,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         ir = int(fits.max())
         ic = min(int(float(cap_u) * len(L["caps"])), len(L["caps"]) - 1)
         idl = int(np.argmin(np.abs(L["rises"] - float(rise))))
-        k = (ir, ic, idl)
+        k = (ir, ic, idl, iz) if L.get("four", False) else (ir, ic, idl)
         if k not in L["blocks"]:
             return None, 0
         return L["lib"]["records"][k], L["blocks"][k]

@@ -78,7 +78,9 @@ def load_prices(path=PK_PATH, which="typical"):
     if not os.path.exists(path):
         return U, {}
     T = json.load(open(path)); g = lambda k: float(T[k][which]) if k in T else None
-    m = {"film_m2": "reflective film", "back_sheet_m2": "plenum back sheet", "rim_tube_m": "rim tube", "zone_wall_m": "zone partitions", "pump_unit": "zone pumps",
+    m = {"chase_m2": "masonry chase", "roof_collar_light": "light roof collar", "psu_grid": "grid power supply",
+         "fab_trunnion": "fabricated trunnion", "m4_facet_m2": "flat facet mirror",
+         "film_m2": "reflective film", "back_sheet_m2": "plenum back sheet", "rim_tube_m": "rim tube", "zone_wall_m": "zone partitions", "pump_unit": "zone pumps",
          "press_sensor": "pressure sensors", "valve": "bleed valves", "tubing_m": "pneumatic tubing", "post_pipe_m": "post / mast", "arm_pipe_m": "arm carrying F",
          "guy_set": "guys and anchors", "mast_head": "mast head bearing", "beam_pipe_m": "rotating beam", "aframe_pipe_m": "A-frames", "arc_pipe_m": "arc rail",
          "bearing": "bearings", "counterweight": "counterweight", "motor_geared": "geared DC motors", "driver": "motor drivers", "encoder": "encoders", "limit_sw": "limit switches",
@@ -104,7 +106,7 @@ def bom(d, prices=None):
     film = d.get("film_m2", np.pi * a * a) if section else np.pi * a * a
     rim = d.get("rim_m", 2 * np.pi * a) if section else 2 * np.pi * a
     gore = 1.25 if section else 1.08
-    nz = 5
+    nz = int(d.get("zones", 5) or 5)                                  # plenum zones: 5 (zoned figure) or 1 (one pump)
     post_h = 4.87 + rise + 0.5                          # deck to F (the under-swing) + base
     arm = 3.0
     beam = 2 * (g + 0.6); aframe = 4 * 3.2; arc = 2 * (g + 0.35) * 1.45
@@ -120,6 +122,13 @@ def bom(d, prices=None):
     sand_d = d.get("sand_depth", 0.0); sand_v = np.pi * R_POT ** 2 * sand_d * 1.3
     fins_k = max(d.get("sand_k", 0.3) - 0.3, 0.0)
     U = dict(UNIT) if prices is None else prices; items = []
+    # the site's own properties (drawn, not chosen): a light roof (GI sheet / wood, not a slab), grid power
+    light_roof = d.get("roofl", d.get("roof_light", 0.0)) >= 0.5
+    grid = d.get("grid", 0.0) >= 0.5
+    # the M4's construction (design knob m4_facet): smooth doubly-curved ellipsoid, the same
+    # ellipsoid in flat facets, or a flat M4 (u_f2 = 0) - the last two are cut from flat sheet
+    m4_flat = d.get("m4flat", 0.0) >= 0.5; m4_chord = float(d.get("m4chord", 0.0))
+    m4_faceted = m4_flat or m4_chord > 0.0
     add = lambda group, item, spec, unit, qty, price: items.append(dict(group=group, item=item, spec=spec, unit=unit, qty=float(qty), unit_pkr=float(price), pkr=float(qty) * float(price)))
     add("primary", "reflective film", "aluminised PET 50 um, silvered", "m2", film * gore, U["film_m2"])
     add("primary", "plenum back sheet", "coated tarpaulin / PET", "m2", film * 1.1, U["back_sheet_m2"])
@@ -132,7 +141,9 @@ def bom(d, prices=None):
     add("mount", "post / mast", "MS pipe 100 mm, deck to F", "m", post_h, U["post_pipe_m"])
     add("mount", "arm carrying F", "MS pipe 60 mm", "m", arm, U["arm_pipe_m"])
     add("mount", "guys and anchors", "3 wires, turnbuckles", "set", 1, U["guy_set"])
-    add("mount", "mast head bearing", "azimuth trunnion", "unit", 1, U["mast_head"])
+    # the azimuth head: an imported slewing ring or a trunnion fabricated on the mast - whichever is cheaper
+    head = min((U["mast_head"], "imported slewing / turntable head"), (U.get("fab_trunnion", 1e9), "fabricated trunnion: two UCP206 on a turned shaft"))
+    add("mount", "mast head bearing", head[1], "unit", 1, head[0])
     add("mount", "rotating beam", "MS pipe 50 mm", "m", beam, U["beam_pipe_m"])
     add("mount", "A-frames", "MS tube 25 mm, two frames", "m", aframe, U["aframe_pipe_m"])
     add("mount", "arc rail", "rolled MS tube 25 mm, two tubes", "m", arc, U["arc_pipe_m"])
@@ -144,14 +155,35 @@ def bom(d, prices=None):
     add("drive", "limit switches", "", "unit", 4, U["limit_sw"])
     add("control", "controller", "ESP32-class + RTC", "unit", 1, U["controller"])
     add("control", "sun sensor", "4-quadrant", "unit", 1, U["sun_sensor"])
-    add("control", "power", "100 W PV + battery + charger", "set", 1, U["psu_solar"])
+    if grid:
+        add("control", "power", "grid: 24 V SMPS, surge protector, park battery", "set", 1, U.get("psu_grid", U["psu_solar"]))
+    else:
+        add("control", "power", "100 W PV + battery + charger (no reliable grid)", "set", 1, U["psu_solar"])
     add("control", "wiring", "cable, conduit", "set", 1, U["wiring_set"])
     add("control", "enclosure", "IP65", "unit", 1, U["enclosure"])
     add("receiver", "strip mirror", "polished Al on curved frame", "m2", A_strip, U["strip_m2"])
     add("receiver", "strip bearing", "on the F-F2 axis", "unit", 1, U["strip_bearing"])
-    add("receiver", "bore duct", f"GI sheet below the deck, r {d.get('r_bore', 0.7):.2f} m x {L_bore:.1f} m", "m2", A_bore, U["bore_m2"])
-    add("receiver", "roof penetration", f"opening {2*d.get('r_bore', 0.7):.1f} m: collar, flashing, waterproofing", "job", roof_scale, U["roof_pen"])
-    add("receiver", "M4 mirror", "polished Al ellipsoid patch", "m2", A_m4, U["m4_m2"])
+    # the light pipe below the deck: a hung GI duct, or a plastered brick chase (a square shaft of
+    # inner side 2 r: 8 r of wall per metre against the duct's 2 pi r) - whichever is cheaper
+    A_chase = 8.0 * d.get("r_bore", 0.7) * L_bore
+    duct = min((A_bore * U["bore_m2"], f"GI sheet duct below the deck, r {d.get('r_bore', 0.7):.2f} m x {L_bore:.1f} m", A_bore, "m2", U["bore_m2"]),
+               (A_chase * U.get("chase_m2", 1e9), f"plastered brick chase below the deck, {2*d.get('r_bore', 0.7):.2f} m square x {L_bore:.1f} m", A_chase, "m2", U.get("chase_m2", 1e9)))
+    add("receiver", "bore duct", duct[1], duct[3], duct[2], duct[4])
+    if light_roof:
+        add("receiver", "roof penetration", f"light roof (sheet / wood): collar and flashing for a {2*d.get('r_bore', 0.7):.1f} m opening", "job", 1.0, U.get("roof_collar_light", U["roof_pen"]))
+    else:
+        add("receiver", "roof penetration", f"concrete slab, opening {2*d.get('r_bore', 0.7):.1f} m: collar, flashing, waterproofing", "job", roof_scale, U["roof_pen"])
+    if m4_flat:
+        m4_desc, m4_rate = "flat M4 at the turn, mirror sheet on a plane frame", U.get("m4_facet_m2", U["m4_m2"])
+    elif m4_faceted:
+        # flat facets on the ellipsoid: the sheet and frame are the flat rate, but the cutting and
+        # fixing grow as 1/chord (a 5 cm facet is nine times the pieces of a 15 cm one)
+        base_f = U.get("m4_facet_m2", U["m4_m2"]); lab = 0.25 * base_f
+        m4_rate = (base_f - lab) + lab * (0.15 / max(m4_chord, 0.02))
+        m4_desc = f"ellipsoid in flat facets, chord {m4_chord:.2f} m ({A_m4/max(m4_chord,0.02)**2:.0f} pieces)"
+    else:
+        m4_desc, m4_rate = "polished Al ellipsoid patch, doubly curved", U["m4_m2"]
+    add("receiver", "M4 mirror", m4_desc, "m2", A_m4, m4_rate)
     add("receiver", "slot flaps", "mirrored, hinged", "set", 1, U["flap_set"])
     add("receiver", "elbow mirror", "concave, 2-DOF servo", "unit", 1, U["elbow_mirror"])
     add("receiver", "shutter", "damper + servo", "unit", 1, U["shutter"])
@@ -186,7 +218,9 @@ if __name__ == "__main__":
     nominal = dict(dish_scale=1.0, deck_h=4.0, site=0.0, r_bore=0.7, r_m4=1.3, d_strip=0.6, strip_wk=1.1, strip_th_hi=100.0, rate_scale=1.0, ins_scale=1.0, sand_depth=0.0, sand_k=0.3, lid_leak=0.18)
     section = dict(nominal, site=1.0, film_m2=16.1, rim_m=2 * np.pi * 2.6 + 2 * np.pi * 0.75, rise=1.0, ins_scale=0.7, sand_depth=0.25, sand_k=1.0)
     PK, T = load_prices(); lo, _ = load_prices(which="low"); hi, _ = load_prices(which="high")
-    for name, d in (("nominal circle (a 2.1 m, deck 4)", nominal), ("4 x 6 roof: 16 m2 section, F +1, trench, sand", section)):
+    levers = dict(section, zones=1, m4flat=1.0, m4chord=0.10, roofl=1.0, grid=1.0)
+    for name, d in (("nominal circle (a 2.1 m, deck 4)", nominal), ("4 x 6 roof: 16 m2 section, F +1, trench, sand", section),
+                    ("the same section kit with ALL FIVE LEVERS (one zone, flat facetted M4, masonry chase, light roof, grid)", levers)):
         print(f"\n== {name} at the RESEARCHED Pakistani prices (typical) ==\n" + text(bom(d, PK)))
         print(f"   band: low {sum(i['pkr'] for i in bom(d, lo))/1e3:.0f}k .. high {sum(i['pkr'] for i in bom(d, hi))/1e3:.0f}k")
     json.dump(dict(units=PK, nominal=bom(nominal, PK), section=bom(section, PK)), open("/Users/faezs/ARTIST/tutorials/data/tandoor/bom_pk.json", "w"), indent=1)
