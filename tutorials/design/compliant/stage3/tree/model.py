@@ -42,8 +42,8 @@ def add_ground(sc):
     deck = cq.Workplane("XY").box(9.0 * M, 11.0 * M, 120).translate((2.0 * M, 0, Z_DECK * M - 60)).cut(cq.Workplane("XY").circle(0.5 * M).extrude(400).translate((-0.25 * M, 0, Z_DECK * M - 200)))
     sc.add(deck.val(), "roof deck (env z 5.0)", COL["ctx"], tol=3.0)
     # the light pipe: a vertical pipe on the roof, the env's r_bore 0.7, its mouth at F, going down through the roof to the oven; the beam-down never passes through the dish: the schedule keeps the head's rim 0.3 m clear of it (path.py)
-    turn = np.array([0.0, 0, Z_DECK - 4.86]) * M
-    sc.add(cyl(R_PIPE * M, turn, (F + [0, 0, 0.2]) * M).cut(cyl((R_PIPE - 0.02) * M, turn - [0, 0, 10], (F + [0, 0, 0.21]) * M)), "light pipe on the roof: the env's bore r 0.7, its mouth at F, down through the roof to the oven; separate of the flower", COL["pipe"], tol=3.0)
+    foot = np.array([0.0, 0, Z_DECK]) * M                                                # drawn from the deck up: below the roof it is the building's, not the flower's
+    sc.add(cyl(R_PIPE * M, foot, (F + [0, 0, 0.2]) * M).cut(cyl((R_PIPE - 0.02) * M, foot - [0, 0, 10], (F + [0, 0, 0.21]) * M)), "light pipe on the roof: the env's bore r 0.7, its mouth at F, continuing down through the roof to the oven; separate of the flower", COL["ctx"], tol=3.0)
     sc.add(cq.Solid.makeSphere(60, V(*(F * M))), "F: the dish focus, the hyperboloid's first focus", COL["mirror"], tol=2.0)
 def add_strip(sc, n, tag=""):
     c = (F - D_STRIP * n) * M
