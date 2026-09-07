@@ -4,7 +4,7 @@ receiver, post mount, deck 4 m; the circle under the vertical rule (deck 4 and
 deck 6.5) against sections at overhang caps 1 / 2 / 3.5 m and post rises 0..3 m."""
 import sys, os, time, contextlib, io, json, numpy as np, torch
 sys.path.insert(0, "/Users/faezs/ARTIST/tutorials")
-LOG = "/Users/faezs/ARTIST/tutorials/puffer_tandoor/watch/section_library.log"
+LOG = "/Users/faezs/ARTIST/tutorials/puffer_tandoor/watch/section_library3.log"
 while not any("library:" in l for l in open(LOG).read().splitlines()[-3:]):
     time.sleep(30)
 from tandoor_hashemi_env import TandoorHashemiEnv
@@ -41,7 +41,7 @@ print(f"{B} agents = {len(variants)} variants x {REP}; cook {os.path.basename(CK
 res = {}
 for day in (172, 355, 80):
     rot, cuts, v0, ret, S = run_day(e, pol, day, nh, nv, ndays=2)
-    lad = ladder_day(e, S, day)
+    lad = ladder_day(e, S, day, draws=4, noise=True)
     res[day] = (rot, lad, S.day_sold.cpu().numpy() if hasattr(S, "day_sold") else None)
     print(f"day {day} done", flush=True)
 print(f"\n{'design':36s} {'film m2':>7s} {'site':>4s} {'bill k':>6s} | {'kW summer':>9s} {'kW winter':>9s} {'kW equinox':>10s} | {'rotis summer':>12s} {'rotis winter':>12s} {'rotis equinox':>13s}")

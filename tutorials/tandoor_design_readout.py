@@ -47,7 +47,8 @@ class Policy:
 
 def env_kwargs(B, seed=1234, night_carry=0, roof_table="/Users/faezs/ARTIST/tutorials/data/tandoor/quetta_tandoor_roof_quantiles.json",
                sections="/Users/faezs/ARTIST/tutorials/data/tandoor/section_library.pt"):
-    return dict(night_carry=night_carry, roof_table=roof_table, sections=sections,num_agents=B, seed=1, wide_shutter=1, device=DEV, gpu=1, n_rays=512, warm_frac=0.0,
+    return dict(night_carry=night_carry, roof_table=roof_table, sections=sections, num_agents=B, seed=1, wide_shutter=1, device=DEV, gpu=1, n_rays=512, warm_frac=0.0,
+                demand=1, demand_day=500.0, day_start=6.0, day_end=21.5, form_drift=2.0,      # the evaluation env is the design run's (hashemi_design.ini)
                 day_random=0, lat_random=0, wall_obs=1, n_zones=5, nurbs=1, flare_ratio=1.4, flare_reflect=0.6,
                 silvered=1, duct_nozzle=2, spot_bread=1, roti_kj=130.0, bread_area=0.12, loaves_per_load=8,
                 elbow_aim=1, load_ctrl=1, reward_div=75.0, receiver="cass", r_m4=1.3, g_orbit=4.0, zone_c=0.4,
@@ -55,10 +56,13 @@ def env_kwargs(B, seed=1234, night_carry=0, roof_table="/Users/faezs/ARTIST/tuto
                 sticky_k=2, wall="firebrick", insulation=0, design_rand=1, design_seed=seed)
 
 
-def ladder_day(e, S, day, hours=(9.0, 10.5, 12.0, 13.5, 15.0), draws=2):
-    """Per-agent traced kW at perfect tracking for one day (all B designs at once)."""
+def ladder_day(e, S, day, hours=(9.0, 10.5, 12.0, 13.5, 15.0), draws=2, noise=False):
+    """Per-agent traced kW at perfect tracking for one day (all B designs at once).
+    noise=False draws every ray at the sun cone's median, tilted the same way -
+    exact enough for a circle, a 25% morning/afternoon bias for a large SECTION
+    whose outer rays are marginal at the receiver; noise=True draws the cone."""
     B = e.num_agents
-    S.zero_noise = True
+    S.zero_noise = not noise
     S.day_v.fill_(float(day)); S.lat_v.fill_(30.2)
     decl = 23.44 * np.sin(2.0 * np.pi * (284.0 + day) / 365.0)
     S.decl_formed.fill_(decl); S.decl_now.fill_(decl)
@@ -136,7 +140,7 @@ if __name__ == "__main__":
     for day in [int(x) for x in args.days.split(",")]:
         rot, cuts, v0, ret, S = run_day(e, pol, day, nh, nv, ndays=args.seasoned)
         lad = ladder_day(e, S, day)
-        lad = lad / e._ds_s2                      # per m2 of the nominal dish: the controller's use of the beam, not the dish size
+        lad = lad * (np.pi * 2.1 ** 2) / np.maximum(e._fct[:, e.DS["film"]].cpu().numpy(), 0.1)   # per nominal-dish area of film (circle: 1/s2; section: by its film)
         br, sr, r2r = regress(rot, U, names); bl, sl, r2l = regress(lad, U, names); bv, sv, r2v = regress(v0, U, names)
         cc = np.corrcoef(rot, lad)[0, 1]
         print(f"\nday {day} ({'summer' if day == 172 else 'winter' if day == 355 else 'equinox'}){' seasoned day %d' % args.seasoned if args.seasoned > 1 else ''}, {B} designs, sampled: rotis {rot.mean():.1f} +- {rot.std():.1f} (min {rot.min():.0f} max {rot.max():.0f}), cuts/agent {cuts.mean():.2f}, "

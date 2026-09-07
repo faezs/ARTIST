@@ -633,7 +633,7 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     L = N_LEV_SURF if pts_l.shape[0] > N_LEV_SURF else pts_l.shape[0]
     i0 = lv.long().clamp(0, L - 2)
     if fct.shape[1] > 60 and pts_l.shape[0] > N_LEV_SURF:
-        i0 = i0 + (fct[:, 60] + 0.5).long() * L
+        i0 = i0 + (fct[:, 60] + 0.5).long().clamp(0, pts_l.shape[0] // L - 1) * L
     fr = (lv - lv.long().clamp(0, L - 2).float())[:, None, None]
     p_loc = (1 - fr) * pts_l[i0] + fr * pts_l[i0 + 1]
     n_loc = (1 - fr) * nrm_l[i0] + fr * nrm_l[i0 + 1]
@@ -2047,8 +2047,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                            (B, 1))
             self._design_u = np.zeros((B, 0))
         else:
-            rng = np.random.default_rng(self.design_seed)
-            u = rng.uniform(size=(B, self.N_DESIGN))
+            u = getattr(self, "_design_u", None)
+            if u is None or u.shape != (B, self.N_DESIGN):          # keep the population across set_design rebuilds
+                rng = np.random.default_rng(self.design_seed)
+                u = rng.uniform(size=(B, self.N_DESIGN))
             self._design_u = u
             rows = self._rows_from_u(u)
         self._fct = torch.as_tensor(rows, dtype=torch.float32,
@@ -2157,6 +2159,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if pop is None or not pop.get("sites"):
             return False
         B = self.num_agents; u = self._design_u.copy(); rng = self.rng
+        assert list(pop["names"]) == [k_ for k_, _, _ in tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX)] and list(pop["site_keys"]) == list(self.SITE_KEYS), "design population was written for a different design box - regenerate it with tandoor_designer.py"
         kit_idx = np.array(pop["kit_index"]); names = pop["names"]; i_roof = names.index("roof_r")
         sites = sorted(pop["sites"].values(), key=lambda s: s["site_u"][0]); roofs = np.array([s["site_u"][0] for s in sites])
         elite = day_sales >= np.quantile(day_sales, 0.75)
@@ -2198,6 +2201,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         for k in ("site", "film", "rim", "rise", "ocap"):
             d[k] = fct[:, self.DS[k]].astype(np.float64)
         d["film_m2"], d["rim_m"] = d["film"], d["rim"]
+        d["r_out_max"] = np.where(d["site"] > 0.5, fct[:, self.DS["amem"]], 2.1 * d["dish_scale"]).astype(np.float64)   # the film's reach
         return d
 
     SEC_CAPS = (1.0, 2.0, 3.5)          # the library's overhang caps [m], picked by thirds of the over_cap site key
@@ -2206,16 +2210,27 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         """install every non-empty record of the library as a surface block and
         keep the (roof, cap, rise) -> block map for _rows_from_u"""
         lib = torch.load(path, weights_only=False)
-        recs, blocks, keys = [], {}, sorted(lib["records"].keys())
+        # the library must be THIS machine's: the parent's focal length, the pump levels, the ray count
+        meta = lib.get("meta", {})
+        assert abs(float(lib["f"]) - float(self.f_nom)) < 2e-3, f"section library built for f {lib['f']}, this machine has f_nom {self.f_nom:.4f}"
+        assert [round(float(v), 4) for v in lib["levels"]] == [round(float(v), 4) for v in self.LEVEL_FRAC], "section library's pump levels differ from LEVEL_FRAC"
+        for k_, v_ in (("g_orbit", self.g_orbit), ("lat", getattr(self, "lat", None))):
+            if k_ in meta and v_ is not None: assert abs(float(meta[k_]) - float(v_)) < 1e-3, f"section library built at {k_} {meta[k_]}, env has {v_}"
+        n_exp = len(lib["roof_hw"]) * len(lib["caps"]) * len(lib["rises"])
+        if len(lib["records"]) != n_exp:
+            print(f"  [hashemi] WARNING: section library has {len(lib['records'])} of {n_exp} records (a partial build?)")
+        recs, blocks, keys = [], {}, sorted(lib["records"].keys()); bad = 0
         for k in keys:
             r = lib["records"][k]
             if r.get("empty", False) or r.get("area", 0.0) < 1.0:
                 continue
+            if not r.get("ok", True):
+                bad += 1; continue                                           # the membrane solve did not converge / the mesh was bad
             blocks[k] = 1 + len(recs); recs.append(r)
-        self.install_sections([dict(pts=r["pts"], nrm=r["nrm"], ray_pw=r["ray_pw"]) for r in recs])
+        self.install_sections([dict(pts=r["pts"], nrm=r["nrm"], ray_pw=r["ray_pw"], loss_chain=float(lib.get("loss_chain", 1.0))) for r in recs])
         self._seclib = dict(lib=lib, blocks=blocks, recs=recs, roof_hw=np.asarray(lib["roof_hw"], dtype=np.float64),
                             caps=tuple(lib["caps"]), rises=np.asarray(lib["rises"], dtype=np.float64))
-        print(f"  [hashemi] section library: {len(recs)} films installed from {len(keys)} (roof x cap x rise) records")
+        print(f"  [hashemi] section library: {len(recs)} films installed from {len(keys)} (roof x cap x rise) records" + (f", {bad} rejected (solver)" if bad else ""))
 
     @staticmethod
     def _film_downhill(rec, half_width_deg=20.0):
@@ -2229,7 +2244,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         """nearest library record for a roof half-width [m], the over_cap site
         coordinate (0..1) and a post rise [m] -> (record, block) or (None, 0)"""
         L = self._seclib
-        ir = int(np.argmin(np.abs(L["roof_hw"] - float(roof_hw))))
+        # the roof bin is a FLOOR: the largest library roof not larger than the agent's (a film
+        # made for a bigger roof would overhang this one); below the smallest bin, no film
+        fits = np.where(L["roof_hw"] <= float(roof_hw) + 1e-6)[0]
+        if len(fits) == 0:
+            return None, 0
+        ir = int(fits.max())
         ic = min(int(float(cap_u) * len(L["caps"])), len(L["caps"]) - 1)
         idl = int(np.argmin(np.abs(L["rises"] - float(rise))))
         k = (ir, ic, idl)

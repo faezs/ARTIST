@@ -61,7 +61,7 @@ class SiteFields:
 
     def __init__(self, env, f=None, lat=LAT):
         self.f = float(f if f is not None else env.f_nom); self.z_deck = float(env.z_deck)
-        xs = np.arange(-HALF, HALF + 1e-9, GRID); self.xs = xs
+        N = 2 * int(round(HALF / GRID)) + 1; xs = (np.arange(N) - (N - 1) / 2) * GRID; self.xs = xs   # symmetric, the vertex a node
         X, Y = np.meshgrid(xs, xs, indexing="ij"); self.X, self.Y = X, Y
         pts = np.stack([X.ravel(), Y.ravel(), (X.ravel() ** 2 + Y.ravel() ** 2) / (4 * self.f)], 1)   # (P,3) body
         Cd, bx, by, n, el = body_frames(env, lat); self.el = el
@@ -86,7 +86,8 @@ class SiteFields:
         need = np.maximum(need, 0.0).reshape(self.X.shape)
         need[self.r.reshape(self.X.shape) < R_HOLE] = np.inf
         # how far beyond the parapet the point ever reaches (0 inside): the overhang the neighbours must accept
-        over = np.maximum.reduce([np.zeros_like(self.xw), self.xw - x_n, x_s - self.xw, self.yw - y_e, y_w - self.yw]).max(0).reshape(self.X.shape)
+        dxo = np.maximum.reduce([np.zeros_like(self.xw), self.xw - x_n, x_s - self.xw]); dyo = np.maximum.reduce([np.zeros_like(self.yw), self.yw - y_e, y_w - self.yw])
+        over = np.hypot(dxo, dyo).max(0).reshape(self.X.shape)          # the planar distance past the parapet (a corner counts diagonally)
         self._over = over
         return need
 
@@ -112,12 +113,22 @@ class SiteFields:
         return dict(mask=m, area=area, centre=(cx, cy), theta=thn, rmax=rmax, star_area=star)
 
 
+X_TOWER_C, R_POT_ = 1.75, 0.42      # the pit's centre is X_TOWER_C south of the post's foot (the bore runs F -> pit); the pit's radius
+
+
+def post_ok(width, depth, tx, ty, margin=0.3):
+    """the post position keeps the EXISTING pit (X_TOWER_C south of the post) inside the plot"""
+    return (tx * depth >= X_TOWER_C + R_POT_ + margin) and (ty * width >= R_POT_ + margin) and ((1 - ty) * width >= R_POT_ + margin)
+
+
 def best_post(F, width, depth, deltas, caps=(np.inf,), h_side=None, grid=(np.linspace(0.1, 0.9, 9), np.linspace(0.2, 0.8, 7))):
-    """for each (overhang cap, post rise): the best post position and its section area
+    """for each (overhang cap, post rise): the best post position (with the pit on the roof) and its section area
     -> dict[(cap, delta)] = (area, tx, ty, need, over)"""
     best = {}
     for tx in grid[0]:
         for ty in grid[1]:
+            if not post_ok(width, depth, tx, ty):
+                continue
             need = F.delta_needed(width, depth, tx, ty, h_side); over = F.over()
             for c in caps:
                 ok_c = over <= c

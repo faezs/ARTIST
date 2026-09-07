@@ -59,13 +59,15 @@ def capital(d):
     th = np.radians(d.get("strip_th_hi", 100.0)); r_mean = 1.4 * d.get("d_strip", 0.6)
     A_strip = r_mean * th * d.get("strip_wk", 1.1) * r_mean
     A_m4 = np.pi * d.get("r_m4", 1.3) ** 2
-    A_bore = 2 * np.pi * d.get("r_bore", 0.7) * (L_BORE + (deck - 4.0))
+    A_bore = 2 * np.pi * d.get("r_bore", 0.7) * (L_BORE + (deck - 4.0) + rise)     # F higher = a longer bore
     post = (d.get("mount_post", 0.0) >= 0.5) or section
     ins = min(max(d.get("ins_scale", 1.0), 0.2), 1.0)
     dish_cost = PRICES["dish_m2"] * A_dish * (PRICES["gores"] if section else 1.0) + (PRICES["rim_m"] * d.get("rim_m", 0.0) if section else 0.0)
+    # the structure that carries and slews the film grows with its reach: the mount with the moment (reach^2), the motors with reach^1.5
+    reach = (d.get("r_out_max", A_MEM0 * s) if section else A_MEM0 * s) / A_MEM0
     items = dict(dish=dish_cost, tower=PRICES["tower_m"] * (deck + rise),
-                 mount=PRICES["post_mount"] if post else PRICES["rail_m"] * 2 * np.pi * (G_ORBIT0 * s + 0.6),
-                 motors=PRICES["motors"] * d.get("rate_scale", 1.0) ** 1.5,
+                 mount=(PRICES["post_mount"] * max(reach, 0.5) ** 2) if post else PRICES["rail_m"] * 2 * np.pi * (G_ORBIT0 * s + 0.6),
+                 motors=PRICES["motors"] * d.get("rate_scale", 1.0) ** 1.5 * max(reach, 0.5) ** 1.5,
                  strip=PRICES["strip_m2"] * A_strip, m4=PRICES["m4_m2"] * A_m4, bore=PRICES["bore_m2"] * A_bore,
                  insulation=(PRICES["trench_dig"] + PRICES["trench_unit"] * (1.0 / ins - 1.0)) if ins < 0.98 else 0.0,
                  sand=(PRICES["sand_fixed"] + PRICES["fins_m2_per_k"] * 1.51 * max(d.get("sand_k", 0.3) - 0.3, 0.0))

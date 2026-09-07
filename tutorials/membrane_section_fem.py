@@ -55,12 +55,19 @@ class SectionMesh:
     lifted to the paraboloid. r_in = 0 (or None): a full star with a fan at the centre. Both rims
     are fixed on the parent (the outer rim ring; the inner ring is the hub round the strip's hole)."""
 
-    def __init__(self, theta, rmax, centre, f, n_theta=96, n_rho=32, rmin=None):
+    def __init__(self, theta, rmax, centre, f, n_theta=96, n_rho=32, rmin=None, sector=None):
+        """sector: None for a film all the way round; (theta_lo, theta_hi) [rad] for an OPEN annular
+        sector whose two radial edges are rims too (the film ends there, clamped to a straight rim)."""
         self.f = float(f); self.c = np.asarray(centre, dtype=np.float64); self.rm = rmax_interp(theta, rmax)
         self.annular = rmin is not None and float(np.max(rmin)) > 0.0
         self.rmn = rmax_interp(theta, rmin) if self.annular else (lambda t: torch.zeros_like(torch.as_tensor(t, dtype=F64)))
+        self.sector = None if sector is None else (float(sector[0]), float(sector[1]))
+        if self.sector is None:
+            th = torch.linspace(-np.pi, np.pi, n_theta + 1, dtype=F64)[:-1]; self.periodic = True
+        else:
+            span = self.sector[1] - self.sector[0]; n_theta = max(8, int(round(n_theta * span / (2 * np.pi))))
+            th = torch.linspace(self.sector[0], self.sector[1], n_theta, dtype=F64); self.periodic = False
         self.n_theta, self.n_rho = n_theta, n_rho
-        th = torch.linspace(-np.pi, np.pi, n_theta + 1, dtype=F64)[:-1]
         rho = torch.arange(0, n_rho + 1, dtype=F64) / n_rho if self.annular else torch.arange(1, n_rho + 1, dtype=F64) / n_rho
         self.nr = len(rho)
         TH, RHO = torch.meshgrid(th, rho, indexing="ij")                    # (n_theta, nr)
@@ -73,7 +80,8 @@ class SectionMesh:
         nr = self.nr
         idx = lambda i, j: 1 + (i % n_theta) * nr + j                       # ring j = 0..nr-1
         tris = []
-        for i in range(n_theta):
+        n_i = n_theta if self.periodic else n_theta - 1
+        for i in range(n_i):
             if not self.annular:
                 tris.append([0, idx(i, 0), idx(i + 1, 0)])                   # the fan (CCW seen from +z)
             for j in range(nr - 1):
@@ -84,6 +92,8 @@ class SectionMesh:
         self.is_rim[[idx(i, nr - 1) for i in range(n_theta)]] = True
         if self.annular:
             self.is_rim[[idx(i, 0) for i in range(n_theta)]] = True; self.is_rim[0] = True
+        if not self.periodic:                                                # the sector's two radial edges
+            self.is_rim[[idx(0, j) for j in range(nr)]] = True; self.is_rim[[idx(n_theta - 1, j) for j in range(nr)]] = True
         self.theta, self.rho = th, rho
         self._idx = idx
         E1 = self.X[self.tris[:, 1]] - self.X[self.tris[:, 0]]; E2 = self.X[self.tris[:, 2]] - self.X[self.tris[:, 0]]
@@ -107,7 +117,11 @@ class SectionMesh:
     def interp(self, field, x, y):
         """bilinear interpolation of a per-node field (n, k) at dish-plane points (x, y) inside the domain"""
         th, rho = self.uv_of_xy(x, y); nt, nr = self.n_theta, self.nr
-        qt = (th + np.pi) / (2 * np.pi / nt); it = torch.floor(qt).long() % nt; ft = qt - torch.floor(qt)
+        if self.periodic:
+            qt = (th + np.pi) / (2 * np.pi / nt); it = torch.floor(qt).long() % nt; ft = qt - torch.floor(qt)
+        else:
+            lo, hi = self.sector; th = ((th - lo + np.pi) % (2 * np.pi)) - np.pi + lo       # unwrap about the sector
+            qt = ((th - lo) / (hi - lo) * (nt - 1)).clamp(0, nt - 1 - 1e-9); it = torch.floor(qt).long(); ft = qt - torch.floor(qt)
         if self.annular:
             qr = rho.clamp(0, 1) * (nr - 1); jr = torch.floor(qr).long().clamp(0, nr - 2); fr = (qr - jr.double()).clamp(0, 1)
             node = lambda i, j: 1 + (i % nt) * nr + j
@@ -135,8 +149,9 @@ def _energy(x, mesh, T, K, nu, p_tri):
     return (mesh.A_ref * W).sum() + (p_tri * V).sum()
 
 
-def solve_section(mesh, level, T=2000.0, E_mod=3.7e9, h_film=50e-6, nu=0.38, d_init=None, iters=(0, 300), verbose=False):
-    """the film at pump level `level` (1 = the parent's own pressure law) -> dict(x (n,3), n (n,3) normals, d, resid)"""
+def solve_section(mesh, level, T=2000.0, E_mod=3.7e9, h_film=50e-6, nu=0.38, d_init=None, iters=(0, 300), verbose=False, tol=1e-3, max_restarts=8):
+    """the film at pump level `level` (1 = the parent's own pressure law)
+    -> dict(x (n,3), n (n,3) normals, d, energy, resid, converged, restarts)"""
     K = E_mod * h_film / (1 - nu * nu)
     p_tri = level * parab_pressure_law(mesh.r_tri, mesh.f, T)
     free = ~mesh.is_rim
@@ -154,16 +169,21 @@ def solve_section(mesh, level, T=2000.0, E_mod=3.7e9, h_film=50e-6, nu=0.38, d_i
 
     def closure():
         opt2.zero_grad(); L = total(); L.backward(); return L
-    for _ in range(3):
-        opt2.step(closure)
+    # the residual: the largest nodal out-of-balance force relative to the tension on a node's share of rim
+    # (T x the mean edge length); stationary when below tol. Restart LBFGS until it is, or flag it.
+    scale = float(T) * float(torch.sqrt(mesh.A_ref.mean()))
+    def residual():
+        g = torch.autograd.grad(total(), dv)[0]; return float(g.norm(dim=1).max()) / scale
+    resid = residual(); k = 0
+    while resid > tol and k < max_restarts:
+        opt2.step(closure); resid = residual(); k += 1
     with torch.no_grad():
         x = mesh.X.clone(); x[free] = mesh.X[free] + dv
         d = x - mesh.X
         t = mesh.tris; fn = torch.linalg.cross(x[t[:, 1]] - x[t[:, 0]], x[t[:, 2]] - x[t[:, 0]])   # area-weighted face normals (+z)
         n = torch.zeros_like(x).index_add_(0, t.reshape(-1), fn.repeat_interleave(3, 0))
-        n = n / n.norm(dim=1, keepdim=True)
-        g = torch.autograd.grad(total(), dv)[0] if False else None
-    return dict(x=x, n=n, d=d, energy=float(total().detach()))
+        n = n / n.norm(dim=1, keepdim=True).clamp(min=1e-12)
+    return dict(x=x, n=n, d=d, energy=float(total().detach()), resid=resid, converged=bool(resid <= tol), restarts=k)
 
 
 def parent_normals(x, f):

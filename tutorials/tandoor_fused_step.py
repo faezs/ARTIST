@@ -183,8 +183,8 @@ class FusedState:
                                 int(getattr(e, "form_min", 1)),
                                 int(bool(getattr(e, "night_carry", 0)))],
                                dtype=torch.int32, device=dev)
-        L = e._pts_l.shape[0] // int(getattr(e, "N_SURF", 1))     # levels per surface block
-        self.tdims = torch.tensor([B, self.P, L, N + e.n_belt],
+        S_ = int(getattr(e, "N_SURF", 1)); L = e._pts_l.shape[0] // S_     # levels per surface block, blocks installed
+        self.tdims = torch.tensor([B, self.P, L, N + e.n_belt, S_],
                                   dtype=torch.int32, device=dev)
         self.zero_noise = False
         self._rn0 = z(B, 12)

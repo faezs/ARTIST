@@ -56,7 +56,7 @@ def kits_to_u(site_u, z):
 class Sim:
     def __init__(self, ckpt, B, seasoned):
         self.pol = Policy(torch.load(ckpt, map_location="cpu", weights_only=False))
-        kw = env_kwargs(B, night_carry=int(seasoned > 1)); kw.update(dict(design_rand=1, day_start=6.0, day_end=21.5, demand=1, demand_day=500.0))
+        kw = env_kwargs(B, night_carry=int(seasoned > 1)); kw.update(dict(design_rand=1))
         with contextlib.redirect_stdout(io.StringIO()):
             self.e = TandoorHashemiEnv(**kw)
         self.B, self.seasoned = B, seasoned; self.nh, self.nv = self.e.N_HEADS, int(self.e.single_action_space.nvec[0]); self.calls = 0

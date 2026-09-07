@@ -415,7 +415,7 @@ kernel void tandoor_trace(
     // design table [60]: pts_l stacks L levels per block (0 the built circle,
     // k the k-th installed section of the parent), ray_pw one row per block
     float lvb = lv[b];
-    int sblk = int(fct[b*FCTW + 60] + 0.5f);
+    int sblk = clamp(int(fct[b*FCTW + 60] + 0.5f), 0, dims[4] - 1);   // the surface block (dims[4] = blocks installed)
     int i0 = clamp(int(lvb), 0, L-2);
     float fr = lvb - float(i0);
     i0 += sblk*L;
@@ -922,7 +922,7 @@ kernel void tandoor_trace(
         int node = (hitf || sz < -HD + 0.12f) ? NB
                    : (sz > -0.22f ? NB + 2
                       : (sz > -0.85f ? seg : NB + 3 + seg4));
-        float wgt = ray_pw[int(fct[b*FCTW + 60] + 0.5f)*P + ip] * soil[b] * fct[b*FCTW + 41] * (sh_thr ? sh_w : 0.0f)
+        float wgt = ray_pw[clamp(int(fct[b*FCTW + 60] + 0.5f), 0, dims[4] - 1)*P + ip] * soil[b] * fct[b*FCTW + 41] * (sh_thr ? sh_w : 0.0f)
                     * scb[sb+4] * scb[sb+5]
                     * (sc[105] > 0.5f ? 0.95f : 1.0f);
         atomic_fetch_add_explicit(
@@ -1559,10 +1559,10 @@ class MetalGeo:
         out6 = torch.empty(B * P, 6, dtype=torch.float32, device=dev)
         NBL = 8                                   # loaf columns after the nodes
         per = torch.zeros(B, n_nodes + NBL, dtype=torch.float32, device=dev)
-        key = (B, P, L, n_nodes, dev)
+        key = (B, P, L, S, n_nodes, dev)
         dims = self._dims.get(key)
         if dims is None:
-            dims = torch.tensor([B, P, L, n_nodes + NBL],
+            dims = torch.tensor([B, P, L, n_nodes + NBL, S],
                                 dtype=torch.int32, device=dev)
             self._dims[key] = dims
         lfp = getattr(self, "_lfp", None)
