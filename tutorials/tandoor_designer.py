@@ -108,13 +108,19 @@ if __name__ == "__main__":
     ap.add_argument("--sites", default="0.25,0.5,0.75"); ap.add_argument("--out", default="/Users/faezs/ARTIST/tutorials/puffer_tandoor/watch/design_pop.json")
     ap.add_argument("--load", default=None)
     ap.add_argument("--over-cap", type=float, default=0.5, help="site: the overhang the neighbours accept, as the box coordinate (thirds: 1.0 / 2.0 / 3.5 m)")
+    ap.add_argument("--roof-light", type=float, default=0.0, help="site: 1 = the shop's roof is sheet or wood (a cheap collar), 0 = a concrete slab")
+    ap.add_argument("--grid", type=float, default=0.0, help="site: 1 = mains power at the shop, 0 = PV and battery")
     args = ap.parse_args()
     torch.manual_seed(0); np.random.seed(0)
     des = Designer().to(DEV)
     if args.load: des.load_state_dict(torch.load(args.load, map_location=DEV))
     opt = torch.optim.Adam(des.parameters(), lr=3e-3)
     sim = Sim(args.ckpt, B=args.cand, seasoned=args.seasoned)
-    sites = [(float(r), 0.375, 1 / 3, args.over_cap) for r in args.sites.split(",")]      # roof percentile, nominal pit, nominal shop, the neighbours' tolerance
+    # the site's coordinates in SITE_KEYS order: roof percentile, pit wall, shop demand, the
+    # neighbours' tolerance, the roof's construction, the mains
+    _site = dict(roof_r=None, cap_scale=0.375, demand_scale=1 / 3, over_cap=args.over_cap,
+                 roof_light=args.roof_light, grid=args.grid)
+    sites = [tuple((float(r) if k == "roof_r" else _site[k]) for k in SITE) for r in args.sites.split(",")]
     pop = {"names": NAMES, "site_keys": SITE, "kit_index": I_KIT, "sites": {}}
     t0 = time.time()
     for g in range(args.gens):
@@ -142,9 +148,9 @@ if __name__ == "__main__":
             best = int(np.argmax(sc))
             with torch.no_grad(): mu, ls = des.forward(st)
             kit = {NAMES[i]: float(lo + u[keep[best], i] * (hi - lo)) for i, (k, lo, hi) in enumerate(BOX)}
-            pop["sites"][f"{su[0]:.2f}"] = dict(site_u=list(su), mu=mu[0].detach().cpu().numpy().tolist(), log_std=ls[0].detach().cpu().numpy().tolist(),
+            pop["sites"][f"{su[0]:.2f}"] = dict(site_u=[float(x) for x in su], mu=mu[0].detach().cpu().numpy().tolist(), log_std=ls[0].detach().cpu().numpy().tolist(),
                                               elite_u=u[keep[np.argsort(-sc)[:8]]].tolist(), best_score=float(sc[best]), best_capital=float(cp[best]))
             print(f"gen {g} site p{su[0]*100:.0f}: {int((cap0 <= args.budget).sum())}/{args.cand} proposals within budget, shortlist {len(keep)}, rollout best {sc[best]:.0f} sold-rotis at {cp[best]/1e3:.0f}k (mean of shortlist {sc.mean():.0f}); "
-                  f"prior std now {float(ls.exp().mean()):.2f}; best kit: " + ", ".join(f"{k}={kit[k]:.2f}" for k in ("deck_h", "mount_post", "rate_scale", "ins_scale", "sand_depth", "r_bore", "r_m4", "bread_area")) + f"  [{time.time()-t0:.0f} s]", flush=True)
+                  f"prior std now {float(ls.exp().mean()):.2f}; best kit: " + ", ".join(f"{k}={kit[k]:.2f}" for k in ("deck_h", "mount_post", "rate_scale", "ins_scale", "sand_depth", "r_bore", "r_m4", "section", "post_rise", "zones", "m4_facet")) + f"  [{time.time()-t0:.0f} s]", flush=True)
         json.dump(pop, open(args.out, "w"), indent=1); torch.save(des.state_dict(), args.out.replace(".json", ".pt"))
     print("designer population written to", args.out)
