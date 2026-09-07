@@ -90,29 +90,42 @@ say(f"  the joint: {k_joint/1e6:.0f} MN/m axially = {k_joint/EA_L:.2f} x the str
 say(f"  image walk from the joints' compliance at the runs' maximum strut force: {1e3*2*P_run/k_joint*2*4.0/L_LEG:.2f} mm at F per leg; twelve joints, 72 blades, no bearings, no backlash, no lubrication; the loop's clip becomes +-{1e3*clip:.0f} mm in both simulations.")
 json.dump(dict(theta_deg=float(np.degrees(theta)), clip_mm=1e3*clip, theta_run_deg=float(np.degrees(theta_run)), dl_run_mm=1e3*dl_runs, P_strut_run=P_run, P_leg=Pleg, P_leg_survival=Pleg_s, blade=dict(t_mm=1e3*t, w_mm=1e3*w, L_mm=1e3*Lb, sigma_MPa=sig/1e6, P_cr=Pcr, s1_mm=1e3*s1, s2_mm=1e3*s2), k_joint_MN_m=k_joint/1e6, k_ratio=k_joint/EA_L, lines=lines), open(os.path.join(OUT, "fact_ball.json"), "w"), indent=1)
 open(os.path.join(OUT, "fact_ball.txt"), "w").write("\n".join(lines) + "\n")
-# ---- figure: the four steps as pictures
-fig = plt.figure(figsize=(14, 4.2))
-def seg(ax, p, q, **kw): ax.plot([p[0], q[0]], [p[1], q[1]], [p[2], q[2]], **kw)
-ax = fig.add_subplot(1, 4, 1, projection="3d"); ax.set_title("1  desired DOFs: 3 rotations about C", fontsize=9)
-for a in np.eye(3): seg(ax, C - 0.08*a, C + 0.08*a, color="#0e7490", lw=2)
-seg(ax, C, C - 0.12*zhat, color="#7c4a1e", lw=6); ax.scatter(*C, color="k", s=30)
-ax = fig.add_subplot(1, 4, 2, projection="3d"); ax.set_title("2  constraint space: every line through C", fontsize=9)
-for p in np.linspace(0, np.pi, 8):
-    for q in np.linspace(0, np.pi, 4):
-        d = np.array([np.sin(q)*np.cos(p), np.sin(q)*np.sin(p), np.cos(q)]); seg(ax, C - 0.1*d, C + 0.1*d, color="#9aa5b1", lw=0.6)
-ax.scatter(*C, color="k", s=30)
-ax = fig.add_subplot(1, 4, 3, projection="3d"); ax.set_title("3  three independent lines: the tripod of wires", fontsize=9)
-for p in np.radians([0, 120, 240]):
-    d = np.array([np.sin(alpha)*np.cos(p), np.sin(alpha)*np.sin(p), np.cos(alpha)]); seg(ax, C, C + 0.1*d, color="#d9480f", lw=2)
-seg(ax, C, C - 0.12*zhat, color="#7c4a1e", lw=6); ax.scatter(*C, color="k", s=30)
-ax = fig.add_subplot(1, 4, 4, projection="3d"); ax.set_title("4  each wire = two orthogonal blades in series (Fig. 6.7a)", fontsize=9)
-for p in np.radians([0, 120, 240]):
-    d = np.array([np.sin(alpha)*np.cos(p), np.sin(alpha)*np.sin(p), np.cos(alpha)]); a = np.cross(d, [0, 0, 1.0]); a /= np.linalg.norm(a); b = np.cross(d, a)
-    for s0, n_ in ((0.01, a), (0.055, b)):
-        c0 = C + s0*d; u_ = np.cross(n_, d); pts = np.array([c0 + 0.02*d*sx + 0.012*u_*sy for sx, sy in ((0, -1), (1, -1), (1, 1), (0, 1), (0, -1))])
-        ax.plot(pts[:, 0], pts[:, 1], pts[:, 2], color="#d9480f", lw=1.5)
-seg(ax, C, C - 0.12*zhat, color="#7c4a1e", lw=6); ax.scatter(*C, color="k", s=30)
-for ax in fig.axes:
-    ax.set_xlim(-0.12, 0.12); ax.set_ylim(-0.12, 0.12); ax.set_zlim(-0.12, 0.12); ax.set_axis_off(); ax.view_init(22, -50)
-fig.suptitle("Chapter 6 (Hopkins, FACT) step by step on the flower's strut joints: a flexure ball at each of the twelve strut ends", fontsize=11)
+# ---- figure: a dimensioned section of one leg, and the design trade against the loop's clip
+fig = plt.figure(figsize=(15, 5.2))
+ax = fig.add_subplot(1, 3, 1); ax.set_aspect("equal"); ax.set_title(f"one leg of the flexure ball, section (mm): blades {1e3*t:.1f} x {1e3*w:.0f} (into the page) x {1e3*Lb:.0f} free", fontsize=9)
+d2 = np.array([np.sin(alpha), np.cos(alpha)]); n2 = np.array([np.cos(alpha), -np.sin(alpha)])          # the leg in the section plane, and its normal
+ax.plot([0, 0], [0, -60], color="#7c4a1e", lw=10, solid_capstyle="butt"); ax.text(4, -45, "strut 85 x 5.3", fontsize=8, color="#7c4a1e")
+for p_ in (0, 120, 240):
+    lw_ = 1.0 if p_ else 2.5; dd = np.array([np.sin(alpha)*np.cos(np.radians(p_)), np.cos(alpha)])
+    ax.plot([0, 70*dd[0]], [0, 70*dd[1]], color="#9aa5b1", lw=lw_, ls="-" if p_ == 0 else ":")
+for s_, lab in ((s1, "blade 1"), (s2, "blade 2")):
+    c = 1e3*s_*d2; a_, b_ = c - 0.5e3*Lb*d2, c + 0.5e3*Lb*d2
+    ax.plot([a_[0], b_[0]], [a_[1], b_[1]], color="#d9480f", lw=6, solid_capstyle="butt"); ax.annotate("", xy=c, xytext=(0, 0), arrowprops=dict(arrowstyle="<->", color="#0e7490", lw=0.8, shrinkA=0, shrinkB=0))
+    ax.text(c[0] + 6, c[1] - 2, f"{lab}: s_mid {1e3*s_:.0f} mm, factor {k_amp(s_, Lb):.0f}", fontsize=8)
+for s_ in (s1, s2):
+    for sgn in (-1, 1):
+        c = 1e3*s_*d2 + sgn*0.5e3*Lb*d2; ax.plot([c[0], c[0] + 12*n2[0]], [c[1], c[1] + 12*n2[1]], color="#5b6b7f", lw=0.6)
+ax.scatter([0], [0], color="k", s=30, zorder=5); ax.text(-22, 3, "C", fontsize=10)
+ax.text(2, 62, f"legs at {np.degrees(alpha):.0f} deg to the strut axis, 120 deg apart (dotted: the other two)", fontsize=8)
+ax.set_xlim(-30, 80); ax.set_ylim(-65, 75); ax.set_xlabel("mm"); ax.set_ylabel("mm along the strut axis")
+ax = fig.add_subplot(1, 3, 2); clips = np.array([5, 10, 15, 20, 30, 40, 60])*1e-3; ths = KIN*clips/L_LEG
+for t_, w_, Lb_, col in ((0.8e-3, 120e-3, 20e-3, "#d9480f"), (1.0e-3, 120e-3, 50e-3, "#7c4a1e"), (0.5e-3, 120e-3, 12e-3, "#0e7490")):
+    s2_ = 2*GAP + 1.5*Lb_; sig_ = k_amp(s2_, Lb_)*E_ti*t_*ths/(2*Lb_); ax.plot(1e3*clips, sig_/1e6, color=col, lw=1.5, label=f"t {1e3*t_:.1f}, L {1e3*Lb_:.0f} mm: Euler {4*np.pi**2*E_ti*w_*t_**3/12/Lb_**2/1e3:.0f} kN, joint {3*np.cos(alpha)**2*E_ti*w_*t_/Lb_/2/1e6:.0f} MN/m")
+ax.axhline(0.5*sig_ti/1e6, color="k", lw=0.8, ls="--"); ax.text(6, 0.5*sig_ti/1e6 + 15, "0.5 sigma_y Ti 6Al-4V", fontsize=8)
+ax.axvline(1e3*dl_runs, color="#9aa5b1", lw=0.8); ax.text(1e3*dl_runs + 1, 60, f"the runs used {1e3*dl_runs:.0f} mm", fontsize=8, color="#5b6b7f"); ax.axvline(1e3*clip, color="#d9480f", lw=0.8); ax.text(1e3*clip + 1, 120, f"clip chosen +-{1e3*clip:.0f} mm", fontsize=8, color="#d9480f")
+ax.set_xlabel("loop clip on a leg's length correction (mm)"); ax.set_ylabel("outer blade's bending stress (MPa)"); ax.set_ylim(0, 1400); ax.legend(fontsize=7, loc="upper left"); ax.set_title("the trade: stress at the clip, for blades that hold SF 3 on Euler at survival", fontsize=9)
+ax = fig.add_subplot(1, 3, 3); crit = []
+for c_ in clips:
+    th_ = KIN*c_/L_LEG; bst = None
+    for t_ in (0.3e-3, 0.5e-3, 0.8e-3, 1.0e-3, 1.5e-3, 2.0e-3, 3.0e-3):
+        for w_ in (20e-3, 40e-3, 60e-3, 90e-3, 120e-3):
+            for Lb_ in (5e-3, 8e-3, 12e-3, 20e-3, 30e-3, 50e-3):
+                s2_ = 2*GAP + 1.5*Lb_; sg = k_amp(s2_, Lb_)*E_ti*t_*th_/(2*Lb_); Pc = 4*np.pi**2*E_ti*w_*t_**3/12/Lb_**2; kj = 3*np.cos(alpha)**2*E_ti*w_*t_/Lb_/2
+                if sg < 0.5*sig_ti and Pc > 3*Pleg_s and (bst is None or kj > bst): bst = kj
+    crit.append(bst/EA_L if bst else np.nan)
+ax.plot(1e3*clips, crit, "o-", color="#0e7490"); ax.axhline(1.0, color="k", lw=0.8, ls="--"); ax.text(6, 1.05, "the strut's own EA/L", fontsize=8)
+ax.set_xlabel("loop clip (mm)"); ax.set_ylabel("stiffest feasible joint / the strut's EA/L"); ax.set_title("what the clip buys: joint stiffness (no blade is feasible beyond 30 mm)", fontsize=9)
+for c_, v in zip(clips, crit):
+    if np.isfinite(v): ax.text(1e3*c_ + 0.5, v + 0.15, f"{100/(1 + 2/v):.0f} % leg", fontsize=7)
+fig.suptitle("Chapter 6 (Hopkins, FACT) on the strut joints: a flexure ball at each strut end, its blades sized against the loop's clip", fontsize=10)
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "fact_ball.png"), dpi=110); print("figure written")

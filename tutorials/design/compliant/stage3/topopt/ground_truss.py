@@ -61,26 +61,26 @@ def optimise(tr, f, objective, vol_frac, amax, out_dof=None, iters=150, amin_rel
         if it > 30 and ch < 1e-4: break
     K = tr.stiffness(A); u = tr.solve(K, f); return A, u, hist
 KEEP = 0.05                                                                                    # one threshold for the picture and the count: members above 5 % of the cap
-def draw(ax, tr, A, amax, u=None, scale=0.0, title="", loads=None, supports=None, keep=KEEP):
-    amax_e = A.max()
-    for e in range(len(tr.M)):
+def draw(ax, tr, A, amax, u=None, scale=0.0, title="", loads=None, supports=None, keep=KEEP, proj=(0, 1)):
+    """2-D: as is; 3-D: a projection onto the axes `proj` (plan (0, 1) or elevation (0, 2)), width = area, darkness = area"""
+    amax_e = A.max(); P = lambda v: (v[proj[0]], v[proj[1]])
+    for e in np.argsort(A):
         if A[e] < keep*amax: continue
         i, j = tr.M[e]; p, q = tr.X[i], tr.X[j]
         if u is not None and scale: p = p + scale*u[tr.dim*i: tr.dim*i + tr.dim]; q = q + scale*u[tr.dim*j: tr.dim*j + tr.dim]
         g = 0.85*(1 - A[e]/amax_e); lw = 0.5 + 4.5*A[e]/amax_e
-        if tr.dim == 2: ax.plot([p[0], q[0]], [p[1], q[1]], color=(g, g, g), lw=lw, solid_capstyle="round")
-        else: ax.plot([p[0], q[0]], [p[1], q[1]], [p[2], q[2]], color=(g, g, g), lw=lw)
+        (px, py), (qx, qy) = (p, q) if tr.dim == 2 else (P(p), P(q)); ax.plot([px, qx], [py, qy], color=(g, g, g), lw=lw, solid_capstyle="round")
     if loads is not None:
         for node, vec in loads:
             p = tr.X[node]; v = np.asarray(vec, float); v = 0.15*np.ptp(tr.X, axis=0).max()*v/np.linalg.norm(v)
-            if tr.dim == 2: ax.annotate("", xy=p + v, xytext=p, arrowprops=dict(arrowstyle="->", color="#d9480f", lw=1.5))
-            else: ax.quiver(*p, *v, color="#d9480f")
+            ax.annotate("", xy=p + v, xytext=p, arrowprops=dict(arrowstyle="->", color="#d9480f", lw=1.5))
     if supports is not None:
         S = tr.X[list(supports)]
         if tr.dim == 2: ax.plot(S[:, 0], S[:, 1], "^", color="#0e7490", ms=7)
-        else: ax.scatter(S[:, 0], S[:, 1], S[:, 2], color="#0e7490", s=30)
-    ax.set_title(title, fontsize=9); ax.set_aspect("equal") if tr.dim == 2 else None
+        else: ax.plot(S[:, proj[0]], S[:, proj[1]], "o", color="#0e7490", ms=7, zorder=5)
+    ax.set_title(title, fontsize=9); ax.set_aspect("equal")
     if tr.dim == 2: ax.set_axis_off()
+    else: ax.set_xlabel("xyz"[proj[0]] + " (m)"); ax.set_ylabel("xyz"[proj[1]] + " (m)")
 # ------------------------------------------------------------------------------------------------------ chapter validations
 def grid2d(nx, ny, w, h):
     X = np.array([[w*i/nx, h*j/ny] for j in range(ny + 1) for i in range(nx + 1)]); idx = lambda i, j: j*(nx + 1) + i; return X, idx
@@ -161,8 +161,10 @@ if __name__ == "__main__":
     ax = fig.add_subplot(2, 3, 2); draw(ax, tr, A, 1.0, title=f"after Fig. 7.5: pliers-like half problem, ground structure\njaw u_out {info['u_out']:+.3f} for handle u_in {info['u_in']:+.3f}", loads=info["loads"], supports=info["supports"])
     ax = fig.add_subplot(2, 3, 5); draw(ax, tr, A, 1.0, u=u, scale=0.5, title="deformed (x0.5)", loads=info["loads"], supports=info["supports"])
     tr, A, u, f, info = case_calyx(); rep["calyx"] = {k: v for k, v in info.items() if k != "supports"}
-    ax = fig.add_subplot(2, 3, 3, projection="3d"); draw(ax, tr, A, 6e-4, title=f"the calyx: rim to six anchors, 15 m/s peak\n{info['n_members']} members, {info['mass']:.0f} kg Al, rim tilt {info['rim_tilt_mrad']:.2f} mrad", supports=info["supports"]); ax.view_init(30, -60)
+    ax = fig.add_subplot(2, 3, 3); draw(ax, tr, A, 6e-4, title=f"the calyx in plan: rim (r 2.1) to the six anchors (blue, r 1.0), 15 m/s peak\n{info['n_members']} members above 5 %, {info['mass']:.0f} kg Al asked, rim tilt {info['rim_tilt_mrad']:.2f} mrad", supports=info["supports"], proj=(0, 1))
+    th_ = np.linspace(0, 2*np.pi, 100); ax.plot(2.1*np.cos(th_), 2.1*np.sin(th_), color="#9aa5b1", lw=0.8, ls="--")
     tr, A, u, f, info = case_receptacle(); rep["receptacle"] = {k: v for k, v in info.items() if k != "supports"}
-    ax = fig.add_subplot(2, 3, 6, projection="3d"); draw(ax, tr, A, 6e-4, title=f"the receptacle ring: six anchors to the wrist, +-3.5 kN\n{info['n_members']} members, {info['mass']:.0f} kg Al, anchor {info['anchor_disp_mm']:.2f} mm", supports=info["supports"]); ax.view_init(40, -60)
+    ax = fig.add_subplot(2, 3, 6); draw(ax, tr, A, 6e-4, title=f"the receptacle in plan: the six strut anchors (r 1.5, +-3.5 kN alternating) to the wrist (blue, centre)\n{info['n_members']} members above 5 %, {info['mass']:.0f} kg Al asked, anchor moves {info['anchor_disp_mm']:.1f} mm", supports=info["supports"], proj=(0, 1))
+    for k in range(6): ax.plot(tr.X[k, 0], tr.X[k, 1], "s", color="#d9480f", ms=6)
     fig.suptitle("Chapter 7 by ground structure (Frecker): the book's two examples, then the flower's calyx and receptacle as minimum-compliance trusses", fontsize=11)
     fig.tight_layout(); fig.savefig(os.path.join(OUT, "ground_truss.png"), dpi=110); json.dump(rep, open(os.path.join(OUT, "ground_truss.json"), "w"), indent=1); print(json.dumps(rep, indent=1))

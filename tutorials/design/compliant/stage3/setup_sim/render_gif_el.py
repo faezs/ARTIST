@@ -15,19 +15,22 @@ def ring(c, n, r, k=48):
 def draw(ax, k, lab=True):
     fr = FR[k]; l = L[k]; rods = [np.array(r) for r in fr[:NR]]; P, tip = np.array(fr[NR][0]), np.array(fr[NR][1]); nrm = (tip - P)/2.0; C_rec = np.array(fr[NR + 1][0])
     ax.cla(); ax.set_xlim(-2, 6); ax.set_ylim(-4, 4); ax.set_zlim(0, 6); ax.set_box_aspect((8, 8, 6)); ax.view_init(elev=22, azim=-135); ax.set_axis_off()
-    xx, yy = np.meshgrid([-2, 6], [-4, 4]); ax.plot_surface(xx, yy, np.zeros_like(xx), color="#d9dde3", alpha=0.35)
+    xx, yy = np.meshgrid([-2, 6], [-4, 4]); ax.plot_surface(xx, yy, np.zeros_like(xx), color="#d9dde3", alpha=0.35); ax.plot([-2, 6, 6, -2, -2], [-4, -4, 4, 4, -4], [0, 0, 0, 0, 0], color="#6b7280", lw=1.0)
     th = np.linspace(0, 2*np.pi, 40)
-    for z in (0.0, F[2]): ax.plot(PIPE_R*np.cos(th), PIPE_R*np.sin(th), z, color="#1f2937", lw=1)
-    for a in (0, np.pi/2, np.pi, 3*np.pi/2): ax.plot([PIPE_R*np.cos(a)]*2, [PIPE_R*np.sin(a)]*2, [0, F[2]], color="#1f2937", lw=0.8)
-    ax.plot(rods[0][:, 0], rods[0][:, 1], rods[0][:, 2], color="#5b3a12", lw=4)                                   # the stem
-    ax.plot(rods[1][:, 0], rods[1][:, 1], rods[1][:, 2], color="#5b3a12", lw=3)                                   # the pedicel's boom
+    for z in (0.0, F[2]): ax.plot(PIPE_R*np.cos(th), PIPE_R*np.sin(th), z, color="#a3aab5", lw=1)
+    for a in (0, np.pi/2, np.pi, 3*np.pi/2): ax.plot([PIPE_R*np.cos(a)]*2, [PIPE_R*np.sin(a)]*2, [0, F[2]], color="#a3aab5", lw=0.8)
+    if lab: ax.text(0.5, 0.6, F[2] + 0.2, "light pipe on the roof; F at its top", fontsize=6.5, color="#4b5563")
+    ax.plot(rods[0][:, 0], rods[0][:, 1], rods[0][:, 2], color="#5b3a12", lw=5)                                   # the stem
+    ax.plot(rods[1][:, 0], rods[1][:, 1], rods[1][:, 2], color="#8b5a2b", lw=3)                                   # the pedicel's boom
+    ax.scatter(*rods[0][0], color="#5b3a12", s=40, marker="s")
+    if lab: ax.text(rods[0][0, 0] + 0.15, rods[0][0, 1], 0.05, "stem, 1 m, on the deck", fontsize=6.5, color="#5b3a12"); ax.text(rods[1][-1, 0], rods[1][-1, 1], rods[1][-1, 2] + 0.15, "pedicel (telescoping boom) lifts the head", fontsize=6.5, color="#8b5a2b")
     base = np.array([r[0] for r in rods[2:8]]); plat = np.array([r[-1] for r in rods[2:8]])
     nb = np.cross(base[1] - base[0], base[3] - base[0]); nb /= np.linalg.norm(nb)
     rg = ring(C_rec, nb, 1.5); ax.plot(rg[:, 0], rg[:, 1], rg[:, 2], color="#5b3a12", lw=2)                        # the receptacle ring
     pr = np.vstack([plat, plat[:1]]); ax.plot(pr[:, 0], pr[:, 1], pr[:, 2], color="#7c4a1e", lw=1.2)                # the platform ring through the strut heads
     for r in rods[2:8]: ax.plot(r[:, 0], r[:, 1], r[:, 2], color="#7c4a1e", lw=2.5)                                # the struts
     rim = ring(P, nrm, 2.1); ax.plot(rim[:, 0], rim[:, 1], rim[:, 2], color="#9aa5b1", lw=2)                        # the head's rim
-    for i in range(0, 48, 12): ax.plot(*zip(rim[i], F), color="#d9480f", lw=0.6, alpha=0.7)                       # the beam to F
+    for i in range(0, 48, 12): ax.plot(*zip(rim[i], F), color="#d4a017", lw=0.7, ls=(0, (2, 3)), alpha=0.9)            # sunlight reflected to F (dashed: light, not cables)
     ax.scatter(*F, color="#7c3aed", s=40); ax.plot(*zip(P, P + 3*nrm), color="#0e7490", lw=1.2)
     if lab:
         ph = "setup: the pedicel rises, the struts pump" if l["t"] < T_S else ("calibration dither (identification)" if l["t"] < T_S + T_C else "tracking the sun")

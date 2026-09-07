@@ -162,16 +162,23 @@ json.dump(dict(T_pre=T_PRE, dp=DP, sag_mm=1e3*w0, N_rim=N_rim, slope_rim_deg=np.
                harm_static_mm=(1e3*hw_s).tolist(), harm_wind_axial_mm=(1e3*hw_d).tolist(), harm_wind_radial_mm=(1e3*hr_d).tolist(), tilt_mrad=1e3*tilt, walk_cm=1e2*walk, fig_rms_mrad=1e3*rms_fig, lines=lines), open(os.path.join(OUT, "ring_calyx.json"), "w"), indent=1)
 open(os.path.join(OUT, "ring_calyx.txt"), "w").write("\n".join(lines) + "\n")
 # ------------------------------------------------------------------ figure
-fig = plt.figure(figsize=(15, 5))
-ax = fig.add_subplot(1, 3, 1, projection="3d"); ax.set_title(f"ring (Al {1e3*D_R:.0f} x {1e3*T_R:.0f}) and the spider the ground structure kept: {int(kept.sum())} bars, {m_spider:.0f} kg", fontsize=9)
-for i, j in frame_el: ax.plot(*zip(X[i], X[j]), color="#5b3a12", lw=2.5)
-for e in range(len(M)):
+fig = plt.figure(figsize=(16, 5))
+ax = fig.add_subplot(1, 3, 1); ax.set_aspect("equal"); ax.set_title(f"plan: the ring (Al {1e3*D_R:.0f} x {1e3*T_R:.0f}) and the spider's {int(kept.sum())} bars to the six anchors (blue), width = area", fontsize=9)
+thr = np.linspace(0, 2*np.pi, 200); ax.plot(A_M*np.cos(thr), A_M*np.sin(thr), color="#5b3a12", lw=3)
+for e in np.argsort(A):
     if A[e] < 0.05*amax: continue
-    i, j = M[e]; g_ = 0.8*(1 - A[e]/A.max()); ax.plot(*zip(X[i], X[j]), color=(g_, g_, g_), lw=0.5 + 3*A[e]/A.max())
-ax.scatter(X[n_anchor0:n_anchor0 + 6, 0], X[n_anchor0:n_anchor0 + 6, 1], X[n_anchor0:n_anchor0 + 6, 2], color="#0e7490", s=30); ax.view_init(28, -60); ax.set_axis_off()
-ax = fig.add_subplot(1, 3, 2); w_img = res1["w"].numpy() - res0["w"].numpy(); w_img[~res1["inside"].numpy()] = np.nan
-im = ax.imshow(1e3*w_img.T, origin="lower", extent=[-ext, ext, -ext, ext], cmap="RdBu_r"); plt.colorbar(im, ax=ax, label="mm"); ax.set_title(f"the gust's change of the membrane (2-D FvK), rms slope error {1e3*se0:.2f} -> {1e3*se1:.2f} mrad", fontsize=9)
-ax = fig.add_subplot(1, 3, 3); nn = np.arange(7); ax.bar(nn - 0.2, 1e3*hw_d, 0.4, label="axial (mm)"); ax.bar(nn + 0.2, 1e3*hr_d, 0.4, label="radial (mm)"); ax.set_xlabel("harmonic n around the rim"); ax.set_yscale("log"); ax.legend(fontsize=8)
-ax.set_title(f"the ring's motion under the gust: n1 tilt {1e2*walk:.2f} cm at F, n>=2 figure {1e2*2*rms_fig*F_DES:.2f} cm", fontsize=9)
-fig.suptitle(f"The head as built: Mylar on a ring, pumped to f 4 at {DP:.0f} Pa; the gust at {V_PEAK} m/s through the membrane into the ring and the spider (chapter 7's ground structure) to the six anchors", fontsize=10)
+    i, j = M[e]; ax.plot([X[i, 0], X[j, 0]], [X[i, 1], X[j, 1]], color="#4a5568", lw=0.3 + 4*A[e]/A.max(), alpha=0.85)
+ax.scatter(X[n_anchor0:n_anchor0 + 6, 0], X[n_anchor0:n_anchor0 + 6, 1], color="#0e7490", s=50, zorder=5)
+for k in range(6): ax.text(X[n_anchor0 + k, 0]*1.12, X[n_anchor0 + k, 1]*1.12, f"A{k}", fontsize=8, color="#0e7490", ha="center")
+ax.annotate("wind (S)", xy=(1.9, -2.3), xytext=(0.9, -2.3), arrowprops=dict(arrowstyle="->", color="#d9480f"), fontsize=8, color="#d9480f")
+ax.set_xlim(-2.4, 2.4); ax.set_ylim(-2.5, 2.4); ax.set_xlabel("x north (m)"); ax.set_ylabel("y (m)")
+ax = fig.add_subplot(1, 3, 2); w_static = 1e3*w_s; w_gust = 1e3*w_d; ur_gust = 1e3*ur_d
+ax.plot(np.degrees(th_r), w_static - w_static.mean(), color="#9aa5b1", lw=1.2, label=f"film's pull alone, axial minus its {w_static.mean():.2f} mm piston")
+ax.plot(np.degrees(th_r), w_gust, color="#d9480f", lw=1.8, label="the gust adds, axial")
+ax.plot(np.degrees(th_r), ur_gust, color="#0e7490", lw=1.2, ls="--", label="the gust adds, radial")
+for k in range(6): ax.axvline(np.degrees(np.arctan2(X[n_anchor0 + k, 1], X[n_anchor0 + k, 0])) % 360, color="#0e7490", lw=0.5, alpha=0.5)
+ax.axhline(0, color="k", lw=0.5); ax.set_xlabel("position around the rim (deg from north)"); ax.set_ylabel("rim displacement (mm)"); ax.legend(fontsize=7, loc="upper right"); ax.set_title("how the rim moves under the 15 m/s gust (anchor azimuths as thin lines)", fontsize=9)
+ax = fig.add_subplot(1, 3, 3); nn = np.arange(7); ax.bar(nn - 0.2, 1e3*hw_d, 0.4, color="#d9480f", label="axial (mm)"); ax.bar(nn + 0.2, 1e3*hr_d, 0.4, color="#0e7490", label="radial (mm)"); ax.set_xlabel("harmonic n around the rim"); ax.set_yscale("log"); ax.legend(fontsize=8)
+ax.set_title(f"the same as harmonics: n 1 tilts the film ({1e2*walk:.2f} cm at F), n >= 2 bends it ({1e2*2*rms_fig*F_DES:.2f} cm of blur)", fontsize=9)
+fig.suptitle(f"The head as built: Mylar on a ring, pumped to f 4 at {DP:.0f} Pa; the film's pull ({2*np.pi*A_M*q_line_z/1e3:.0f} kN) and the 15 m/s gust into the ring and the spider (ground structure) to the six anchors", fontsize=10)
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "ring_calyx.png"), dpi=110); print("figure written")
