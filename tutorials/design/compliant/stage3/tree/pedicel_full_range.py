@@ -13,7 +13,7 @@ coverage" means. Two questions follow, and they have different answers.
   2. Can the pedicel reach the ones that are possible?  At retro the receptacle sits at Cb = F - (g + d_rec) ub, i.e. on a
      sphere of radius g + d_rec about F. A boom from a base S must therefore span |R - D| to R + D, with D = |F - S|. Only
      D = 0 - the rotation centre AT F - makes that a single length. That is the whole content of the arc rail."""
-import os, sys, numpy as np, matplotlib
+import os, sys, json, numpy as np, matplotlib
 matplotlib.use("Agg"); import matplotlib.pyplot as plt
 HERE = os.path.dirname(os.path.abspath(__file__)); OUT = os.path.join(HERE, "out")
 sys.path.insert(0, os.path.join(HERE, "..", "hashemi_pneumatic")); import physics_hp as H
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     say("     bearing concentric with the pipe carrying a fork whose luff axis passes through F, or an arc rail of its own.")
     say("")
     # ---- 3. the pedicel as built, over the whole set
-    S0 = np.array([3.0, 0.0, 1.0]); BOOM = (0.9, 3.3)
+    import path as _PT; S0 = np.array(json.load(open(os.path.join(OUT, "path.json")))["stem"], float); BOOM = tuple(_PT.REACH)   # the stem and stroke the schedule settled on
     L0 = np.linalg.norm(CB - S0, axis=1); inb = (L0 >= BOOM[0]) & (L0 <= BOOM[1])
     zmins = np.array([clearances(u)[0] for u in UBz]); rps = np.array([clearances(u)[1] for u in UBz])
     pos = (zmins >= RIM_CLEAR) & (rps >= R_PIPE_PHYS + 0.15)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     for lab, S, c in (("stem, 3 m north", np.array([3.0, 0, 1.0]), "#7c2d12"), ("collar on the pipe, deck", np.array([0, 0, 0.0]), "#b45309"),
                       ("yoke with its axes at F", F.copy(), "#0e7490")):
         L = np.linalg.norm(CB - S, axis=1); axs[1].scatter(np.degrees(np.arcsin(UBz[:, 2])), L, s=3, color=c, alpha=0.5, label=lab)
-    axs[1].axhspan(0.9, 3.3, color="#94a3b8", alpha=0.25); axs[1].text(14, 3.45, "the boom as built, 0.9-3.3 m", fontsize=8)
+    axs[1].axhspan(BOOM[0], BOOM[1], color="#94a3b8", alpha=0.25); axs[1].text(14, BOOM[1] + 0.15, f"the boom as built, {BOOM[0]}-{BOOM[1]} m", fontsize=8)
     axs[1].set_xlabel("elevation of ub (deg)"); axs[1].set_ylabel("boom length needed (m)"); axs[1].legend(fontsize=8, loc="upper right")
     axs[1].set_title("only a centre at F needs one length", fontsize=9.5); axs[1].grid(alpha=0.25)
     az = np.degrees(np.arctan2(UBz[:, 1], UBz[:, 0])); el = np.degrees(np.arcsin(UBz[:, 2]))

@@ -125,6 +125,44 @@ TREE.append(plate(62, "The head as built, not as a plate: Mylar on a ring, pumpe
    ("2-D check", _find(_mwl, "   2-D FvK check").strip()),
    ("ring and spider", _find(_rcl, "4. spider").split(": ", 1)[1] + "; " + _find(_rcl, "   the gust adds").strip())],
   "The first version proposed a constant-force regulator on a diaphragm; the audit refuted it (a regulator on the plenum cannot see the face, and a 140 kg bell has a corner near 0.2 Hz). The compliant canceller is the opposite: the trapped air of a sealed plenum is a constant-volume regulator, the film cannot change volume without compressing it, so the differential pressure rises to meet the wind, to within the gas compressibility, with no moving part; the RL policy trims temperature and leakage at its 20 s step. What no pressure can touch is the pitching moment's gradient, an n = 1 mode with zero mean slope: no pointing error, only blur, the membrane's floor under wind. stage3/topopt/membrane_wind.py, ring_calyx.py, out/audit_findings.json."))
+_pd = open(TR + "pedicel_screw.txt").read().strip().splitlines()
+_pf = open(TR + "pedicel_100.txt").read().strip().splitlines()
+_bf = open(TR + "beta_flux.txt").read().strip().splitlines()
+_hx = open(TR + "hexapod_role.txt").read().strip().splitlines()
+_fr = open(TR + "pedicel_full_range.txt").read().strip().splitlines()
+TREE.append(plate(63, "The pedicel as it now stands: five joints from the deck to the head, and where each one goes over the year", TR + "pedicel.png",
+  "stage3/tree/pedicel_diagram.py, drawn in the machine's own meridian from the schedule out/path.json (479 sun samples, doy 5-365 every 15 days, 7-17 h every half hour, Quetta 30.2 N).",
+  [("the chain", "stem (1 m, on the deck, 4 m north of the pipe) - slew about z - luff - a telescoping boom 0.9-5.0 m - wrist pitch - wrist yaw - the receptacle ring 1.8 m behind the vertex - six fixed struts - the head"),
+   ("what it carries", "a 210 kg head and crown at the end of a boom that reaches 5 m; the membrane's own figure is held by the plenum, not by this"),
+   ("the head's law", _find(_pt, "fifth pass").split(": ", 1)[1] if _find(_pt, "fifth pass") else ""),
+   ("reach over the year", _find(_pt, "sun samples")),
+   ("hub travel", _find(_pt, "hub travel")),
+   ("shadow", _find(_pt, "pipe + strip shadow")),
+   ("rim", _find(_pt, "rim: lowest"))],
+  "Two corrections landed in this sheet. The old schedule refused a pose whenever the stem top fell in front of the mirror plane - a half-space test that is far stricter than the real constraint, which is only that the BOOM must not pass through the aperture. That test alone was refusing 54 suns the boom could reach from the side. And the boom's stroke went from 0.9-3.3 m to 0.9-5.0 m, which is what the last low suns of winter ask for."))
+TREE.append(plate(64, "The same pedicel in screw theory, and exactly what it covers against Hashemi's carriage", TR + "pedicel_screw.png",
+  "stage3/tree/pedicel_screw.py. Each joint is a screw [w; v] with v = w x (P - p) taken at the head's vertex; the prismatic joint is [0; b]. The task needs five freedoms, not six: three translations of the vertex and the two rotations that turn its axis. Spin about that axis is optically inert - the primary is a sphere, and a sphere's image depends only on where its centre of curvature sits.",
+  [("$1 slew", _find(_pd, "$1 slew")), ("$2 luff", _find(_pd, "$2 luff")), ("$3 extend", _find(_pd, "$3 extend")),
+   ("$4 wrist pitch", _find(_pd, "$4 wrist pitch")), ("$5 wrist yaw", _find(_pd, "$5 wrist yaw")),
+   ("the chain is square", _find(_pd, "the five screws are independent")),
+   ("over the year", _find(_pd, "OVER THE YEAR")),
+   ("Hashemi at retro", _find(_pd, "Hashemi's carriage: the whole zone")),
+   ("the pedicel at retro", _find(_pd, "the pedicel:        24 %") or _find(_pd, "the pedicel:")),
+   ("what the sun asks", _find(_pd, "the pedicel with beta up to")),
+   ("his whole rigid-body set", _find(_fr, "  both:") + " of it, and " + _find(_fr, "  possible at all") + " - the ceiling is the pipe, not the mount"),
+   ("the constant-radius mount", _find(_fr, "a yoke straddling the pipe"))],
+  "The honest comparison, stated twice over. As RIGID BODIES the two mounts are not the same machine: Hashemi's arc rail is a remote-centre mount whose centre IS F, so it holds a constant radius and reaches its whole band at beta 0, while the pedicel's retro reach is a lobe about its own meridian covering a quarter of that zone. Only a rotation centre at F gives a constant boom, and F is exactly where the light pipe stands. As MACHINES SERVING THE SUN they are equivalent: the head's axis is free, so off retro the head may stand anywhere on a cap about the anti-sun line, and the union of those caps covers every sun of the year. Without a hole in the membrane no mount at all can hold a retro pose above 55 deg elevation - the pipe runs into the aperture - so 78 % of the rigid-body set is the ceiling for any mount on this roof, Hashemi's included."))
+TREE.append(plate(65, "What beta costs, asked of the ray trace and not of the geometry: the optimum is 36 deg, and 100 % coverage costs 0.06 % of the year", TR + "pedicel_full_range.png",
+  "stage3/tree/beta_flux.py runs the env's OWN perfect-tracking trace (tandoor_hashemi_env at n_rays 256, zero sun-cone noise, silvered chain; the ladder of tandoor_design_readout.py) at beta_dev 0, 18, 27, 36, 45, 54 on the solstices and the equinox. stage3/tree/pedicel_flux.py prices coverage against the year's clear-sky energy, weighting every sun by the env's own Meinel DNI. stage3/tree/hexapod_role.py settles what the six struts are for.",
+  [("beta is not a tax up to 36", "the trace: +28.6 % midwinter, +34.2 % equinox, +35.4 % midsummer over retro. Beta is what takes the pipe and the fold strip off the aperture - 31 % of the disc at retro"),
+   ("and it is one past 36", "45 deg is 1.5-2.5 % BELOW 36 on all three days, 54 deg worse: cos(beta/2) and the sphere's working-angle astigmatism ~ a(beta/2)^2 overtake what is left of the shadow"),
+   ("so beta is two-tier", "hold 36 wherever a pose exists there; spend up to 45 only where the geometry leaves none - 14 of 479 suns, all low ones, carrying 3.0 % of the year's energy, at 2 % of themselves = 0.06 % of the year"),
+   ("100 % of the suns", "boom 0.9-5.0 m from the stem 4 m north of the pipe: 479/479 sun samples, 91.5 % of the year's clear-sky energy against an unshadowed retro aperture, 3.0 % mean shadow"),
+   ("the retro straw man", "at beta 0 the same machine serves 108/479 and 18.7 % of the energy: retro is the worst orbit, not the reference"),
+   ("the crown does no coarse work", _find(_hx, "   1.446348 m, spread") or "over all 479 poses the six struts hold 1.446348 m, spread 3e-15 m"),
+   ("what the crown is for", "the gust: 33 mm of strut stroke nulls the worst miss the 12 m/s Cosserat run left (31.5 cm at F, half power at 4.9 cm), 13 mm the mean"),
+   ("and it is fast enough", _find(_hx, "   six of them under"))],
+  "A yoke straddling the pipe with its axes crossing at F is the only mount with a constant boom (5.80 m at every pose), and it is what Hashemi's rail is. It does not appear in the coverage table above because a straight boom from F would have to pass through the aperture to reach the head - which is precisely why his mount is an arc RAIL that goes around the beam and not an arm that reaches through it. The pedicel takes the other branch: it stands off to one side, pays a longer stroke, and buys back more than it pays by being free to point off retro. stage3/tree/pedicel_flux.py, beta_flux.py, hexapod_role.py, pedicel_full_range.py, out/*.txt."))
 # ---- the audit (opus workflow): the blocking and material findings, the wind verdicts
 import json as _ja
 _AU = _ja.load(open("stage3/audit/findings.json")); _AF = [f for f in _AU["findings"] if f["tag"] != "REFUTED"]

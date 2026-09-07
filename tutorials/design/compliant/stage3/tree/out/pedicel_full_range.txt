@@ -17,6 +17,6 @@ a yoke straddling the pipe, axes crossing AT F         0.00    5.80 - 5.80 m    
 
 THE PEDICEL AS BUILT over Hashemi's whole set (2808 poses, elevation 12-88 at every azimuth):
   possible at all (no hole in the membrane): 78 % of the set
-  the boom reaches:                          22 %
-  both:                                      14 %
+  the boom reaches:                          40 %
+  both:                                      27 %
   with a boom of 0.9-10.7 m instead:         78 % (every pose the pipe allows)
