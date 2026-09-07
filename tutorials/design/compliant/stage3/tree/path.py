@@ -16,7 +16,8 @@ RIM_CAP = 9.9                                     # beta_cap_z 7.6 is inert at b
 R_PIPE, D_STRIP, R_STRIP = 0.7, 0.6, 0.6          # r_bore, d_strip, r_strip
 F = np.array([0.0, 0.0, Z_F]); Z = np.array([0, 0, 1.0])
 H_STEM, D_BACK, R_BACK = 1.0, 0.45, 1.5           # stem height; the back ring 0.45 m behind the vertex, r 1.5, where the branches hold the head
-REACH = (1.0, 3.0)                                # hub distance from the receptacle: the hexapod's reach (legs 1.5-3.5 m)
+REACH = (0.6, 3.3)                                # the pedicel's boom, from the stem top to the receptacle ring 1.8 m behind the vertex (setup_sim5.py, flower_elastica.py)
+D_REC = 1.8                                       # the receptacle ring behind the vertex: D_BACK 0.6 + H_HEX 1.2
 RIM_CLEAR = 0.3
 def suns(step_doy=15, step_h=0.5):
     out = []
@@ -44,7 +45,8 @@ def shadow_frac(P, n, s):
 def evaluate(P, n, s, S):
     e1, e2 = frame_n(n); rim = P + A_M*(np.cos(PH)[:, None]*e1 + np.sin(PH)[:, None]*e2)
     zmin, zmax = rim[:, 2].min(), rim[:, 2].max()
-    below = rim[:, 2] < Z_F + 0.5; rp = np.min(np.hypot(rim[:, 0], rim[:, 1])[below]) if below.any() else 9.9
+    Q = P + disc[:, :1]*e1 + disc[:, 1:]*e2                                            # the whole aperture, not the rim alone: the pipe must not pass through the membrane
+    below = Q[:, 2] < Z_F + 0.3; rp = np.min(np.hypot(Q[:, 0], Q[:, 1])[below]) if below.any() else 9.9
     beta = np.degrees(np.arccos(np.clip(n@s, -1, 1))); reach = np.linalg.norm(P - S)
     return dict(zmin=zmin, zmax=zmax, rp=rp, beta=beta, reach=reach, shadow=shadow_frac(P, n, s))
 BETA_MAX = 36.0
@@ -60,7 +62,7 @@ def best_pose(s, S, w_beta=0.02, w_move=0.0, P_prev=None):
             if beta > BETA_MAX: continue
             P = F - G*ub; n = s + ub; n /= np.linalg.norm(n)
             if n@(P - S) < 0: continue                                              # the crown is behind the dish
-            if not (REACH[0] <= np.linalg.norm(P - S) <= REACH[1]): continue
+            if not (REACH[0] <= np.linalg.norm(P - D_REC*n - S) <= REACH[1]): continue      # the boom's length to the receptacle ring
             if LEG_CHECK is not None and not LEG_CHECK(P, n): continue
             ev = evaluate(P, n, s, S); ev["beta"] = beta
             if ev["zmin"] < RIM_CLEAR or ev["zmax"] > RIM_CAP or ev["rp"] < R_PIPE + 0.3: continue
@@ -96,7 +98,7 @@ if __name__ == "__main__":
     Ps = np.array([l["P"] for l in good]); betas = np.array([l["beta"] for l in good]); sh = np.array([l["shadow"] for l in good])
     lines = [f"fifth pass, one stem, the env's head law (orbit sphere |P - F| = {G}, axis the bisector, beta <= {BETA_MAX} deg): F at {Z_F:.2f} m over the deck; the receptacle {xs} m north of it at {H_STEM} m; rim at least {RIM_CLEAR} m over the deck; the hub within {REACH[0]}-{REACH[1]} m of the receptacle (the hexapod's reach)",
              f"sun samples {len(log)}, reachable {len(good)}; head axis elevation {min(l['el_n'] for l in good):.0f}-{max(l['el_n'] for l in good):.0f} deg; off-retro beta mean {betas.mean():.1f} deg, max {betas.max():.1f}",
-             f"hub travel: x {Ps[:,0].min():.2f}..{Ps[:,0].max():.2f} m, y +-{np.abs(Ps[:,1]).max():.2f} m, z {Ps[:,2].min():.2f}..{Ps[:,2].max():.2f} m over the deck; the whole path fits in a box {Ps[:,0].ptp():.2f} x {Ps[:,1].ptp():.2f} x {Ps[:,2].ptp():.2f} m",
+             f"hub travel: x {Ps[:,0].min():.2f}..{Ps[:,0].max():.2f} m, y +-{np.abs(Ps[:,1]).max():.2f} m, z {Ps[:,2].min():.2f}..{Ps[:,2].max():.2f} m over the deck; the whole path fits in a box {np.ptp(Ps[:,0]):.2f} x {np.ptp(Ps[:,1]):.2f} x {np.ptp(Ps[:,2]):.2f} m",
              f"pipe + strip shadow on the aperture: mean {100*sh.mean():.1f} %, max {100*sh.max():.1f} % (retro would be about 31 %)",
              f"rim: lowest {min(l['zmin'] for l in good):.2f} m, highest {max(l['zmax'] for l in good):.2f} m over the deck"]
     for l in lines: print(l)
