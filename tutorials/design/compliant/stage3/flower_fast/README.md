@@ -84,9 +84,29 @@ driven by the structure's acceleration and driving the lift back:
 
     q'' + eps w_s (q^2 - 1) q' + w_s^2 q = (A/D) y''      F_lift = 0.5 rho U_n^2 D L (C_L0/2) q
 
-with eps 0.3, A 12, C_L0 0.3, and only the CROSS-flow component of the wind shedding. q = 0 is an exact equilibrium, so
-it is seeded with noise at reset. Measured at 7.2 m/s: q grows from 0.01 to 1.27 and the shedding frequency is pulled
-to 6.52-6.82 Hz against the mode's 6.57 - captured, which is what lock-in is.
+with eps 0.3, A 12, C_L0 0.3, and only the CROSS-flow component of the wind shedding. q = 0 is an exact equilibrium,
+so it is seeded with noise at reset.
+
+AND THE ANSWER IS THAT THIS MACHINE DOES NOT LOCK IN. Swept from 3 to 18 m/s, the wake variable sits at 1.27 at every
+wind - which is exactly the FREE Van der Pol limit cycle, mean |2 sin| = 4/pi - and the shedding frequency tracks
+St U / d exactly (2.66, 4.45, 6.25, 8.06, 12.64 Hz) with no capture anywhere. The response grows monotonically as U^2
+with no peak at the crossing:
+
+| wind | sheds at | wake q | deflection | beam at the receiver |
+|---|---|---|---|---|
+| 6 m/s | 5.35 Hz | 1.277 | 0.27 mm | 0.81 mm |
+| 7.5 m/s (the crossing) | 6.70 Hz | 1.275 | 0.42 mm | 1.27 mm |
+| 9 m/s | 8.06 Hz | 1.274 | 0.61 mm | 1.85 mm |
+| 18 m/s | 16.33 Hz | 1.267 | 2.52 mm | 7.61 mm |
+
+The reason is amplitude. Capture needs the structure to move on the order of 5 % of the tube's diameter, about 11 mm
+here; the boom moves 0.4 mm, two parts in a thousand of D. The coupling term (A/D) y'' comes to about 37 against a
+restoring term w_s^2 q of about 2180 - under 2 %, so the wake never feels the structure and runs free.
+
+A WARNING FOR ANYONE READING THE FIRST DRAFT OF THIS FILE: at 7.2 m/s St U / d is 6.58 Hz and the mode is 6.57 Hz, so
+a single run at that wind shows the two frequencies agreeing. That is the CROSSING, by construction - not capture.
+Reading it as lock-in is the obvious mistake and it was made here before the sweep was run. The test for capture is
+that the shedding frequency stops tracking St U / d, and it never does.
 
 The dish sheds too, at St 0.135, which is 0.39 Hz at 12 m/s - far below both the bending mode (6.6 Hz) and the tilt
 mode (14.3 Hz), so it cannot lock in. It is carried as a narrowband cross-wind force because it still sits in the band
