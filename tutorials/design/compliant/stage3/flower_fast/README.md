@@ -19,14 +19,38 @@ axes, the plenum's level and its valve. The reward is Hashemi's own, resampled -
 so a second here pays what a second of his does. The primary is his membrane, actuated his way: his seven exact FvK
 setpoints, his pump slew, his DNI-correlated plenum disturbance.
 
+## AGAINST THE RAY TRACE, the numbers below were wrong by thirty times
+
+The first version scored the beam with a closed form fitted to "half power at a 4.9 cm miss". Driving the megakernel
+from the flower's own head pose - one launch, 3.9 ms at 8192 agents by 64 rays, i.e. 2.1 M agent-steps/s, CHEAPER than
+the closed form it replaced - gives the real acceptance:
+
+| beam moves | traced power, per loaf |
+|---|---|
+| 8 mm | 100.0 % |
+| 32 mm | 99.4 % |
+| 96 mm | 93.6 % |
+| 240 mm | 52.2 % |
+
+Half power is at about 24 cm, not 4.9. So nulling the standing 2.5 cm aim error is worth **+0.4 %**, not the +12.4 %
+the fitted curve reported. The duct is r 0.2 m and the traced spot is 3 cm rms: the optics were built with margin, and
+the margin swallows everything a fast loop could fix.
+
+Two things the trace also forced:
+* the flux camera is now the histogram of where the traced rays actually land at the receiver, not a Gaussian - it has
+  whatever coma, astigmatism and clipping the optics produce, and the duct's rim in frame as its fixed reference;
+* the dough term reads the megakernel's PER-LOAF bins, as Hashemi's own reward does. Scoring total throughput hid the
+  only spatially sensitive thing in the machine: which loaf the energy lands on. It is what makes the curve above bend
+  at all - on total throughput it is still 91 % at 160 mm.
+
 ## What running it established
 
 Measured, not assumed:
 
 | | miss at F | reward / step | |
 |---|---|---|---|
-| open loop | 2.16 cm | 1.107e-4 | the outer loop's standing aim error |
-| integral control on the camera centroid | 0.03 cm | 1.245e-4 | **+12.4 %** |
+| open loop | 2.55 cm | 7.39e-5 | the outer loop's standing aim error |
+| integral control on the camera centroid | 0.03 cm | 7.42e-5 | **+0.4 %** (traced) |
 
 So there IS a job worth about an eighth of the delivered power, and it is a job a camera can see. But it is NOT the job
 the fast loop was proposed for. At 12 m/s the head deflects 0.85 mm and the image moves about 0.03 mm - a thousand times
