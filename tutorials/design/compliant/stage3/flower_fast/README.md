@@ -149,3 +149,37 @@ One thing this did surface and it is still open: with the offset REMOVED, F sits
 dish's high-sun clearance past it becomes load-bearing - and neither tandoor_flower_env.py nor the fast env checks
 clearance at all. path.py in the tree folder tests the aperture against the pipe (>= R_PIPE + 0.3) and the rim against
 the deck; nothing equivalent runs in the envs. With the offset restored that check is not urgent, but it is missing.
+
+## Why the eval drew the room and the pot and nothing else
+
+The renderer's whole optical half - the dish, the rays, the fold, the duct, the ladder - hangs off `self._hv`, and
+`_hv` is filled by `_render_trace()`. That call existed in exactly one place:
+
+    def step(self):        ...  if self.render_mode == "human": self._sync_from_gpu(); self._render_trace()
+    def step_torch(self):  ...  (nothing)
+
+and `puffer_tandoor/__init__.py` installs `tandoor_fast_collect`, which routes evaluation through `env.step_torch`
+whenever the env exposes it - "keeps policy<->env exchange on MPS". So every eval took the one path that never built
+the trace. `_hv` stayed None, and the renderer drew the room and the pot.
+
+Fixed by giving `step_torch` the same two lines under the same `render_mode == "human"` gate, so training never pays
+for it. Verified: after one step_torch in human mode `_hv` carries 256 rays at dish, fold, m5 and duct, and the ladder
+is populated. This was not a flower bug - any `puffer eval` on the megakernel path had it.
+
+Separately, `_draw_flower` opened with `if H is None: return`, so a missing trace took the STEM with it - the mount
+vanished entirely rather than being drawn unlit. `_flower_geom` now falls back to the mount's own solve
+(`_fl_head_pose`), and to a parked pose on the orbit if nothing has stepped, so the frame is drawn whether or not
+there is light in it.
+
+## The frames of all three mirrors
+
+`_draw_chain` draws them from the machine's own conic constants rather than sketching them:
+
+* **secondary** - the hyperboloid strip at F, swept from `cs_O`, `cs_A`, `cs_a`, `cs_c` with b = sqrt(c^2 - a^2), over
+  `w_strip` and clipped at `r_strip`, plus the post from the wall tower (`cs_Ps`) that holds it - the only structure
+  standing in the beam.
+* **tertiary** - M3's patch at `cs_P4`, radius `r_m4`, its normal `cs_n4` carried through the ACTUAL turn angle read
+  from `_spot_view`, so on tri it swings with the aim head; with a pointer along its normal, a line to what it is
+  aiming at (`cs_F4`), and its stub into the chase wall.
+* **the bore** between them as a wireframe tube on its real axis, so the 2.94 deg tilt is visible rather than
+  described, and the beam can be seen inside it.
