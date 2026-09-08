@@ -183,3 +183,34 @@ there is light in it.
   aiming at (`cs_F4`), and its stub into the chase wall.
 * **the bore** between them as a wireframe tube on its real axis, so the 2.94 deg tilt is visible rather than
   described, and the beam can be seen inside it.
+
+## Three more things wrong with the eval's trace
+
+Having given step_torch the trace, the ladder still said every ray was lost while the kernel delivered kilowatts.
+Three separate faults, each measured:
+
+**The level index was inverted against a table it does not fit.** `_trace_power` recovered the pressure level with a
+LINEAR inverse, but `level_frac` is (0.70, 0.82, 0.90, 0.96, 1.00, 1.04, 1.10) - the steps tighten around the nominal.
+So p_eff = p0, the nominal, mapped to level **4.5** instead of 4, half a step of defocus on every render trace, and
+`mems[4]` is the level the secondary was designed for. Now `np.interp` against the table itself.
+
+**The Cassegrain's last two rungs were fold-chain tests it can never pass.** Measured at equinox noon, pointed:
+
+| | lit | ~graze | pre_tube | post_tube | ok | through_b | kernel deposit |
+|---|---|---|---|---|---|---|---|
+| cass | 85.7 | 85.7 | 76.0 | 28.1 | **0.0** | **0.0** | 2.741 kW |
+| fold | 93.0 | 87.1 | 87.1 | 59.8 | 45.5 | 41.0 | 5.426 kW |
+
+`ok` is the fold chain's M5 acceptance and `through_b` is gated on it. This chain has no M5, so both sit at exactly
+zero however well the machine works, and the renderer - which colours rays by them - drew every ray as lost. The
+Cassegrain now gets its own ladder ending at the stage it actually has (post_tube), and the per-ray flags follow.
+Equinox noon went from `through 0.0 %` to **27.7 %**.
+
+**verify_megakernel() passes vacuously here.** It reported 0 mask mismatches and 0.00e+00 max difference - because
+BOTH cores return through_b = 0 on the Cassegrain. Two cores agreeing on nothing is not parity, and the check cannot
+tell the difference.
+
+Still unverified: at midsummer and midwinter my harness still reads 0 % through, but that same harness also has
+midwinter delivering 5.585 kW against equinox's 2.741, which is backwards - so it is misconfiguring something (it
+already had to be caught twice, once for an unzoned membrane and once for tracing a different day than it stepped).
+Not claimed as a fourth bug. The test that settles it is running the eval.
