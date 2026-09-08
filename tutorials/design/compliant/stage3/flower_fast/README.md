@@ -116,7 +116,7 @@ What it costs: at 7.2 m/s the deflection is 0.38-0.48 mm against the 0.32 mm the
 real, is captured, and adds tens of percent to a sub-millimetre number. It does not threaten the hyperboloid. The boom
 tube's projected area is 0.59 m2 against the dish's 13.85, and that ratio is why.
 
-## The hyperboloid now sits vertically above the borehole
+## What the 0.5 m post offset is, and what straightening it would cost
 
 It did not. The bore runs from the hyperboloid at F down to the turn mirror P4, and P4 is fixed over the chase, so
 `post_offset` - the distance F stands north of the wall - TILTS the bore rather than sliding it. The stock 0.5 m put
@@ -124,8 +124,14 @@ F at x 1.750 against a borehole at x 1.250:
 
     horizontal offset  0.500 m over a 9.728 m drop  ->  bore tilt 2.94 deg,  F sitting 0.71 bore radii off axis
 
-and the env's own comment called that "the derived vertical-bore geometry". It is not vertical. Comment corrected in
-place; `post_offset = 0.0` in flowerfast.ini puts F at x 1.250, exactly above the borehole, tilt 0.0000 deg.
+and the env's own comment called that "the derived vertical-bore geometry". It is not vertical, and that comment is
+corrected in place - it is what makes the tilt invisible.
+
+Note that the wall tower and the chase are the SAME x: `X_TOWER = CO.X_CHASE = 1.25`, "chase centreline: inside the
+wall". The chase runs down inside the tower, so "F above the borehole" and "F above the wall tower" are one constraint,
+and `post_offset = 0` satisfies both.
+
+THE OFFSET IS KEPT at the stock 0.5 m. Straightening it was measured and it costs more than the alignment is worth:
 
 What it costs, traced at Quetta with perfect tracking (midwinter / equinox / midsummer):
 
@@ -135,6 +141,11 @@ What it costs, traced at Quetta with perfect tracking (midwinter / equinox / mid
 | 0.25 | 1.47 deg | 1.151 | 2.676 | 3.890 |
 | **0.00** | **0.00 deg** | **1.116** | **2.608** | **3.897** |
 
-So straightening the bore costs 18.8 % at midwinter, 4.2 % at equinox, and GAINS 1.3 % at midsummer - about 4 % on the
-year. The offset was buying low sun: at midwinter the dish swings low and the tilt is what lets it clear the wall
-tower. That is the trade, and it is now made deliberately rather than by an unexamined default.
+Straightening costs 18.8 % at midwinter, 4.2 % at equinox, and gains 1.3 % at midsummer - about 4 % on the year. The
+offset buys low sun: at midwinter the dish swings low and the offset is what lets it clear the wall tower. So the
+default stands, and it now stands for a measured reason rather than an unexamined one.
+
+One thing this did surface and it is still open: with the offset REMOVED, F sits directly over the tower and the
+dish's high-sun clearance past it becomes load-bearing - and neither tandoor_flower_env.py nor the fast env checks
+clearance at all. path.py in the tree folder tests the aperture against the pipe (>= R_PIPE + 0.3) and the rim against
+the deck; nothing equivalent runs in the envs. With the offset restored that check is not urgent, but it is missing.
