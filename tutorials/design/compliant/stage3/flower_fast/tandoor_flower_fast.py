@@ -62,6 +62,14 @@ CM_RMS = 0.15                    # the FLUCTUATING pitching coefficient of a dis
 # mode, so the structure never gets excited where it rings. These three, fitted to von Karman's integrated spectrum by
 # non-negative least squares over 0.01-50 Hz, track it within a fifth of a decade everywhere that matters
 # (0.5 Hz: 13.1 % against 14.8 %; 6.6 Hz: 2.40 % against 2.65 %).
+# VORTEX SHEDDING. The boom is a 0.219 m tube and it sheds at St U / d; its own bending mode is 6.56 Hz; those cross
+# at U = 7.2 m/s, in the middle of the operating range, with a lock-in band of roughly 6-9 m/s. A forced sinusoid would
+# miss the point entirely - what matters is LOCK-IN, the shedding capturing the structure's frequency and then feeding
+# on its motion until motion-induced damping limits it. Only a wake oscillator coupled BOTH ways reproduces that, so
+# this is Facchinetti's (2004): a Van der Pol wake variable q driven by the structure's acceleration, driving the lift.
+ST_CYL, D_TUBE = 0.20, 0.219     # circular cylinder in the subcritical regime, and the boom's diameter
+ST_DISC, CL_DISC = 0.135, 0.10   # a normal disc sheds far lower - 0.39 Hz at 12 m/s - well clear of both modes
+EPS_VS, A_VS, CL0 = 0.3, 12.0, 0.3
 KARMAN_TAU = (1.0, 1/6.0, 1/216.0)          # multiples of the eddy turnover L/U
 KARMAN_W = (0.726, 0.246, 0.028)            # weights on the VARIANCE, summing to one
 def karman_step(u, dt, U, iu, gen, dev):
@@ -108,6 +116,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         z = lambda n=None: (torch.zeros(B, device=dev) if n is None else torch.zeros(B, n, device=dev))
         self.S = dict(u=z(3), v=z(3), cm=z(3),               # the gust along the wind, across it, and in pitching moment
                       th=z(2), thd=z(2),                     # the head's TILT and its rate: the moment's own mode
+                      q_vs=z(), qd_vs=z(), acc_l=z(), ph_d=z(),   # the boom's wake oscillator, and the dish's shedding phase
 
                       x=z(2), xd=z(2),                       # the head's lateral deflection and its rate
                       fine=z(3), fine_c=z(3),                # the fine stage: where it is, where it is going
@@ -216,12 +225,28 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         t2 = torch.cross(bu, t1, dim=1)                                            # the boom's own bending plane
         w_hat = torch.stack([torch.full_like(ca, self._fl_what_x), torch.zeros_like(ca), torch.zeros_like(ca)], 1)
         v_hat = torch.stack([torch.zeros_like(ca), torch.ones_like(ca), torch.zeros_like(ca)], 1)
-        Fw = drag[:, None]*w_hat + side[:, None]*v_hat
+        # ---- vortex shedding, before the forces are assembled: the wake's lift is one of them
+        cos_ax = (w_hat*bu).sum(1)
+        un = V*torch.sqrt(torch.clamp(1 - cos_ax*cos_ax, min=0.0))              # only the CROSS-flow component sheds
+        ws = 2*np.pi*ST_CYL*un/D_TUBE; F["f_vs"] = ws/(2*np.pi)
+        lf = torch.cross(bu, w_hat, dim=1)
+        lf = lf/torch.linalg.norm(lf, dim=1).clamp(min=1e-6)[:, None]           # across both the tube and the flow
+        qdd = (-EPS_VS*ws*(S["q_vs"]*S["q_vs"] - 1.0)*S["qd_vs"] - ws*ws*S["q_vs"]
+               + (A_VS/D_TUBE)*S["acc_l"])                                      # the structure feeds the wake back
+        S["qd_vs"] = S["qd_vs"] + qdd*self.dt; S["q_vs"] = S["q_vs"] + S["qd_vs"]*self.dt
+        F_vs = 0.5*RHO_AIR*un*un*D_TUBE*F["q_ext"]*(CL0/2)*S["q_vs"]*0.375      # distributed; 3/8 of it as a tip load
+        # and the dish's own shedding: far below both modes, so no lock-in, but a real narrowband force in the band
+        # the coarse loop has to hold
+        S["ph_d"] = torch.remainder(S["ph_d"] + 2*np.pi*ST_DISC*V/D_DISH*self.dt, 2*np.pi)
+        F_disc = 0.5*RHO_AIR*V*V*A_D*CL_DISC*torch.sin(S["ph_d"])
+        F["f_vs_d"] = ST_DISC*V/D_DISH
+        Fw = drag[:, None]*w_hat + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf
         cmp_ = compliance(F["q_ext"]); k = cmp_["k_lat"]; m = M_HEAD + M_CROWN
         w0 = torch.sqrt(k/m)
         f_t = torch.stack([(Fw*t1).sum(1), (Fw*t2).sum(1)], 1)                     # only the transverse part bends it
         acc = f_t/m - 2*ZETA*w0[:, None]*S["xd"] - (w0*w0)[:, None]*S["x"]
         S["xd"] = S["xd"] + acc*self.dt; S["x"] = S["x"] + S["xd"]*self.dt
+        S["acc_l"] = acc[:, 0]*(lf*t1).sum(1) + acc[:, 1]*(lf*t2).sum(1)        # what the wake sees of the motion
         # THE PITCHING MOMENT, on its own mode. An end moment on the stem-and-boom chain turns the tip by
         # theta = M (Lb/EI_b + Ls/EI_s), so the rotational stiffness is that reciprocal and the inertia is the head's
         # own. On this machine that mode sits near 14 Hz - above the fine stage's 8 Hz loop, which is exactly what
@@ -393,6 +418,9 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         for k_, v in self.S.items():
             if torch.is_tensor(v): v.zero_()
         self.S["p_act"].fill_(float(self.p0)); self.S["valve"].fill_(1.0)
+        gen = getattr(self, "_gen", None)                                        # q = 0 is an exact equilibrium of the
+        self.S["q_vs"] = 0.01*torch.randn(self.num_agents, generator=gen, device=self.device)   # wake oscillator, so seed it
+        self.S["ph_d"] = 2*np.pi*torch.rand(self.num_agents, generator=gen, device=self.device)
         self._sun_cache = None
         self._dni_t = torch.as_tensor(np.asarray(self.dni, dtype=np.float32), device=self.device).reshape(-1)
         if self._dni_t.numel() != self.num_agents: self._dni_t = self._dni_t[:1].expand(self.num_agents).contiguous()

@@ -70,3 +70,28 @@ gusts. Integral control already gets 99 % of that. A learned policy has to beat 
 * The wind force was not projected onto the boom's bending plane. Only the transverse part bends a cantilever, and from
   a carriage that rides round to the head's own meridian the boom often lies along the wind - where the world-frame
   version threw the tilt away entirely, and tilt outweighs translation 5:1 at the image.
+
+## Vortex shedding, and the wind speed nobody would have guessed
+
+The boom is a 0.219 m tube. It sheds at St U / d with St 0.20, and its own bending mode is 6.56 Hz. Those cross at
+
+    U = f_n d / St = 6.56 x 0.219 / 0.20 = 7.2 m/s
+
+which is not a storm - it is an ordinary working afternoon, and the lock-in band runs roughly 6 to 9 m/s. A forced
+sinusoid at St U / d would miss the whole phenomenon: what matters is that the shedding CAPTURES the structure's
+frequency and then feeds on its motion. So the model is Facchinetti's wake oscillator (2004) - a Van der Pol variable
+driven by the structure's acceleration and driving the lift back:
+
+    q'' + eps w_s (q^2 - 1) q' + w_s^2 q = (A/D) y''      F_lift = 0.5 rho U_n^2 D L (C_L0/2) q
+
+with eps 0.3, A 12, C_L0 0.3, and only the CROSS-flow component of the wind shedding. q = 0 is an exact equilibrium, so
+it is seeded with noise at reset. Measured at 7.2 m/s: q grows from 0.01 to 1.27 and the shedding frequency is pulled
+to 6.52-6.82 Hz against the mode's 6.57 - captured, which is what lock-in is.
+
+The dish sheds too, at St 0.135, which is 0.39 Hz at 12 m/s - far below both the bending mode (6.6 Hz) and the tilt
+mode (14.3 Hz), so it cannot lock in. It is carried as a narrowband cross-wind force because it still sits in the band
+the coarse loop has to hold.
+
+What it costs: at 7.2 m/s the deflection is 0.38-0.48 mm against the 0.32 mm the drag alone would give - so lock-in is
+real, is captured, and adds tens of percent to a sub-millimetre number. It does not threaten the hyperboloid. The boom
+tube's projected area is 0.59 m2 against the dish's 13.85, and that ratio is why.
