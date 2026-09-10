@@ -384,7 +384,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                         d_el=z(), d_az=z(), sig_mem=z(), Lb=torch.full((B,), 3.0, device=dev), f_n=z(), k_img=z(),
                         q_slew=z(), q_luff=z(), q_ext=torch.full((B,), 3.0, device=dev), q_pitch=z(), q_yaw=z(),
                         lim_hit=z(), rate_hit=z(), pose_err=z(), fine_use=z(), fine_sat=z(),
-                        ball_sig=z(), ball_defl=z(), ball_ang=z(), stow=z(), beta=torch.full((B,), BETA_OPT, device=dev), ext_ask=z(), acq=z(), beta_hold=z(), q_rail=z(), thru=z(),
+                        ball_sig=z(), ball_defl=z(), ball_ang=z(), stow=z(), beta=torch.full((B,), float(getattr(self, 'beta_dev', BETA_OPT)), device=dev), ext_ask=z(), acq=z(), beta_hold=z(), q_rail=z(), thru=z(),
                         plenum=torch.ones(B, device=dev), walk_open=z(), q_init=z())
 
     def _fl_before_step(self):
@@ -578,7 +578,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             return dict(V=0.0, gust=0.0, drag=0.0, lift=0.0, pitch=0.0, strut=0.0, leg=np.zeros(6), walk=np.zeros(2),
                         d_el=0.0, d_az=0.0, sig_mem=0.0, Lb=0.0, f_n=0.0, k_img=0.0, q=dict(slew=0.0, luff=0.0, ext=0.0, pitch=0.0, yaw=0.0),
                         lim_hit=0.0, rate_hit=0.0, pose_err=0.0, fine_use=0.0, fine_sat=0.0, ball_sig=0.0, ball_defl=0.0,
-                        ball_ang=0.0, stow=0.0, beta=BETA_OPT, plenum=1.0, walk_open=0.0, ext_ask=0.0, acq=0.0, rail=0.0, thru=0.0)
+                        ball_ang=0.0, stow=0.0, beta=float(getattr(self, 'beta_dev', BETA_OPT)), plenum=1.0, walk_open=0.0, ext_ask=0.0, acq=0.0, rail=0.0, thru=0.0)
         g = lambda k: float(F[k][0])
         return dict(V=g("V"), gust=g("gust"), drag=g("drag"), lift=g("lift"), pitch=g("pitch"), strut=g("strut"),
                     leg=F["leg"][0].detach().cpu().numpy(), walk=np.array([g("walk_a"), g("walk_x")]),
