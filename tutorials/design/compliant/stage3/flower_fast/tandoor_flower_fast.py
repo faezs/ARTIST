@@ -91,14 +91,20 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
     """1 kHz, own actuators, flux-camera observation, Hashemi's reward and Hashemi's membrane."""
     N_ACT = 11
     def __init__(self, *a, cam_n=24, episode_s=8.0, wind_scale=1.0, wind_mean=None, cam_bits=8,
-                 cam_noise=1.0, obs_proprio=1, on_device=0, **k):
+                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, **k):
         k.setdefault("num_agents", 1024)
         self._vec_buf = k.get("buf", None)          # the vector backend's shared buffer, if it gave us one
         super().__init__(*a, wind_scale=wind_scale, **k)
         dev = self.device; B = self.num_agents
         self.dt = DT                                       # every rate limit in the parent reads self.dt
         self.cam_n = int(cam_n); self.cam_bits = int(cam_bits); self.cam_noise = float(cam_noise)
-        self.obs_proprio = int(obs_proprio); self.episode_n = int(episode_s/DT)
+        self.obs_proprio = int(obs_proprio); self.obs_strain = int(obs_strain); self.episode_n = int(episode_s/DT)
+        # THE STEM AS A LOAD CELL. A compliant member is a force sensor: two strain gauges at the stem's foot read the
+        # wind's bending moment the instant the gust arrives, a quarter-period before the boom's mode has moved the
+        # image and whether or not the spot is still in the frame. The reading is the WIND part only - the gravity
+        # moment is pose-known and nulled from the joints - scaled by the moment at the 15 m/s tracking limit with
+        # the boom at full reach, bowl to the wind.
+        self._m_ref = 0.5*RHO_AIR*15.0**2*np.pi*A_M**2*CD_BOWL*(float(self.boom[1]) + 1.0)
         self.wind_mean = wind_mean; self.on_device = int(on_device)
         self._obs_t = self._rew_t = self._done_t = None
         self._dni_t = torch.full((self.num_agents,), 700.0, device=self.device)
@@ -131,7 +137,8 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
     def _respace(self):
         """the flux frame, then a short proprioceptive tail. PufferEnv sizes its buffers from these, so rebuild them."""
         n_img = self.cam_n*self.cam_n
-        self.n_prop = (6 + 3 + 3) if self.obs_proprio else 0     # joints, fine stage, plenum+wind+dough
+        self.n_prop = ((6 + 3 + 3) + (2 if self.obs_strain else 0)) if self.obs_proprio else 0
+        # joints, fine stage, plenum+valve+dough, and with obs_strain the stem's two bending moments
         self.single_observation_space = gymnasium.spaces.Box(low=0.0, high=1.0, shape=(n_img + self.n_prop,), dtype=np.float32)
         self.single_action_space = gymnasium.spaces.MultiDiscrete([7]*self.N_ACT)
         for attr in ("observation_space", "action_space"):                   # the parent already made the joint spaces,
@@ -241,9 +248,12 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         F_disc = 0.5*RHO_AIR*V*V*A_D*CL_DISC*torch.sin(S["ph_d"])
         F["f_vs_d"] = ST_DISC*V/D_DISH
         Fw = drag[:, None]*w_hat + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf
-        cmp_ = compliance(F["q_ext"]); k = cmp_["k_lat"]; m = M_HEAD + M_CROWN
+        cmp_ = compliance(F["q_ext"], self.boom_kind, self.boom_ratio, self.boom_root,
+                          m_tip=D_REC*(n0*bu).sum(1))                            # the drag acts at the dish, past the tip
+        k = cmp_["k_lat"]; m = M_HEAD + M_CROWN
         w0 = torch.sqrt(k/m)
         f_t = torch.stack([(Fw*t1).sum(1), (Fw*t2).sum(1)], 1)                     # only the transverse part bends it
+        F["m_root"] = f_t*(F["q_ext"] + 1.0)[:, None]                              # the stem foot's wind moment, N m: the gauges
         acc = f_t/m - 2*ZETA*w0[:, None]*S["xd"] - (w0*w0)[:, None]*S["x"]
         S["xd"] = S["xd"] + acc*self.dt; S["x"] = S["x"] + S["xd"]*self.dt
         S["acc_l"] = acc[:, 0]*(lf*t1).sum(1) + acc[:, 1]*(lf*t2).sum(1)        # what the wake sees of the motion
@@ -332,7 +342,9 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                                + [S["fine"][:, 0]/(FINE_STROKE/R_PLAT)*0.5 + 0.5, S["fine"][:, 1]/(FINE_STROKE/R_PLAT)*0.5 + 0.5,
                                   S["fine"][:, 2]/FINE_STROKE*0.5 + 0.5]
                                + [(S["p_act"] - self.P_LV[0])/(self.P_LV[-1] - self.P_LV[0]), S["valve"],
-                                  torch.clamp(phi_new/max(int(self.loaves_per_load), 1), 0, 1)], 1)
+                                  torch.clamp(phi_new/max(int(self.loaves_per_load), 1), 0, 1)]
+                               + ([0.5 + 0.5*torch.clamp(F["m_root"][:, 0]/self._m_ref, -1, 1),
+                                   0.5 + 0.5*torch.clamp(F["m_root"][:, 1]/self._m_ref, -1, 1)] if self.obs_strain else []), 1)
             obs = torch.cat([img, torch.clamp(prop, 0, 1)], 1)
         else:
             obs = img

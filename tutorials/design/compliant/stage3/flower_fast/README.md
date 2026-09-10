@@ -214,3 +214,33 @@ Still unverified: at midsummer and midwinter my harness still reads 0 % through,
 midwinter delivering 5.585 kW against equinox's 2.741, which is backwards - so it is misconfiguring something (it
 already had to be caught twice, once for an unzoned membrane and once for tracing a different day than it stepped).
 Not claimed as a fourth bug. The test that settles it is running the eval.
+
+## The boom's compliance, exploited - and what the exploit turned out to be
+
+The full study is in `../boom/` (nine scripts and a README). The short form:
+
+**The walk is signed, and the env computes it that way now.** Image walk is g_rot*theta + g_tr*delta with the two gains
+of opposite sign at every pose. At a 7 m boom the signed figure is 6.1 um/N against 42.8 for the old unsigned sum -
+the 7x cancellation is real and is what `_fl_after_step` uses. Two corrections landed on the way:
+
+* `miss_gains(..., lever=D_REC*n)`: the boom bends at its TIP and the vertex rides 1.8 m in front of it, so a tip
+  rotation also slides the dish in its own plane. Taken about the vertex the rotation gain was 34 % low
+  (5.46 um/N where the machine walks 8.28).
+* `compliance(..., m_tip=D_REC*(n.bu))`: the drag acts at the dish, so the tip also sees a moment. The head leans back
+  over the boom (n.bu -0.07..-0.65 all year) and the moment UNBENDS the chain: 6.34 um/N as built. f_n rises 5-15 %.
+
+**No passive shape exploits it further.** The neutral point - the centre a wind-bent chain would have to rotate about
+to leave the image still - is a property of the pose: 1.9 m below the boom root in the median and anywhere from inside
+the boom to 7 m below the roof across the year. The tapered "reversed" telescope that measured 2.4x was a 45x stiffer
+arm in disguise (a uniformly 45x stiffer boom measures 2.86x) with a root at 443-3268 MPa against 438 allowed; a root
+pivot, a stem-base pivot and remote centres down to 8 m below the roof all land within 1.14x of the boom as built.
+`boom_kind` is back to `uniform` in both inis.
+
+**The stem is already the good part; the boom's bending is the walk.** Rigid boom on the built stem: 3.2x less walk.
+Rigid stem on the built boom: 1.23x. Only EI moves it - 2x buys 1.56x, 4x buys 2.14x.
+
+**What CAN be exploited is the stem as a load cell.** Two strain gauges at its foot read the wind's moment as the gust
+arrives, a quarter-period before the boom's 2-7 Hz mode has moved the image, and whether or not the spot is in the
+frame. `obs_strain=1` appends the two readings to the tail (14 numbers after the frame instead of 12; FluxConv picks
+the width up from the env). Off by default so the observation the running training was started on is unchanged.
+Whether the policy uses it is a training away, and that training has not been run.

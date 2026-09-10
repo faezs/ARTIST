@@ -196,20 +196,74 @@ def head_frame(n):
     return xl, torch.cross(n, xl, dim=1)
 
 
-def compliance(Lb):
-    """the head's compliance at the end of the stem-and-boom cantilever chain, per newton of transverse force at the head.
-    The stem carries the boom's force AND its moment P*Lb, so the head's rotation and translation are
+# THE BOOM'S COMPLIANCE IS A DESIGN VARIABLE, NOT AN ERROR. The image at F moves by g_rot*theta + g_tr*delta when
+# the head tilts by theta and translates by delta, and on the real geometry those two gains have OPPOSITE signs at
+# every pose of the year (the optics want theta/delta = 0.18 rad/m, median, to cancel). A uniform cantilever under a
+# tip load delivers theta/delta = 3/(2 Lb) - too much tilt when short, nearly right when long - and that ratio is set
+# by where the stiffness sits along the boom. Measured over 170 poses of the year (stage3/fact, boom_tune.py):
+#     uniform CHS 219x8, as built                 4.51 um of image per N of wind      1.00x
+#     parallel-guiding boom (theta = 0)          17.61 um                              0.26x   worse: tilt was cancelling
+#     conventional telescope, thin tube extends   4.60 um                              0.98x   wants to be uniform
+#     REVERSED telescope, soft short root, stiff arm  2.27-2.38 um                     2.3-2.4x
+# so the exploit is to put the compliance at the ROOT: a short soft section under a stiff arm, with the arm 20-50x
+# stiffer than the root. The floor it leaves (2.3 um/N) is the pose-to-pose spread in what the optics want, which no
+# single passive stiffness curve can follow - and that residual is the fine stage's job, now 2.4x smaller.
+BOOM_KIND, BOOM_RATIO, BOOM_ROOT = "uniform", 45.0, 0.25      # reversed: arm EI = ratio x root EI, root length [m]
+
+
+def compliance(Lb, kind=None, ratio=None, root=None, m_tip=None):
+    """the head's compliance at the end of the stem-and-boom chain, per newton of transverse force at the head.
+    The stem carries the boom's force AND its moment P*Lb. For the uniform boom
         theta = (P L^2/2 + P Lb L)/EI_s + P Lb^2/(2 EI_b)
         delta = (P L^3/3 + P Lb L^2/2)/EI_s + theta_s*Lb + P Lb^3/(3 EI_b)
-    and the image at F moves G_ROT*theta + G_TR*delta. Lb is a (B,) tensor; everything returned is (B,)."""
+    and for the reversed two-stage boom the root tube (EI_r, length L1) carries the arm's force and moment P*L2 and the
+    arm (EI_a = ratio*EI_r) is a cantilever off its tip. Lb is a (B,) tensor; everything returned is (B,).
+
+    m_tip (B,), metres: the drag acts at the DISH, D_REC in front of the boom's tip on the head's axis, so the tip also
+    sees a moment P*m_tip with m_tip = D_REC*(n.bu) - signed, and negative when the head leans back over the boom, in
+    which case it UNBENDS the chain a little (year-rms walk 0.77x of the force-only figure). None means force only.
+    k_img is the UNSIGNED sum G_ROT*theta + G_TR*delta - the pessimistic scalar; the signed, pose-dependent walk that
+    lets a tuned boom cancel is computed where the pose is known (_fl_after_step, and geometrically in the fast env)."""
+    kind = BOOM_KIND if kind is None else kind; ratio = BOOM_RATIO if ratio is None else ratio; root = BOOM_ROOT if root is None else root
     Ls = 1.0
-    th_s = (Ls*Ls/2 + Lb*Ls)/EI_STEM
-    d_s = (Ls**3/3 + Lb*Ls*Ls/2)/EI_STEM
-    theta = th_s + Lb*Lb/(2*EI_BOOM)
-    delta = d_s + th_s*Lb + Lb**3/(3*EI_BOOM)
+    m = torch.zeros_like(Lb) if m_tip is None else m_tip
+    th_s = (Ls*Ls/2 + Lb*Ls + m*Ls)/EI_STEM
+    d_s = (Ls**3/3 + Lb*Ls*Ls/2 + m*Ls*Ls/2)/EI_STEM
+    if kind == "reversed":
+        EI_r = EI_BOOM/float(ratio)**0.5; EI_a = EI_r*float(ratio)             # geometric mean pinned to the built tube
+        L1 = torch.clamp(torch.full_like(Lb, float(root)), max=Lb); L2 = torch.clamp(Lb - L1, min=0.0)
+        th1 = (L1*L1/2 + L1*L2 + m*L1)/EI_r; d1 = (L1**3/3 + L1*L1*L2/2 + m*L1*L1/2)/EI_r
+        th2 = (L2*L2/2 + m*L2)/EI_a; d2 = (L2**3/3 + m*L2*L2/2)/EI_a
+        theta = th_s + th1 + th2
+        delta = d_s + th_s*Lb + d1 + th1*L2 + d2
+    else:
+        theta = th_s + (Lb*Lb/2 + m*Lb)/EI_BOOM
+        delta = d_s + th_s*Lb + (Lb**3/3 + m*Lb*Lb/2)/EI_BOOM
     k_lat = 1.0/delta.clamp(min=1e-12)
     f_n = torch.sqrt(k_lat/(M_HEAD + M_CROWN))/(2*np.pi)
     return dict(theta=theta, delta=delta, k_lat=k_lat, f_n=f_n, k_img=G_ROT*theta + G_TR*delta)
+
+
+def miss_gains(Ff, C, n, s, t, ra, h=1e-4, lever=None):
+    """the SIGNED optical sensitivities at this pose, batched (B,): metres of image walk at F per metre of head
+    translation along t, and per radian of head rotation about ra, both projected on the direction the translation
+    moves the image. Their signs are what a tuned boom exploits; an unsigned G_ROT + G_TR sum cannot cancel.
+
+    lever (B,3): the vector from the ROTATION CENTRE to the vertex C. The boom's tip is D_REC behind the vertex on the
+    head's axis, so a tip rotation also carries the vertex sideways by theta x lever - a shift of the dish in its own
+    plane that moves the image as surely as a translation does. Left None the rotation is about C itself, which
+    understates the rotation gain by that lever (checked: 2.0 vs 3.8 m/rad at a 3.3 m boom)."""
+    def miss(Cq, nq):
+        r = -s + 2*(s*nq).sum(1, keepdim=True)*nq; d = Ff[None, :] - Cq
+        return d - (d*r).sum(1, keepdim=True)*r
+    dT = (miss(C + h*t, n) - miss(C - h*t, n))/(2*h)
+    def rot(sg):
+        nn = n + sg*h*torch.cross(ra, n, dim=1); nn = nn/torch.linalg.norm(nn, dim=1, keepdim=True).clamp(min=1e-9)
+        Cq = C if lever is None else C + sg*h*torch.cross(ra, lever, dim=1)
+        return Cq, nn
+    dR = (miss(*rot(+1.0)) - miss(*rot(-1.0)))/(2*h)
+    u = dT/torch.linalg.norm(dT, dim=1, keepdim=True).clamp(min=1e-12)
+    return (dT*u).sum(1), (dR*u).sum(1)
 
 
 def frac_above(U, f):
@@ -221,11 +275,13 @@ def frac_above(U, f):
 
 class TandoorFlowerEnv(TandoorHashemiEnv):
     def __init__(self, *a, wind_from="S", wind_scale=1.0, stow_wind=15.0, fine_stage=1, mech=1, two_tier_beta=0,
+                 boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT,
                  base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, **k):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
         super().__init__(*a, **k)
         self.base = str(base); self.ring_r = float(ring_r)
         self.stem_x = float(stem_x)
+        self.boom_kind, self.boom_ratio, self.boom_root = str(boom_kind), float(boom_ratio), float(boom_root)
         self.stem_z = float(RING_Z if stem_z is None and self.base == "ring" else (STEM_Z if stem_z is None else stem_z))
         bd = BOOM_RING if self.base == "ring" else BOOM_STEM
         self.boom = (float(bd[0] if boom_min is None else boom_min), float(bd[1] if boom_max is None else boom_max))
@@ -415,7 +471,9 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         walk_pose = G_TR*torch.linalg.norm(dC, dim=1)                                 # the vertex error slides the image; the axis error turns it
 
         # ---- 4. the structure: compliance and first mode at THIS extension, not a constant
-        cmp_ = compliance(F["Lb"]); F["f_n"], F["k_img"] = cmp_["f_n"], cmp_["k_img"]
+        cmp_ = compliance(F["Lb"], self.boom_kind, self.boom_ratio, self.boom_root,
+                          m_tip=D_REC*(n_got*qc["bu"]).sum(1))                      # the drag acts at the dish, D_REC past the tip
+        F["f_n"], F["k_img"] = cmp_["f_n"], cmp_["k_img"]
 
         # ---- 5. the crown: the wind wrench through the 6 x 6 Jacobian into six axial forces
         xl, yl = head_frame(n)
@@ -433,6 +491,16 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
 
         # ---- 7. the image's walk: open loop from the gust force, then the coarse pedicel loop and the crown's fine loop
         sig_force = RHO_AIR*U*(IU*U)*A_DISH*cd                                         # rms of the drag's fluctuation
+        # THE WALK IS SIGNED. G_ROT*theta + G_TR*delta adds two magnitudes and can never cancel; on the real geometry
+        # the two gains have opposite signs at every pose, which is the whole basis for tuning the boom. So take the
+        # signed sensitivities at THIS pose, in the plane the wind actually bends the boom in.
+        s_dir = torch.stack([torch.cos(el)*torch.cos(az), torch.cos(el)*torch.sin(az), torch.sin(el)], 1)
+        bu_ = qc["bu"]; t_b = w - (w*bu_).sum(1, keepdim=True)*bu_
+        t_b = t_b/torch.linalg.norm(t_b, dim=1, keepdim=True).clamp(min=1e-9); ra_ = torch.cross(bu_, t_b, dim=1)
+        g_tr, g_rot = miss_gains(torch.as_tensor(self._fl_F(), dtype=torch.float32, device=dev), C_got, n_got, s_dir, t_b, ra_,
+                                 lever=D_REC*n_got)                                     # the tip rotates; the vertex is D_REC in front of it
+        F["k_img"] = (g_rot*cmp_["theta"] + g_tr*cmp_["delta"]).abs()             # signed, then magnitude
+        F["k_img_unsigned"] = G_ROT*cmp_["theta"] + G_TR*cmp_["delta"]             # the old pessimistic scalar, for the HUD
         sig_open = F["k_img"]*sig_force; F["walk_open"] = sig_open
         if self.fine_stage:
             resid = frac_above(U, FINE_BW)
