@@ -62,7 +62,7 @@ def main():
     ap.add_argument("--no-mech", action="store_true", help="fall back to the old lumped model: no joints, no limits, no stow")
     ap.add_argument("--fps", type=float, default=24.0); ap.add_argument("--steps", type=int, default=0)
     ap.add_argument("--every", type=int, default=50, help="print the mount's state every N steps")
-    ap.add_argument("--flexures", default="all", choices=["all", "m23", "off"],
+    ap.add_argument("--flexures", default="m23", choices=["all", "m23", "off"],
                     help="draw every joint realised from its screw (all), only the strip's and M3's (m23), or none; the eval prints either way")
     ap.add_argument("--headless", action="store_true"); A = ap.parse_args()
 

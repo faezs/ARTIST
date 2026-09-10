@@ -284,7 +284,7 @@ def frac_above(U, f):
 
 class TandoorFlowerEnv(TandoorHashemiEnv):
     def __init__(self, *a, wind_from="S", wind_scale=1.0, stow_wind=15.0, fine_stage=1, mech=1, two_tier_beta=0,
-                 boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=2,
+                 boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=1,
                  base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, **k):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
         super().__init__(*a, **k)
@@ -301,7 +301,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         self._fl_what_x = 1.0 if self.wind_from.upper().startswith("S") else -1.0     # the wind blows toward +x (north) when from the south
         self._fl = None                                                               # device tensors, made on the first step
         self._fl_act = None                                                           # this step's actions, for the plenum
-        self.flexures = int(flexures)                                                  # 0 none, 1 the strip's and M3's, 2 every joint
+        self.flexures = int(flexures)                                                  # 0 none, 1 the strip's and M3's (default), 2 every joint - the pedicel's are 9 m blades, drawn only on request
         self._fl_travel = None; self._flex_rep = None                                  # the year's joint travel, and the flexure eval
         self._fl_T0 = None
         self._fl_JFT = torch.as_tensor(J_HEX_FT, dtype=torch.float32, device=self.device)
@@ -656,7 +656,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         ped = [x for x in S if x[0].startswith("$")]; m2 = [x for x in S if x[0] == "M2 strip"]; m3 = [x for x in S if x[0] == "M3 turn"]
         out = []
         if ped and (everything or self.flexures >= 2): out.append((ped, dict(radius=R_PIV, n_blades=2)))
-        if m2: out.append((m2, dict(radius=R_PIV_M2, n_blades=4)))
+        if m2: out.append((m2, dict(radius=R_PIV_M2, n_blades=4, span=0.10)))
         if m3: out.append((m3, dict(radius=R_PIV_M3, n_blades=2)))
         return out
 
@@ -695,29 +695,28 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         return out
 
     def _draw_flexures(self, pr, v3, g):
-        """draw what realise() returns: blades as their planes, slaving links, pins where the travel beat the elastica."""
+        """draw what realise() returns - blades as OUTLINES of their planes, slaving links, pins - and one short label a
+        joint, above its stack. Filled planes at true scale hid the machine (the pedicel's are 9 m long)."""
         if not self.flexures: return
         rep = {r["joint"]: r for r in self.flexure_report(g)}
         members = []
         for scr, kw in self._flex_groups(self.flower_screws(g), everything=False): members += realise(scr, mat=STEEL, **kw)
-        cb, ce, cl, cp = (120, 200, 255, 110), (70, 160, 230, 255), (255, 200, 90, 220), (210, 120, 120, 255)
-        seen = set()
+        ce, cl, cp = (90, 170, 235, 170), (255, 200, 90, 160), (210, 120, 120, 255)
+        tops = {}
         for m in members:
             v = m["verts"]
             if m["kind"] in ("blade", "leaf parallelogram"):
-                a_, b_, c_, d_ = [v3(p) for p in v]
-                pr.draw_triangle_3d(a_, b_, c_, cb); pr.draw_triangle_3d(a_, c_, d_, cb)
-                pr.draw_triangle_3d(c_, b_, a_, cb); pr.draw_triangle_3d(d_, c_, a_, cb)
                 for i in range(4): pr.draw_line_3d(v3(v[i]), v3(v[(i + 1) % 4]), ce)
             elif m["kind"] == "slaving link": pr.draw_line_3d(v3(v[0]), v3(v[1]), cl)
             elif m["kind"] == "pin": pr.draw_cylinder_ex(v3(v[0]), v3(v[1]), 0.07, 0.07, 8, cp)
             elif m["kind"] == "rigid slide": pr.draw_line_3d(v3(v[0]), v3(v[1]), cp)
-            if m["joint"] in seen: continue
-            seen.add(m["joint"]); r = rep.get(m["joint"], {})
-            if r.get("ideal"): lab = f"{m['joint']}: {m['kind']} (L/t {r.get('slenderness', 0) or 0:.0f} even stacked)" if m["kind"] == "pin" else f"{m['joint']}: {m['kind']}"
-            else: lab = (f"{m['joint']}: {r.get('n_st', 0)} x {m['kind']} {1e3*r['t']:.0f}x{1e3*r['w']:.0f}x{1e3*r['L']:.0f} mm, softness {r['softness_ratio']:.0f}"
-                         + ("" if r["good_pivot"] else " - NOT a pivot"))
-            self._pot_lbls.append((v.mean(axis=0) + np.array([0.0, 0.0, 0.3]), lab, ce if (r.get("ideal") or r.get("good_pivot")) else cp))
+            t = tops.get(m["joint"]); hi = v[np.argmax(v[:, 2])]
+            if t is None or hi[2] > t[2]: tops[m["joint"]] = hi
+        for j, top in tops.items():
+            r = rep.get(j, {})
+            if r.get("ideal"): lab = f"{j}: {r['kind']}"
+            else: lab = f"{j}: {r.get('n_st', 0)} st, {1e3*r['t']:.0f}x{1e3*r['w']:.0f}x{1e3*r['L']:.0f} mm, {r['mass_kg']:.0f} kg, s{r['softness_ratio']:.0f}"
+            self._pot_lbls.append((top + np.array([0.0, 0.0, 0.35]), lab, ce if (r.get("ideal") or r.get("good_pivot")) else cp))
 
     def _draw_bent(self, pr, v3, g):
         """the stem and boom as the compliant members they are: their elastic curve under this step's drag, x FLEX_EXAG;
@@ -738,16 +737,15 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                + [T0 + x*bu + FLEX_EXAG*y*t for x, y in zip(xs, yb)])
         for i in range(len(pts) - 1): pr.draw_line_3d(v3(pts[i]), v3(pts[i + 1]), col)
         pr.draw_line_3d(v3(pts[-1]), v3(g["C"] + FLEX_EXAG*de*t + FLEX_EXAG*th*np.cross(np.cross(bu, t), g["C"] - Cb)), col)
-        self._pot_lbls.append((pts[-1] + np.array([0.0, 0.0, 0.5]), f"bent x{FLEX_EXAG:.0f}: {1e3*de:.2f} mm, {1e3*th:.2f} mrad under {P:.0f} N across the boom", col))
+        self._pot_lbls.append((pts[-1] + np.array([0.0, 0.0, 0.5]), f"bent x{FLEX_EXAG:.0f}: {1e3*de:.2f} mm, {1e3*th:.2f} mrad", col))
         r_chain = de/max(th, 1e-12)
         g_tr, g_rot = float(F["g_tr"][0]), float(F["g_rot"][0])
         pr.draw_sphere(v3(Cb - r_chain*bu), 0.09, col)
-        self._pot_lbls.append((Cb - r_chain*bu + np.array([0.0, 0.0, -0.3]), f"the chain turns about here, {r_chain:.1f} m behind the tip", col))
+        self._pot_lbls.append((Cb - r_chain*bu + np.array([0.0, 0.0, -0.3]), f"chain centre {r_chain:.1f} m back", col))
         if abs(g_tr) > 1e-9:
             r_star = -g_rot/g_tr; cn = (120, 255, 160, 255)
             pr.draw_sphere(v3(Cb - r_star*bu), 0.09, cn)
-            self._pot_lbls.append((Cb - r_star*bu + np.array([0.0, 0.0, 0.3]),
-                                   f"NEUTRAL POINT {r_star:.1f} m behind the tip: turn the head about here and the image at F stays", cn))
+            self._pot_lbls.append((Cb - r_star*bu + np.array([0.0, 0.0, 0.3]), f"neutral point {r_star:.1f} m back", cn))
             self._fl_neutral = (r_chain, r_star)
 
     # ------------------------------------------------------------ drawing (pyray), called from the patched base renderer
@@ -961,13 +959,10 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             f"   $3 extend {q['ext']:5.2f} m [{self.boom[0]:.2f},{self.boom[1]:.2f}] (asked {fl['ext_ask']:5.2f})   $4 pitch {q['pitch']:6.1f}   $5 yaw {q['yaw']:+6.1f}",
             f"         at a limit: {fl['lim_hit']:.0f} joints . rate-limited: {fl['rate_hit']:.0f} . pose shortfall {1e3*fl['pose_err']:.2f} mrad"
             + ("   BOOM THROUGH THE APERTURE" if fl["thru"] > 0.5 else " . the boom clears the aperture")
-            + f"   beta commanded {fl['beta']:.0f} deg (traced optimum {BETA_OPT:.0f})",
+            + f"   beta {fl['beta']:.0f} deg (36 was the cass optimum; on tri the trace runs to retro)",
             f"structure  boom out {q['ext']:.2f} m -> {1e6*fl['k_img']:.1f} um of image per N of drag, first mode {fl['f_n']:.1f} Hz"
-            f"   (fully in, {self.boom[0]:.1f} m: {1e6*float(compliance(torch.tensor([self.boom[0]]))['k_img'][0]):.1f} um/N, {float(compliance(torch.tensor([self.boom[0]]))['f_n'][0]):.0f} Hz."
-            + (f" The flower's own schedule needs {BOOM_DESIGN[0]:.2f}-{BOOM_DESIGN[1]:.2f} m from a fixed stem; THIS env's aim law asks"
-               f" {BOOM_STEM[0]:.2f}-{BOOM_STEM[1]:.2f} m of one, which is no telescope at all - the carriage is what makes it {BOOM_RING[0]:.2f}-{BOOM_RING[1]:.2f})"
-               if self.base == "ring" else
-               f" The flower's own schedule needs {BOOM_DESIGN[0]:.2f}-{BOOM_DESIGN[1]:.2f} m; this env's aim law asks {BOOM_STEM[0]:.2f}-{BOOM_STEM[1]:.2f} of a fixed stem)"),
+            f"   (fully in, {self.boom[0]:.1f} m: {1e6*float(compliance(torch.tensor([self.boom[0]]))['k_img'][0]):.1f} um/N, {float(compliance(torch.tensor([self.boom[0]]))['f_n'][0]):.0f} Hz;"
+            f" the aim law asks {self.boom[0]:.2f}-{self.boom[1]:.2f} m of this base)",
             f"crown  struts " + " ".join(f"{x/1e3:+5.1f}" for x in leg) + f" kN   worst {fl['strut']/1e3:.1f} kN of {P_CR_LEG/1e3:.0f} kN Euler"
             f"   ball {fl['ball_sig']/1e6:.0f} MPa of {SIG_BALL_WORK/1e6:.0f}, {1e3*fl['ball_defl']:.2f} mm, {1e3*fl['ball_ang']:.1f} mrad",
             f"fine stage  {'ON' if self.fine_stage else 'OFF'}  stroke asked {1e3*fl['fine_use']:.1f} mm of {1e3*FINE_STROKE:.0f}"
@@ -982,14 +977,14 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             lines.append(f"the six struts hold a FIXED {L_LEG:.3f} m over the whole year: they are the fine stage, not the pointing. The pedicel alone fixes the pose.")
         nt = getattr(self, "_fl_neutral", None)
         if nt is not None:
-            lines.append(f"compliance  the bent chain turns about a point {nt[0]:.1f} m behind the boom's tip; the image would need {nt[1]:.1f} m."
-                         f" That {abs(nt[1] - nt[0]):.1f} m gap is the walk, and it moves 8 m over the year - no passive shape sits on it (stage3/boom).")
+            lines.append(f"compliance  chain centre {nt[0]:.1f} m behind the tip, neutral point {nt[1]:.1f} m: the {abs(nt[1] - nt[0]):.1f} m gap is the walk (it moves 8 m over the year; stage3/boom)")
         if self.flexures and self._flex_rep is not None:
             fx = []
             for r in self._flex_rep:
                 if r.get("ideal"): fx.append(f"{r['joint']} {r['kind']}")
-                else: fx.append(f"{r['joint']} {r['n_st']}x{1e3*r['t']:.0f}x{1e3*r['w']:.0f}x{1e3*r['L']:.0f} mm s{r['softness_ratio']:.0f}{'' if r['good_pivot'] else ' LUMP'}")
-            lines.append("flexures from the screws (realise/evaluate)  " + " . ".join(fx))
+                elif r["mass_kg"] > 2000: fx.append(f"{r['joint']} {r['mass_kg']/1e3:.0f} t: a bearing")
+                else: fx.append(f"{r['joint']} {r['n_st']} st {r['mass_kg']:.0f} kg{'' if r['good_pivot'] else ' lump'}")
+            lines.append("flexures from the screws  " + " . ".join(fx) + ("   (drawn: M2, M3)" if self.flexures == 1 else ""))
         pr.draw_rectangle(12, y0 - 4, 1000, 18*len(lines) + 8, (10, 12, 18, 175))
         for j, l in enumerate(lines): pr.draw_text(l, 18, y0 + 18*j, 14, (225, 232, 240, 255) if j else (255, 214, 120, 255))
 
