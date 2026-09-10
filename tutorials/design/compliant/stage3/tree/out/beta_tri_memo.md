@@ -36,3 +36,15 @@ M3, way and collar gates. NO pipe, tower, mast or column above the deck: the _hi
 So a duct above the roof, if the flower is built with one, is unshaded in every tri trace; and a dish standing on the axis
 (retro, sun above ~41 deg) is passed through - Hashemi's dish has a 0.5 m hole for exactly that, the flower's has none.
 The flower inis leave r_hole 0.5 and the slot on: 5.5 % + 7.4-7.8 % charged to a dish that has neither.
+
+## F above M3, and the strip pulled toward F (strip_grid.py)
+day means, kW (midwinter / equinox / midsummer):
+  post 0.5, d 0.60 (mag 12.9)  retro 5.82 / 7.78 / 7.65    beta 36  2.36 / 3.17 / 2.38
+  post 0.0, d 0.60 (mag 12.9)  retro 5.85 / 7.77 / 8.06    beta 36  2.70 / 3.14 / 2.33      <- vertical bore: never worse
+  post 0.0, d 0.30 (mag 26.8)  retro 5.85 / 7.74 / 8.06    beta 36  1.27 / 1.19 / 0.65
+  post 0.0, d 0.15 (mag 54.5)  retro 5.23 / 6.34 / 6.10    (collar 21 % at equinox noon: the F2 image outgrows M4)
+  post 0.0, d 0.90 (mag  8.3)  retro 4.87 / 7.34 / 7.94
+  post 0.0, d 1.20 (mag  5.9)  retro 2.87 / 5.75 / 6.86
+The strip cannot sit AT F: the F sheet's vertex is d before F with a = c - d, so d -> 0 sends the magnification
+(2c - d)/d to infinity. At retro it can come in to 0.3 m for free (and be half the size); at 36 that halves the power.
+post_offset set to 0.0 in both flower inis.
