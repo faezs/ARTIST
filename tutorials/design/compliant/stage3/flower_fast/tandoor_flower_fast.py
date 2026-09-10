@@ -34,6 +34,7 @@ weight and multiplied by dt/15, so a second of this env pays exactly what a seco
     puffer train puffer_flower_fast          (flowerfast.ini)
 """
 import numpy as np, torch, gymnasium, pufferlib
+import tandoor_wind_table as WT
 from tandoor_flower_env import (TandoorFlowerEnv, compliance, pedicel_fk, hexapod_jacobian, head_frame,
                                 EI_BOOM, EI_STEM, D_DISH,
                                 D_REC, R_PLAT, A_M, RHO_AIR, CD_BOWL, CD_BACK, C_M, IU, M_HEAD, M_CROWN,
@@ -258,6 +259,13 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         F_disc = 0.5*RHO_AIR*V*V*A_D*CL_DISC*torch.sin(S["ph_d"])
         F["f_vs_d"] = ST_DISC*V/D_DISH
         Fw = drag[:, None]*w_hat + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf
+        k_film = torch.full_like(V, SIG_MEM_K)
+        if getattr(self, "wind_table", 1):
+            # the LES table: the bowl's load as a normal force along its axis (with its downward vertical part, which the
+            # drag-only assembly above never had), and the film's figure constant by incidence; the back keeps the drag model
+            F_tab, theta_w, k_tab, covered = WT.head_force(n0, w_hat, 0.5*RHO_AIR*Vh*Vh, A_D)
+            Fw = torch.where(covered[:, None], F_tab + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf, Fw)
+            k_film = torch.where(covered, k_tab, k_film); F["theta_w"] = theta_w
         cmp_ = compliance(F["q_ext"], self.boom_kind, self.boom_ratio, self.boom_root,
                           m_tip=D_REC*(n0*bu).sum(1))                            # the drag acts at the dish, past the tip
         k = cmp_["k_lat"]; m = M_HEAD + M_CROWN
@@ -305,7 +313,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         f_now = self._lerp_lv(S["p_act"])                                          # on device: a .cpu() here cost 50x the physics
         defocus = A_M*torch.abs(f_now - self.f_nom)/max(self.f_nom, 1e-6)          # the spot's growth from the wrong focal length
         wind_pass = torch.where(S["valve"] > 0.5, torch.full_like(V, PLENUM_SEALED), torch.ones_like(V))
-        sig_film = SIG_MEM_K*V*V*film_soften(V)*wind_pass                          # the film's own figure under wind, rad rms, softened by the flow
+        sig_film = k_film*V*V*film_soften(V)*wind_pass                             # the film's figure under wind (LES table by incidence), softened by the flow
 
         # ---- 7. the optics: THE RAY TRACE. The megakernel is handed the dish frame the flower's joints actually
         # produced, so the power is what those rays deliver - not a closed form fitted to a half-power radius.

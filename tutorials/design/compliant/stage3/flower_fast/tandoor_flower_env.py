@@ -55,6 +55,7 @@ import inspect, textwrap, numpy as np, torch
 from math import isinf
 from tandoor_hashemi_env import TandoorHashemiEnv
 from tandoor_screw_render import realise, STEEL
+import tandoor_wind_table as WT
 
 # ---------------------------------------------------------------- the machine, from the design folder
 G_ORB, A_M, RHO_AIR = 4.0, 2.1, 1.03; A_DISH = np.pi*A_M**2; D_DISH = 2*A_M
@@ -295,7 +296,7 @@ def frac_above(U, f):
 
 class TandoorFlowerEnv(TandoorHashemiEnv):
     def __init__(self, *a, wind_from="S", wind_scale=1.0, stow_wind=15.0, fine_stage=1, mech=1, two_tier_beta=0,
-                 boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=1,
+                 boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=1, wind_table=1,
                  base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, **k):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
         super().__init__(*a, **k)
@@ -313,6 +314,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         self._fl = None                                                               # device tensors, made on the first step
         self._fl_act = None                                                           # this step's actions, for the plenum
         self.flexures = int(flexures)                                                  # 0 none, 1 the strip's and M3's (default), 2 every joint - the pedicel's are 9 m blades, drawn only on request
+        self.wind_table = int(wind_table)                                              # the head's loads and the film's figure from the LES table (stage3/wind) where it covers the pose
         self._fl_travel = None; self._flex_rep = None                                  # the year's joint travel, and the flexure eval
         self._fl_T0 = None
         self._fl_JFT = torch.as_tensor(J_HEX_FT, dtype=torch.float32, device=self.device)
@@ -438,6 +440,17 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F["drag"] = q*A_DISH*cd
         F["lift"] = q*A_DISH*0.9*ca.abs()*torch.sqrt(torch.clamp(1 - ca*ca, min=0.0))
         F["pitch"] = q*A_DISH*D_DISH*torch.where(into, torch.full_like(ca, C_M), torch.full_like(ca, 0.10))*2*ca.abs()*torch.sqrt(torch.clamp(1 - ca*ca, min=0.0))
+        F["k_film"] = torch.full_like(V, SIG_MEM_K)
+        if self.wind_table:
+            # THE LES TABLE (stage3/wind): on the bowl's face the load is a normal force Cn q A along the axis (Cn ~ -1.6 from
+            # 37 to 59 deg of incidence, gone by 83), the vertical part downward and 2-3x the heuristic above with the opposite
+            # sign, and the film's figure constant runs with the incidence. The back of the dish keeps the heuristics.
+            n_h = torch.stack([torch.cos(el)*torch.cos(az), torch.cos(el)*torch.sin(az), torch.sin(el)], 1)
+            w_h = torch.zeros(B, 3, device=dev); w_h[:, 0] = self._fl_what_x
+            F_tab, theta_w, k_tab, covered = WT.head_force(n_h, w_h, q, A_DISH)
+            F["drag"] = torch.where(covered, (F_tab*w_h).sum(1), F["drag"])
+            F["lift"] = torch.where(covered, F_tab[:, 2], F["lift"])
+            F["k_film"] = torch.where(covered, k_tab, F["k_film"]); F["theta_w"] = theta_w
 
         # ---- 2. stow: the design tracks to stow_wind mean and parks face-up for the gust (tree/out/wind_size.txt)
         stow = torch.where(U > self.stow_wind, torch.ones_like(U),
@@ -445,13 +458,13 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F["stow"] = stow
 
         if not self.mech:
-            F["V"], F["gust"], F["sig_mem"] = U, gust, SIG_MEM_K*V*V*film_soften(V)
+            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V)
             F["d_el"] = torch.zeros(B, device=dev); F["d_az"] = torch.zeros(B, device=dev); return
 
         # ---- 3. the pedicel: invert the five joints, hold them to their travel and their drives' rates
         C, n = self._fl_head_pose()
         if C is None:
-            F["V"], F["gust"], F["sig_mem"] = U, gust, SIG_MEM_K*V*V*film_soften(V); return
+            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V); return
         dt0 = float(getattr(self, "dt", 15.0))
         Cb_want = C - D_REC*n
         T0, phi, rail_hit = self._fl_base(Cb_want, F["q_rail"], dt0)
@@ -556,7 +569,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             a0 = torch.as_tensor(act, device=dev).reshape(B, -1)[:, 0].float()
             open_ = (a0 != 3.0).float()                                                 # the level action is off neutral: the valve is open this step
         F["plenum"] = 1.0 - open_
-        F["sig_mem"] = SIG_MEM_K*V*V*film_soften(V)*torch.where(open_ > 0.5, torch.full_like(V, 1.0/PLENUM_SEALED), torch.ones_like(V))
+        F["sig_mem"] = F["k_film"]*V*V*film_soften(V)*torch.where(open_ > 0.5, torch.full_like(V, 1.0/PLENUM_SEALED), torch.ones_like(V))
 
         # ---- 10. beta, two-tier at the traced optimum (tree/beta_flux.py)
         if self.two_tier_beta:
