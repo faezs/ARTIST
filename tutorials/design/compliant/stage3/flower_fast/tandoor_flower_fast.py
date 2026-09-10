@@ -38,7 +38,7 @@ from tandoor_flower_env import (TandoorFlowerEnv, compliance, pedicel_fk, hexapo
                                 EI_BOOM, EI_STEM, D_DISH,
                                 D_REC, R_PLAT, A_M, RHO_AIR, CD_BOWL, CD_BACK, C_M, IU, M_HEAD, M_CROWN,
                                 J_LIM, J_LIM_RING, J_RATE, J_SLEW, RING_R, RING_Z, RAIL_RATE,
-                                FINE_STROKE, ZETA, SIG_MEM_K, PLENUM_SEALED, P_SURV, SIG_BALL_PER_N, J_HEX_FT)
+                                FINE_STROKE, ZETA, SIG_MEM_K, PLENUM_SEALED, P_SURV, SIG_BALL_PER_N, J_HEX_FT, film_soften)
 
 DT = 1.0e-3                      # 1 kHz
 DT_HASH = 15.0                   # the step Hashemi's reward weights were written for
@@ -72,6 +72,12 @@ ST_DISC, CL_DISC = 0.135, 0.10   # a normal disc sheds far lower - 0.39 Hz at 12
 EPS_VS, A_VS, CL0 = 0.3, 12.0, 0.3
 KARMAN_TAU = (1.0, 1/6.0, 1/216.0)          # multiples of the eddy turnover L/U
 KARMAN_W = (0.726, 0.246, 0.028)            # weights on the VARIANCE, summing to one
+# AERODYNAMIC ADMITTANCE. The gust the head's loads see is not the point gust: eddies smaller than the dish average out over
+# it. Vickery's admittance chi^2 = 1/(1 + (2 f sqrt(A)/U)^(4/3)) is carried as a first-order lag on the gust with its
+# half-power corner at f = U/(2 sqrt(A)) - 1.6 Hz at 12 m/s - which cuts the force spectrum at the boom's 2-7 Hz mode by
+# 4-5x against the point gust the envs used before. The film's own figure keeps the POINT gust: the small eddies that
+# cancel in the net force are exactly what loads its n >= 1 harmonics.
+ADMIT_SQRT_A = float(np.sqrt(np.pi*2.1*2.1))
 def karman_step(u, dt, U, iu, gen, dev):
     """one 1 ms step of the three-pole gust. u is (B, 3): one state per pole, the gust is their sum."""
     t0 = torch.clamp(L_KARMAN/torch.clamp(U, min=0.5), min=1e-3)[:, None]
@@ -125,6 +131,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                       q_vs=z(), qd_vs=z(), acc_l=z(), ph_d=z(),   # the boom's wake oscillator, and the dish's shedding phase
 
                       x=z(2), xd=z(2),                       # the head's lateral deflection and its rate
+                      ua=z(), va=z(),                        # the gust as the head's loads see it: admittance-filtered
                       fine=z(3), fine_c=z(3),                # the fine stage: where it is, where it is going
                       p_act=torch.full((B,), float(self.p0), device=dev), p_dist=z(), valve=torch.ones(B, device=dev),
                       E=z(int(self.loaves_per_load)),        # the dough, so the reward's dough term is Markov
@@ -216,13 +223,16 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         S["v"] = karman_step(S["v"], self.dt, U, 0.6*IU, gen, dev)
         S["cm"] = karman_step(S["cm"], self.dt, torch.ones_like(U), CM_RMS, gen, dev)
         u_g = karman_sum(S["u"]); v_g = karman_sum(S["v"]); cm_g = karman_sum(S["cm"])
-        V = torch.clamp(U + u_g, min=0.0)
+        V = torch.clamp(U + u_g, min=0.0)                                              # the point gust: the film, the boom's shedding
+        k_adm = torch.clamp(2*np.pi*(U/(2*ADMIT_SQRT_A))*self.dt, max=1.0)              # Vickery's corner, as a first-order lag
+        S["ua"] = S["ua"] + (u_g - S["ua"])*k_adm; S["va"] = S["va"] + (v_g - S["va"])*k_adm
+        Vh = torch.clamp(U + S["ua"], min=0.0)                                          # the gust the head's loads see
         ca = (n0[:, 0]*self._fl_what_x)
         into = ca < 0
         cd = 0.25 + (torch.where(into, torch.full_like(ca, CD_BOWL), torch.full_like(ca, CD_BACK)) - 0.25)*ca*ca
         A_D = np.pi*A_M**2
-        drag = 0.5*RHO_AIR*V*V*A_D*cd
-        side = 0.5*RHO_AIR*V*v_g*A_D*0.9
+        drag = 0.5*RHO_AIR*Vh*Vh*A_D*cd
+        side = 0.5*RHO_AIR*Vh*S["va"]*A_D*0.9
 
         # ---- 4. the structure: a damped oscillator at THIS extension, so it rings where a real boom rings
         Cb0 = C0 - D_REC*n0; bu = Cb0 - T0
@@ -263,7 +273,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         # makes it the interesting part of the job rather than a slow bias.
         k_th = 1.0/torch.clamp(F["q_ext"]/EI_BOOM + 1.0/EI_STEM, min=1e-12)
         w_th = torch.sqrt(k_th/J_HEAD); F["f_th"] = w_th/(2*np.pi)
-        M_w = 0.5*RHO_AIR*V*V*A_D*D_DISH*cm_g                                      # the fluctuating moment, about the
+        M_w = 0.5*RHO_AIR*Vh*Vh*A_D*D_DISH*cm_g                                    # the fluctuating moment, about the
         m_t = torch.stack([M_w*(w_hat*t2).sum(1), -M_w*(w_hat*t1).sum(1)], 1)      # axis across the wind
         a_th = m_t/J_HEAD - 2*ZETA*w_th[:, None]*S["thd"] - (w_th*w_th)[:, None]*S["th"]
         S["thd"] = S["thd"] + a_th*self.dt; S["th"] = S["th"] + S["thd"]*self.dt
@@ -295,7 +305,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         f_now = self._lerp_lv(S["p_act"])                                          # on device: a .cpu() here cost 50x the physics
         defocus = A_M*torch.abs(f_now - self.f_nom)/max(self.f_nom, 1e-6)          # the spot's growth from the wrong focal length
         wind_pass = torch.where(S["valve"] > 0.5, torch.full_like(V, PLENUM_SEALED), torch.ones_like(V))
-        sig_film = SIG_MEM_K*V*V*wind_pass                                         # the film's own gradient, rad rms
+        sig_film = SIG_MEM_K*V*V*film_soften(V)*wind_pass                          # the film's own figure under wind, rad rms, softened by the flow
 
         # ---- 7. the optics: THE RAY TRACE. The megakernel is handed the dish frame the flower's joints actually
         # produced, so the power is what those rays deliver - not a closed form fitted to a half-power radius.

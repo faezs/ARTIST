@@ -3,7 +3,7 @@ the aeroelastic limit, the thermal/creep drift of tension, and the n = 2 pressur
 import numpy as np
 from scipy.special import jn_zeros
 a, t, E, nu, rho_pet = 2.10, 50e-6, 3.7e9, 0.38, 1390.0
-T = 3000.0                          # working tension, mean over the disc (1-D FvK at f 4: rim 4.5 kN/m, pre 2.0)
+T = 4922.0                          # working tension, AREA-MEAN over the disc from the 1-D FvK solve at f 4 (rim 4526, centre 5334, pre 2000)
 rho, sag = 1.03, 0.276
 mu_film = rho_pet*t
 print(f"film {1e3*mu_film:.0f} g/m2, working tension {T:.0f} N/m, stress {1e-6*T/t:.0f} MPa (PET yield ~90), strain {100*T/(E*t):.2f} %")
@@ -36,9 +36,11 @@ for U in (9.0, 12.0, 15.0, 25.0, 40.0):
     q = 0.5*rho*U*U; Tstar = T/(q*c)
     print(f"   U {U:4.0f}: q {q:5.0f} Pa, T* {Tstar:5.1f} -> the flow softens the film's stiffness by ~{100/Tstar:.0f} %{'   (survival: near divergence, stow)' if Tstar < 1.5 else ''}")
 print("\n4. TENSION DRIFT the control has to chase: f = a^2/(4 s0) with s0 = p a^2/(4 T) -> f follows T/p one to one")
-alpha = 17e-6; dT_sun = 30.0
-dstrain = alpha*dT_sun; strain0 = T/(E*t)
-print(f"   the film 30 K warmer in the sun: thermal strain {100*dstrain:.3f} % against a working strain of {100*strain0:.2f} % -> tension {100*dstrain/strain0:.0f} % lower -> f {4*dstrain/strain0:.2f} m shorter (the 7 pressure levels span +-20 %)")
+alpha = 17e-6; strain0 = T/(E*t)
+for V in (1.0, 3.0, 12.0):
+    h = 5.7 + 3.8*V; dT_sun = 0.10*900/(2*h)                       # 10 % absorbed of 900 W/m2, McAdams convection on both faces
+    dstrain = alpha*dT_sun
+    print(f"   at {V:4.1f} m/s the film runs {dT_sun:.1f} K above the air: thermal strain {100*dstrain:.3f} % against a working strain of {100*strain0:.2f} % -> tension {100*dstrain/strain0:.2f} % lower, f {100*4*dstrain/strain0:.1f} cm shorter (the 7 pressure levels span +-20 %): negligible")
 print(f"   PET creep at 60 MPa: ~1 % per decade of hours -> ~{100*0.01/strain0:.0f} % of the working strain per decade: a slow pressure trim, seasonal not gusty")
 print("\n5. THE PRESSURE MAP'S HARMONICS: the linear membrane response to p_n cos(n theta) r^n/a^n, slope rms per Pa")
 rr = np.linspace(1e-3, a, 400); th = np.linspace(0, 2*np.pi, 360); R, TH = np.meshgrid(rr, th, indexing="ij")

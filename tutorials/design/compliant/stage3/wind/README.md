@@ -30,3 +30,21 @@ Not converged between 0.15 and 0.06 m (n = 2 grew 5x); a 0.04 m run is queued. T
 plate at 31 deg: windward concave face pressurised with a thin stagnant pocket, leeward convex back with attached fast flow
 and suction, one shear layer off the trailing rim. With steady inflow the loads are nearly steady (Cd rms 0.5 %); the
 fluctuating part in service is the boundary layer's turbulence, to be added as synthetic inflow.
+
+## Corrections and what went into the envs (same day)
+
+- The film's WORKING tension is 4922 N/m area-mean (rim 4526, centre 5334) from the 1-D FvK solve at f 4, not the 2000 N/m
+  pretension and not the 3000 first used here. At that tension the LES harmonics give **3.42 mrad** of figure error at
+  12 m/s (n = 1 / 2 / 3: 3.2 / 1.0 / 0.5) against the env constant's 3.79: the same to 10 % at this attitude, differently
+  composed. The constant stays until the year's matrix gives the attitude dependence the env now lacks entirely.
+- 4922 N/m in 50 um PET is **98 MPa, at the film's yield** (~90). The pretension figure of 40 MPa quoted in the membrane
+  memo is the unpressurised state. Either the film is 100 um (49 MPa) or the tension budget is wrong. Flagged, not changed:
+  t_mem is the optics fork's.
+- The thermal tension drift claimed earlier (30 K, 3 %, 0.13 m of focal length) assumed no convection. With McAdams
+  convection on both faces the film runs 1-5 K above the air: 0.06-0.3 % of tension, 0.2-1.2 cm of f. Negligible. Creep
+  (~1 %/decade of hours at this stress) remains, slow.
+- Aeroelastic softening at the real tension: 4 / 6 / 10 % at 9 / 12 / 15 m/s, divergence near 48 m/s (was 37 at 3 kN/m).
+- INTO THE ENVS: `film_soften(V) = 1/(1 - q D/T)` multiplies the film's figure term in both envs (`sig_mem`, `sig_film`);
+  the fast env's head loads (drag, side, pitching moment) now see the gust through Vickery's admittance, a first-order lag
+  at U/(2 sqrt A) = 1.6 Hz at 12 m/s (state `ua`, `va`), which cuts the force spectrum at the boom's 2-7 Hz mode 4-5x; the
+  film keeps the point gust. Measured: the filtered gust's total rms is 7 % below the point gust's, the change is spectral.

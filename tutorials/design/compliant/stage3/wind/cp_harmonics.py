@@ -4,7 +4,7 @@ ring, and the film's figure error from each harmonic by the linear prestressed-m
 solved per harmonic on the ring grid, then the slope field's rms over the disc -> mrad and the blur at F (2 x slope x f)."""
 import sys, numpy as np, pandas as pd
 d = sys.argv[1]; U = float(sys.argv[2]) if len(sys.argv) > 2 else 12.0
-T, a, f_dish, rho_air = 3000.0, 2.1, 4.0, 1.03; q = 0.5*rho_air*U*U
+T, a, f_dish, rho_air = float(sys.argv[3]) if len(sys.argv) > 3 else 4922.3, 2.1, 4.0, 1.03; q = 0.5*rho_air*U*U   # T: the film's area-mean working tension from the 1-D FvK solve at f 4
 p = pd.read_csv(f"{d}/pressure.csv"); g = pd.read_csv(f"{d}/probes.csv")
 fr = p[[c for c in p.columns if c.startswith("f")]].values; bk = p[[c for c in p.columns if c.startswith("b")]].values
 net = fr - bk                                                     # Cp, front minus back: what the film feels, positive pushes it back

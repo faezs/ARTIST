@@ -121,6 +121,17 @@ ZETA = 0.02                                                   # structural dampi
 BETA_OPT, BETA_HARD = 36.0, 45.0                              # the traced optimum and the hard cap (tree/beta_flux.py)
 PLENUM_SEALED = 0.03                                          # the fraction of the wind's pressure a sealed plenum lets reach the figure (topopt/membrane_wind.py)
 SIG_MEM_K = 2.63e-5                                           # rad rms of film gradient per (m/s)^2, sealed
+# The LES of the bowl (stage3/wind, equinox-noon retro, 12 m/s, dx 0.06) puts the film's figure error from the load's n = 1, 2, 3
+# harmonics at 3.42 mrad against this constant's 3.79 - the same to 10 % at that attitude, differently composed (3.2 / 1.0 / 0.5);
+# the attitude table from the year's matrix replaces the constant when it lands. What the constant lacked is the flow's
+# own softening of the film: a tensioned membrane in a stream loses stiffness as q D / T (Tiomkin & Raveh 2017, divergence
+# at T* = T/(q D) ~ 1). At the working area-mean tension 4922 N/m that is 6 % at 12 m/s, 10 % at 15, divergence at 48 m/s.
+T_WORK, D_AERO = 4922.0, 4.2
+
+
+def film_soften(V):
+    """the film's compliance under wind over its still-air compliance, 1/(1 - q D/T), capped short of divergence"""
+    return 1.0/(1.0 - torch.clamp(0.5*RHO_AIR*V*V*D_AERO/T_WORK, max=0.6))
 
 
 def hexapod_jacobian():
@@ -434,13 +445,13 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F["stow"] = stow
 
         if not self.mech:
-            F["V"], F["gust"], F["sig_mem"] = U, gust, SIG_MEM_K*V*V
+            F["V"], F["gust"], F["sig_mem"] = U, gust, SIG_MEM_K*V*V*film_soften(V)
             F["d_el"] = torch.zeros(B, device=dev); F["d_az"] = torch.zeros(B, device=dev); return
 
         # ---- 3. the pedicel: invert the five joints, hold them to their travel and their drives' rates
         C, n = self._fl_head_pose()
         if C is None:
-            F["V"], F["gust"], F["sig_mem"] = U, gust, SIG_MEM_K*V*V; return
+            F["V"], F["gust"], F["sig_mem"] = U, gust, SIG_MEM_K*V*V*film_soften(V); return
         dt0 = float(getattr(self, "dt", 15.0))
         Cb_want = C - D_REC*n
         T0, phi, rail_hit = self._fl_base(Cb_want, F["q_rail"], dt0)
@@ -545,7 +556,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             a0 = torch.as_tensor(act, device=dev).reshape(B, -1)[:, 0].float()
             open_ = (a0 != 3.0).float()                                                 # the level action is off neutral: the valve is open this step
         F["plenum"] = 1.0 - open_
-        F["sig_mem"] = SIG_MEM_K*V*V*torch.where(open_ > 0.5, torch.full_like(V, 1.0/PLENUM_SEALED), torch.ones_like(V))
+        F["sig_mem"] = SIG_MEM_K*V*V*film_soften(V)*torch.where(open_ > 0.5, torch.full_like(V, 1.0/PLENUM_SEALED), torch.ones_like(V))
 
         # ---- 10. beta, two-tier at the traced optimum (tree/beta_flux.py)
         if self.two_tier_beta:
