@@ -17,7 +17,8 @@ def slope_rms(n, pr, rings):
 rows = []
 for d in sorted(glob.glob(f"{S}/dish_les*")):
     if d.endswith("dish_les_test") or not os.path.exists(f"{d}/forces.csv"): continue
-    f = pd.read_csv(f"{d}/forces.csv"); p = pd.read_csv(f"{d}/pressure.csv"); g = pd.read_csv(f"{d}/probes.csv")
+    try: f = pd.read_csv(f"{d}/forces.csv"); p = pd.read_csv(f"{d}/pressure.csv"); g = pd.read_csv(f"{d}/probes.csv")
+    except Exception: continue                                                          # a run still settling
     if len(f) < 10 or len(p) < 2: continue
     m = re.search(r"el(\d+)_az(\d+)", d); el, az = (float(m.group(1)), float(m.group(2))) if m else (59.0, 0.0)
     dxm = re.search(r"dx(\d+)", d); dx = float("0." + dxm.group(1)[1:]) if dxm else 0.06

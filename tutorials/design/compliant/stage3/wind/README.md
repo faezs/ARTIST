@@ -48,3 +48,25 @@ fluctuating part in service is the boundary layer's turbulence, to be added as s
   the fast env's head loads (drag, side, pitching moment) now see the gust through Vickery's admittance, a first-order lag
   at U/(2 sqrt A) = 1.6 Hz at 12 m/s (state `ua`, `va`), which cuts the force spectrum at the boom's 2-7 Hz mode 4-5x; the
   film keeps the point gust. Measured: the filtered gust's total rms is 7 % below the point gust's, the change is spectral.
+
+## The year's retro attitudes (12 m/s, dx 0.06, steady inflow; theta_w = the wind's incidence on the bowl, 0 = straight in)
+
+| pose | el | az | theta_w | Cd (env) | Cl | Cn | Cm | net Cp | n1 / n2 / n3 | film mrad (env const 3.79) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| midwinter noon | 36 | 8 | 37 | 1.24 (0.99) | -0.92 | -1.55 | 0.078 | 1.66 | 0.37 / 0.04 / 0.03 | 1.83 |
+| equinox noon | 59 | 0 | 59 | 0.78 (0.56) | -1.38 | -1.59 | 0.145 | 1.67 | 0.58 / 0.22 / 0.13 | 3.41 |
+| equinox 09:30 | 43 | 56 | 66 | 0.46 (0.44) | -0.72 | -1.07 | 0.088 | 1.07 | 0.30 / 0.03 / 0.03 | 1.54 |
+| equinox 08:00 | 25 | 73 | 75 | 0.22 (0.33) | -0.27 | -0.68 | 0.066 | 0.65 | 0.25 / 0.04 / 0.03 | 1.23 |
+| midsummer noon | 80 | 46 | 83 | 0.11 (0.27) | -0.33 | -0.34 | 0.015 | 0.37 | 0.07 / 0.04 / 0.03 | 0.32 |
+| midsummer 08:00 | 37 | 98 | 96 | 0.10 (0.26) | +0.08 | +0.14 | 0.039 | -0.14 | 0.17 / 0.09 / 0.03 | 0.96 |
+
+Read across: the load on a bowl facing the wind is a NORMAL force along its axis, Cn -1.55 to -1.59 on the disc area from
+37 to 59 deg of incidence, falling to -0.34 by 83 and changing sign past 90; the tangential part stays under 0.1. The
+vertical force is downward at every bowl-facing pose, up to 1.4 q A, where the env's heuristic gave +0.4 upward. The env's
+drag interpolation is 20-25 % low at low incidence and 2x high at grazing. The film's figure error runs from 3.4 mrad at
+equinox noon down to 0.3 at midsummer noon: the constant the env carried (3.79 at 12 m/s) was the worst pose. All of this
+is in `tandoor_wind_table.json` beside the envs, piecewise-linear in theta_w, flat beyond 96 deg, and both envs now take
+the head's force and the film's figure constant from it wherever theta_w <= 100. Mean and rms of the steady-inflow Cm are
+at most 0.145 and 0.015: the 0.15 rms the envs assume for the fluctuating moment is the boundary layer's turbulence, which
+these runs do not carry, and which the quasi-steady incidence model should now provide from the table's slopes
+(dCn/dtheta, dCm/dtheta) and the gust's lateral and vertical components.

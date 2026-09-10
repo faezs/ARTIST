@@ -46,7 +46,7 @@ def head_aero(n, w):
     the table covers (the wind on the bowl's face)."""
     up = -w/torch.linalg.norm(w, dim=1, keepdim=True).clamp(min=1e-9)
     cos_t = (n*up).sum(1).clamp(-1.0, 1.0); theta_w = torch.rad2deg(torch.arccos(cos_t))
-    covered = theta_w <= 90.0
+    covered = theta_w <= 100.0                                   # the table reaches 96 deg (the wind grazing the back); beyond, the old model
     return theta_w, interp(theta_w, "Cn"), interp(theta_w, "Ct"), interp(theta_w, "k_film"), covered
 
 
