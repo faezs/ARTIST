@@ -132,7 +132,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                       q_vs=z(), qd_vs=z(), acc_l=z(), ph_d=z(),   # the boom's wake oscillator, and the dish's shedding phase
 
                       x=z(2), xd=z(2),                       # the head's lateral deflection and its rate
-                      ua=z(), va=z(),                        # the gust as the head's loads see it: admittance-filtered
+                      ua=z(), va=z(), wa=z(), w=z(3),        # the gust as the head's loads see it: admittance-filtered; and the VERTICAL gust
                       fine=z(3), fine_c=z(3),                # the fine stage: where it is, where it is going
                       p_act=torch.full((B,), float(self.p0), device=dev), p_dist=z(), valve=torch.ones(B, device=dev),
                       E=z(int(self.loaves_per_load)),        # the dough, so the reward's dough term is Markov
@@ -222,11 +222,13 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                                               device=dev).reshape(-1).expand(B))*self.wind_scale, min=0.0)
         S["u"] = karman_step(S["u"], self.dt, U, IU, gen, dev)
         S["v"] = karman_step(S["v"], self.dt, U, 0.6*IU, gen, dev)
+        S["w"] = karman_step(S["w"], self.dt, U, 0.5*IU, gen, dev)                     # the vertical gust: sigma_w ~ 0.5 sigma_u in the surface layer
         S["cm"] = karman_step(S["cm"], self.dt, torch.ones_like(U), CM_RMS, gen, dev)
         u_g = karman_sum(S["u"]); v_g = karman_sum(S["v"]); cm_g = karman_sum(S["cm"])
         V = torch.clamp(U + u_g, min=0.0)                                              # the point gust: the film, the boom's shedding
         k_adm = torch.clamp(2*np.pi*(U/(2*ADMIT_SQRT_A))*self.dt, max=1.0)              # Vickery's corner, as a first-order lag
-        S["ua"] = S["ua"] + (u_g - S["ua"])*k_adm; S["va"] = S["va"] + (v_g - S["va"])*k_adm
+        w_g = karman_sum(S["w"])
+        S["ua"] = S["ua"] + (u_g - S["ua"])*k_adm; S["va"] = S["va"] + (v_g - S["va"])*k_adm; S["wa"] = S["wa"] + (w_g - S["wa"])*k_adm
         Vh = torch.clamp(U + S["ua"], min=0.0)                                          # the gust the head's loads see
         ca = (n0[:, 0]*self._fl_what_x)
         into = ca < 0
@@ -263,7 +265,11 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         if getattr(self, "wind_table", 1):
             # the LES table: the bowl's load as a normal force along its axis (with its downward vertical part, which the
             # drag-only assembly above never had), and the film's figure constant by incidence; the back keeps the drag model
-            F_tab, theta_w, k_tab, covered = WT.head_force(n0, w_hat, 0.5*RHO_AIR*Vh*Vh, A_D)
+            # the INSTANTANEOUS wind direction: the lateral and vertical gusts swing the incidence, and on a bowl dCn/dtheta
+            # is -0.7 per 10 deg between 60 and 80 deg, so the swing loads the head as much as the along-wind gust does
+            w_inst = torch.stack([Vh*self._fl_what_x, S["va"], S["wa"]], 1)
+            V_inst = torch.linalg.norm(w_inst, dim=1).clamp(min=1e-6)
+            F_tab, theta_w, k_tab, covered = WT.head_force(n0, w_inst/V_inst[:, None], 0.5*RHO_AIR*V_inst*V_inst, A_D)
             Fw = torch.where(covered[:, None], F_tab + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf, Fw)
             k_film = torch.where(covered, k_tab, k_film); F["theta_w"] = theta_w
         cmp_ = compliance(F["q_ext"], self.boom_kind, self.boom_ratio, self.boom_root,
