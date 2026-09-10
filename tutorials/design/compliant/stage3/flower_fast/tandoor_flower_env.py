@@ -959,7 +959,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             f"   $3 extend {q['ext']:5.2f} m [{self.boom[0]:.2f},{self.boom[1]:.2f}] (asked {fl['ext_ask']:5.2f})   $4 pitch {q['pitch']:6.1f}   $5 yaw {q['yaw']:+6.1f}",
             f"         at a limit: {fl['lim_hit']:.0f} joints . rate-limited: {fl['rate_hit']:.0f} . pose shortfall {1e3*fl['pose_err']:.2f} mrad"
             + ("   BOOM THROUGH THE APERTURE" if fl["thru"] > 0.5 else " . the boom clears the aperture")
-            + f"   beta {fl['beta']:.0f} deg (36 was the cass optimum; on tri the trace runs to retro)",
+            + f"   beta {fl['beta']:.0f} deg (the cass optimum; tri traces best at retro)",
             f"structure  boom out {q['ext']:.2f} m -> {1e6*fl['k_img']:.1f} um of image per N of drag, first mode {fl['f_n']:.1f} Hz"
             f"   (fully in, {self.boom[0]:.1f} m: {1e6*float(compliance(torch.tensor([self.boom[0]]))['k_img'][0]):.1f} um/N, {float(compliance(torch.tensor([self.boom[0]]))['f_n'][0]):.0f} Hz;"
             f" the aim law asks {self.boom[0]:.2f}-{self.boom[1]:.2f} m of this base)",
@@ -984,7 +984,9 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                 if r.get("ideal"): fx.append(f"{r['joint']} {r['kind']}")
                 elif r["mass_kg"] > 2000: fx.append(f"{r['joint']} {r['mass_kg']/1e3:.0f} t: a bearing")
                 else: fx.append(f"{r['joint']} {r['n_st']} st {r['mass_kg']:.0f} kg{'' if r['good_pivot'] else ' lump'}")
-            lines.append("flexures from the screws  " + " . ".join(fx) + ("   (drawn: M2, M3)" if self.flexures == 1 else ""))
+            ped = [x for x in fx if x.startswith("$")]; mir = [x for x in fx if not x.startswith("$")]
+            lines.append("flexures from the screws  pedicel: " + " . ".join(ped))
+            lines.append("                          mirrors: " + " . ".join(mir) + ("   (drawn: M2, M3; --flexures all for the pedicel)" if self.flexures == 1 else ""))
         pr.draw_rectangle(12, y0 - 4, 1000, 18*len(lines) + 8, (10, 12, 18, 175))
         for j, l in enumerate(lines): pr.draw_text(l, 18, y0 + 18*j, 14, (225, 232, 240, 255) if j else (255, 214, 120, 255))
 
