@@ -244,3 +244,44 @@ arrives, a quarter-period before the boom's 2-7 Hz mode has moved the image, and
 frame. `obs_strain=1` appends the two readings to the tail (14 numbers after the frame instead of 12; FluxConv picks
 the width up from the env). Off by default so the observation the running training was started on is unchanged.
 Whether the policy uses it is a training away, and that training has not been run.
+
+## The mechanism from its screws, in the eval
+
+`flower_eval.py` now prints, once at start, every joint of the machine written as a screw and realised as flexures by
+`tandoor_screw_render.realise` (the pure function; the copy beside the envs is what the env imports, `fact/screw_render.py`
+is the same file), scored by its `evaluate`. Travel comes from the machine's own year - the kernel's aim law swept over
+170 poses the way `tree/path.py` does, angles taken on the circle so the slew's continuous limit does not read as
+360 deg - and load from the worst moment at the joint over the blade standoff (gravity at full reach plus drag at the
+15 m/s tracking limit for the root; the head hung 1.8 m past the wrist plus the pitching moment for the wrist; wind at
+40 m/s on the strip; 5x its weight for M3). The renderer draws what comes out - blades as their planes, M-52 slaving
+links, pins where the travel beat the elastica - and `--flexures all|m23|off` chooses how much of it.
+
+| joint | travel | load | realised as | blade t x w x L | mass | softness |
+|---|---|---|---|---|---|---|
+| $1 slew | 264 deg | 123.5 kN | 19 stations | 48 x 571 x 9090 mm | 74 t | 3729 |
+| $2 luff | 71 deg | 123.5 kN | 5 stations | 48 x 580 x 9386 mm | 21 t | 242 |
+| $3 extend | 6.72 m | 2.2 kN | rigid slide | - | - | - |
+| $4 pitch | 44 deg | 11.0 kN | 3 stations | 15 x 178 x 2968 mm | 371 kg | 2844 |
+| $5 yaw | 98 deg | 11.0 kN | 7 stations | 14 x 172 x 2764 mm | 750 kg | 4199 |
+| **M2 strip** | 202 deg | 1.2 kN | 14 stations, hollow ring r 0.85 | 4.9 x 58 x 967 mm | **121 kg** | **47354** |
+| **M3 turn** | 63 deg | 4.0 kN | 5 stations | 7.8 x 93 x 1343 mm | **76 kg** | **35182** |
+
+Read it the way the numbers ask to be read. Kinematically every stack is a pivot - the softness ratio, the stiffest
+constrained direction over the freedom asked for, is in the thousands - but the pedicel's root joints carry 37 kN m
+and come out as 9 m blades weighing 74 and 21 tonnes: the elastica sizes a blade to its load, and the machine's root
+load is a 14 m2 sail on an 8.6 m arm. Those two stay bearings. The two mirrors' pivots are the compliant candidates
+the whole time: the strip's, a hollow ring of radial blades round the bore mouth (the beam goes down the middle), 121 kg
+for 202 deg of travel at a softness of 47000; M3's, 76 kg under its patch for its 63 deg. Same synthesis, same rules,
+radically different parts, because the inputs are.
+
+Two things the wiring found:
+
+* `evaluate()` was not frame-invariant. It took moments about the world origin, so the translation part of the scaled
+  twist swamped the rotation for any joint far from it: M3 scored 13 at its real position and 35249 at the origin.
+  Moments are now taken about the screw's own point and the score is the same wherever the joint stands.
+* The travel depends on the episode's formed declination (the mount's aim law does), by a few degrees between resets;
+  the report is for the day the env was reset on.
+
+The renderer also draws the stem and boom as the compliant members they are: their elastic curve under the step's
+drag, exaggerated 200x, the point the bent chain actually turns about, and the optical NEUTRAL POINT the image would
+need it to turn about. The gap between the two markers is the walk, and the HUD says so.

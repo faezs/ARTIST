@@ -52,11 +52,20 @@ checkpoint is the direct translation:
     puffer train puffer_flower --load-model-path experiments/<hashemi run>/model_000160.pt
 """
 import inspect, textwrap, numpy as np, torch
+from math import isinf
 from tandoor_hashemi_env import TandoorHashemiEnv
+from tandoor_screw_render import realise, STEEL
 
 # ---------------------------------------------------------------- the machine, from the design folder
 G_ORB, A_M, RHO_AIR = 4.0, 2.1, 1.03; A_DISH = np.pi*A_M**2; D_DISH = 2*A_M
 CD_BOWL, CD_BACK, C_M = 1.40, 1.05, 0.15
+# THE MECHANISM AS FLEXURES (tandoor_screw_render.realise): the blade standoff from each axis - the pedicel's joints, the
+# strip's HOLLOW ring round the bore mouth (the beam goes down the middle), M3's under its patch - and the loads the two
+# mirrors' pivots carry (the strip's is wind at 40 m/s on 0.7 m2 plus its own weight; M3 sits underground and carries
+# itself, taken at 5x its weight). FLEX_EXAG is how much the renderer exaggerates the wind-bent stem and boom.
+R_PIV, R_PIV_M2, R_PIV_M3 = 0.30, 0.85, 0.30
+M2_LOAD, M3_LOAD = 1.2e3, 4.0e3
+FLEX_EXAG = 200.0
 IU = 0.25                                                     # von Karman turbulence intensity (L 50 m)
 D_BACK, H_HEX, R_REC, R_PLAT = 0.6, 1.2, 1.5, 1.0             # the platform ring 0.6 m behind the vertex, the receptacle 1.8 m
 D_REC = D_BACK + H_HEX                                        # the boom's tip, on the head's axis
@@ -275,7 +284,7 @@ def frac_above(U, f):
 
 class TandoorFlowerEnv(TandoorHashemiEnv):
     def __init__(self, *a, wind_from="S", wind_scale=1.0, stow_wind=15.0, fine_stage=1, mech=1, two_tier_beta=0,
-                 boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT,
+                 boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=2,
                  base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, **k):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
         super().__init__(*a, **k)
@@ -292,6 +301,8 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         self._fl_what_x = 1.0 if self.wind_from.upper().startswith("S") else -1.0     # the wind blows toward +x (north) when from the south
         self._fl = None                                                               # device tensors, made on the first step
         self._fl_act = None                                                           # this step's actions, for the plenum
+        self.flexures = int(flexures)                                                  # 0 none, 1 the strip's and M3's, 2 every joint
+        self._fl_travel = None; self._flex_rep = None                                  # the year's joint travel, and the flexure eval
         self._fl_T0 = None
         self._fl_JFT = torch.as_tensor(J_HEX_FT, dtype=torch.float32, device=self.device)
         self._fl_JH = torch.as_tensor(J_HEX, dtype=torch.float32, device=self.device)
@@ -499,6 +510,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         t_b = t_b/torch.linalg.norm(t_b, dim=1, keepdim=True).clamp(min=1e-9); ra_ = torch.cross(bu_, t_b, dim=1)
         g_tr, g_rot = miss_gains(torch.as_tensor(self._fl_F(), dtype=torch.float32, device=dev), C_got, n_got, s_dir, t_b, ra_,
                                  lever=D_REC*n_got)                                     # the tip rotates; the vertex is D_REC in front of it
+        F["g_tr"], F["g_rot"] = g_tr, g_rot                                        # kept for the renderer's neutral point
         F["k_img"] = (g_rot*cmp_["theta"] + g_tr*cmp_["delta"]).abs()             # signed, then magnitude
         F["k_img_unsigned"] = G_ROT*cmp_["theta"] + G_TR*cmp_["delta"]             # the old pessimistic scalar, for the HUD
         sig_open = F["k_img"]*sig_force; F["walk_open"] = sig_open
@@ -576,6 +588,167 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                     fine_sat=g("fine_sat"), ball_sig=g("ball_sig"), ball_defl=g("ball_defl"), ball_ang=g("ball_ang"),
                     stow=g("stow"), beta=g("beta"), plenum=g("plenum"), walk_open=g("walk_open"), ext_ask=g("ext_ask"), acq=g("acq"),
                     rail=g("q_rail"), thru=g("thru"))
+
+
+    # ------------------------------------------------------------ the mechanism as SCREWS, realised as flexures
+    def _fl_year_travel(self):
+        """each joint's travel over the machine's own year, from the kernel's own aim law - the sweep path.py runs
+        (days 10..365 by 20, 7.5..16.5 h, el > 12 deg) - cached. Angles are ranges ON THE CIRCLE, the largest empty
+        gap being what the joint never visits, so the slew's continuous +-180 limit does not read as 360 deg."""
+        if self._fl_travel is not None: return self._fl_travel
+        from tandoor_mount_batch import solar_batch
+        B, dev = self.num_agents, self.device
+        S = getattr(self, "_gpu", None); lat_v = getattr(S, "lat_v", None) if S is not None else None
+        lat = float(torch.as_tensor(lat_v).reshape(-1)[0]) if lat_v is not None else 30.2
+        hour0 = float(self._mnt_prm[0]) if hasattr(self, "_mnt_prm") else None
+        Ff = self._fl_F(); T0 = self._fl_stem(); T0 = T0.reshape(-1)[:3] if T0.dim() > 1 else T0
+        P4 = getattr(self, "cs_P4", None)
+        A_in = (np.asarray(P4, float) - Ff) if P4 is not None else np.array([0.0, 0.0, -1.0]); A_in = A_in/max(np.linalg.norm(A_in), 1e-9)
+        e1 = np.cross(A_in, [0.0, 0.0, 1.0]); e1 = e1 if np.linalg.norm(e1) > 1e-6 else np.cross(A_in, [0.0, 1.0, 0.0])
+        e1 = e1/np.linalg.norm(e1); e2 = np.cross(A_in, e1)
+        rows = []
+        with torch.no_grad():
+            for day in range(10, 366, 20):
+                for hour in np.arange(7.5, 16.51, 1.0):
+                    el, az, _ = solar_batch(torch.full((B,), lat), torch.full((B,), float(day)), float(hour))
+                    if float(el.mean()) <= 12.0: continue
+                    pnt = torch.stack([el.to(dev).float(), torch.rad2deg(az).to(dev).float()], 1)
+                    mnt = self._mount(torch.full((B,), float(day), device=dev), torch.full((B,), lat, device=dev), float(hour), pnt=pnt)
+                    n = (mnt["naim"] if "naim" in mnt else mnt["Mt"][:, 2, :]).float(); n = n/torch.linalg.norm(n, dim=1, keepdim=True).clamp(min=1e-9)
+                    C = mnt["Cd"].float(); q = pedicel_ik(T0, C[:1], n[:1])
+                    d = C[0].cpu().numpy().astype(float) - Ff; d = d - (d@A_in)*A_in
+                    rows.append([float(q[k][0]) for k in ("slew", "luff", "ext", "pitch", "yaw")] + [np.degrees(np.arctan2(d@e2, d@e1))])
+        if hour0 is not None: self._mnt_prm[0] = hour0
+        R = np.array(rows) if rows else np.zeros((1, 6))
+        def circ(a):
+            a = np.sort(np.mod(a, 360.0)); gaps = np.diff(np.r_[a, a[0] + 360.0]); return float(360.0 - gaps.max())
+        self._fl_travel = dict(slew=circ(R[:, 0]), luff=float(np.ptp(R[:, 1])), ext=float(np.ptp(R[:, 2])),
+                               pitch=float(np.ptp(R[:, 3])), yaw=float(np.ptp(R[:, 4])), strip=circ(R[:, 5]), n=len(rows))
+        return self._fl_travel
+
+    def flower_screws(self, g):
+        """the machine's mechanism as SCREWS - (name, axis, point, pitch, travel, load), one per actuated freedom, at
+        this pose. Travel is what the joint covers over the machine's own year; load is what its blades would carry,
+        the worst moment at the joint over the blade standoff. The pedicel's five are pedicel_screws' axes; the
+        secondary's is the strip turning about the bore axis to keep its 1.2 m width facing the head as the head goes
+        round F; the tertiary's is M3_TURN about the vertical through P4."""
+        tr = self._fl_year_travel(); sc = pedicel_screws(g["T0"], g["Cb"], g["C"], g["n"])
+        Lmax = float(self.boom[1]); q15 = 0.5*RHO_AIR*15.0**2
+        M_root = (M_HEAD + M_CROWN)*9.81*Lmax + q15*A_DISH*CD_BOWL*Lmax          # gravity at full reach, drag at the tracking limit
+        M_wrist = M_HEAD*9.81*D_REC + q15*A_DISH*D_DISH*C_M                      # the head hung D_REC past the wrist, and the pitching moment
+        Lb = float(np.linalg.norm(g["Cb"] - g["T0"]))
+        S = [("$1 slew", sc["Z"], g["T0"], 0.0, np.radians(tr["slew"]), M_root/R_PIV),
+             ("$2 luff", sc["a2"], g["T0"], 0.0, np.radians(tr["luff"]), M_root/R_PIV),
+             ("$3 extend", sc["bu"], g["T0"] + 0.5*Lb*sc["bu"], float("inf"), tr["ext"], q15*A_DISH*CD_BOWL),
+             ("$4 pitch", sc["a2"], g["Cb"], 0.0, np.radians(tr["pitch"]), M_wrist/R_PIV),
+             ("$5 yaw", sc["a5"], g["Cb"], 0.0, np.radians(tr["yaw"]), M_wrist/R_PIV)]
+        P4 = getattr(self, "cs_P4", None)
+        if P4 is not None:
+            Ff = g["Ff"]; P4 = np.asarray(P4, float); A_in = P4 - Ff; A_in = A_in/max(np.linalg.norm(A_in), 1e-9)
+            S.append(("M2 strip", A_in, Ff + 0.25*A_in, 0.0, np.radians(tr["strip"]), M2_LOAD))
+            S.append(("M3 turn", np.array([0.0, 0.0, 1.0]), P4 - np.array([0.0, 0.0, 0.35]), 0.0,
+                      float(self.M3_TURN[1] - self.M3_TURN[0]), M3_LOAD))
+        return S
+
+    def _flex_groups(self, S, everything):
+        """realise() per group, each with its own standoff: the pedicel at R_PIV with the cross-blade pair, the strip as
+        a hollow ring of four radial blades a station at R_PIV_M2, M3 at R_PIV_M3."""
+        ped = [x for x in S if x[0].startswith("$")]; m2 = [x for x in S if x[0] == "M2 strip"]; m3 = [x for x in S if x[0] == "M3 turn"]
+        out = []
+        if ped and (everything or self.flexures >= 2): out.append((ped, dict(radius=R_PIV, n_blades=2)))
+        if m2: out.append((m2, dict(radius=R_PIV_M2, n_blades=4)))
+        if m3: out.append((m3, dict(radius=R_PIV_M3, n_blades=2)))
+        return out
+
+    def flexure_report(self, g=None):
+        """THE EVAL. Every joint realised from its screw and scored by tandoor_screw_render.evaluate: kind, stations,
+        blade section, softness ratio (the stiffest constrained direction over the freedom asked for; a pivot above
+        about 100, a lump below), travel and load. Pose-independent, so cached."""
+        if self._flex_rep is None:
+            if g is None: g = self._flower_geom(None)
+            S = self.flower_screws(g); rows = []
+            for scr, kw in self._flex_groups(S, everything=True):
+                mem, rp = realise(scr, mat=STEEL, evaluate_too=True, **kw)
+                first = {}
+                for m in mem: first.setdefault(m["joint"], m)
+                for r in rp:
+                    m = first.get(r["joint"], {}); scr_ = next(x for x in scr if x[0] == r["joint"])
+                    r.update(t=m.get("t"), w=m.get("w"), L=m.get("L"), n_st=m.get("n_stations", 1 if m.get("kind") == "blade" else 0),
+                             slenderness=m.get("slenderness"), reason=m.get("reason"), travel=scr_[4], load=scr_[5],
+                             prismatic=isinf(scr_[3]) if isinstance(scr_[3], float) else False)
+                    rows.append(r)
+            self._flex_rep = rows
+        return self._flex_rep
+
+    @staticmethod
+    def flexure_lines(rep):
+        """the report as text, one joint a line"""
+        out = []
+        for r in rep:
+            trav = f"{r['travel']:.2f} m" if r.get("prismatic") else f"{np.degrees(r['travel']):.0f} deg"
+            if r.get("ideal"):
+                out.append(f"{r['joint']:<10} {trav:>8} {r['load']/1e3:6.1f} kN  {r['kind']:<18} {r.get('reason') or ''}")
+            else:
+                out.append(f"{r['joint']:<10} {trav:>8} {r['load']/1e3:6.1f} kN  {r['kind']:<18} {r['n_st']:2d} stations, blade "
+                           f"{1e3*r['t']:.1f} x {1e3*r['w']:.0f} x {1e3*r['L']:.0f} mm, {r['mass_kg']:.0f} kg, softness {r['softness_ratio']:.0f}"
+                           f"  {'PIVOT' if r['good_pivot'] else 'a lump, not a pivot'}")
+        return out
+
+    def _draw_flexures(self, pr, v3, g):
+        """draw what realise() returns: blades as their planes, slaving links, pins where the travel beat the elastica."""
+        if not self.flexures: return
+        rep = {r["joint"]: r for r in self.flexure_report(g)}
+        members = []
+        for scr, kw in self._flex_groups(self.flower_screws(g), everything=False): members += realise(scr, mat=STEEL, **kw)
+        cb, ce, cl, cp = (120, 200, 255, 110), (70, 160, 230, 255), (255, 200, 90, 220), (210, 120, 120, 255)
+        seen = set()
+        for m in members:
+            v = m["verts"]
+            if m["kind"] in ("blade", "leaf parallelogram"):
+                a_, b_, c_, d_ = [v3(p) for p in v]
+                pr.draw_triangle_3d(a_, b_, c_, cb); pr.draw_triangle_3d(a_, c_, d_, cb)
+                pr.draw_triangle_3d(c_, b_, a_, cb); pr.draw_triangle_3d(d_, c_, a_, cb)
+                for i in range(4): pr.draw_line_3d(v3(v[i]), v3(v[(i + 1) % 4]), ce)
+            elif m["kind"] == "slaving link": pr.draw_line_3d(v3(v[0]), v3(v[1]), cl)
+            elif m["kind"] == "pin": pr.draw_cylinder_ex(v3(v[0]), v3(v[1]), 0.07, 0.07, 8, cp)
+            elif m["kind"] == "rigid slide": pr.draw_line_3d(v3(v[0]), v3(v[1]), cp)
+            if m["joint"] in seen: continue
+            seen.add(m["joint"]); r = rep.get(m["joint"], {})
+            if r.get("ideal"): lab = f"{m['joint']}: {m['kind']} (L/t {r.get('slenderness', 0) or 0:.0f} even stacked)" if m["kind"] == "pin" else f"{m['joint']}: {m['kind']}"
+            else: lab = (f"{m['joint']}: {r.get('n_st', 0)} x {m['kind']} {1e3*r['t']:.0f}x{1e3*r['w']:.0f}x{1e3*r['L']:.0f} mm, softness {r['softness_ratio']:.0f}"
+                         + ("" if r["good_pivot"] else " - NOT a pivot"))
+            self._pot_lbls.append((v.mean(axis=0) + np.array([0.0, 0.0, 0.3]), lab, ce if (r.get("ideal") or r.get("good_pivot")) else cp))
+
+    def _draw_bent(self, pr, v3, g):
+        """the stem and boom as the compliant members they are: their elastic curve under this step's drag, x FLEX_EXAG;
+        the chain's own centre of rotation; and the optical NEUTRAL POINT, the centre a bent chain would have to turn
+        about for the image at F to stay put. The gap between the two markers IS the walk."""
+        F = self._fl
+        if F is None or "g_tr" not in F: return
+        T0, Cb, foot = g["T0"], g["Cb"], g["foot"]; bu = Cb - T0; Lb = max(float(np.linalg.norm(bu)), 1e-9); bu = bu/Lb
+        w = np.array([self._fl_what_x, 0.0, 0.0]); t = w - (w@bu)*bu; tn = float(np.linalg.norm(t))
+        if tn < 1e-6: return
+        t = t/tn; P = float(F["drag"][0])*tn; m = D_REC*float(g["n"]@bu); Ls = max(float(np.linalg.norm(T0 - foot)), 1e-6)
+        zs = np.linspace(0.0, Ls, 8); ys = P*(zs**2*(3*Ls - zs)/(6*EI_STEM) + (Lb + m)*zs**2/(2*EI_STEM))
+        th_s = P*(Ls*Ls/2 + (Lb + m)*Ls)/EI_STEM; d_s = float(ys[-1])
+        xs = np.linspace(0.0, Lb, 16); yb = d_s + th_s*xs + P*(xs**2*(3*Lb - xs)/(6*EI_BOOM) + m*xs**2/(2*EI_BOOM))
+        th = th_s + P*(Lb*Lb/2 + m*Lb)/EI_BOOM; de = float(yb[-1])
+        col = (255, 150, 90, 230)
+        pts = ([foot + (z/Ls)*(T0 - foot) + FLEX_EXAG*y*t for z, y in zip(zs, ys)]
+               + [T0 + x*bu + FLEX_EXAG*y*t for x, y in zip(xs, yb)])
+        for i in range(len(pts) - 1): pr.draw_line_3d(v3(pts[i]), v3(pts[i + 1]), col)
+        pr.draw_line_3d(v3(pts[-1]), v3(g["C"] + FLEX_EXAG*de*t + FLEX_EXAG*th*np.cross(np.cross(bu, t), g["C"] - Cb)), col)
+        self._pot_lbls.append((pts[-1] + np.array([0.0, 0.0, 0.5]), f"bent x{FLEX_EXAG:.0f}: {1e3*de:.2f} mm, {1e3*th:.2f} mrad under {P:.0f} N across the boom", col))
+        r_chain = de/max(th, 1e-12)
+        g_tr, g_rot = float(F["g_tr"][0]), float(F["g_rot"][0])
+        pr.draw_sphere(v3(Cb - r_chain*bu), 0.09, col)
+        self._pot_lbls.append((Cb - r_chain*bu + np.array([0.0, 0.0, -0.3]), f"the chain turns about here, {r_chain:.1f} m behind the tip", col))
+        if abs(g_tr) > 1e-9:
+            r_star = -g_rot/g_tr; cn = (120, 255, 160, 255)
+            pr.draw_sphere(v3(Cb - r_star*bu), 0.09, cn)
+            self._pot_lbls.append((Cb - r_star*bu + np.array([0.0, 0.0, 0.3]),
+                                   f"NEUTRAL POINT {r_star:.1f} m behind the tip: turn the head about here and the image at F stays", cn))
+            self._fl_neutral = (r_chain, r_star)
 
     # ------------------------------------------------------------ drawing (pyray), called from the patched base renderer
     def _flower_geom(self, H):
@@ -671,6 +844,8 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         pr.draw_line_3d(v3(mid - 0.45*sc["bu"]), v3(mid + 0.45*sc["bu"]), pri)
         pr.draw_sphere(v3(mid + 0.45*sc["bu"]), 0.05, pri)
         self._pot_lbls.append((mid + 0.55*sc["bu"] + np.array([0, 0, 0.1]), f"$3 extend {Lb_:.2f} m of {self.boom[1]:.1f}", pri))
+        self._draw_bent(pr, v3, g)                            # the stem and boom as the compliant members they are
+        self._draw_flexures(pr, v3, g)                        # and every joint realised from its screw
         # the wind, its gust, and the stow flag
         C = g["C"]; w = np.array([self._fl_what_x, 0.0, 0.0]); base = C - 4.5*w + np.array([0, 0, 0.8])
         L = 0.25*fl["V"]; Lg = 0.25*max(fl["V"] + fl["gust"], 0.0)
@@ -805,6 +980,16 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             lines.append(f"the pedicel's screw system: rank {sc['rank']}/5, condition {sc['cond']:.1f}, smallest singular value {sc['sv'][-1]:.2f}"
                          f"   ($1 slew, $2 luff, $3 extend {sc['Lb']:.2f} m, $4 pitch, $5 yaw; the head's useful output is 5)")
             lines.append(f"the six struts hold a FIXED {L_LEG:.3f} m over the whole year: they are the fine stage, not the pointing. The pedicel alone fixes the pose.")
+        nt = getattr(self, "_fl_neutral", None)
+        if nt is not None:
+            lines.append(f"compliance  the bent chain turns about a point {nt[0]:.1f} m behind the boom's tip; the image would need {nt[1]:.1f} m."
+                         f" That {abs(nt[1] - nt[0]):.1f} m gap is the walk, and it moves 8 m over the year - no passive shape sits on it (stage3/boom).")
+        if self.flexures and self._flex_rep is not None:
+            fx = []
+            for r in self._flex_rep:
+                if r.get("ideal"): fx.append(f"{r['joint']} {r['kind']}")
+                else: fx.append(f"{r['joint']} {r['n_st']}x{1e3*r['t']:.0f}x{1e3*r['w']:.0f}x{1e3*r['L']:.0f} mm s{r['softness_ratio']:.0f}{'' if r['good_pivot'] else ' LUMP'}")
+            lines.append("flexures from the screws (realise/evaluate)  " + " . ".join(fx))
         pr.draw_rectangle(12, y0 - 4, 1000, 18*len(lines) + 8, (10, 12, 18, 175))
         for j, l in enumerate(lines): pr.draw_text(l, 18, y0 + 18*j, 14, (225, 232, 240, 255) if j else (255, 214, 120, 255))
 

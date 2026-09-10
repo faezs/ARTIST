@@ -62,6 +62,8 @@ def main():
     ap.add_argument("--no-mech", action="store_true", help="fall back to the old lumped model: no joints, no limits, no stow")
     ap.add_argument("--fps", type=float, default=24.0); ap.add_argument("--steps", type=int, default=0)
     ap.add_argument("--every", type=int, default=50, help="print the mount's state every N steps")
+    ap.add_argument("--flexures", default="all", choices=["all", "m23", "off"],
+                    help="draw every joint realised from its screw (all), only the strip's and M3's (m23), or none; the eval prints either way")
     ap.add_argument("--headless", action="store_true"); A = ap.parse_args()
 
     sys.argv = [sys.argv[0]]; args = pufferl.load_config("puffer_flower")
@@ -71,6 +73,7 @@ def main():
         if v is not None: env_kw[k] = v
     if A.no_fine: env_kw["fine_stage"] = 0
     if A.no_mech: env_kw["mech"] = 0
+    env_kw["flexures"] = {"all": 2, "m23": 1, "off": 0}[A.flexures]
     args["env"].update(env_kw); args["vec"] = dict(backend="Serial", num_envs=1)
 
     vecenv = pufferl.load_env("puffer_flower", args)
@@ -87,6 +90,14 @@ def main():
             f" fine stage {'on' if driver.fine_stage else 'OFF'}, mechanism {'on' if driver.mech else 'OFF'}")
 
     ob, _ = vecenv.reset()
+    # THE FLEXURE EVAL: every joint of the machine written as a screw, realised as blades by tandoor_screw_render.realise and
+    # scored by its evaluate - travel from the machine's own year, load from its worst case. Printed once; it does not
+    # change with the pose. A softness ratio above ~100 is a pivot; below it the joint is a lump that flexes a little.
+    tr = driver._fl_year_travel()
+    print(f"[flower eval] the year's joint travel over {tr['n']} poses: slew {tr['slew']:.0f} deg, luff {tr['luff']:.0f}, extend {tr['ext']:.2f} m,"
+          f" pitch {tr['pitch']:.0f}, yaw {tr['yaw']:.0f}, strip about the bore {tr['strip']:.0f}")
+    print("[flower eval] each joint from its screw (tandoor_screw_render.realise + evaluate):")
+    for l in driver.flexure_lines(driver.flexure_report()): print("    " + l)
     use_rnn = args["train"]["use_rnn"]
     def fresh():
         return dict(lstm_h=torch.zeros(1, policy.hidden_size, device=device),
