@@ -3156,17 +3156,20 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._apply_system_design()
         return self
 
-    def _mount(self, day_t, lat_t, hour, pnt=None):
+    def _mount(self, day_t, lat_t, hour, pnt=None, mech=None):
         """Mount solve dispatch: the Metal kernel when present (one
-        launch, B threads), the batched torch solve otherwise."""
+        launch, B threads), the batched torch solve otherwise.
+        mech (B, MECHW): the mount as screws + compliance per agent
+        (tandoor_screws); None keeps Hashemi's law from pnt."""
         if self._metal is not None:
             self._mnt_prm[0] = float(hour)
             return self._metal.mount(day_t, lat_t, self._mnt_prm,
                                      day_t.shape[0], pnt=pnt,
-                                     fct=getattr(self, "_fct", None))
+                                     fct=getattr(self, "_fct", None),
+                                     mech=mech)
         from tandoor_mount_batch import mount_batch
         return mount_batch(self, day_t, lat_t, float(hour),
-                           day_t.device, pnt=pnt)
+                           day_t.device, pnt=pnt, mech=mech)
 
     def _finish_trace_build(self, a, g, f_design):
         dev = self.device

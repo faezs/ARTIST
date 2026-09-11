@@ -53,6 +53,8 @@ static inline bool hits_column(float px, float py, float pz,
 // step-kernel capacity guards (host asserts n_nodes/n_belt fit)
 #define NMAX 20
 #define NBMAX 12
+#define MECHW 136 // THE MOUNT AS DATA, per agent (tandoor_screws.py): [0] n screws [1] flags [8+8i] screw i (w, q, pitch, theta)
+                  // [72] home vertex, axis [80] elastic twist (v; omega) [88] 6 x 6 compliance [124] wrench (f; m)
 #define NX 37     // EXTERIOR SURFACE BINS (the miss ledger as flux): 0-7 collar by azimuth, 8-13 bore wall by height, 14 deck, 15-18 pot exterior by latitude, 19 pit floor, 20 escaped, 21-24 dish blocks the return (by dish radius), 25-28 strip shadow (by radius), 29-32 slot (by radius), 33 hole, 34 F arm, 35 strip window, 36 missed the conic
 #define FCTW 82   // per-env design table width: [0..39] receiver chain, [40..59] system, [60] surface block, [70] sand depth, [71] sand conductivity, [72] receiver kind (0 cass / 1 tri), [73] elbow class, [74] aim half-travel [rad], [75] site azimuth offset [rad], [76..77] pit radius/depth scales, [78..81] the pit sphere: Z_CPOT, R_SPH, R_DUCT_WALL, H_DEPTH
 #define KSAND 8   // layers of the sand column under the hearth and the floor (>= 5 cm each)
@@ -89,6 +91,12 @@ static inline void solar_pos(float latd, float dayv, float hour,
     *az_d = az * 180.0f / PI_;
 }
 
+// a point or a direction turned about the unit axis w by th (Rodrigues); the screw walk below uses it for both
+static inline float3 mech_rot(float3 v, float3 w, float th) {
+    float c = cos(th), s = sin(th);
+    return v*c + cross(w, v)*s + w*(dot(w, v)*(1.0f - c));
+}
+
 kernel void mount_solve(
     device float*       vp_o   [[buffer(0)]],   // (B,21)
     device float*       Mt_o   [[buffer(1)]],   // (B,9)
@@ -102,6 +110,7 @@ kernel void mount_solve(
     device const int*   nB     [[buffer(9)]],
     device const float* pnt    [[buffer(10)]],  // (B,2) el_m, az_m deg; < -900 = square to the sun
     device const float* fct    [[buffer(11)]],  // (B,FCTW) per-env design: [42] z_fold [53] f [54] a_mem [55] g_orbit
+    device const float* mech   [[buffer(12)]],  // (B,MECHW) the mount as screws + compliance; row [0] = 0 keeps Hashemi's law from pnt
     uint b [[thread_position_in_grid]])
 {
     if ((int)b >= nB[0]) return;
@@ -180,19 +189,54 @@ kernel void mount_solve(
     }
     // ---- orbit frames (matches mount_batch)
     float3 zh = float3(0.0f, 0.0f, 1.0f);
-    float3 ax = cross(zh, um);
-    float axn = length(ax);
-    float3 ub;
-    if (axn > 1e-6f) {
-        float3 axu = ax / axn;
-        float br = bt * PI_ / 180.0f;
-        float cb = cos(br), sb = sin(br);
-        ub = um*cb + cross(axu, um)*sb + axu*dot(axu, um)*(1.0f-cb);
-    } else { ub = um; }
-    ub = normalize(ub);
     float3 Pf = float3(xtw, 0.0f, z_fold);
-    float3 Cdv = Pf - g_orb * ub;
-    float3 naim = normalize(um + ub);
+    float3 ub, Cdv, naim;
+    const int mb = b*MECHW;
+    const int n_scr = (int)mech[mb];
+    if (n_scr > 0) {
+        // THE MOUNT AS SCREWS (tandoor_screws.py). The head's home vertex and axis, walked through the screws
+        // innermost first (the product of exponentials), then the elastic twist and C W applied at the vertex as one
+        // small screw motion. What the trace needs follows from where the head IS: the beam direction is the line to
+        // F, the pointing is the mirror's reflection of it, and beta is the angle between them - so every line below
+        // this block is Hashemi's, unchanged, and a row of zeros is Hashemi's machine from pnt.
+        float3 Cm = float3(mech[mb+72], mech[mb+73], mech[mb+74]);
+        float3 nm = float3(mech[mb+75], mech[mb+76], mech[mb+77]);
+        for (int i = min(n_scr, 8) - 1; i >= 0; i--) {
+            const int o = mb + 8 + 8*i;
+            float3 w = normalize(float3(mech[o], mech[o+1], mech[o+2]));
+            float3 q = float3(mech[o+3], mech[o+4], mech[o+5]);
+            float h = mech[o+6], th = mech[o+7];
+            if (h > 1e8f) { Cm = Cm + w*th; }
+            else { Cm = q + mech_rot(Cm - q, w, th); nm = mech_rot(nm, w, th); }
+        }
+        const int fl = (int)mech[mb+1];
+        float3 v = float3(0.0f, 0.0f, 0.0f), om = float3(0.0f, 0.0f, 0.0f);
+        if ((fl & 1) != 0) { v = float3(mech[mb+80], mech[mb+81], mech[mb+82]); om = float3(mech[mb+83], mech[mb+84], mech[mb+85]); }
+        if ((fl & 2) != 0) {
+            float xi[6];
+            for (int r = 0; r < 6; r++) { float s = 0.0f; for (int k = 0; k < 6; k++) s += mech[mb+88+6*r+k]*mech[mb+124+k]; xi[r] = s; }
+            v = v + float3(xi[0], xi[1], xi[2]); om = om + float3(xi[3], xi[4], xi[5]);
+        }
+        float a = length(om);
+        if (a > 1e-12f) nm = mech_rot(nm, om / a, a);
+        Cm = Cm + v;
+        naim = normalize(nm); Cdv = Cm;
+        ub = normalize(Pf - Cdv);
+        um = normalize(naim*(2.0f*dot(naim, ub)) - ub);
+        bt = 2.0f*atan2(length(cross(naim, ub)), dot(naim, ub))*180.0f/PI_;   // atan2, not acos: acos near 1 loses 0.05 deg in float
+    } else {
+        float3 ax = cross(zh, um);
+        float axn = length(ax);
+        if (axn > 1e-6f) {
+            float3 axu = ax / axn;
+            float br = bt * PI_ / 180.0f;
+            float cb = cos(br), sb = sin(br);
+            ub = um*cb + cross(axu, um)*sb + axu*dot(axu, um)*(1.0f-cb);
+        } else { ub = um; }
+        ub = normalize(ub);
+        Cdv = Pf - g_orb * ub;
+        naim = normalize(um + ub);
+    }
     // R: zhat -> naim (Rodrigues with guards)
     float3 vv = cross(zh, naim);
     float cc = dot(zh, naim);
@@ -1689,10 +1733,12 @@ class MetalGeo:
         self._dims = {}
         self._mbuf = {}
 
-    def mount(self, day_t, lat_t, prm_t, B, pnt=None, fct=None):
+    def mount(self, day_t, lat_t, prm_t, B, pnt=None, fct=None, mech=None):
         """The mount solve as ONE kernel launch: B threads, each env
         computes its own sun, beta schedule and frames in registers.
-        Returns the same dict contract as tandoor_mount_batch."""
+        Returns the same dict contract as tandoor_mount_batch.
+        mech (B, MECHW): the mount as screws + compliance per agent
+        (tandoor_screws.mech_rows); None = Hashemi's law from pnt."""
         dev = day_t.device
         key = (B, dev)
         bufs = self._mbuf.get(key)
@@ -1701,10 +1747,13 @@ class MetalGeo:
                                       device=dev)
             bufs = (z(21), z(9), z(3), z(9), z(7), z(8),
                     torch.tensor([B], dtype=torch.int32, device=dev),
-                    torch.full((B, 2), -999.0, dtype=torch.float32, device=dev))
+                    torch.full((B, 2), -999.0, dtype=torch.float32, device=dev),
+                    torch.zeros(B, 136, dtype=torch.float32, device=dev))   # MECHW: a row of zeros = no chain
             self._mbuf[key] = bufs
-        vp, Mt, Cd, Ac, scb, aux, nB, nopnt = bufs
+        vp, Mt, Cd, Ac, scb, aux, nB, nopnt, nomech = bufs
         pnt_t = nopnt if pnt is None else pnt.to(torch.float32).contiguous()
+        mech_t = nomech if mech is None else mech.to(torch.float32).contiguous()
+        assert mech_t.shape[-1] == 136, f"mech row is {mech_t.shape[-1]} wide, the kernel indexes at MECHW 136"
         fct_t = fct
         if fct_t is None:
             # no design table: every env the nominal machine (from prm)
@@ -1714,7 +1763,7 @@ class MetalGeo:
             fct_t[:, 54] = prm_t[3]; fct_t[:, 55] = prm_t[5]
         self.lib.mount_solve(vp, Mt, Cd, Ac, scb, aux,
                              day_t.contiguous(), lat_t.contiguous(),
-                             prm_t, nB, pnt_t, fct_t.contiguous())
+                             prm_t, nB, pnt_t, fct_t.contiguous(), mech_t)
         return dict(vp=vp, Mt=Mt.view(B, 3, 3), Cd=Cd,
                     Acan=Ac.view(B, 3, 3), scb=scb, aux=aux,
                     el=aux[:, 0], az=aux[:, 1], el_b=aux[:, 2],

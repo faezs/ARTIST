@@ -362,7 +362,7 @@ def set_compliance(rows, C, W):
 
 def apply_rows(rows):
     """the kernel's chain walk in torch: rows (B, MECHW) -> vertex (B,3), axis (B,3). Same order, same arithmetic."""
-    B = rows.shape[0]; N = int(rows[0, 0].item()) if B else 0
+    B = rows.shape[0]; N = int(rows[:, 0].max().item()) if B else 0                # per agent: unused slots are zeros = identity
     C = rows[:, OFF_HOME:OFF_HOME + 3].clone(); n = rows[:, OFF_HOME + 3:OFF_HOME + 6].clone()
     for i in range(N - 1, -1, -1):
         s = rows[:, OFF_SCREW + 8*i: OFF_SCREW + 8*i + 8]
@@ -386,5 +386,6 @@ def pointing_from_frame(C, n, Pf):
     reflects it into, and the effective beta (deg) between them"""
     ub = Pf - C; ub = ub/torch.linalg.norm(ub, dim=1, keepdim=True).clamp(min=1e-12)
     um = 2*(n*ub).sum(1, keepdim=True)*n - ub
-    beta = torch.rad2deg(2*torch.arccos((n*ub).sum(1).clamp(-1, 1)))
+    um = um/torch.linalg.norm(um, dim=1, keepdim=True).clamp(min=1e-12)
+    beta = torch.rad2deg(2*torch.atan2(torch.linalg.norm(torch.cross(n, ub, dim=1), dim=1), (n*ub).sum(1)))   # atan2: acos loses 0.05 deg near 1 in float32
     return um, ub, beta

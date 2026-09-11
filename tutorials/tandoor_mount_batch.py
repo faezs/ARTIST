@@ -151,7 +151,7 @@ def _consts(env, dev, dtype):
     return c
 
 
-def mount_batch(env, day, lat, hour, dev, pnt=None):
+def mount_batch(env, day, lat, hour, dev, pnt=None, mech=None):
     """The full per-step mount solve for (B,) days/lats at shared
     hour. Returns per-env geometry the trace consumes:
     vp (B,7,3), Mt (B,3,3), Cd (B,3), Acan (B,3,3),
@@ -193,6 +193,13 @@ def mount_batch(env, day, lat, hour, dev, pnt=None):
     Cd = P_fold - g_b[:, None] * ub
     naim = um + ub
     naim = naim / naim.norm(dim=-1, keepdim=True)
+    if mech is not None and float(mech[:, 0].max()) > 0:
+        # THE MOUNT AS SCREWS (tandoor_screws): the head where the chain and its compliance put it; the beam
+        # direction is the line to F, the pointing the mirror's reflection of it, beta the angle between - the
+        # torch twin of the kernel's block, so CUDA/CPU and Metal see the same frames
+        from tandoor_screws import apply_rows, pointing_from_frame
+        Cd, naim = apply_rows(mech.to(u.dtype))
+        um, ub, beta_t = pointing_from_frame(Cd, naim, P_fold)
     M = _align_batch(C["zhat"], naim)
     el_b = torch.rad2deg(torch.arcsin(ub[:, 2].clamp(-1, 1)))
     el_r = torch.deg2rad(el_b)
