@@ -23,8 +23,9 @@ import math
 import numpy as np
 import torch
 
-# ---- the kernel row: [0] n_screws [1] flags (1: elastic twist, 2: C W) [8 + 8 i] screw i (w, q, pitch, theta)
-#      [72..77] home vertex and axis [80..85] elastic twist (v; omega) [88..123] C (6 x 6 row-major) [124..129] W (f; m)
+# ---- the kernel row: [0] n_screws [1] flags (1: elastic twist, 2: C W) [2] what the strip follows (0 um, 1 the line
+#      to F, 2 the axis in [3..5]) [8 + 8 i] screw i (w, q, pitch, theta) [72..77] home vertex and axis
+#      [80..85] elastic twist (v; omega) [88..123] C (6 x 6 row-major) [124..129] W (f; m)
 MECHW, NS_MAX = 136, 8
 OFF_SCREW, OFF_HOME, OFF_XI, OFF_C, OFF_W = 8, 72, 80, 88, 124
 PRISMATIC = 1e9                      # the pitch that marks a slide (the kernel tests h > 1e8)
@@ -244,10 +245,11 @@ def pedicel_theta(q):
 
 
 def crown_screws(C0, n0, xl0, yl0, dtype=torch.float32, device="cpu"):
-    """the fine stage at the vertex, 3 DOF Type 1: tip about -xl, tilt about -yl (the signs the fast env's normal
-    perturbation uses: n + fine0 yl - fine1 xl), piston along the axis. Appended innermost to any chain."""
+    """the fine stage at the vertex, 3 DOF Type 1: tip about +yl, tilt about -xl - the fast env's rotation VECTOR is
+    phi = fine0 yl - fine1 xl and the normal moves by phi x n, so fine0 carries the normal toward xl and fine1 toward
+    yl - and the piston along the axis. Appended innermost to any chain."""
     B = C0.shape[0]; o = torch.zeros(B, 1, dtype=dtype, device=device); pr = torch.full((B, 1), PRISMATIC, dtype=dtype, device=device)
-    return torch.stack([torch.cat([-xl0, C0, o], 1), torch.cat([-yl0, C0, o], 1), torch.cat([n0, C0, pr], 1)], 1)
+    return torch.stack([torch.cat([yl0, C0, o], 1), torch.cat([-xl0, C0, o], 1), torch.cat([n0, C0, pr], 1)], 1)
 
 
 def fork_chain(Pf, g_orb, dtype=torch.float32, device="cpu"):
@@ -341,10 +343,13 @@ def mech_rows(B, dtype=torch.float32, device="cpu"):
     return torch.zeros(B, MECHW, dtype=dtype, device=device)
 
 
-def set_chain(rows, screws, theta, C0, n0):
-    """screws (B,N,7), theta (B,N), home vertex and axis (B,3)"""
+def set_chain(rows, screws, theta, C0, n0, strip=0, strip_axis=None):
+    """screws (B,N,7), theta (B,N), home vertex and axis (B,3). strip: what the secondary's frame follows - 0 the mount's
+    pointing (Hashemi's tube, the fork's), 1 the line from F to the head (the flower's strip on the pipe, which turns to
+    face the head and never sees the crown's tilts), 2 the axis strip_axis (B,3) in the world."""
     B, N, _ = screws.shape; assert N <= NS_MAX, N
-    rows[:, 0] = float(N)
+    rows[:, 0] = float(N); rows[:, 2] = float(strip)
+    if strip_axis is not None: rows[:, 3:6] = strip_axis
     for i in range(N):
         rows[:, OFF_SCREW + 8*i: OFF_SCREW + 8*i + 7] = screws[:, i]; rows[:, OFF_SCREW + 8*i + 7] = theta[:, i]
     rows[:, OFF_HOME:OFF_HOME + 3] = C0; rows[:, OFF_HOME + 3:OFF_HOME + 6] = n0

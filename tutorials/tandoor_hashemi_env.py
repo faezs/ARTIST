@@ -3156,11 +3156,32 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._apply_system_design()
         return self
 
+    def m4_args(self):
+        """the M4 ellipsoid the Metal trace reads: per agent when a mount has moved it (set_m4_frame), else the shared one"""
+        m4 = getattr(self, "_m4_b", None)
+        return m4 if m4 is not None else (self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
+
+    def set_m4_frame(self, T):
+        """M4 on a mount: T (B,4,4) the rigid motion of the mirror from where it was built (tandoor_screws.poe or
+        exp_screw). The ellipsoid's foci, centre, vertex and body axes move with it, its shape does not - so a tilted M4
+        throws the beam where a tilted M4 throws it. None restores the shared, built M4."""
+        if T is None: self._m4_b = None; return
+        B = T.shape[0]; R = T[:, :3, :3].float(); t = T[:, :3, 3].float()
+        M = self.ell_M.float()[None].expand(B, 3, 3)                                    # rows: the body axes in the world
+        ellM = torch.bmm(M, R.transpose(1, 2)).reshape(B, 9).contiguous()               # each row e -> (R e)^T
+        ellC = (torch.einsum("bij,j->bi", R, self.ell_ctr_t.float()) + t).contiguous()
+        V0 = (torch.einsum("bij,j->bi", R, self._V0t.float()) + t).contiguous()
+        self._m4_b = (ellM, self.ell_S.float()[None].expand(B, 3).contiguous(), ellC, V0)
+
     def _mount(self, day_t, lat_t, hour, pnt=None, mech=None):
         """Mount solve dispatch: the Metal kernel when present (one
         launch, B threads), the batched torch solve otherwise.
         mech (B, MECHW): the mount as screws + compliance per agent
-        (tandoor_screws); None keeps Hashemi's law from pnt."""
+        (tandoor_screws); None takes the env's standing rows
+        (self._mech_rows, set by a mount-aware subclass), False forces
+        Hashemi's law from pnt."""
+        if mech is None: mech = getattr(self, "_mech_rows", None)
+        if mech is False: mech = None
         if self._metal is not None:
             self._mnt_prm[0] = float(hour)
             return self._metal.mount(day_t, lat_t, self._mnt_prm,
@@ -3569,9 +3590,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         lv = level_of(p_eff / self.p0, self.level_frac)       # against the ladder (the kernel's step_pre does the same)
         if self._metal is not None:
             args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
-                    sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc,
-                    self.ell_M, self.ell_S, self.ell_ctr_t,
-                    self._V0t)
+                    sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc) + self.m4_args()
             _, _, per = self._metal(*args, self._ray_pw, soil,
                                     self.n_nodes,
                                     self._aim_dirs(B, dev), scb,

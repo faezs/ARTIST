@@ -57,6 +57,7 @@ from tandoor_hashemi_env import TandoorHashemiEnv
 from tandoor_screw_render import realise, STEEL
 import tandoor_wind_table as WT
 import tandoor_site_wind as SW
+import tandoor_screws as SC
 
 # ---------------------------------------------------------------- the machine, from the design folder
 G_ORB, A_M, RHO_AIR = 4.0, 2.1, 1.03; A_DISH = np.pi*A_M**2; D_DISH = 2*A_M
@@ -298,9 +299,20 @@ def frac_above(U, f):
 class TandoorFlowerEnv(TandoorHashemiEnv):
     def __init__(self, *a, wind_from="S", wind_scale=1.0, stow_wind=15.0, fine_stage=1, mech=1, two_tier_beta=0, wind_site=0,
                  boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=1, wind_table=1,
-                 base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, **k):
+                 base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, mount="hashemi", **k):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
         super().__init__(*a, **k)
+        # THE FRAME TYPE the kernel traces (tandoor_screws). 'hashemi': the pedicel's pose becomes an equivalent el/az error
+        # injected into the motors and the kernel applies Hashemi's law (the old path). 'pedicel': the achieved joints go to
+        # the kernel as a screw chain and the residual walk as an elastic twist, so it traces the head where the pedicel put it.
+        # 'fork': the FACT fork - Hashemi's optics on the ring and the trunnions through F, rigid in reach, the gust through
+        # the blocks' 6 x 6. Stowed agents park through the old path whichever is set.
+        self.mount = str(mount); self._mech_rows = None; self._fork_C0 = None
+        assert self.mount in ("hashemi", "pedicel", "fork"), self.mount
+        if self.mount != "hashemi" and "mech" not in inspect.signature(self._mount).parameters:
+            print(f"  [flower] mount = {self.mount} needs the screw-chain mount solve (tandoor_hashemi_env._mount(mech=...), "
+                  f"tandoor_metal_kernel mount_solve buffer 12); this checkout's kernel has none - falling back to mount = hashemi")
+            self.mount = "hashemi"
         self.base = str(base); self.ring_r = float(ring_r)
         self.stem_x = float(stem_x)
         self.boom_kind, self.boom_ratio, self.boom_root = str(boom_kind), float(boom_ratio), float(boom_root)
@@ -374,6 +386,21 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         q = T0 + t[:, None]*d - C
         return ((t >= 0.0) & (t <= 1.0) & (torch.linalg.norm(q, dim=1) < a_m)).float()
 
+    def _fork_twist(self, C, n, w, f_gust, m_gust, az_cmd, Pf):
+        """the gust through the fork's blocks: the wrench at the vertex carried to F, the blocks' 6 x 6 at F (synthesised
+        once at az 0 by tandoor_screws.fork_compliance and turned with the ring), the twist carried back to the vertex"""
+        B, dev = C.shape[0], C.device
+        if self._fork_C0 is None:
+            self._fork_C0 = SC.fork_compliance(Pf[:1].detach().cpu().double(), torch.zeros(1, dtype=torch.float64)).float().to(dev)
+        ca, sa = torch.cos(torch.deg2rad(az_cmd)), torch.sin(torch.deg2rad(az_cmd))
+        R = torch.zeros(B, 3, 3, device=dev); R[:, 0, 0] = ca; R[:, 0, 1] = -sa; R[:, 1, 0] = sa; R[:, 1, 1] = ca; R[:, 2, 2] = 1.0
+        A = torch.zeros(B, 6, 6, device=dev); A[:, :3, :3] = R; A[:, 3:, 3:] = R
+        CF = torch.bmm(torch.bmm(A, self._fork_C0.expand(B, 6, 6)), A.transpose(1, 2))
+        Wv = torch.cat([f_gust[:, None]*w, m_gust[:, None]*torch.cross(w, n, dim=1)], 1)
+        WF = torch.bmm(SC.ad_wrench(SC.frame_at(C - Pf)), Wv[:, :, None])[:, :, 0]
+        xiF = torch.bmm(CF, WF[:, :, None])[:, :, 0]
+        return torch.bmm(SC.ad_twist(SC.frame_at(Pf - C)), xiF[:, :, None])[:, :, 0]
+
     def _fl_head_pose(self):
         """the head's vertex and axis, per agent, from the kernel's own mount solve"""
         dev = self.device; S = getattr(self, "_gpu", None)
@@ -392,7 +419,11 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             el_t = torch.as_tensor(el_m, dtype=torch.float32, device=dev).reshape(-1)
             az_t = torch.as_tensor(az_m, dtype=torch.float32, device=dev).reshape(-1)
         pnt = torch.stack([el_t, az_t], 1)
-        mnt = self._mount(day_t, lat_t, float(self.t_solar[0]), pnt=pnt)
+        mnt = self._mount(day_t, lat_t, float(self.t_solar[0]), pnt=pnt, mech=False)     # the TARGET: Hashemi's law from the command, never the chain
+        if self._fl is not None:
+            self._fl["el_cmd"], self._fl["az_cmd"] = el_t, az_t
+            bk = mnt.get("beta_t", None)
+            if bk is not None: self._fl["beta_k"] = bk.float().clone()                   # the kernel's schedule beta, for the fork's chain
         # the Metal mount returns the frame, not the axis: Mt is M^T with M taking zhat onto naim, so naim is Mt's third ROW
         n = mnt["naim"] if "naim" in mnt else mnt["Mt"][:, 2, :]
         n = n.float(); n = n/torch.linalg.norm(n, dim=1).clamp(min=1e-9)[:, None]
@@ -584,6 +615,34 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         # ---- 8. stowed, the head is parked face-up and the rays miss: the policy pays for the weather
         park = (90.0 - torch.rad2deg(el))
         F["d_el"] = torch.where(stow > 0.5, park, d_el); F["d_az"] = torch.where(stow > 0.5, torch.zeros_like(d_az), d_az)
+
+        # ---- 8b. THE MOUNT AS SCREWS (tandoor_screws), handed to the kernel per agent instead of the injection above.
+        # 'pedicel': the achieved joints as the five-screw chain from the stem top, the residual walk as an elastic twist
+        # about the boom's tip (a rotation there carries the vertex D_REC ahead of it). The kernel then traces the head where
+        # the pedicel put it, exactly, where the injection applied Hashemi's law to an equivalent pointing error. 'fork':
+        # Hashemi's optics on the ring and the trunnions through F, rigid in reach, the gust through the blocks' 6 x 6 at F.
+        # Stowed agents keep the injection: a row of zeros is the old path, and the park still works.
+        if self.mount in ("pedicel", "fork"):
+            rows = SC.mech_rows(B, device=dev)
+            T0b = (T0 if T0.dim() == 2 else T0[None, :].expand(B, 3)).contiguous()
+            zhat_b = torch.zeros(B, 3, device=dev); zhat_b[:, 2] = 1.0
+            if self.mount == "pedicel":
+                ch = SC.pedicel_chain(T0b, D_REC, device=dev)
+                SC.set_chain(rows, ch["screws"], SC.pedicel_theta(q), ch["C0"], ch["n0"], strip=1)   # the strip on the pipe faces the head
+                om = (F["walk_a"]/(2*gorb))[:, None]*qc["a2"] + (F["walk_x"]/(2*gorb))[:, None]*zhat_b
+                xi = torch.cat([torch.cross(om, D_REC*n_got, dim=1), om], 1)
+            else:
+                Pf_t = torch.as_tensor(self._fl_F(), dtype=torch.float32, device=dev)[None, :].expand(B, 3).contiguous()
+                ch = SC.hashemi_chain(Pf_t, float(gorb), device=dev)
+                bk = F["beta_k"] if "beta_k" in F else F["beta"]
+                SC.set_chain(rows, ch["screws"], SC.hashemi_theta(F["el_cmd"], F["az_cmd"], bk), ch["C0"], ch["n0"])
+                xi = self._fork_twist(C_got, n_got, F["wdir"], sig_force*rn(), F["pitch"]*rn(), F["az_cmd"], Pf_t)
+            SC.set_elastic(rows, xi)
+            rows[:, 0] = torch.where(stow > 0.5, torch.zeros_like(stow), rows[:, 0])
+            self._mech_rows = rows
+            F["d_el"] = torch.where(stow > 0.5, F["d_el"], torch.zeros_like(d_el)); F["d_az"] = torch.where(stow > 0.5, F["d_az"], torch.zeros_like(d_az))
+        else:
+            self._mech_rows = None
 
         # ---- 9. the plenum: sealed it is a constant-volume regulator, open to the blower it passes the wind one to one
         act = self._fl_act

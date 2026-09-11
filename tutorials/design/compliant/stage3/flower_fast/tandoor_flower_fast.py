@@ -36,6 +36,7 @@ weight and multiplied by dt/15, so a second of this env pays exactly what a seco
 import numpy as np, torch, gymnasium, pufferlib
 import tandoor_wind_table as WT
 import tandoor_site_wind as SW
+import tandoor_screws as SC
 from tandoor_flower_env import (TandoorFlowerEnv, compliance, pedicel_fk, hexapod_jacobian, head_frame,
                                 EI_BOOM, EI_STEM, D_DISH,
                                 D_REC, R_PLAT, A_M, RHO_AIR, CD_BOWL, CD_BACK, C_M, IU, M_HEAD, M_CROWN,
@@ -101,7 +102,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
     """1 kHz, own actuators, flux-camera observation, Hashemi's reward and Hashemi's membrane."""
     N_ACT = 11
     def __init__(self, *a, cam_n=24, episode_s=8.0, wind_scale=1.0, wind_mean=None, cam_bits=8,
-                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, fine_only=0, reward="hashemi", miss_scale=0.20, miss_shape=20.0, thru_w=0.0, thru_ref=0.85, cam_plane="receiver", **k):
+                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, fine_only=0, reward="hashemi", miss_scale=0.20, miss_shape=20.0, thru_w=0.0, thru_ref=0.85, cam_plane="receiver", mech_kernel=0, **k):
         k.setdefault("num_agents", 1024)
         self._vec_buf = k.get("buf", None)          # the vector backend's shared buffer, if it gave us one
         super().__init__(*a, wind_scale=wind_scale, **k)
@@ -122,6 +123,15 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         # the level-interpolated normals with the film's slope error, histogrammed where they cross the plane through F normal
         # to the chief ray - the plane the miss reward is paid on.
         self.cam_plane = str(cam_plane)
+        # THE KERNEL TRACES THE CHAIN (tandoor_screws): with mech_kernel the pedicel's joints go to mount_solve as five screws
+        # and the structure's deflection with the crown's tilts as one elastic twist; the kernel returns the head's frame and
+        # the receiver rows that follow it. Off, the frame is assembled here to first order and the rows stay as at reset.
+        self.mech_kernel = int(mech_kernel); self._mk_day = self._mk_lat = self._mk_pnt = None
+        import inspect as _insp
+        if self.mech_kernel and "mech" not in _insp.signature(self._mount).parameters:
+            print("  [flower fast] mech_kernel needs the screw-chain mount solve (tandoor_hashemi_env._mount(mech=...)); this checkout's "
+                  "kernel has none - the frame is assembled on the host as before")
+            self.mech_kernel = 0
         self.n_act = 3 if self.fine_only else self.N_ACT
         # THE STEM AS A LOAD CELL. A compliant member is a force sensor: two strain gauges at the stem's foot read the
         # wind's bending moment the instant the gust arrives, a quarter-period before the boom's mode has moved the
@@ -332,6 +342,18 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         phi = phi + S["fine"][:, 0:1]*yl - S["fine"][:, 1:2]*xl                  # and the crown's own two tilts
         n = n0 + torch.cross(phi, n0, dim=1)
         n = n/torch.linalg.norm(n, dim=1).clamp(min=1e-9)[:, None]
+        if self.mech_kernel and self._mk_day is None: self._sun_dir(B, dev)          # the episode's sun, day and pointing, cached
+        if self.mech_kernel and self._mk_day is not None:
+            # the same joints and the same rotation vector, walked by the kernel: exact rotations where the line above is
+            # first order, and the receiver rows (the fold, the strip's frame) re-solved for where the head is
+            rows = SC.mech_rows(B, device=dev)
+            T0b = (T0 if T0.dim() == 2 else T0[None, :].expand(B, 3)).contiguous()
+            ch = SC.pedicel_chain(T0b, D_REC, device=dev)
+            SC.set_chain(rows, ch["screws"], SC.pedicel_theta(q), ch["C0"], ch["n0"], strip=1)   # the strip on the pipe faces the head
+            SC.set_elastic(rows, torch.cat([dx + S["fine"][:, 2:3]*n0, phi], 1))
+            mnt = self._mount(self._mk_day, self._mk_lat, float(self.t_solar[0]), pnt=self._mk_pnt, mech=rows)
+            C = mnt["Cd"].clone(); n = mnt["Mt"][:, 2, :].clone()
+            self._tr["vp"] = mnt["vp"].reshape(B, 21).clone(); self._tr["scb"] = mnt["scb"].clone()   # the receiver rows follow the head
 
         # ---- 6. the primary: Hashemi's membrane, actuated
         lvl = torch.clamp(a[:, 9].long(), 0, len(self.p_lv) - 1)
@@ -471,6 +493,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                 pnt = torch.stack([torch.as_tensor(el_m, dtype=torch.float32, device=dev).reshape(-1),
                                    torch.as_tensor(az_m, dtype=torch.float32, device=dev).reshape(-1)], 1)
                 mnt = mount_batch(self, day_t, lat_t, float(self.t_solar[0]), dev, pnt=pnt)
+                self._mk_day, self._mk_lat, self._mk_pnt = day_t, lat_t, pnt    # for the per-step kernel mount (mech_kernel)
                 u = mnt["u"].float()
             except Exception:
                 u = None
@@ -536,6 +559,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         pnt = torch.stack([torch.as_tensor(np.asarray(self.el_m, dtype=np.float32), device=dev).reshape(-1),
                            torch.as_tensor(np.asarray(self.az_m, dtype=np.float32), device=dev).reshape(-1)], 1)
         mnt = mount_batch(self, day_t, lat_t, float(self.t_solar[0]), dev, pnt=pnt)
+        self._mk_day, self._mk_lat, self._mk_pnt = day_t, lat_t, pnt                # for the per-step kernel mount (mech_kernel)
         gen = getattr(self, "_gen", None)
         z = lambda: torch.zeros(B, P, device=dev)
         self._tr = dict(Acan=mnt["Acan"].contiguous(), vp=mnt["vp"].reshape(B, 21).contiguous(),
@@ -555,9 +579,16 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         T = self._tr; dev = self.device; B = self.num_agents
         zc = torch.zeros_like(n); zc[:, 2] = 1.0
         Mt = _align_batch(zc[0], n).transpose(1, 2).contiguous()
+        # THE SUN IN THE DISH FRAME, per step. Acan turns the kernel's canonical sun ray (0,1,0) into the incident direction in
+        # the dish's own frame, and the kernel reflects there and maps out with Mt. Frozen at reset (as it was until 2026-09-12)
+        # the sun rode with the head: a tilt of the dish turned the traced beam by theta, not 2 theta, so the trace's rays
+        # through were half as sensitive to the crown's tilts as the miss the reward pays on. Found by the kernel-mount path,
+        # which re-solves it every step (design/compliant/stage3/screws/test_env_mount.py).
+        yh = torch.zeros(3, device=dev); yh[1] = 1.0
+        Acan = _align_batch(yh, torch.einsum("bij,bj->bi", Mt, -self._sun_dir(B, dev))).contiguous()
         thr, out6, per = self._metal(self._pts_l, self._nrm_l, lv, T["du"], T["de"], T["upick"], T["us"], sigb,
-                                     T["Acan"], Mt, C.contiguous(), T["dvec"], T["off"], T["vp"], self._sc_base,
-                                     self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t,
+                                     Acan, Mt, C.contiguous(), T["dvec"], T["off"], T["vp"], self._sc_base,
+                                     *self.m4_args(),
                                      self._ray_pw, T["soil"], self.n_nodes, T["aim"], T["scb"], fct=self._fct)
         return thr, out6, per
 

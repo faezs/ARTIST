@@ -241,6 +241,11 @@ def mount_batch(env, day, lat, hour, dev, pnt=None, mech=None):
         # row 2 carries the DISH axis for the Cassegrain (its strip
         # follows the mount), -p_up for the stock chain
         row2 = um if getattr(env, "receiver", "fold") in ("cass", "tri") else -p_up
+        if mech is not None and float(mech[:, 0].max()) > 0 and getattr(env, "receiver", "fold") in ("cass", "tri"):
+            # the strip's frame follows the link it is mounted on (the kernel's smode): 0 um, 1 the line to F, 2 a given axis
+            sm = mech[:, 2].to(u.dtype)[:, None]; ax = mech[:, 3:6].to(u.dtype)
+            ax = ax / ax.norm(dim=-1, keepdim=True).clamp(min=1e-9)
+            row2 = torch.where(sm > 1.5, ax, torch.where(sm > 0.5, ub, um))
         vp = torch.stack([u, P_fold, row2, e_pp, nf, e_par, e_prp], 1)
     Mt = M.transpose(1, 2)
     mu = torch.einsum("bij,bj->bi", Mt, -u)            # incident = the sun

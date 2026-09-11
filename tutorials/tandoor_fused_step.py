@@ -251,7 +251,8 @@ def fused_full_step(env, actions):
     F.ip[6] = int(env.tick)          # the cook's hash clock
     mnt = env._metal.mount(F.day_v, F.lat_v, env._mnt_prm, B,
                            pnt=torch.stack([F.el_m, F.az_m], 1),
-                           fct=env._fct)
+                           fct=env._fct,
+                           mech=getattr(env, "_mech_rows", None))    # the mount as screws, when a subclass set them (tandoor_screws)
     aux = mnt["aux"]
     # SHADING on the training path: the mount kernel hands back each agent's sun (el deg,
     # az rad in aux); the neighbourhood's horizon masks soil exactly as on the torch

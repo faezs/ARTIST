@@ -14,6 +14,7 @@ import importlib.util                                                           
 _sp = importlib.util.spec_from_file_location("puffer_tandoor", PT + "/__init__.py", submodule_search_locations=[PT])
 _pk = importlib.util.module_from_spec(_sp); sys.modules["puffer_tandoor"] = _pk; _sp.loader.exec_module(_pk)
 assert _pk.__file__.startswith(ROOT), _pk.__file__
+sys.modules["pufferlib.environments.tandoor"] = _pk        # the inis say package = tandoor: pufferl imports THAT name, so pin it too
 # the env construction pushes ~/ARTIST/tutorials onto sys.path and the kernel is imported lazily: pin the kernel
 # modules to THIS tree first, so the lazy import finds them in sys.modules
 for _m in ("tandoor_screws", "tandoor_mount_batch", "tandoor_metal_kernel", "tandoor_cuda_kernel"):

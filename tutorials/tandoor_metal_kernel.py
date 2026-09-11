@@ -193,6 +193,7 @@ kernel void mount_solve(
     float3 ub, Cdv, naim;
     const int mb = b*MECHW;
     const int n_scr = (int)mech[mb];
+    float3 s_ax = um;                       // what the strip (M2) follows: the pointing, unless the chain says otherwise
     if (n_scr > 0) {
         // THE MOUNT AS SCREWS (tandoor_screws.py). The head's home vertex and axis, walked through the screws
         // innermost first (the product of exponentials), then the elastic twist and C W applied at the vertex as one
@@ -224,6 +225,11 @@ kernel void mount_solve(
         ub = normalize(Pf - Cdv);
         um = normalize(naim*(2.0f*dot(naim, ub)) - ub);
         bt = 2.0f*atan2(length(cross(naim, ub)), dot(naim, ub))*180.0f/PI_;   // atan2, not acos: acos near 1 loses 0.05 deg in float
+        // THE STRIP'S FRAME follows the link it is mounted on, mech[2]: 0 the mount's pointing um (Hashemi's tube, the
+        // fork's), 1 the line from F to the head (the flower's strip on the pipe, turning to face the head - insensitive to
+        // the crown's tilts, which um would double), 2 an axis the host gives in mech[3..5]
+        const int smode = (int)mech[mb+2];
+        s_ax = (smode == 1) ? ub : ((smode == 2) ? normalize(float3(mech[mb+3], mech[mb+4], mech[mb+5])) : um);
     } else {
         float3 ax = cross(zh, um);
         float axn = length(ax);
@@ -285,7 +291,7 @@ kernel void mount_solve(
     float3 fc_A2 = normalize(fc_P3 - fc_P2);
     float3 fc_n3 = normalize(fc_A2 + zh);
     float fc_f2 = 0.5f*prm[44]*(1.0f - dot(fc_ex, fc_A2));
-    float3 rows[7] = {u, Pf, fc_on ? fc_ex : ((prm[48] > 0.5f) ? um : -pup), fc_on ? fc_P2 : epp, nf,
+    float3 rows[7] = {u, Pf, fc_on ? fc_ex : ((prm[48] > 0.5f) ? s_ax : -pup), fc_on ? fc_P2 : epp, nf,
                       fc_on ? fc_A2 : epar, fc_on ? fc_n3 : eprp};
     for (int r = 0; r < 7; r++) {
         vp_o[vb + r*3+0] = rows[r].x;
@@ -994,10 +1000,16 @@ kernel void tandoor_trace(
         w *= sc[6];
     }
     // ---- M5's ellipsoid, far root; patch bound 1.50 r_m5
-    float3 vec = h1 - float3(ellC[0], ellC[1], ellC[2]);
-    float3 pl = mrow(vec, ellM);
-    float3 dl = mrow(d2, ellM);
-    float3 S = float3(ellS[0], ellS[1], ellS[2]);
+    // M4 PER AGENT (an optic is where its foci are - tandoor_screws): ellM (B,9) the body axes as rows, ellS (B,3) the
+    // shape, ellC (B,3) the centre, V0 (B,3) the vertex; the host expands a shared M4 to rows, a mount moves them
+    device const float* eM = ellM + b*9;
+    device const float* eS = ellS + b*3;
+    device const float* eC = ellC + b*3;
+    device const float* eV = V0 + b*3;
+    float3 vec = h1 - float3(eC[0], eC[1], eC[2]);
+    float3 pl = mrow(vec, eM);
+    float3 dl = mrow(d2, eM);
+    float3 S = float3(eS[0], eS[1], eS[2]);
     float qae = dot(dl*dl, S);
     float qbe = 2.0f*dot(pl*dl, S);
     float qce = dot(pl*pl, S) - 1.0f;
@@ -1005,12 +1017,12 @@ kernel void tandoor_trace(
     bool oke = disce > 0.0f;
     float t2 = (-qbe + sqrt(max(disce, 0.0f))) / (2.0f*qae);
     float3 h2 = h1 + t2*d2;
-    float3 dV0 = h2 - float3(V0[0], V0[1], V0[2]);
+    float3 dV0 = h2 - float3(eV[0], eV[1], eV[2]);
     ok = ok && oke && (t2 > 0.0f) && (length(dV0) < 1.50f*sc[8]);
-    float3 hl = mrow(h2 - float3(ellC[0], ellC[1], ellC[2]), ellM);
+    float3 hl = mrow(h2 - float3(eC[0], eC[1], eC[2]), eM);
     float3 nl = normalize(hl*S);
     // ne = nl @ ellM  (row-vector times matrix)
-    float3 ne = vmatT(nl, ellM);
+    float3 ne = vmatT(nl, eM);
     float3 d3 = d2 - 2.0f*dot(d2, ne)*ne;
     // ---- the duct plane
     float t3 = (sc[12] - h2.x) / min(d3.x, -1e-9f);
@@ -1769,6 +1781,20 @@ class MetalGeo:
                     el=aux[:, 0], az=aux[:, 1], el_b=aux[:, 2],
                     beta_t=aux[:, 6])
 
+    def _m4_rows(self, ellM, ellS, ellC, V0t, B, dev):
+        """the M4 ellipsoid per agent: (B,9) axes-as-rows, (B,3) shape, (B,3) centre, (B,3) vertex. A shared M4 (the
+        (3,3)/(3,) tensors the env builds once) is expanded once per (B, device) and cached; per-agent tensors
+        ((B,3,3) or (B,9), (B,3)...) pass through. A mount moves M4 by handing per-agent rows (tandoor_screws)."""
+        if ellM.dim() == 3 or (ellM.dim() == 2 and ellM.shape[0] == B and ellM.shape[1] == 9):
+            return ellM.reshape(B, 9), ellS.reshape(B, 3), ellC.reshape(B, 3), V0t.reshape(B, 3)
+        key = ("m4", B, dev, ellM.data_ptr(), ellC.data_ptr(), V0t.data_ptr())
+        rows = self._dims.get(key)
+        if rows is None:
+            rows = (ellM.reshape(1, 9).expand(B, 9).contiguous(), ellS.reshape(1, 3).expand(B, 3).contiguous(),
+                    ellC.reshape(1, 3).expand(B, 3).contiguous(), V0t.reshape(1, 3).expand(B, 3).contiguous())
+            self._dims[key] = rows
+        return rows
+
     def __call__(self, pts_l, nrm_l, lv, du, de, upick, us, sigb,
                  Acan, Mt, Cd, dvec, off, vp, sc, ellM, ellS, ellC,
                  V0t, ray_pw, soil, n_nodes, aim, scb, fct=None):
@@ -1795,6 +1821,7 @@ class MetalGeo:
                                dtype=torch.float32, device=dev)
             self._lfp = lfp
         c = lambda t: t.contiguous()
+        ellM, ellS, ellC, V0t = self._m4_rows(ellM, ellS, ellC, V0t, B, dev)   # M4 per agent: a shared M4 expanded to rows
         if fct is None:
             # no per-env table given: every row is the shared static block
             row = torch.zeros(82, dtype=torch.float32, device=dev)   # FCTW - the kernel indexes b*FCTW, so this width is not optional

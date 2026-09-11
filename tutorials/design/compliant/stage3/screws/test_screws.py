@@ -100,10 +100,10 @@ n0 = unit(rnd(B, 3)); xl, yl = FE.head_frame(n0); C0 = rnd(B, 3)
 scr = SC.crown_screws(C0, n0, xl, yl, dtype=dt)
 eps = 1e-3; th = torch.zeros(B, 3, dtype=dt); th[:, 0] = eps
 Tc = SC.poe(scr, th, SC.frame_at(C0)); n1 = torch.bmm(Tc[:, :3, :3], n0[:, :, None])[:, :, 0]
-check("tip: n + eps yl", (n1 - unit(n0 + eps*yl)).abs().max().item(), 1e-6)
+phi = eps*yl; check("tip: n + phi x n with phi = eps yl (the fast env's rotation vector)", (n1 - unit(n0 + torch.cross(phi, n0, dim=1))).abs().max().item(), 1e-6)
 th = torch.zeros(B, 3, dtype=dt); th[:, 1] = eps
 Tc = SC.poe(scr, th, SC.frame_at(C0)); n1 = torch.bmm(Tc[:, :3, :3], n0[:, :, None])[:, :, 0]
-check("tilt: n - eps xl", (n1 - unit(n0 - eps*xl)).abs().max().item(), 1e-6)
+phi = -eps*xl; check("tilt: n + phi x n with phi = -eps xl", (n1 - unit(n0 + torch.cross(phi, n0, dim=1))).abs().max().item(), 1e-6)
 th = torch.zeros(B, 3, dtype=dt); th[:, 2] = 0.02
 Tc = SC.poe(scr, th, SC.frame_at(C0)); check("piston: vertex + 0.02 n", (Tc[:, :3, 3] - (C0 + 0.02*n0)).abs().max().item(), 1e-12)
 

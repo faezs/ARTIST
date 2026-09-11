@@ -430,3 +430,13 @@ camera integral at 0.34 cm gets 87.2 %) so its per-step noise (+-1-2 rays of 64)
 energy - the fine stage, the gusts and the day carry over, so `done` is a bookkeeping cut with the bootstrap set to
 zero, in both runs. Before any run 4: give the fast env infos (miss, rays through, |tilt|, |piston| per episode) so the
 trainer's dashboard shows a collapse when it happens, and keep the best checkpoint by eval rather than the last.
+
+## Correction (2026-09-12): the trace's sun was frozen to the dish
+
+The fast env's `trace()` froze `Acan` - the sun's direction in the dish's frame - at reset while the dish frame moved
+every step, so a tilt of the crown turned the traced beam by theta instead of 2 theta: rays through were half as
+sensitive to the fine stage as the miss. Found by the kernel-mount path (`../screws/`), which re-solves it every step.
+Re-run under the corrected trace: no-op 2.67 cm / 67.5 % (unchanged), random 7.98 / 16.8 (was 40.5), integral on the
+F camera 0.34 / 89.8 (was 87.2), integral on the true miss 0.03 / 89.8 (was 86.8), run 2 ep 144 with the piston held
+0.08 / 89.8 (was 87.1). The tables above carry the old throughput; the miss columns are unaffected, the conclusions
+stand, and the ceiling is 89.8 %.

@@ -57,3 +57,16 @@ nix-support (f 4.05, orbit 4 m about F, hyperboloid strip, vertical beam to the 
 - `flower/`: the first reading of the brief as a self-contained sunflower with a Cassegrain head and the beam
   down its own stem. Superseded: it redesigned the optics, which is the other fork's, and its secondary
   shadow was the wrong turn. Kept for the inflated-hose scale law and the hose sizing.
+
+## The mount as screws, in the megakernel: `screws/`
+
+`tandoor_screws.py` is the finite-motion half of screw theory FACT does not use - twists, wrenches, the exponential,
+the adjoint, the product of exponentials, series and parallel composition, the beam 6 x 6 - with the register's
+frame types as screws at home: hashemi, pedicel, crown, fork, coude. `mount_solve` (buffer 12, one row of 136 floats
+per agent) walks the chain, applies the elastic twist and C W, and derives the beam direction, the pointing and beta
+from where the head is; a row of zeros is the old path. M4 is per agent. The strip follows the link it is mounted on.
+`flower.ini` names the type (`mount = pedicel`), `flowerfast.ini` sends the joints through the kernel (`mech_kernel`).
+Parity: Hashemi's machine as a chain reproduces the kernel's law to 2e-7; the pedicel chain reproduces `pedicel_fk`
+to 2e-6 m; the slow env with the chain matches the injection path to 1e-6 in reward with the wind off. Found on the
+way: the fast env's trace froze the sun's direction in the dish frame at reset, so the crown's tilts turned the
+traced beam once instead of twice - fixed, and the throughput ceiling is 89.8 %, not 87 (`screws/README.md`).
