@@ -2235,24 +2235,15 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     SAND_TOP = 0.08           # the sub layer's depth [m]
     N_DESIGN = 9 + 24
     FCT_W = 82
-    # OPEN, 2026-09-09: the receiver refactor moved the TRACED POWER of a
-    # design_rand machine with an installed SECTION, and it is not understood.
-    # Same physical kit, same design table to the bit (columns 0..71 checksum
-    # 520723.7188 on both), deterministic draws:
-    #     smooth M4 + section   17.900 W  ->  14.936 W   (-17%)
-    #     faceted M4 + section  12.203 W  ->  11.818 W   (-3%)
-    #     faceted M4 + circle    0.492 W  ->   0.514 W   (+4.5%)
-    # It is confined to design_rand + section: the FIXED-design cook envs are
-    # bit-stable across the refactor (cass 13.711473 -> 13.711477, tri exact),
-    # and Metal agrees with the eager reference INSIDE each version (parity 0),
-    # so both implementations moved together while their shared inputs did not.
-    # Ruled out: the design table, _apply_m3_turn (writes nothing for a cass
-    # agent), _bin_pot, and measurement order (HEAD is stable across repeated
-    # verify_megakernel: 17.900/17.900/17.900). NOT ruled out: _sc_base, prm,
-    # and the VALUES of _pts_l / _ray_pw, which were only ever compared by
-    # shape and sum. That checksum comparison is the next step, and it is CPU
-    # work - more ray traces cannot discriminate here.
-    # Beware when re-testing: see the harness trap in tandoor_receiver_verify.py.
+    # RESOLVED, 2026-09-11 (was OPEN since 2026-09-09 as "the receiver refactor moved the
+    # traced power of a design_rand + section machine -17%"): every input to the trace
+    # core was bit-identical across the two trees except the membrane LEVEL. The refactor
+    # gave _trace_power's torch path np.interp against the ladder LEVEL_FRAC (0.62 .. 1.10,
+    # not evenly spaced), so p0 maps to level 4 - the row the secondary was designed at -
+    # while the old linear inverse (and, until today, the training kernel's step_pre,
+    # _metal_trace and the polar _trace_power) put p0 at level 4.75, a figure at 1.03 p0.
+    # Tracing the same kit at 1.030 p0 on the new tree gives back the old 17.900 W exactly.
+    # Now one function for every path: tandoor_polar_env.level_of (kernel: sp[54..]).
     #: system block layout in the design table (offset 40)
     DS = dict(s=40, s2=41, zfold=42, zdeck=43, rate=44, ins=45, cap=46,
               lid=47, bread=48, hb=49, roti=50, lfp=51, lpl=52, fnom=53,
@@ -3571,9 +3562,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         dvec = torch.stack([2.0 * f_b * torch.deg2rad(e_el),
                             2.0 * f_b * torch.deg2rad(e_az)],
                            1)[:, None, :]
-        lv = ((p_eff / self.p0 - self.level_frac[0])
-              / (self.level_frac[-1] - self.level_frac[0])
-              * (self.N_LEVELS - 1)).clamp(0, self.N_LEVELS - 1)
+        from tandoor_polar_env import level_of
+        lv = level_of(p_eff / self.p0, self.level_frac)       # against the ladder (the kernel's step_pre does the same)
         if self._metal is not None:
             args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
                     sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc,

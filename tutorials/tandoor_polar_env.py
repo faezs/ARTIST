@@ -96,6 +96,24 @@ def _rot_a_to_b(a, b):
     return np.eye(3) + K + K @ K / max(1.0 + c, 1e-9)
 
 
+
+def level_of(x, level_frac):
+    """The membrane LEVEL for pressure ratio x = p_eff / p0 (numpy or torch, any shape):
+    piecewise-linear against the ladder level_frac the figure rows were solved at, exactly
+    np.interp(x, level_frac, arange(N)). The ladder is not evenly spaced, so the linear
+    inverse (x - f0)/(fN - f0)*(N-1) does not land on the rows it came from - on the coude
+    ladder it put the nominal pressure at 4.75 instead of 4. One function, every path
+    (kernel step_pre mirrors it over sp[54..])."""
+    lf = np.asarray(level_frac, dtype=np.float64); n = len(lf)
+    if torch.is_tensor(x):
+        # the kernel's loop, segment by segment (no searchsorted: MPS-safe, bit-comparable)
+        lv = torch.where(x <= float(lf[0]), torch.zeros_like(x), torch.full_like(x, float(n - 1)))
+        for i in range(n - 1):
+            f0, f1 = float(lf[i]), float(lf[i + 1])
+            lv = torch.where((x >= f0) & (x < f1), i + (x - f0) / max(f1 - f0, 1e-6), lv)
+        return lv.clamp(0.0, float(n - 1))
+    return np.interp(np.asarray(x, dtype=np.float64), lf, np.arange(n, dtype=np.float64))
+
 class TandoorPolarEnv(TandoorEnv):
     # puffer's eval loop calls render() BEFORE the first step(),
     # and step() is where _cos_now is assigned. Class default so
@@ -291,8 +309,7 @@ class TandoorPolarEnv(TandoorEnv):
     # ------------------------------------------------------------- trace #
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
         B, P = p_eff.shape[0], self.pr.shape[0]
-        lv = (p_eff / self.p0 - self.level_frac[0]) / (
-            self.level_frac[-1] - self.level_frac[0]) * (self.N_LEVELS - 1)
+        lv = level_of(p_eff / self.p0, self.level_frac)       # against the ladder, as np.interp (not a linear inverse)
         lv = torch.as_tensor(lv, dtype=torch.float32,
                              device=self.device).clamp(0, self.N_LEVELS - 1)
         # ARTIST: NURBS surface points+normals, Sun cone, reflect, and

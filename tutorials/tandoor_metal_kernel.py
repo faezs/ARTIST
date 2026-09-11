@@ -1259,8 +1259,23 @@ kernel void step_pre(
     off[b*2+0] += -off[b*2+0]*sp[50] + sp[46]*rb[6];
     off[b*2+1] += -off[b*2+1]*sp[50] + sp[46]*rb[7];
     // ---- trace inputs
-    lv[b] = clamp((p_eff/sp[1] - sp[36])/sp[37]*sp[35],
-                  0.0f, sp[35]);
+    // THE LEVEL FROM THE LADDER (2026-09-11): the figure rows were solved at the pressures
+    // sp[54..54+N-1] = level_frac * p0, which are NOT evenly spaced (coude's 0.62 .. 1.10
+    // tightens round the nominal), so the linear inverse that used to sit here put the
+    // nominal pressure at level 4.75 - a figure at ~1.03 p0, three quarters of a step
+    // of defocus on every training step, while _trace_power (the readout, the design
+    // tool) interpolated against the ladder and got level 4. That gap was the "-17%
+    // section power delta". Piecewise-linear against the ladder, as np.interp.
+    {
+        const int nl = int(sp[35] + 0.5f);                  // N_LEVELS - 1
+        const float x = p_eff/sp[1];
+        float lvv = (x <= sp[54]) ? 0.0f : (float)nl;
+        for (int i = 0; i < nl; i++) {
+            const float f0 = sp[54+i], f1 = sp[55+i];
+            if (x >= f0 && x < f1) { lvv = (float)i + (x - f0)/max(f1 - f0, 1e-6f); break; }
+        }
+        lv[b] = clamp(lvv, 0.0f, sp[35]);
+    }
     dvec[b*2+0] = 2.0f*fct[b*FCTW + 53]*e_el*PI_/180.0f;
     dvec[b*2+1] = 2.0f*fct[b*FCTW + 53]*e_az*PI_/180.0f;
     float ph = s[S0+22], zt = s[S0+23];
