@@ -341,3 +341,20 @@ Run 2 (`reward = miss`, v2) changes the reward's shape and horizon, nothing else
 
 Five minutes in: value loss 0.001, explained variance 0.97, entropy 5.65 and falling, KL 0.002. The critic fits and
 the policy is moving; whether it moves the right way is the epoch-20 eval below.
+
+Epoch 20 of run 2 (42 M steps, six minutes), the watcher's eval with the baselines re-run alongside it (256 agents, 3 s,
+seed 11, site wind, actions sampled, not argmax):
+
+| controller | reward/step | miss cm (2nd half) | rays through |
+|---|---|---|---|
+| no-op | -0.0134 | 2.67 | 67.5 % |
+| random | -0.0423 | 8.41 | 37.6 % |
+| integral on the F camera | -0.0017 | 0.34 | 87.2 % |
+| integral on the true miss | -0.0002 | 0.03 | 86.8 % |
+| **policy, epoch 20** | -0.0014 | **0.28** | 82.6 % |
+
+Ten times the no-op's miss removed and the camera integral controller beaten on miss at the first checkpoint; the
+throughput sits 4.6 points under the integral's at a smaller mean miss, and the eval samples the policy's 7-bin heads
+at full rate, so the gap is most likely the dither of a stochastic policy at 1 kHz clipping at the collar rather than
+its aim. The remaining checkpoints (every 20 epochs to 300 M steps) land in `runs/eval_miss.log` as the watcher
+reaches them.
