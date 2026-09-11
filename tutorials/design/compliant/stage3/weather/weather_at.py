@@ -10,7 +10,8 @@ The initial state: 2 analyses 6 h apart, the 13 GraphCast levels picked from ERA
 (every 4th point), latitude flipped to ascending, precipitation summed to 6 h accumulations, TISR left to the model's own
 solar-radiation code. The target slots are NaN with real datetimes so the forcings (solar, day/year progress) are exact."""
 import sys, os, json, time, functools, urllib.request, concurrent.futures as cf, numpy as np, pandas as pd, xarray as xr
-D = os.path.dirname(os.path.abspath(__file__))
+D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")      # weights, stats, inputs and forecasts live here (untracked)
+os.makedirs(D, exist_ok=True)
 LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
 SURF = ["2m_temperature", "mean_sea_level_pressure", "10m_v_component_of_wind", "10m_u_component_of_wind"]
 ATM = ["temperature", "geopotential", "u_component_of_wind", "v_component_of_wind", "vertical_velocity", "specific_humidity"]
@@ -69,8 +70,15 @@ def forecast(lat, lon, t0, n_steps):
     with open(f"{D}/GraphCast_small.npz", "rb") as f: ckpt = checkpoint.load(f, graphcast.CheckPoint)
     params, state, model_config, task_config = ckpt.params, {}, ckpt.model_config, ckpt.task_config
     diffs_stddev = xr.load_dataset(f"{D}/diffs_stddev_by_level.nc").compute(); mean_by = xr.load_dataset(f"{D}/mean_by_level.nc").compute(); stddev_by = xr.load_dataset(f"{D}/stddev_by_level.nc").compute()
-    print(f"building the initial state for {t0} from ARCO-ERA5 ...", flush=True)
-    ex = era5_initial_state(t0, n_steps)
+    cache = f"{D}/init_{pd.Timestamp(t0).strftime('%Y%m%dT%H')}_{n_steps}.nc"
+    if os.path.exists(cache):
+        ex = xr.load_dataset(cache, decode_timedelta=True); print(f"initial state from cache {cache}", flush=True)
+    else:
+        print(f"building the initial state for {t0} from ARCO-ERA5 ...", flush=True)
+        ex = era5_initial_state(t0, n_steps); ex.to_netcdf(cache); print(f"   cached -> {cache}", flush=True)
+    print("   input sanity: T2 mean %.1f K, msl mean %.0f Pa, u10 rms %.2f, tp6 mean %.2e m, z_sfc mean %.0f" % (
+        float(ex["2m_temperature"].isel(time=1).mean()), float(ex["mean_sea_level_pressure"].isel(time=1).mean()),
+        float(np.sqrt((ex["10m_u_component_of_wind"].isel(time=1)**2).mean())), float(ex["total_precipitation_6hr"].isel(time=1).mean()), float(ex["geopotential_at_surface"].mean())), flush=True)
     tc = {k: getattr(task_config, k) for k in ("input_variables", "target_variables", "forcing_variables", "pressure_levels", "input_duration")}
     inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(ex, target_lead_times=slice(pd.Timedelta("6h"), pd.Timedelta(6*n_steps, "h")), **tc)
     def construct(model_config, task_config):

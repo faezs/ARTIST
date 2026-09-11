@@ -35,6 +35,7 @@ weight and multiplied by dt/15, so a second of this env pays exactly what a seco
 """
 import numpy as np, torch, gymnasium, pufferlib
 import tandoor_wind_table as WT
+import tandoor_site_wind as SW
 from tandoor_flower_env import (TandoorFlowerEnv, compliance, pedicel_fk, hexapod_jacobian, head_frame,
                                 EI_BOOM, EI_STEM, D_DISH,
                                 D_REC, R_PLAT, A_M, RHO_AIR, CD_BOWL, CD_BACK, C_M, IU, M_HEAD, M_CROWN,
@@ -217,12 +218,14 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         S["fine"] = S["fine"] + (S["fine_c"] - S["fine"])*min(1.0, 2*np.pi*FINE_BW_ACT*self.dt)
 
         # ---- 3. the wind, resolved
-        U = torch.clamp((torch.as_tensor(float(self.wind_mean), device=dev).expand(B) if self.wind_mean is not None
-                         else torch.as_tensor(self._gpu.wind if getattr(self, "_gpu", None) is not None else 6.0,
-                                              device=dev).reshape(-1).expand(B))*self.wind_scale, min=0.0)
-        S["u"] = karman_step(S["u"], self.dt, U, IU, gen, dev)
-        S["v"] = karman_step(S["v"], self.dt, U, 0.6*IU, gen, dev)
-        S["w"] = karman_step(S["w"], self.dt, U, 0.5*IU, gen, dev)                     # the vertical gust: sigma_w ~ 0.5 sigma_u in the surface layer
+        if self.wind_mean is not None: U = torch.as_tensor(float(self.wind_mean), device=dev).expand(B)
+        elif "site_U" in S: U = S["site_U"]                                            # the recorded day's wind at this hour
+        else: U = torch.as_tensor(self._gpu.wind if getattr(self, "_gpu", None) is not None else 6.0, device=dev).reshape(-1).expand(B)
+        U = torch.clamp(U*self.wind_scale, min=0.0)
+        iu = S["site_iu"] if "site_iu" in S else IU                                     # the recorded day's gustiness, or the sheared default
+        S["u"] = karman_step(S["u"], self.dt, U, iu, gen, dev)
+        S["v"] = karman_step(S["v"], self.dt, U, 0.6*iu, gen, dev)
+        S["w"] = karman_step(S["w"], self.dt, U, 0.5*iu, gen, dev)                     # the vertical gust: sigma_w ~ 0.5 sigma_u in the surface layer
         S["cm"] = karman_step(S["cm"], self.dt, torch.ones_like(U), CM_RMS, gen, dev)
         u_g = karman_sum(S["u"]); v_g = karman_sum(S["v"]); cm_g = karman_sum(S["cm"])
         V = torch.clamp(U + u_g, min=0.0)                                              # the point gust: the film, the boom's shedding
@@ -230,7 +233,8 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         w_g = karman_sum(S["w"])
         S["ua"] = S["ua"] + (u_g - S["ua"])*k_adm; S["va"] = S["va"] + (v_g - S["va"])*k_adm; S["wa"] = S["wa"] + (w_g - S["wa"])*k_adm
         Vh = torch.clamp(U + S["ua"], min=0.0)                                          # the gust the head's loads see
-        ca = (n0[:, 0]*self._fl_what_x)
+        w_hat = S["wdir"]                                                             # where the wind blows to, per agent
+        ca = (n0*w_hat).sum(1)
         into = ca < 0
         cd = 0.25 + (torch.where(into, torch.full_like(ca, CD_BOWL), torch.full_like(ca, CD_BACK)) - 0.25)*ca*ca
         A_D = np.pi*A_M**2
@@ -243,8 +247,8 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         zc = torch.zeros_like(bu); zc[:, 2] = 1.0
         t1 = torch.cross(bu, zc, dim=1); t1 = t1/torch.linalg.norm(t1, dim=1).clamp(min=1e-6)[:, None]
         t2 = torch.cross(bu, t1, dim=1)                                            # the boom's own bending plane
-        w_hat = torch.stack([torch.full_like(ca, self._fl_what_x), torch.zeros_like(ca), torch.zeros_like(ca)], 1)
-        v_hat = torch.stack([torch.zeros_like(ca), torch.ones_like(ca), torch.zeros_like(ca)], 1)
+        zhat = torch.stack([torch.zeros_like(ca), torch.zeros_like(ca), torch.ones_like(ca)], 1)
+        v_hat = torch.cross(zhat, w_hat, dim=1)                                          # the horizontal across the wind
         # ---- vortex shedding, before the forces are assembled: the wake's lift is one of them
         cos_ax = (w_hat*bu).sum(1)
         un = V*torch.sqrt(torch.clamp(1 - cos_ax*cos_ax, min=0.0))              # only the CROSS-flow component sheds
@@ -267,7 +271,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
             # drag-only assembly above never had), and the film's figure constant by incidence; the back keeps the drag model
             # the INSTANTANEOUS wind direction: the lateral and vertical gusts swing the incidence, and on a bowl dCn/dtheta
             # is -0.7 per 10 deg between 60 and 80 deg, so the swing loads the head as much as the along-wind gust does
-            w_inst = torch.stack([Vh*self._fl_what_x, S["va"], S["wa"]], 1)
+            w_inst = Vh[:, None]*w_hat + S["va"][:, None]*v_hat + S["wa"][:, None]*zhat
             V_inst = torch.linalg.norm(w_inst, dim=1).clamp(min=1e-6)
             F_tab, theta_w, k_tab, covered = WT.head_force(n0, w_inst/V_inst[:, None], 0.5*RHO_AIR*V_inst*V_inst, A_D)
             Fw = torch.where(covered[:, None], F_tab + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf, Fw)
@@ -337,6 +341,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         lv_f = torch.clamp((S["p_act"]/self.p0 - self.level_frac[0])
                            /(self.level_frac[-1] - self.level_frac[0])*(len(self.p_lv) - 1), 0, len(self.p_lv) - 1)
         thr, out6, per = self.trace(C, n, lv_f, sigb)
+        F["rays_thru"] = thr.reshape(B, -1).float().mean(1)                          # the fraction of the rays that reached the bread: the trace, working
         # PER LOAF, not in total. The megakernel already bins each ray onto the loaf it lands on (the eight columns
         # after the nodes), and that spatial term is the whole point: total throughput barely moves when the beam
         # wanders, because the duct is r 0.2 and the spot is 3 cm rms - the traced acceptance is still 99 % at 8 mm
@@ -463,6 +468,17 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         self._bias_t = 0.05*(self._dni_t.mean() - 400.0)/10.0
         self.acquire()
         self.trace_setup()
+        # THE SITE'S WIND for the episode: a recorded day near this day of the year, read at this hour - speed, direction, gustiness
+        B, dev = self.num_agents, self.device
+        if getattr(self, "_site", None) is not None:
+            S_ = getattr(self, "_gpu", None); doy = getattr(S_, "day_v", None) if S_ is not None else None
+            doy = torch.as_tensor(doy if doy is not None else float(getattr(self, "day", 172)), device=dev).reshape(-1).expand(B)
+            idx = self._site.sample_days(doy.round().long().clamp(1, 366), gen)
+            hour = torch.as_tensor(np.asarray(self.t_solar, dtype=np.float32), device=dev).reshape(-1).expand(B)
+            U_s, dir_s, iu_s = self._site.at(idx, hour)
+            self.S["site_U"], self.S["site_iu"], self.S["wdir"] = U_s, iu_s, SW.bearing_vec(dir_s.cpu()).to(dev)
+        else:
+            self.S["wdir"] = self._fl_wdir0.to(dev).expand(B, 3).clone()
         self.observations[:] = 0.0
         return self.observations, [{}]
 

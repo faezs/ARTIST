@@ -15,7 +15,7 @@ def slope_rms(n, pr, rings):
     A_[-1, -1] = 1; w = np.linalg.solve(A_, b); wr = np.gradient(w, r); wt = n*w/np.maximum(r, 1e-6)
     return float(np.sqrt(np.sum((wr**2 if n == 0 else 0.5*(wr**2 + wt**2))*r)/np.sum(r)))
 rows = []
-for d in sorted(glob.glob(f"{S}/dish_les*")):
+for d in sorted(glob.glob(f"{S}/runs/dish_les*")):
     if d.endswith("dish_les_test") or not os.path.exists(f"{d}/forces.csv"): continue
     try: f = pd.read_csv(f"{d}/forces.csv"); p = pd.read_csv(f"{d}/pressure.csv"); g = pd.read_csv(f"{d}/probes.csv")
     except Exception: continue                                                          # a run still settling

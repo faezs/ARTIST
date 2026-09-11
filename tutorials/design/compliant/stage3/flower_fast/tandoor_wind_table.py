@@ -16,9 +16,13 @@ _T = None
 def load(path=_PATH):
     """the table as sorted numpy arrays, complete 6 cm runs only"""
     global _T
-    rows = [r for r in json.load(open(path)) if abs(r["dx"] - 0.06) < 1e-6 and r["t_s"] >= 8.0]
-    rows.sort(key=lambda r: r["theta_w"])
-    _T = {k: np.array([r[k] for r in rows], dtype=np.float32) for k in ("theta_w", "Cn", "Ct", "Cd", "Cl", "Cm", "k_film", "n1", "n2", "n3")}
+    allr = [r for r in json.load(open(path)) if r["t_s"] >= 5.0]
+    best = {}                                                       # per attitude, the finest grid that has run
+    for r in allr:
+        k = (round(r["el"]), round(r["az"]))
+        if k not in best or r["dx"] < best[k]["dx"]: best[k] = r
+    rows = sorted(best.values(), key=lambda r: r["theta_w"])
+    _T = {k: np.array([r[k] for r in rows], dtype=np.float32) for k in ("theta_w", "Cn", "Ct", "Cd", "Cl", "Cm", "k_film", "n1", "n2", "n3", "dx")}
     return _T
 
 
@@ -27,7 +31,7 @@ def table():
 
 
 def coverage():
-    T = table(); return float(T["theta_w"].min()), float(T["theta_w"].max()), len(T["theta_w"])
+    T = table(); return float(T["theta_w"].min()), float(T["theta_w"].max()), len(T["theta_w"]), float(T["dx"].max())
 
 
 def interp(theta_w, key):
