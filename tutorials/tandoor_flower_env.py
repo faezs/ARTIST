@@ -56,6 +56,7 @@ from math import isinf
 from tandoor_hashemi_env import TandoorHashemiEnv
 from tandoor_screw_render import realise, STEEL
 import tandoor_wind_table as WT
+import tandoor_site_wind as SW
 
 # ---------------------------------------------------------------- the machine, from the design folder
 G_ORB, A_M, RHO_AIR = 4.0, 2.1, 1.03; A_DISH = np.pi*A_M**2; D_DISH = 2*A_M
@@ -295,7 +296,7 @@ def frac_above(U, f):
 
 
 class TandoorFlowerEnv(TandoorHashemiEnv):
-    def __init__(self, *a, wind_from="S", wind_scale=1.0, stow_wind=15.0, fine_stage=1, mech=1, two_tier_beta=0,
+    def __init__(self, *a, wind_from="S", wind_scale=1.0, stow_wind=15.0, fine_stage=1, mech=1, two_tier_beta=0, wind_site=0,
                  boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=1, wind_table=1,
                  base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, **k):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
@@ -310,7 +311,15 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         self.wind_from, self.wind_scale = str(wind_from), float(wind_scale)
         self.stow_wind = float(stow_wind); self.fine_stage = int(fine_stage)
         self.mech = int(mech); self.two_tier_beta = int(two_tier_beta)
-        self._fl_what_x = 1.0 if self.wind_from.upper().startswith("S") else -1.0     # the wind blows toward +x (north) when from the south
+        # THE WIND'S DIRECTION is a compass bearing it comes from ('S', 'W', 'NW' or degrees), and with wind_site the whole wind -
+        # speed, direction, gustiness by the hour - is a real recorded day at the site (tandoor_site_wind: ERA5 at Quetta) drawn
+        # within 15 days of the episode's day of the year. Quetta's working-day wind is calm (mean 1.9 m/s), gusty (factor 3.7)
+        # and from the W/NW; the old default was 9-12 m/s from the south.
+        self.wind_site = int(wind_site)
+        self._fl_from = SW.parse_from(self.wind_from)
+        self._fl_wdir0 = SW.bearing_vec(self._fl_from)                                # where it blows TO, env frame (x north, y east)
+        self._fl_what_x = float(self._fl_wdir0[0])                                    # legacy scalar: +1 when from the south
+        self._site = SW.SiteWind(device=self.device) if self.wind_site else None
         self._fl = None                                                               # device tensors, made on the first step
         self._fl_act = None                                                           # this step's actions, for the plenum
         self.flexures = int(flexures)                                                  # 0 none, 1 the strip's and M3's (default), 2 every joint - the pedicel's are 9 m blades, drawn only on request
@@ -398,6 +407,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                         q_slew=z(), q_luff=z(), q_ext=torch.full((B,), 3.0, device=dev), q_pitch=z(), q_yaw=z(),
                         lim_hit=z(), rate_hit=z(), pose_err=z(), fine_use=z(), fine_sat=z(),
                         ball_sig=z(), ball_defl=z(), ball_ang=z(), stow=z(), beta=torch.full((B,), float(getattr(self, 'beta_dev', BETA_OPT)), device=dev), ext_ask=z(), acq=z(), beta_hold=z(), q_rail=z(), thru=z(),
+                        site_day=torch.zeros(B, dtype=torch.long, device=dev), wdir=self._fl_wdir0.to(dev).expand(B, 3).clone(), iu=torch.full((B,), IU, device=dev),
                         plenum=torch.ones(B, device=dev), walk_open=z(), q_init=z())
 
     def _fl_before_step(self):
@@ -427,12 +437,25 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         U = torch.clamp(S.wind*self.wind_scale, min=0.0)
         gen = getattr(self, "_gen", None)                                              # the env's OWN seeded stream, like every other
         rn = lambda: torch.randn(B, generator=gen, device=dev) if gen is not None else torch.randn(B, device=dev)
-        gust = rn()*IU*U; V = torch.clamp(U + gust, min=0.0)                           # stochastic term here (tandoor_hashemi_env.py:2956):
+        iu = torch.full((B,), IU, device=dev); wdir = self._fl_wdir0.to(dev).expand(B, 3).clone()
+        if self._site is not None:
+            # THE SITE'S WIND: at the start of an episode draw a recorded day near this day of the year; then follow it by the hour
+            fresh = F["q_init"] < 0.5
+            if bool(fresh.any()):
+                doy = torch.as_tensor(getattr(S, "day_v", torch.full((B,), 172.0)), device=dev).reshape(-1).expand(B)
+                drawn = self._site.sample_days(doy.round().long().clamp(1, 366), gen)
+                F["site_day"] = torch.where(fresh, drawn, F["site_day"])
+            hour = torch.as_tensor(np.asarray(self.t_solar, dtype=np.float32), device=dev).reshape(-1).expand(B)
+            U_s, dir_s, iu = self._site.at(F["site_day"], hour)
+            U = torch.clamp(U_s*self.wind_scale, min=0.0); wdir = SW.bearing_vec(dir_s.cpu()).to(dev)
+        F["wdir"], F["iu"] = wdir, iu
+        gust = rn()*iu*U; V = torch.clamp(U + gust, min=0.0)                           # stochastic term here (tandoor_hashemi_env.py:2956):
         # drawing from the global generator instead would put the flower's gust outside the seed, and two runs of the same
         # seed would then differ - which breaks both reproducibility and the parity discipline.
         el = torch.deg2rad(S.el0s) if hasattr(S, "el0s") else torch.full((B,), 0.8, device=dev)
         az = torch.deg2rad(S.az0d) if hasattr(S, "az0d") else torch.zeros(B, device=dev)
-        ca = torch.cos(el)*torch.cos(az)*self._fl_what_x                              # the head's axis is near the sun's: its cosine to the wind
+        n_h = torch.stack([torch.cos(el)*torch.cos(az), torch.cos(el)*torch.sin(az), torch.sin(el)], 1)   # the head's axis, near the sun's
+        ca = (n_h*wdir).sum(1)                                                          # its cosine to the wind
         into = ca < 0
         cd_n = torch.where(into, torch.full_like(ca, CD_BOWL), torch.full_like(ca, CD_BACK))
         cd = 0.25 + (cd_n - 0.25)*ca*ca
@@ -444,9 +467,9 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         if self.wind_table:
             # THE LES TABLE (stage3/wind): on the bowl's face the load is a normal force Cn q A along the axis (Cn ~ -1.6 from
             # 37 to 59 deg of incidence, gone by 83), the vertical part downward and 2-3x the heuristic above with the opposite
-            # sign, and the film's figure constant runs with the incidence. The back of the dish keeps the heuristics.
-            n_h = torch.stack([torch.cos(el)*torch.cos(az), torch.cos(el)*torch.sin(az), torch.sin(el)], 1)
-            w_h = torch.zeros(B, 3, device=dev); w_h[:, 0] = self._fl_what_x
+            # sign, and the film's figure constant runs with the incidence. The table runs to 154 deg (the W/NW runs) and is
+            # held flat beyond: the back of the dish is the table's too.
+            w_h = wdir
             F_tab, theta_w, k_tab, covered = WT.head_force(n_h, w_h, q, A_DISH)
             F["drag"] = torch.where(covered, (F_tab*w_h).sum(1), F["drag"])
             F["lift"] = torch.where(covered, F_tab[:, 2], F["lift"])
@@ -512,7 +535,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
 
         # ---- 5. the crown: the wind wrench through the 6 x 6 Jacobian into six axial forces
         xl, yl = head_frame(n)
-        w = torch.zeros(B, 3, device=dev); w[:, 0] = self._fl_what_x                  # the wind's direction, horizontal
+        w = F["wdir"]                                                                  # the wind's direction, horizontal, per agent
         gvec = torch.zeros(B, 3, device=dev); gvec[:, 2] = -1.0
         Fw = F["drag"][:, None]*w + F["lift"][:, None]*(-gvec) + (M_HEAD*9.81)*gvec
         Mw = F["pitch"][:, None]*torch.cross(w, n, dim=1)
@@ -602,7 +625,8 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             return dict(V=0.0, gust=0.0, drag=0.0, lift=0.0, pitch=0.0, strut=0.0, leg=np.zeros(6), walk=np.zeros(2),
                         d_el=0.0, d_az=0.0, sig_mem=0.0, Lb=0.0, f_n=0.0, k_img=0.0, q=dict(slew=0.0, luff=0.0, ext=0.0, pitch=0.0, yaw=0.0),
                         lim_hit=0.0, rate_hit=0.0, pose_err=0.0, fine_use=0.0, fine_sat=0.0, ball_sig=0.0, ball_defl=0.0,
-                        ball_ang=0.0, stow=0.0, beta=float(getattr(self, 'beta_dev', BETA_OPT)), plenum=1.0, walk_open=0.0, ext_ask=0.0, acq=0.0, rail=0.0, thru=0.0)
+                        ball_ang=0.0, stow=0.0, beta=float(getattr(self, 'beta_dev', BETA_OPT)), plenum=1.0, walk_open=0.0, ext_ask=0.0, acq=0.0, rail=0.0, thru=0.0,
+                        iu=IU, from_deg=float(self._fl_from))
         g = lambda k: float(F[k][0])
         return dict(V=g("V"), gust=g("gust"), drag=g("drag"), lift=g("lift"), pitch=g("pitch"), strut=g("strut"),
                     leg=F["leg"][0].detach().cpu().numpy(), walk=np.array([g("walk_a"), g("walk_x")]),
@@ -611,8 +635,14 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                     lim_hit=g("lim_hit"), rate_hit=g("rate_hit"), pose_err=g("pose_err"), fine_use=g("fine_use"),
                     fine_sat=g("fine_sat"), ball_sig=g("ball_sig"), ball_defl=g("ball_defl"), ball_ang=g("ball_ang"),
                     stow=g("stow"), beta=g("beta"), plenum=g("plenum"), walk_open=g("walk_open"), ext_ask=g("ext_ask"), acq=g("acq"),
-                    rail=g("q_rail"), thru=g("thru"))
+                    rail=g("q_rail"), thru=g("thru"), iu=g("iu"),
+                    from_deg=float((np.degrees(np.arctan2(float(F["wdir"][0, 1]), float(F["wdir"][0, 0]))) + 180.0) % 360.0))
 
+
+    def _fl_wind_np(self):
+        """the wind's direction for agent 0 as a numpy unit vector (where it blows to)"""
+        F = self._fl
+        return (F["wdir"][0].detach().cpu().numpy().astype(float) if F is not None and "wdir" in F else self._fl_wdir0.numpy().astype(float))
 
     # ------------------------------------------------------------ the mechanism as SCREWS, realised as flexures
     def _fl_year_travel(self):
@@ -749,7 +779,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F = self._fl
         if F is None or "g_tr" not in F: return
         T0, Cb, foot = g["T0"], g["Cb"], g["foot"]; bu = Cb - T0; Lb = max(float(np.linalg.norm(bu)), 1e-9); bu = bu/Lb
-        w = np.array([self._fl_what_x, 0.0, 0.0]); t = w - (w@bu)*bu; tn = float(np.linalg.norm(t))
+        w = self._fl_wind_np(); t = w - (w@bu)*bu; tn = float(np.linalg.norm(t))
         if tn < 1e-6: return
         t = t/tn; P = float(F["drag"][0])*tn; m = D_REC*float(g["n"]@bu); Ls = max(float(np.linalg.norm(T0 - foot)), 1e-6)
         zs = np.linspace(0.0, Ls, 8); ys = P*(zs**2*(3*Ls - zs)/(6*EI_STEM) + (Lb + m)*zs**2/(2*EI_STEM))
@@ -869,7 +899,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         self._draw_bent(pr, v3, g)                            # the stem and boom as the compliant members they are
         self._draw_flexures(pr, v3, g)                        # and every joint realised from its screw
         # the wind, its gust, and the stow flag
-        C = g["C"]; w = np.array([self._fl_what_x, 0.0, 0.0]); base = C - 4.5*w + np.array([0, 0, 0.8])
+        C = g["C"]; w = self._fl_wind_np(); base = C - 4.5*w + np.array([0, 0, 0.8])
         L = 0.25*fl["V"]; Lg = 0.25*max(fl["V"] + fl["gust"], 0.0)
         pr.draw_line_3d(v3(base), v3(base + L*w), (120, 200, 240, 220))
         pr.draw_line_3d(v3(base + L*w), v3(base + Lg*w), (250, 120, 60, 240) if fl["gust"] > 0 else (80, 140, 200, 200))
@@ -975,7 +1005,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                                f"a {self.stem_z:.0f} m stem on the deck {self.stem_x:.0f} m north of the pipe . pedicel 5 joints")
             + " . crown 6 struts on flexure balls, the fine stage"
             + ("   [STOWED: wind over " + f"{self.stow_wind:.0f} m/s, head parked face-up]" if fl["stow"] > 0.5 else ""),
-            f"wind {fl['V']:.1f} m/s mean, gust {fl['gust']:+.1f} (von Karman, Iu {IU}, from the {self.wind_from})"
+            f"wind {fl['V']:.1f} m/s mean, gust {fl['gust']:+.1f} (von Karman, Iu {fl['iu']:.2f}, from {fl['from_deg']:.0f} deg{' - a recorded day at the site' if self._site is not None else ''})"
             + (f"  [x{self.wind_scale:.1f}]" if self.wind_scale != 1.0 else "")
             + f"   drag {fl['drag']/1e3:.2f} kN  lift {fl['lift']/1e3:.2f} kN  pitching {fl['pitch']/1e3:.2f} kN m",
             (f"pedicel  $0 carriage {np.degrees(fl['rail']):+7.1f} deg on the r {self.ring_r:.0f} m ring rail   " if self.base == "ring" else "pedicel  ")

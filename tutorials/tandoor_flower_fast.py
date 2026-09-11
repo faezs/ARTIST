@@ -35,6 +35,7 @@ weight and multiplied by dt/15, so a second of this env pays exactly what a seco
 """
 import numpy as np, torch, gymnasium, pufferlib
 import tandoor_wind_table as WT
+import tandoor_site_wind as SW
 from tandoor_flower_env import (TandoorFlowerEnv, compliance, pedicel_fk, hexapod_jacobian, head_frame,
                                 EI_BOOM, EI_STEM, D_DISH,
                                 D_REC, R_PLAT, A_M, RHO_AIR, CD_BOWL, CD_BACK, C_M, IU, M_HEAD, M_CROWN,
@@ -47,6 +48,8 @@ L_KARMAN = 50.0                  # the gust's integral length [m]
 FINE_BW_ACT, FINE_RATE = 50.0, 0.8        # the fine stage's actuator: 50 Hz first-order, 0.8 m/s of leg speed
 FINE_CMD_RATE = 5.0                       # full command sweeps the whole stroke in 1/5 s - the heads command a RATE
 CAM_FOV = 0.30                   # the flux camera's half-width AT THE RECEIVER [m]: the traced spot has a 3 cm rms
+CAM_FOV_F = 0.15                 # the camera AT F: half-width [m], 1.25 cm a pixel at 24; the spot is ~2 cm, the standing miss 2.5
+CAM_REF_F = 0.06                 # the F frame's fixed reference ring [m]: a spot with nothing to be off-centre from teaches nothing
                                  # spread and the duct is r 0.2, so 0.3 frames both the spot and the rim it must sit in
 SUN_MRAD = 4.65e-3               # the sun's angular radius
 
@@ -98,7 +101,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
     """1 kHz, own actuators, flux-camera observation, Hashemi's reward and Hashemi's membrane."""
     N_ACT = 11
     def __init__(self, *a, cam_n=24, episode_s=8.0, wind_scale=1.0, wind_mean=None, cam_bits=8,
-                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, **k):
+                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, fine_only=0, reward="hashemi", miss_scale=0.20, miss_shape=20.0, thru_w=0.0, thru_ref=0.85, cam_plane="receiver", **k):
         k.setdefault("num_agents", 1024)
         self._vec_buf = k.get("buf", None)          # the vector backend's shared buffer, if it gave us one
         super().__init__(*a, wind_scale=wind_scale, **k)
@@ -106,6 +109,20 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         self.dt = DT                                       # every rate limit in the parent reads self.dt
         self.cam_n = int(cam_n); self.cam_bits = int(cam_bits); self.cam_noise = float(cam_noise)
         self.obs_proprio = int(obs_proprio); self.obs_strain = int(obs_strain); self.episode_n = int(episode_s/DT)
+        # THE FAST LOOP'S OWN JOB. fine_only restricts the policy to the crown's three fine-stage heads (the pedicel's joints,
+        # the plenum's level and the valve stay at neutral: they belong to the 15 s policy). reward='miss' pays -|image miss at F|
+        # per step, one at miss_scale metres: the thing a flux camera can see and a fine stage can fix. Hashemi's cooking reward
+        # is 3e-7 a step here and the loop's whole share of it is under a third of that; a policy trained on it stayed uniform
+        # random after 240 epochs and, integrated on the fine stage's rate commands, walked the image 20 cm off.
+        self.fine_only = int(fine_only); self.reward = str(reward); self.miss_scale = float(miss_scale); self.miss_shape = float(miss_shape)
+        self.thru_w, self.thru_ref = float(thru_w), float(thru_ref)
+        # WHERE THE CAMERA LOOKS. 'receiver': the megakernel's landing points at the bread (the original). Measured: a miss at F
+        # moves that frame's centroid 0.0005 px per mm - at the bread the beam is a pupil image, which brightens and dims with
+        # the miss but does not shift, so the loop cannot see which way to push. 'F': the same 64 membrane rays, reflected off
+        # the level-interpolated normals with the film's slope error, histogrammed where they cross the plane through F normal
+        # to the chief ray - the plane the miss reward is paid on.
+        self.cam_plane = str(cam_plane)
+        self.n_act = 3 if self.fine_only else self.N_ACT
         # THE STEM AS A LOAD CELL. A compliant member is a force sensor: two strain gauges at the stem's foot read the
         # wind's bending moment the instant the gust arrives, a quarter-period before the boom's mode has moved the
         # image and whether or not the spot is still in the frame. The reading is the WIND part only - the gravity
@@ -148,7 +165,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         self.n_prop = ((6 + 3 + 3) + (2 if self.obs_strain else 0)) if self.obs_proprio else 0
         # joints, fine stage, plenum+valve+dough, and with obs_strain the stem's two bending moments
         self.single_observation_space = gymnasium.spaces.Box(low=0.0, high=1.0, shape=(n_img + self.n_prop,), dtype=np.float32)
-        self.single_action_space = gymnasium.spaces.MultiDiscrete([7]*self.N_ACT)
+        self.single_action_space = gymnasium.spaces.MultiDiscrete([7]*self.n_act)
         for attr in ("observation_space", "action_space"):                   # the parent already made the joint spaces,
             if hasattr(self, attr): delattr(self, attr)                      # and PufferEnv refuses to see them on entry
         # and it must be re-run against the SHARED buffer the vector backend handed us, not a fresh one: a native
@@ -167,6 +184,8 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         self.cam_r = torch.sqrt(self.cam_x**2 + self.cam_y**2)
         self.cam_rim = ((self.cam_r > self.r_duct*0.98) & (self.cam_r < self.r_duct*1.10)).float()
         self.cam_rim = self.cam_rim.reshape(-1)
+        rF = torch.sqrt(self.cam_x**2 + self.cam_y**2)*(CAM_FOV_F/CAM_FOV)                    # the same grid, scaled to the F field
+        self.cam_rim_F = ((rF > CAM_REF_F*0.9) & (rF < CAM_REF_F*1.15)).float().reshape(-1)
 
     # ---------------------------------------------------------------- the frame
     def _unused_flux_frame(self, miss, sig, peak):
@@ -190,7 +209,9 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
     def step_torch(self, actions):
         dev = self.device; B = self.num_agents; S = self.S; F = self._fl
         gen = getattr(self, "_gen", None)
-        a = torch.as_tensor(actions, device=dev).reshape(B, self.N_ACT).float()
+        a = torch.as_tensor(actions, device=dev).reshape(B, self.n_act).float()
+        if self.fine_only:                                                     # the three fine heads land on 6..8; the rest at neutral
+            full = torch.full((B, self.N_ACT), 3.0, device=dev); full[:, 6:9] = a; a = full
         cmd = (a.clamp(0, 6) - 3.0)/3.0                                        # every head: -1 .. +1
 
         # ---- 1. the pedicel: six rate commands, its own travel and its two drive speeds
@@ -217,12 +238,14 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         S["fine"] = S["fine"] + (S["fine_c"] - S["fine"])*min(1.0, 2*np.pi*FINE_BW_ACT*self.dt)
 
         # ---- 3. the wind, resolved
-        U = torch.clamp((torch.as_tensor(float(self.wind_mean), device=dev).expand(B) if self.wind_mean is not None
-                         else torch.as_tensor(self._gpu.wind if getattr(self, "_gpu", None) is not None else 6.0,
-                                              device=dev).reshape(-1).expand(B))*self.wind_scale, min=0.0)
-        S["u"] = karman_step(S["u"], self.dt, U, IU, gen, dev)
-        S["v"] = karman_step(S["v"], self.dt, U, 0.6*IU, gen, dev)
-        S["w"] = karman_step(S["w"], self.dt, U, 0.5*IU, gen, dev)                     # the vertical gust: sigma_w ~ 0.5 sigma_u in the surface layer
+        if self.wind_mean is not None: U = torch.as_tensor(float(self.wind_mean), device=dev).expand(B)
+        elif "site_U" in S: U = S["site_U"]                                            # the recorded day's wind at this hour
+        else: U = torch.as_tensor(self._gpu.wind if getattr(self, "_gpu", None) is not None else 6.0, device=dev).reshape(-1).expand(B)
+        U = torch.clamp(U*self.wind_scale, min=0.0)
+        iu = S["site_iu"] if "site_iu" in S else IU                                     # the recorded day's gustiness, or the sheared default
+        S["u"] = karman_step(S["u"], self.dt, U, iu, gen, dev)
+        S["v"] = karman_step(S["v"], self.dt, U, 0.6*iu, gen, dev)
+        S["w"] = karman_step(S["w"], self.dt, U, 0.5*iu, gen, dev)                     # the vertical gust: sigma_w ~ 0.5 sigma_u in the surface layer
         S["cm"] = karman_step(S["cm"], self.dt, torch.ones_like(U), CM_RMS, gen, dev)
         u_g = karman_sum(S["u"]); v_g = karman_sum(S["v"]); cm_g = karman_sum(S["cm"])
         V = torch.clamp(U + u_g, min=0.0)                                              # the point gust: the film, the boom's shedding
@@ -230,7 +253,8 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         w_g = karman_sum(S["w"])
         S["ua"] = S["ua"] + (u_g - S["ua"])*k_adm; S["va"] = S["va"] + (v_g - S["va"])*k_adm; S["wa"] = S["wa"] + (w_g - S["wa"])*k_adm
         Vh = torch.clamp(U + S["ua"], min=0.0)                                          # the gust the head's loads see
-        ca = (n0[:, 0]*self._fl_what_x)
+        w_hat = S["wdir"]                                                             # where the wind blows to, per agent
+        ca = (n0*w_hat).sum(1)
         into = ca < 0
         cd = 0.25 + (torch.where(into, torch.full_like(ca, CD_BOWL), torch.full_like(ca, CD_BACK)) - 0.25)*ca*ca
         A_D = np.pi*A_M**2
@@ -243,8 +267,8 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         zc = torch.zeros_like(bu); zc[:, 2] = 1.0
         t1 = torch.cross(bu, zc, dim=1); t1 = t1/torch.linalg.norm(t1, dim=1).clamp(min=1e-6)[:, None]
         t2 = torch.cross(bu, t1, dim=1)                                            # the boom's own bending plane
-        w_hat = torch.stack([torch.full_like(ca, self._fl_what_x), torch.zeros_like(ca), torch.zeros_like(ca)], 1)
-        v_hat = torch.stack([torch.zeros_like(ca), torch.ones_like(ca), torch.zeros_like(ca)], 1)
+        zhat = torch.stack([torch.zeros_like(ca), torch.zeros_like(ca), torch.ones_like(ca)], 1)
+        v_hat = torch.cross(zhat, w_hat, dim=1)                                          # the horizontal across the wind
         # ---- vortex shedding, before the forces are assembled: the wake's lift is one of them
         cos_ax = (w_hat*bu).sum(1)
         un = V*torch.sqrt(torch.clamp(1 - cos_ax*cos_ax, min=0.0))              # only the CROSS-flow component sheds
@@ -264,10 +288,11 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         k_film = torch.full_like(V, SIG_MEM_K)
         if getattr(self, "wind_table", 1):
             # the LES table: the bowl's load as a normal force along its axis (with its downward vertical part, which the
-            # drag-only assembly above never had), and the film's figure constant by incidence; the back keeps the drag model
+            # drag-only assembly above never had), and the film's figure constant by incidence; the table runs to 154 deg
+            # (the W/NW runs) and is held flat beyond, so the back of the dish is the table's too
             # the INSTANTANEOUS wind direction: the lateral and vertical gusts swing the incidence, and on a bowl dCn/dtheta
             # is -0.7 per 10 deg between 60 and 80 deg, so the swing loads the head as much as the along-wind gust does
-            w_inst = torch.stack([Vh*self._fl_what_x, S["va"], S["wa"]], 1)
+            w_inst = Vh[:, None]*w_hat + S["va"][:, None]*v_hat + S["wa"][:, None]*zhat
             V_inst = torch.linalg.norm(w_inst, dim=1).clamp(min=1e-6)
             F_tab, theta_w, k_tab, covered = WT.head_force(n0, w_inst/V_inst[:, None], 0.5*RHO_AIR*V_inst*V_inst, A_D)
             Fw = torch.where(covered[:, None], F_tab + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf, Fw)
@@ -337,6 +362,8 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         lv_f = torch.clamp((S["p_act"]/self.p0 - self.level_frac[0])
                            /(self.level_frac[-1] - self.level_frac[0])*(len(self.p_lv) - 1), 0, len(self.p_lv) - 1)
         thr, out6, per = self.trace(C, n, lv_f, sigb)
+        if self.cam_plane == "F": img_F = self.flux_image_F(C, n, lv_f, sig_film, s_dir, r, e1, e2, Ff, gen)
+        F["rays_thru"] = thr.reshape(B, -1).float().mean(1)                          # the fraction of the rays that reached the bread: the trace, working
         # PER LOAF, not in total. The megakernel already bins each ray onto the loaf it lands on (the eight columns
         # after the nodes), and that spatial term is the whole point: total throughput barely moves when the beam
         # wanders, because the duct is r 0.2 and the spot is 3 cm rms - the traced acceptance is still 99 % at 8 mm
@@ -357,9 +384,29 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         scale = self.dt/DT_HASH
         rew = 2.0*(phi_new - phi_old) - 0.02*scale                                # cooking pays, holding is rent
         rew = rew/float(getattr(self, "reward_div", 1.0))
+        if self.reward == "miss":
+            # THE FAST LOOP'S OWN REWARD, v2. v1 paid -|miss|/scale a step at gamma 0.999: returns of order -100, a critic that
+            # never fitted them (loss 4 -> 135), advantages of pure noise, a policy that stayed uniform for 74 epochs and
+            # then NaN. v2: the level term -|miss|/scale still, plus potential-based shaping on the same potential -
+            # miss_prev - miss_now, the credit for having moved the right way THIS step, which is what a 1 ms rate command
+            # can earn - and the ini runs gamma 0.99 (a 100 ms horizon, the fine stage's own) with reward_div bringing the
+            # returns to order one. Shaping on a potential leaves the optimal policy alone.
+            m_now = torch.linalg.norm(S["miss"], dim=1)
+            m_prev = S["miss_prev"] if "miss_prev" in S else m_now
+            rew = -m_now/self.miss_scale + self.miss_shape*(m_prev - m_now)/self.miss_scale
+            S["miss_prev"] = m_now.detach()
+            # v3: the miss has a NULL SPACE - the crown's piston head moves the focus along the chief ray and the centroid
+            # not at all - and the v2 policy filled it with a random walk to the 50 mm stop: 0.10 cm of miss and 75 % of the
+            # rays through against the integral controller's 87 % with the piston held. The collar's acceptance is the
+            # receiver's own quantity, the F camera sees the spot's spread as well as its centre, and the piston is the
+            # one actuator that can refocus at 1 kHz when the wind softens the film. So the fraction of the traced rays
+            # that reach the bread enters the reward, centred on thru_ref so the level term stays of order the miss's.
+            if self.thru_w > 0: rew = rew + self.thru_w*(F["rays_thru"] - self.thru_ref)
+            rew = rew/float(getattr(self, "reward_div", 1.0))
+        rew = torch.nan_to_num(rew, nan=-1.0, posinf=-1.0, neginf=-1.0)         # a stray NaN must not poison a 2 M-sample batch
 
         # ---- 9. the frame, the tail, and the episode
-        img = self.flux_image(thr, out6)
+        img = self.flux_image(thr, out6) if self.cam_plane != "F" else img_F
         if self.n_prop:
             prop = torch.stack([ (F["q_" + kk] - lim[kk][0])/(lim[kk][1] - lim[kk][0]) for kk in keys ]
                                + [torch.remainder(F["q_rail"]/(2*np.pi) + 0.5, 1.0)]
@@ -369,13 +416,14 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                                   torch.clamp(phi_new/max(int(self.loaves_per_load), 1), 0, 1)]
                                + ([0.5 + 0.5*torch.clamp(F["m_root"][:, 0]/self._m_ref, -1, 1),
                                    0.5 + 0.5*torch.clamp(F["m_root"][:, 1]/self._m_ref, -1, 1)] if self.obs_strain else []), 1)
-            obs = torch.cat([img, torch.clamp(prop, 0, 1)], 1)
+            obs = torch.nan_to_num(torch.cat([img, torch.clamp(prop, 0, 1)], 1), nan=0.0)
         else:
             obs = img
         S["t"] = S["t"] + 1
         done = (S["t"] >= self.episode_n)                                          # no .any(): branching here syncs the device
         S["t"] = torch.where(done, torch.zeros_like(S["t"]), S["t"])
         S["E"] = torch.where(done[:, None], torch.zeros_like(S["E"]), S["E"])
+        if "miss_prev" in S: S["miss_prev"] = torch.where(done, torch.zeros_like(S["miss_prev"]), S["miss_prev"])
         done = done.float()
         self._obs_t, self._rew_t, self._done_t = obs, rew, done                    # the on-device collector reads these
         if not self.on_device:
@@ -463,6 +511,17 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         self._bias_t = 0.05*(self._dni_t.mean() - 400.0)/10.0
         self.acquire()
         self.trace_setup()
+        # THE SITE'S WIND for the episode: a recorded day near this day of the year, read at this hour - speed, direction, gustiness
+        B, dev = self.num_agents, self.device
+        if getattr(self, "_site", None) is not None:
+            S_ = getattr(self, "_gpu", None); doy = getattr(S_, "day_v", None) if S_ is not None else None
+            doy = torch.as_tensor(doy if doy is not None else float(getattr(self, "day", 172)), device=dev).reshape(-1).expand(B)
+            idx = self._site.sample_days(doy.round().long().clamp(1, 366), gen)
+            hour = torch.as_tensor(np.asarray(self.t_solar, dtype=np.float32), device=dev).reshape(-1).expand(B)
+            U_s, dir_s, iu_s = self._site.at(idx, hour)
+            self.S["site_U"], self.S["site_iu"], self.S["wdir"] = U_s, iu_s, SW.bearing_vec(dir_s.cpu()).to(dev)
+        else:
+            self.S["wdir"] = self._fl_wdir0.to(dev).expand(B, 3).clone()
         self.observations[:] = 0.0
         return self.observations, [{}]
 
@@ -501,6 +560,31 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                                      self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t,
                                      self._ray_pw, T["soil"], self.n_nodes, T["aim"], T["scb"], fct=self._fct)
         return thr, out6, per
+
+    def flux_image_F(self, C, n, lv, sig_film, s_dir, r, e1, e2, Ff, gen):
+        """THE CAMERA AT F: the megakernel's own 64 membrane rays, reflected off the normals of the level the pump has
+        reached, each normal tilted by the film's slope error, binned where they cross the plane through F normal to the
+        chief ray. The miss reward is paid on this plane, and here 1 mm of miss is 0.08 px, not 0.0005."""
+        from tandoor_mount_batch import _align_batch
+        B, nn = self.num_agents, self.cam_n; L, P, _ = self._pts_l.shape; dev = self.device
+        zc = torch.zeros_like(n); zc[:, 2] = 1.0
+        Mt = _align_batch(zc[0], n).transpose(1, 2).contiguous()                              # local -> world, as the kernel has it
+        l0 = lv.floor().long().clamp(0, L - 1); l1 = (l0 + 1).clamp(max=L - 1); fr = (lv - l0.float()).clamp(0, 1)[:, None, None]
+        pl = self._pts_l[l0]*(1 - fr) + self._pts_l[l1]*fr; nl = self._nrm_l[l0]*(1 - fr) + self._nrm_l[l1]*fr
+        pw = torch.bmm(pl, Mt) + C[:, None, :]; nw = torch.bmm(nl, Mt)
+        nw = nw + (0.5*sig_film)[:, None, None]*torch.randn(B, P, 3, generator=gen, device=dev)   # the film's slope error, per ray
+        nw = nw/torch.linalg.norm(nw, dim=-1, keepdim=True).clamp(min=1e-9)
+        sd = s_dir[:, None, :]; d = -sd + 2*(sd*nw).sum(-1, keepdim=True)*nw                   # reflected off the film
+        t = ((Ff[None, None, :] - pw)*r[:, None, :]).sum(-1)/(d*r[:, None, :]).sum(-1).clamp(min=1e-6)
+        X = pw + t[..., None]*d - Ff[None, None, :]
+        x = (X*e1[:, None, :]).sum(-1); y = (X*e2[:, None, :]).sum(-1)                         # metres in the F plane
+        ix = torch.clamp(((x + CAM_FOV_F)/(2*CAM_FOV_F)*nn).long(), 0, nn - 1); iy = torch.clamp(((y + CAM_FOV_F)/(2*CAM_FOV_F)*nn).long(), 0, nn - 1)
+        w = self._ray_pw[None, :].expand(B, P)
+        img = torch.zeros(B, nn*nn, device=dev); img.scatter_add_(1, iy*nn + ix, w)
+        img = img/torch.clamp(img.amax(dim=1, keepdim=True), min=1e-6)*0.9 + 0.18*self.cam_rim_F[None, :]
+        if self.cam_noise > 0: img = img + (0.01*self.cam_noise)*torch.randn(img.shape, generator=gen, device=dev)
+        q = float(2**self.cam_bits - 1)
+        return torch.clamp((img*q).round()/q, 0.0, 1.0)
 
     def flux_image(self, thr, out6):
         """the camera: bin every ray that got through by where it landed on the receiver. No Gaussian, no assumed spot
