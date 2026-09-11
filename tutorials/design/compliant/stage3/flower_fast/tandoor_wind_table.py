@@ -5,12 +5,15 @@ What the runs found (12 m/s, 6 cm cells, steady inflow): the load on a bowl faci
 dish axis, Cn ~ -1.6 on the disc area from 37 to 59 deg of incidence and collapsing by 83, with a tangential part under
 0.1; the vertical force is downward and 2-3x the heuristic the envs carried (with the opposite sign); the film's figure
 error from the load's n = 1, 2, 3 harmonics peaks at mid incidence. The table is piecewise linear in theta_w, flat
-beyond its ends; where it has no coverage (the wind on the BACK of the dish, theta_w > 90) the callers keep their old
-model. tandoor_wind_table.json is written by stage3/wind/dish_table.py from the LES runs."""
+beyond its ends. The W/NW runs took it to 154 deg (the wind on the BACK of the dish), and it serves every incidence:
+below 37 deg and above 154 the last attitude's values are held, which is within ~10 % for the force of a dish this shallow
+and pessimistic for the film (the n = 1 harmonic vanishes by symmetry at 0 and 180 deg). tandoor_wind_table.json is
+written by stage3/wind/dish_table.py from the LES runs."""
 import json, os, numpy as np, torch
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PATH = os.path.join(_HERE, "tandoor_wind_table.json")
 _T = None
+COVER_DEG = 180.0                                               # was 100 before the W/NW runs extended the table
 
 
 def load(path=_PATH):
@@ -47,10 +50,10 @@ def head_aero(n, w):
     """n (B,3) the dish axis toward the sun, w (B,3) the wind's direction (where it blows TO). Returns theta_w (deg), the
     normal and tangential force coefficients on the disc area (Cn along +n: negative pushes the dish back), the film's
     figure constant k_film (rad per (m/s)^2 of wind, n >= 1 harmonics at the working tension), and a mask of the poses
-    the table covers (the wind on the bowl's face)."""
+    the table covers - all of them since the W/NW runs; the callers keep the switch for a table with holes."""
     up = -w/torch.linalg.norm(w, dim=1, keepdim=True).clamp(min=1e-9)
     cos_t = (n*up).sum(1).clamp(-1.0, 1.0); theta_w = torch.rad2deg(torch.arccos(cos_t))
-    covered = theta_w <= 100.0                                   # the table reaches 96 deg (the wind grazing the back); beyond, the old model
+    covered = theta_w <= COVER_DEG                               # every incidence: the table runs to 154 deg and is held flat beyond
     return theta_w, interp(theta_w, "Cn"), interp(theta_w, "Ct"), interp(theta_w, "k_film"), covered
 
 

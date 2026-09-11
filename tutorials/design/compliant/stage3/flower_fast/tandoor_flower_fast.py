@@ -288,7 +288,8 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         k_film = torch.full_like(V, SIG_MEM_K)
         if getattr(self, "wind_table", 1):
             # the LES table: the bowl's load as a normal force along its axis (with its downward vertical part, which the
-            # drag-only assembly above never had), and the film's figure constant by incidence; the back keeps the drag model
+            # drag-only assembly above never had), and the film's figure constant by incidence; the table runs to 154 deg
+            # (the W/NW runs) and is held flat beyond, so the back of the dish is the table's too
             # the INSTANTANEOUS wind direction: the lateral and vertical gusts swing the incidence, and on a bowl dCn/dtheta
             # is -0.7 per 10 deg between 60 and 80 deg, so the swing loads the head as much as the along-wind gust does
             w_inst = Vh[:, None]*w_hat + S["va"][:, None]*v_hat + S["wa"][:, None]*zhat

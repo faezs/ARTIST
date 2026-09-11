@@ -467,7 +467,8 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         if self.wind_table:
             # THE LES TABLE (stage3/wind): on the bowl's face the load is a normal force Cn q A along the axis (Cn ~ -1.6 from
             # 37 to 59 deg of incidence, gone by 83), the vertical part downward and 2-3x the heuristic above with the opposite
-            # sign, and the film's figure constant runs with the incidence. The back of the dish keeps the heuristics.
+            # sign, and the film's figure constant runs with the incidence. The table runs to 154 deg (the W/NW runs) and is
+            # held flat beyond: the back of the dish is the table's too.
             w_h = wdir
             F_tab, theta_w, k_tab, covered = WT.head_force(n_h, w_h, q, A_DISH)
             F["drag"] = torch.where(covered, (F_tab*w_h).sum(1), F["drag"])
