@@ -23,11 +23,14 @@ class FluxConv(nn.Module):
 
     It is deliberately SMALL. The flower's inner loop is meant to end up on an ESP32 at 1 kHz, so the encoder is two
     strided convolutions and a linear - about 30 k parameters at the default width, and the frame is 8-bit already.
+    ch sets the two widths; flowerfast.ini runs (8, 16): the convolution's backward on MPS is 56 ms a minibatch there
+    against 215 at (16, 32), and a centroid-sized blob does not need 32 channels.
     Widen it here if you are only ever going to run it on the Mac, but the deployment target is what set these numbers.
     """
 
     def __init__(self, env, hidden_size=128, cam_n=None, n_prop=None, ch=(16, 32)):
         super().__init__()
+        if isinstance(ch, str): ch = tuple(int(c) for c in ch.replace("(", "").replace(")", "").split(","))   # the ini hands a string
         self.hidden_size = hidden_size
         self.is_continuous = False
         self.is_multidiscrete = isinstance(env.single_action_space, pufferlib.spaces.MultiDiscrete)
@@ -59,7 +62,10 @@ class FluxConv(nn.Module):
     def encode_observations(self, observations, state=None):
         b = observations.shape[0]
         x = observations.view(b, -1).float()
-        img = x[:, :self.cam_n**2].view(b, 1, self.cam_n, self.cam_n)
+        # .contiguous() is not cosmetic: the frame is a slice of the flat observation with a row stride of cam_n^2 + n_prop, and
+        # MPS's convolution BACKWARD on that strided view costs 3.4x what it costs on a contiguous copy (738 vs 215 ms for a
+        # 32768-frame minibatch, profiled). It was 95 % of the trainer's learn phase.
+        img = x[:, :self.cam_n**2].contiguous().view(b, 1, self.cam_n, self.cam_n)
         z = self.conv(img).reshape(b, -1)
         if self.n_prop: z = torch.cat([z, x[:, self.cam_n**2:]], dim=1)
         return self.head(z)
