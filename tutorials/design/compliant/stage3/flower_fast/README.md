@@ -285,3 +285,29 @@ Two things the wiring found:
 The renderer also draws the stem and boom as the compliant members they are: their elastic curve under the step's
 drag, exaggerated 200x, the point the bent chain actually turns about, and the optical NEUTRAL POINT the image would
 need it to turn about. The gap between the two markers is the walk, and the HUD says so.
+
+## The fast loop's own job (the miss reward, the fine-stage heads, and a camera that can see it)
+
+Trained on Hashemi's cooking reward the 1 kHz policy stayed uniform random after 240 epochs and, integrated on the fine
+stage's rate commands, walked the image 20 cm off (`fast_eval.py`: no-op 2.7 cm, random 5.6, the policy 20). The reward
+is 3e-7 a step and the loop's share of it is smaller still. Three changes, all switches in `flowerfast.ini`:
+
+- `fine_only = 1`: the policy drives the crown's three fine-stage heads; the pedicel's joints, the plenum level and the
+  valve stay at neutral, where the 15 s policy owns them.
+- `reward = miss`: -|image miss at F| per step, -1 at `miss_scale` 0.20 m. No-op pays -0.125 (2.5 cm).
+- `cam_plane = F`: the camera looks at the plane the reward is paid on. MEASURED with the receiver camera: a millimetre
+  of miss at F moves the frame's centroid 0.0005 px - at the bread the beam is a pupil image that dims with the miss
+  but does not shift, so no controller on that frame can know which way to push. The F camera bins the same 64
+  membrane rays, reflected off the normals of the level the pump has reached with the film's slope error on each,
+  where they cross the plane through F normal to the chief ray: 0.03 px a step of full-rate command, 60x more.
+
+| controller (site wind, 128 agents, 2 s) | miss cm | rays through |
+|---|---|---|
+| no-op | 2.50 | 68 % |
+| random | 6.6 | 46 % |
+| integral on the receiver camera | 5.2 | 79 % (it cannot see the sign) |
+| integral on the F camera | 0.34 | 87 % |
+| integral on the true miss (the ceiling) | 0.03 | 87 % |
+
+Nulling the standing 2.5 cm takes the delivered rays from 68 to 87 %: the tri chain's acceptance at the collar is what
+the earlier +0.4 % (per-loaf power, broad acceptance) hid. The training on this job is the next entry.
