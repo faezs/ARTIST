@@ -139,6 +139,7 @@ static void setup_turb() { // THE DISH IN A TURBULENT WIND. The same bowl, the w
 	fp << "t_s"; for(uint k=0u; k<pf.size(); k++) fp << ",f" << k; for(uint k=0u; k<pb.size(); k++) fp << ",b" << k; fp << "\n";
 	{ std::ofstream fg(out + "/probes.csv"); fg << "k,rho_over_a,theta\n"; for(uint k=0u; k<pf.size(); k++) fg << k << "," << prho[k] << "," << pth[k] << "\n"; }
 	const float3 Cc = float3(C.x - 0.5f*(float)Nx + 0.5f, C.y - 0.5f*(float)Ny + 0.5f, C.z - 0.5f*(float)Nz + 0.5f);
+	struct InletStat { float x, y, z, w; };
 	auto inlet = [&](ulong t) {                                          // the plane z = 0: cells [0, Nx*Ny), contiguous
 		const float s_stream = ((float)t*dt_si*si_U)/bdx;                // the box swept past the inlet at U
 		double m=0.0, m2=0.0, l2=0.0, v2=0.0;
@@ -149,12 +150,12 @@ static void setup_turb() { // THE DISH IN A TURBULENT WIND. The same bowl, the w
 			lbm.u.x[i] = ul*u_l/si_U; lbm.u.y[i] = uv*u_l/si_U; lbm.u.z[i] = u_l + us*u_l/si_U;
 			m += us; m2 += us*us; l2 += ul*ul; v2 += uv*uv;
 		}
-		lbm.u.write_to_device(0ull, NP); lbm.u.write_to_device(N, NP); lbm.u.write_to_device(2ull*N, NP);
-		return float4((float)(m/(double)NP), (float)sqrt(m2/(double)NP), (float)sqrt(l2/(double)NP), (float)sqrt(v2/(double)NP));
+		lbm.lbm_domain[0]->u.write_to_device(0ull, NP); lbm.lbm_domain[0]->u.write_to_device(N, NP); lbm.lbm_domain[0]->u.write_to_device(2ull*N, NP); // the plane in each SoA block, single domain
+		return InletStat{(float)(m/(double)NP), (float)sqrt(m2/(double)NP), (float)sqrt(l2/(double)NP), (float)sqrt(v2/(double)NP)};
 	};
 	lbm.run(0u);
 	while(lbm.get_t() < total) {
-		const float4 st = inlet(lbm.get_t());
+		const InletStat st = inlet(lbm.get_t());
 		lbm.run(every_in);
 		const ulong t = lbm.get_t();
 		if(t % every_f < every_in && t >= settle) {
