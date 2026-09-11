@@ -70,3 +70,39 @@ the head's force and the film's figure constant from it wherever theta_w <= 100.
 at most 0.145 and 0.015: the 0.15 rms the envs assume for the fluctuating moment is the boundary layer's turbulence, which
 these runs do not carry, and which the quasi-steady incidence model should now provide from the table's slopes
 (dCn/dtheta, dCm/dtheta) and the gust's lateral and vertical components.
+
+## The real wind: west and northwest across a bowl that faces the sun (4 cm, 6 s sampled, 12 m/s)
+
+theta_w is the wind's incidence on the dish axis: under 90 the wind is on the bowl's face, over 90 on its back.
+
+| pose | wind | el | az | theta_w | Cd (env) | Cn | Cm | net Cp | film mrad |
+|---|---|---|---|---|---|---|---|---|---|
+| equinox 15:30 | W | 43 | 34 | 53 | 1.15 (0.67) | -2.02 | 0.204 | 2.08 | 6.3 |
+| equinox 15:30 | NW | 43 | 79 | 82 | 0.10 (0.27) | -0.38 | 0.016 | 0.40 | 0.4 |
+| midsummer noon | W | 80 | 44 | 83 | 0.10 (0.27) | -0.38 | 0.014 | 0.42 | 0.3 |
+| equinox noon | W | 59 | 76 | 83 | 0.10 (0.27) | -0.36 | 0.008 | 0.38 | 0.3 |
+| midwinter noon | W | 36 | 82 | 84 | 0.09 (0.27) | -0.33 | 0.002 | 0.36 | 0.3 |
+| midsummer noon | NW | 80 | 89 | 90 | 0.06 (0.25) | -0.05 | 0.037 | 0.08 | 0.6 |
+| equinox noon | NW | 59 | 121 | 105 | 0.17 (0.31) | +0.35 | 0.064 | -0.34 | 1.4 |
+| midwinter noon | NW | 36 | 127 | 119 | 0.44 (0.44) | +0.76 | 0.094 | -0.81 | 2.1 |
+| equinox 09:30 | W | 43 | 146 | 127 | 0.66 (0.54) | +0.99 | 0.107 | -1.04 | 2.6 |
+| equinox 09:30 | NW | 43 | 169 | 136 | 0.85 (0.66) | +1.11 | 0.105 | -1.20 | 2.9 |
+| midsummer 08:00 | W | 37 | 172 | 142 | 0.96 (0.75) | +1.15 | 0.093 | -1.28 | 2.5 |
+| midwinter 09:30 | NW | 25 | 173 | 154 | 1.28 (0.90) | +1.40 | 0.081 | -1.59 | 2.0 |
+
+Plus the southerly poses re-run at 4 cm: midwinter noon (theta 37) Cn -1.77, film 2.0 mrad; equinox noon (59) Cn -1.69, film
+5.3 (was 3.4 at 6 cm: the harmonics are not converged at 6 cm, hence the 4 cm table). The table has 18 attitudes from 37 to
+154 deg, and `tandoor_wind_table` takes the finest grid per attitude.
+
+What the real wind does: at noon it is a crosswind (theta 82-90) and the load is 3-4x smaller than the env's drag
+interpolation gave, with the film's figure error 0.3-0.6 mrad; in the mornings and afternoons, when the sun is east or
+west, the westerlies land on the BACK of the bowl (theta 105-154) with a normal force of +0.35 to +1.40 q A pushing the
+dish toward the sun and 1.4-2.9 mrad of figure error - as loaded as the old southerly cases, and the env's back-of-dish
+model was 20-40 % low there. The one pose where a west wind enters the bowl squarely, equinox 15:30 (theta 53), is the
+worst of the year: Cn -2.0, 6.3 mrad. All of it is now in the table both envs read.
+
+## Turbulent inflow (W equinox noon, theta 83, 6 cm, the sub-box turbulence at 0.7 m/s rms = 6 % of U)
+
+|F| 0.323 +- 0.065 q A against 0.366 +- 0.005 with steady inflow; |Cm| 0.014 +- 0.010 against 0.008 +- 0.001. The moment
+fluctuation is 0.0095 rms for 6 % inflow turbulence; the site's gust ratio at U >= 6 is ~0.7, and scaling linearly gives
+~0.11 - the CM_RMS 0.15 the envs carry is the right order for this convective site. Spectral peaks at 0.4-1.0 Hz.
