@@ -7,7 +7,7 @@ import os, sys, argparse, time, numpy as np, torch
 ART = "/Users/faezs/ARTIST"
 for p in (ART, os.path.join(ART, "tutorials"), os.path.join(ART, "tutorials", "puffer_tandoor")):
     if p not in sys.path: sys.path.insert(0, p)
-ap = argparse.ArgumentParser(); ap.add_argument("--ckpt", default=None); ap.add_argument("--greedy", type=int, default=0); ap.add_argument("--heads", default="3"); ap.add_argument("--agents", type=int, default=256); ap.add_argument("--seconds", type=float, default=3.0); ap.add_argument("--seed", type=int, default=11); ap.add_argument("--gain", type=float, default=0.6)
+ap = argparse.ArgumentParser(); ap.add_argument("--ckpt", default=None); ap.add_argument("--greedy", type=int, default=0); ap.add_argument("--base", type=int, default=1); ap.add_argument("--heads", default="3"); ap.add_argument("--agents", type=int, default=256); ap.add_argument("--seconds", type=float, default=3.0); ap.add_argument("--seed", type=int, default=11); ap.add_argument("--gain", type=float, default=0.6)
 A = ap.parse_args(); sys.argv = [sys.argv[0]]
 import pufferlib, pufferlib.pytorch
 from pufferlib import pufferl
@@ -57,7 +57,7 @@ def run(mode):
     last = slice(steps//2, None)
     fcm = np.mean(np.array(fc)[last], 0)
     return np.mean(rews[last]), 100*np.mean(miss[last]), 100*np.mean(thru[last]), 100*np.mean(miss[:100]), 100*np.mean(thru[:steps//2]), 1e3*fcm[0], 1e3*fcm[1], 1e3*fcm[2]
-modes = ["noop", "random", "integral (camera)", "integral (true miss)"] + (["policy"] if policy else [])
+modes = (["noop", "random", "integral (camera)", "integral (true miss)"] if A.base else []) + (["policy"] if policy else [])
 print(f"{'controller':<22} {'reward/step':>12} {'miss cm (2nd half)':>19} {'rays through':>13} {'miss at start':>14} {'thru 1st half':>14} {'|tilt x| |tilt y| |piston| mrad/mm':>36}   ({A.agents} agents, {A.seconds:.0f} s, seed {A.seed}, site wind, gain {A.gain}, greedy {A.greedy}, heads {A.heads})")
 for m in modes:
     r = run(m); print(f"{m:<22} {r[0]:12.4f} {r[1]:19.2f} {r[2]:12.1f} % {r[3]:14.2f} {r[4]:12.1f} % {r[5]:12.2f} {r[6]:8.2f} {r[7]:8.2f}", flush=True)
