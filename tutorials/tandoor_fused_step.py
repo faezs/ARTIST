@@ -51,10 +51,12 @@ def _step_params(env):
     sp = np.zeros(72 + 7 * N, dtype=np.float32)
     # the three-mirror machine turns M3 with the head the elbow used to steer, so its
     # travel is the mirror's, not the elbow's
-    _pr = ((float(SPOT_PHI0 + env.M3_TURN[0]), float(SPOT_PHI0 + env.M3_TURN[1]))
-           if getattr(env, "tri", False) else SPOT_PHI_RANGE)
+    # ...and the travel is PER AGENT now (a batch can hold both machines), so
+    # sp[6] carries only the CENTRE and the kernel reads each agent's half-span
+    # from the design table's phw column. sp[7] is left as the centre too: nothing
+    # reads it, and a stale lo/hi pair there would be a trap for the next reader.
     sp[0:11] = [dt, env.p0, env.RATE_AZ, env.RATE_EL, RATE_SPOT_PHI,
-                RATE_SPOT_Z, _pr[0], _pr[1],
+                RATE_SPOT_Z, float(SPOT_PHI0), float(SPOT_PHI0),
                 SPOT_Z_RANGE[0], SPOT_Z_RANGE[1],
                 3.5 if env.wide_shutter else 0.5]
     sp[11:17] = [env.jam_gain, env.wall_shelter, env.sig_static,
@@ -176,6 +178,8 @@ class FusedState:
         self.P = len(e._hx)
         self.thr = z(B * self.P)
         self.out6 = z(B * self.P, 6)
+        self.fate = z(B * self.P, 6)        # the miss ledger (tandoor_trace buffer 29): code, stop xyz, surface, bin
+        self.pex = z(B * 37)                # exterior flux per surface bin (buffer 30, NX = 37)
         OD = e.observations.shape[1]
         self.obs = z(B, OD)
         self.rew = z(B)
@@ -183,6 +187,7 @@ class FusedState:
         self.diag = z(B, 8)
         self.sp = torch.as_tensor(_step_params(e), device=dev)
         nd = int(getattr(e, "_design_obs", np.zeros((B, 0))).shape[1])
+        nd = nd + 2 if nd > 0 else 0                       # ...plus the two horizon-ahead columns (env._hz_obs)
         self.ip = torch.tensor([B, N, NB, e.N_HEADS, self.NS, OD, 0,
                                 int(getattr(e, "sticky_k", 0)), nd,
                                 int(getattr(e, "form_min", 1)),
@@ -248,6 +253,14 @@ def fused_full_step(env, actions):
                            pnt=torch.stack([F.el_m, F.az_m], 1),
                            fct=env._fct)
     aux = mnt["aux"]
+    # SHADING on the training path: the mount kernel hands back each agent's sun (el deg,
+    # az rad in aux); the neighbourhood's horizon masks soil exactly as on the torch
+    # path (env._shade). F.soil itself stays the soiling draw.
+    # aux[:,1] is the sun's azimuth in RADIANS (measured: 4.37 = 250.2 deg on the torch path),
+    # whatever its header used to say - the same convention as solar_batch / mount_batch
+    soil_eff = env._shade(F.soil, dict(el=aux[:, 0], az=aux[:, 1]))
+    dsn = (torch.cat([env._dsn_t, env._hz_obs(aux[:, 1])], 1).contiguous()
+           if env._dsn_t.shape[1] == env.N_DESIGN and (getattr(env, "design_rand", 0) or getattr(env, "site_rand", 0)) else env._dsn_t)
     env.t_solar += env.dt / 3600.0
     a = actions if torch.is_tensor(actions) else \
         torch.as_tensor(np.asarray(actions), device=dev)
@@ -279,11 +292,11 @@ def fused_full_step(env, actions):
                       du, de, upick, F.sigb, F.dvec, F.off,
                       mnt["vp"], env._sc_base, mnt["Acan"], mnt["Mt"],
                       mnt["Cd"], env.ell_M, env.ell_S, env.ell_ctr_t,
-                      env._V0t, F.tdims, env._ray_pw, F.soil, F.per,
-                      us, F.aim, mnt["scb"], F.lfp, env._fct)
+                      env._V0t, F.tdims, env._ray_pw, soil_eff, F.per,
+                      us, F.aim, mnt["scb"], F.lfp, env._fct, F.fate, F.pex)
     lib.step_post(F.rew, F.st, F.per, F.sp, F.ip, rn, ru, F.day_v,
                   F.lat_v, env._mnt_prm, F.off, F.obs, F.trunc,
-                  F.diag, a32, env._dsn_t, env._fct)
+                  F.diag, a32, dsn, env._fct)
     env.tick += 1
     infos = []
     ts0 = float(env.t_solar[0])
@@ -360,7 +373,8 @@ def _day_over(env, F, infos):
     S.lat_v.copy_(torch.as_tensor(env.lat_v.astype(np.float32),
                                   device=dev))
     el1, az1r, _ = solar_batch(S.lat_v, S.day_v,
-                               torch.full_like(S.day_v, float(getattr(env, "day_start", 8.0))))
+                               torch.full_like(S.day_v, float(getattr(env, "day_start", 8.0))),
+                               az_off=env._ds_azs_t)
     az1d = torch.rad2deg(az1r)
     if getattr(env, "night_carry", False):
         # yesterday's pot through the night with the wall model (in
@@ -421,7 +435,7 @@ def _day_over(env, F, infos):
     S.e_az_prev.copy_((S.az_m - az1d) * torch.cos(torch.deg2rad(el1)))
     S.belt_prev.copy_(S.T[:, :env.n_belt].max(1).values)
     obs, rew, infos = env._gpu_obs(S, dev, B, rew, F.diag[:, 0],
-                                   S.e_el_prev, S.e_az_prev, infos)
+                                   S.e_el_prev, S.e_az_prev, infos, az_rad=az1r)   # the dawn sun, site frame
     return obs, rew, infos
 
 

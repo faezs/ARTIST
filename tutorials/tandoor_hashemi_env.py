@@ -695,17 +695,27 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     f_dish, a_dish, z_deck, r_hole, w_slot = g(32), g(33), g(34), g(35), g(36)
     strip_wk, slot_el = g(37), g(38)
     r_duct = g(39)
-    greg = bool(fct[0, 0] > 2.5)          # the receiver TYPE is global
-    m4_ell = a_e > 1e-6                   # PER ENV: an ellipsoid M4 (a_e > 0) or a flat one at the turn
+    # THE SECONDARY'S SIDE IS PER AGENT (2026-09-08).  fct[:, 0] is the strip's
+    # kind - 2 = 'cass' (hyperboloid, the F sheet before F), 3 = 'greg' (ellipsoid
+    # beyond F) - and the Metal twin has always read it per thread
+    # (cs_greg = cs_tab[0] > 2.5f).  This reference core read it ONCE, off row 0,
+    # and called the receiver type global: a batch holding both would have traced
+    # every agent through whichever secondary agent 0 happened to have.
+    greg_b = fct[:, 0] > 2.5              # (B,)
+    gm1 = greg_b[:, None]                 # against the (B,P) ray tensors
+    gm3 = greg_b[:, None, None]           # against (B,P,3) and the (B,1,3) vectors
+    any_greg = bool(greg_b.any())
+    m4_ell = a_e > 1e-6                   # PER AGENT: an ellipsoid M4 (a_e > 0) or a flat one at the turn
     F = Pf                                # (B,1,3) per env
     xhat = torch.tensor([1.0, 0.0, 0.0], device=p.device, dtype=p.dtype)
     Ps = F + arm_n[..., None] * xhat
-    side = 1.0 if greg else -1.0
+    _one = torch.ones((), device=p.device, dtype=p.dtype)
+    side = torch.where(gm3, _one, -_one)      # (B,1,1)
     Hc = F + side * d_strip[..., None] * ud   # strip centre on the dish axis (before/beyond F)
     # arm end: F for cass (the strip intercepts the cone before F); for
     # greg a bearing on the axis d_strip up the anti-sun side, F - d A,
     # outside both the cone and the beam
-    Qarm = (F - d_strip[..., None] * A) if greg else F
+    Qarm = torch.where(gm3, F - d_strip[..., None] * A, F)
     def _blocked(center, rad):
         vc = center - p
         ahead = (vc * ut).sum(-1) > 0
@@ -733,7 +743,11 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     ds, _ = _ray_seg_dist(p, ut, Ps, Qarm)
     lit = lit & (ds > r_strut)
     # ---- the strip: hyperboloid hit on the F sheet, before F
-    if greg:
+    # the hyperboloid always (it is the built machine on every run so far); the
+    # ellipsoid only when some agent asks for it, so a pure-'cass' batch costs
+    # exactly what it did before.
+    t1, h1, nh, v1 = _hyp_hit(p, d, O, A, a_h, c_h)
+    if any_greg:
         # ellipsoid beyond F: the first surface crossing AFTER the ray
         # passes F (both roots lie on the closed surface)
         tF = ((F - p) * d).sum(-1)
@@ -753,16 +767,18 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
         big_ = torch.full_like(ta_, 1e9)
         ta_ = torch.where(ta_ > tF, ta_, big_)
         tb_ = torch.where(tb_ > tF, tb_, big_)
-        t1 = torch.minimum(ta_, tb_)
-        v1 = (disc_ >= 0) & (t1 < 1e8)
-        h1 = p + t1[..., None] * d
-        wX_ = h1 - O
+        te_ = torch.minimum(ta_, tb_)
+        ve_ = (disc_ >= 0) & (te_ < 1e8)
+        he_ = p + te_[..., None] * d
+        wX_ = he_ - O
         zz_ = (wX_ * A).sum(-1, keepdim=True)
-        nh = a2_[..., None] * wX_ - c2_[..., None] * zz_ * A
-        nh = nh / nh.norm(dim=-1, keepdim=True).clamp(min=1e-12)
-        nh = torch.where((nh * d).sum(-1, keepdim=True) > 0, -nh, nh)
-    else:
-        t1, h1, nh, v1 = _hyp_hit(p, d, O, A, a_h, c_h)
+        ne_ = a2_[..., None] * wX_ - c2_[..., None] * zz_ * A
+        ne_ = ne_ / ne_.norm(dim=-1, keepdim=True).clamp(min=1e-12)
+        ne_ = torch.where((ne_ * d).sum(-1, keepdim=True) > 0, -ne_, ne_)
+        t1 = torch.where(gm1, te_, t1)
+        h1 = torch.where(gm3, he_, h1)
+        nh = torch.where(gm3, ne_, nh)
+        v1 = torch.where(gm1, ve_, v1)
     rel = h1 - F
     rn = rel.norm(dim=-1).clamp(min=1e-9)
     cth = (rel * A).sum(-1) / rn
@@ -850,16 +866,91 @@ def _geo_core_cass(pts_l, nrm_l, lv, du, de, upick, us, sigb, Acan,
     # ---- the duct plane x = r_pot (the built mouth), as the stock chain;
     # the mouth radius is the per-env design's (fct[39])
     r_pot_c, z_duct_c = sc[12], sc[11]
+    # A PORT-MOUNTED M3 (x_turn = R_POT) straddles this plane. A ray that hit the inner
+    # half reflected INSIDE the pot: it must have come in through the hole (test the
+    # strip->M3 leg's crossing), and it needs no outbound crossing - h5 is then the
+    # backward extrapolation to the plane, which is exactly the origin _bin_pot wants.
+    inside = h4[..., 0] <= r_pot_c
+    t_in = (r_pot_c - h1[..., 0]) / d2[..., 0].clamp(max=-1e-9)
+    h_in = h1 + t_in[..., None] * d2
+    dyi = h_in[..., 1] + off[:, 0:1]
+    dzi = h_in[..., 2] - z_duct_c + off[:, 1:2]
+    in_ok = ~inside | ((d2[..., 0] < 0) & (t_in > 0) & (dyi ** 2 + dzi ** 2 <= r_duct ** 2))
+    ok = ok & in_ok
     t5 = (r_pot_c - h4[..., 0]) / d5[..., 0].clamp(max=-1e-9)
+    t5raw = t5                                              # before the clamp: the ledger needs the real value
     ok = ok & (d5[..., 0] < -0.05) & (t5 < 4.0)
     t5 = t5.clamp(max=4.0)
     h5 = h4 + t5[..., None] * d5
     dy = h5[..., 1] + off[:, 0:1]
     dz = h5[..., 2] - z_duct_c + off[:, 1:2]
-    through_b = ok & (t5 > 0) & (dy ** 2 + dz ** 2 <= r_duct ** 2)
+    through_b = ok & (inside | ((t5 > 0) & (dy ** 2 + dz ** 2 <= r_duct ** 2)))
     w_ray = torch.ones_like(t1)
+    # THE MISS LEDGER - the Metal kernel's mk_ block, line for line. First failure
+    # wins; codes as there; 6..9 continue to the nearest real surface.
+    _ZC, _RS, _RDW = g(78), g(79), g(80)                  # this agent's pit (B,1), as the kernel reads them
+    mk_bore = (d2[..., 2] < -0.2) & (_axis_dist(hdeck) < r_bore)
+    mk_m3 = v4 & ((h4 - P4).norm(dim=-1) < r_m4)
+    mk_way = (d5[..., 0] < -0.05) & (t5raw < 4.0) & (inside | (t5raw > 0))
+    code = torch.full_like(t1, 0.0)
+    stop = h5.clone()
+    o_ = h5.clone(); d_ = d5.clone(); cont = torch.zeros_like(through_b)
+    def _set(mask, c, s, o=None, d=None, k=False):
+        nonlocal code, stop, o_, d_, cont
+        m = mask & (code == 0.0) & ~through_b if c != 0.0 else mask
+        code = torch.where(m, torch.full_like(code, c), code)
+        stop = torch.where(m[..., None], s, stop)
+        if k:
+            o_ = torch.where(m[..., None], o, o_); d_ = torch.where(m[..., None], d, d_)
+            cont = cont | m
+    # priority order = the kernel's if/else chain
+    _set(_blocked(Hc, r_strip), 11.0, p); _set(~(rho_l > r_hole), 12.0, p); _set(in_slot, 13.0, p); _set(~(ds > r_strut), 14.0, p)
+    _set(~v1, 2.0, p); _set(~on_strip, 3.0, h1); _set(graze, 4.0, h1); _set(crossing, 5.0, h1)
+    _set(~mk_bore, 6.0, h1, h1, d2, True); _set(~mk_m3, 7.0, h1, h1, d2, True)
+    _set(~in_ok, 9.0, h_in)                                             # the collar, from the OUTSIDE, on the way in
+    _set(~mk_way, 8.0, h4, h4, d5, True)
+    _set(~through_b, 9.0, h5)
+    # continuation for 6..8: nearest positive t among bore wall, deck, pot sphere, pit floor
+    big = torch.full_like(t1, 1e9)
+    a_ = (P4 - F); a_ = a_ / a_.norm(dim=-1, keepdim=True).clamp(min=1e-9)
+    w_ = o_ - F; wp = w_ - (w_ * a_).sum(-1, keepdim=True) * a_; dp = d_ - (d_ * a_).sum(-1, keepdim=True) * a_
+    qa = (dp * dp).sum(-1); qb = 2.0 * (wp * dp).sum(-1); qc = (wp * wp).sum(-1) - r_bore ** 2   # r_bore is (B,1)
+    dsc = qb * qb - 4.0 * qa * qc; sq = torch.sqrt(dsc.clamp(min=0.0)); qas = torch.where(qa.abs() > 1e-9, qa, torch.full_like(qa, 1e-9))
+    tmin = big; surf = torch.full_like(t1, -1.0)
+    def _take(t_, sid):
+        nonlocal tmin, surf
+        m_ = t_ < tmin; tmin = torch.where(m_, t_, tmin); surf = torch.where(m_, torch.full_like(surf, float(sid)), surf)
+    for r_ in ((-qb - sq) / (2.0 * qas), (-qb + sq) / (2.0 * qas)):
+        _take(torch.where((qa > 1e-9) & (dsc >= 0) & (r_ > 1e-3), r_, big), 0)          # bore wall
+    dz_ = torch.where(d_[..., 2].abs() > 1e-9, d_[..., 2], torch.full_like(t1, 1e-9))
+    td = (z_deck - o_[..., 2]) / dz_; _take(torch.where(td > 1e-3, td, big), 1)             # deck
+    pc = torch.stack([r_pot_c - _RDW[:, 0], torch.zeros_like(_RDW[:, 0]), _ZC[:, 0] + 1.0], -1)[:, None, :]   # (B,1,3)
+    ws = o_ - pc; sb = 2.0 * (ws * d_).sum(-1); scc = (ws * ws).sum(-1) - _RS ** 2; sd = sb * sb - 4.0 * scc; sqs = torch.sqrt(sd.clamp(min=0.0))
+    for s_ in ((-sb - sqs) * 0.5, (-sb + sqs) * 0.5):
+        _take(torch.where((sd >= 0) & (s_ > 1e-3), s_, big), 2)                            # pot exterior
+    tf = ((_ZC + 1.0 - _RS) - o_[..., 2]) / dz_; _take(torch.where(tf > 1e-3, tf, big), 3)    # pit floor
+    esc = cont & (tmin > 20.0); code = torch.where(esc, torch.full_like(code, 10.0), code); tmin = tmin.clamp(max=20.0)
+    surf = torch.where(esc | ~cont, torch.full_like(surf, -1.0), surf)
+    stop = torch.where(cont[..., None], o_ + tmin[..., None] * d_, stop)
+    # THE EXTERIOR BIN - the kernel's table, line for line (NX = 37)
+    rf = (torch.sqrt(org3[..., 0] ** 2 + org3[..., 1] ** 2) / a_dish.clamp(min=1e-6)).clamp(0.0, 0.999)
+    rb_ = (rf * 4.0).floor()
+    binv = torch.full_like(t1, -1.0)
+    def _bin(mask, val):
+        nonlocal binv
+        binv = torch.where(mask & (binv < 0), val if torch.is_tensor(val) else torch.full_like(binv, float(val)), binv)
+    dyc = torch.where(in_ok, dy, dyi); dzc = torch.where(in_ok, dz, dzi)          # the collar hit: inbound or outbound
+    _bin(code == 9.0, ((torch.atan2(dzc, dyc) + np.pi) / (2.0 * np.pi) * 8.0).floor().clamp(0, 7))
+    _bin(code == 5.0, 21.0 + rb_); _bin(code == 11.0, 25.0 + rb_); _bin(code == 13.0, 29.0 + rb_)
+    _bin(code == 12.0, 33.0); _bin(code == 14.0, 34.0); _bin(code == 3.0, 35.0); _bin(code == 2.0, 36.0); _bin(code == 10.0, 20.0)
+    ax_ = (P4 - F); Lb_ = ax_.norm(dim=-1, keepdim=True).clamp(min=1e-6); ax_ = ax_ / Lb_
+    bore_fr = (((stop - F) * ax_).sum(-1) / Lb_[..., 0]).clamp(0.0, 0.999)
+    lat_ = ((stop[..., 2] - (_ZC + 1.0)) / _RS * 0.5 + 0.5).clamp(0.0, 0.999)
+    _bin(cont & (surf == 1.0), 14.0); _bin(cont & (surf == 2.0), 15.0 + (lat_ * 4.0).floor())
+    _bin(cont & (surf == 3.0), 19.0); _bin(cont & (surf == 0.0), 8.0 + (bore_fr * 6.0).floor())
+    fate = torch.cat([code[..., None], stop, surf[..., None], binv[..., None]], dim=-1)
     return (through_b, w_ray, dy, dz, d5, ok, ok_pre_tube, ok_post_tube,
-            lit, in_slot, graze, rad1, p, h1, h4, h5, h1)
+            lit, in_slot, graze, rad1, p, h1, h4, h5, h1, fate)
 
 
 class TandoorHashemiEnv(TandoorCoudeEnv):
@@ -889,7 +980,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  lost_deg=3.0, enc_clamp=3.0, m4_mode="field",
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
-                 r_m3=1.0, r_bore=1.3, z_turn=None, r_m4=1.3,
+                 r_m3=1.0, r_bore=1.3, z_turn=None, x_turn=None, r_m4=1.3, shell="perlite",
                  r_strut=0.08, **kwargs):
         # OPTICAL-EFFICIENCY levers (defaults = current machine):
         # beta_dev: off-axis deviation [deg] of the beam from retro.
@@ -954,6 +1045,26 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.inlet_esc = float(kwargs.pop("inlet_esc", 1.0))
         self.tri = self.receiver == "tri"
         self._cass = self.receiver in ("cass", "tri")
+        # THE INLET IS A DIFFERENT PART ON THE THREE-MIRROR MACHINE.  On 'cass' the
+        # elbow re-images inside the pot and the inlet is the duct's mouth behind it;
+        # on 'tri' the beam itself passes through the hole on its way to the bread, so
+        # the hole is an optical aperture and the measured chain wants 0.55-0.90 (at
+        # 0.40 the collar clips a third of the power; the M3 turn's half-power span
+        # goes +-25 -> +-45 deg over that range).  Deleting the elbow also removes the
+        # second chance: on 'cass' the elbow re-images at the pot and forgives a badly
+        # proportioned chain, while on 'tri' the beam must survive strip -> bore -> M3
+        # -> through the inlet -> onto the bread in one go.
+        # Until 2026-09-08 that lived here as a per-env fork of DESIGN_BOX (_TRI_BOX
+        # narrowed r_duct to 0.35-0.90 and d_strip to 0.40-0.80 whenever receiver was
+        # 'tri').  It is no longer expressible: 'receiver' is a design COLUMN, so one
+        # batch holds both machines and there can only be one box.  The union box lives
+        # in DESIGN_BOX - r_duct reaches 0.90 for everyone now - and the interaction is
+        # the designer's to learn rather than mine to assert.  What the fork was really
+        # working around is a search problem, not a physics one: over 2048 random tri
+        # designs the mean traced power was 0.49 kW against 141 rotis on the good ones,
+        # so a uniform draw was mostly machines that miss and the critic went constant.
+        # The bootstrap-on-the-ladder generations in tandoor_designer.py are the fix
+        # that does not move the coordinates under a trained policy.
         # CASSEGRAIN receiver (user design 2026-09-04): receiver='cass'
         # replaces M1+M2+M3 by ONE rotating strip of the hyperboloid whose
         # foci are F and the mirror image of the duct mouth in a flat M4
@@ -1029,24 +1140,49 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.col_dist, self.col_radius = float(col_dist), float(col_radius)
         self.r_m1, self.r_m3, self.r_bore = float(r_m1), float(r_m3), float(r_bore)
         if self._cass:
-            # the derived vertical-bore geometry (ladder at Quetta:
+            # the derived bore geometry (ladder at Quetta:
             # 182/193/149 MJ per 8 h summer/equinox/winter): the tower
             # 0.5 m north of the wall, the bore 0.7 m at the deck, M4
             # r 1.3 - applied where the shared kwargs still hold the
-            # focus machine's defaults
+            # focus machine's defaults.
+            # NOT a vertical bore, whatever this comment used to say.
+            # The bore runs F -> P4 and P4 is fixed over the chase, so
+            # post_offset TILTS it: 0.5 m gives 2.94 deg and puts F
+            # 0.71 bore radii off the borehole's axis. post_offset=0
+            # is the vertical one, and it costs 19% at midwinter and
+            # 4% on the year (traced) because the offset buys low-sun
+            # clearance past the wall tower.
             if post_offset == 2.5:
                 self.post_offset = 0.5
             if r_bore == 1.3:
                 self.r_bore = 0.7
-        if self.tri:
+        if self.tri and not int(kwargs.get("design_rand", 0)):
             # the three-mirror machine has no elbow: M3 throws the image straight at
             # the bread, so the jet model in _bin_pot must not turn it again. Set it
             # in KWARGS, not on self - the base class assigns self.duct_nozzle from
             # the kwarg later and would put the elbow back (the ini asks for 2).
+            # ONLY when the receiver is fixed for the whole env. Under design_rand
+            # the receiver is a design column: the batch holds both machines, so the
+            # env must still BUILD the elbow (self._noz2, from this kwarg) for the
+            # 'cass' rows, and _fct[:, DS['noz']] decides per agent who gets it.
             if int(kwargs.get("duct_nozzle", 0)):
                 print(f"  [hashemi] receiver='tri': duct_nozzle={kwargs['duct_nozzle']} ignored, the three-mirror machine has no elbow")
             kwargs["duct_nozzle"] = 0
         self.z_turn, self.r_m4, self.r_strut = z_turn, float(r_m4), float(r_strut)
+        # x_turn: M3's x. None = over the chase (X_TOWER, the bore's foot). Set it to
+        # R_POT and the mirror's vertex sits IN the inlet plane - the port-mounted M3
+        # (user, 2026-09-10): half the disc inside the wall, the strip's beam landing
+        # on it at the hole, nothing downstream to clip. The kernels then test the
+        # INBOUND crossing for rays that hit the inner half, and let rays that reflect
+        # inside pass without an outbound crossing (see the duct-plane block).
+        self.x_turn = None if x_turn is None else float(x_turn)
+        # shell: what the pit's insulating annulus is MADE OF (tandoor_rl_env.SHELL_MATERIALS).
+        # ins_scale stays the design knob (the deep->halo conductance factor); the material
+        # decides the thickness and mass that factor costs, and the bill prices that.
+        from tandoor_rl_env import SHELL_MATERIALS as _SM
+        if shell not in _SM:
+            raise ValueError(f"shell={shell!r}: one of {sorted(_SM)}")
+        self.shell = str(shell)
         # fold_toroid: COMPLIANT SECONDARY. The fold becomes a weak
         # toroid whose meridian curvatures re-unify the sphere's
         # off-axis tangential/sagittal foci at the waist. The needed
@@ -1133,6 +1269,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # central-post (trunnion) mount has no rail.
         self.r_rail = float(kwargs.pop("r_rail", float(g_orbit) + 0.6))
         self.design_rand = int(kwargs.pop("design_rand", 0))
+        # site_rand: SAMPLE THE SITE on a cook run - the roof's orientation, the pit's size and
+        # the neighbourhood's horizon per agent - while the kit stays the built machine. The
+        # design obs columns are present (zero for the kit, 2u-1 for the site) so a policy can
+        # read its site, and the design-table plumbing is shared with design_rand.
+        self.site_rand = int(kwargs.pop("site_rand", 0))
         self.design_seed = int(kwargs.pop("design_seed", 1234))
         # roof_table: a JSON list of roof half-width quantiles [m] (0..1 in
         # equal steps) from building footprints; None = the placeholder
@@ -1150,8 +1291,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.N_EXTRA_OBS += 2                          # the sand columns (hearth, floor)
         if self.demand:
             self.N_EXTRA_OBS += 2                      # the queue and the shelf
-        if self.design_rand:
-            self.N_EXTRA_OBS += self.N_DESIGN
+        if self.design_rand or self.site_rand:
+            self.N_EXTRA_OBS += self.N_DESIGN + 2          # the design columns (site_rand: the kit's at the nominal, the site's drawn), then the horizon ahead
         # beta_cap_z: hard cap (meters) on the TOP OF THE DISH RIM.
         # beta becomes a per-step SCHEDULE: full beta_dev when the sun
         # is high, tapered exactly as much as the cap demands when it
@@ -1182,7 +1323,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                           float(self.t_solar[0]))
         self.el_m = np.clip(el0 + self.rng.normal(0, 0.3, B),
                             self.el_min_h, self.el_max_h)
-        self.az_m = np.degrees(az0) + self.rng.normal(0, 0.3, B)
+        self.az_m = np.degrees(az0 - self._ds_azs) + self.rng.normal(0, 0.3, B)   # the sun in each SITE's frame
         self._e_el = np.zeros(B)
         self._e_az = np.zeros(B)
         self._lost_ct = np.zeros(B, dtype=int)
@@ -1217,8 +1358,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         cols.append(self._sand_obs())                 # the two sand columns' mean temperature
         if self.demand:                                # the queue and the shelf
             cols.append(np.stack([np.clip(self.orders / 10.0, 0, 3), np.clip(self.shelf / 10.0, 0, 3)], 1))
-        if getattr(self, "design_rand", 0):
+        if getattr(self, "design_rand", 0) or getattr(self, "site_rand", 0):
             cols.append(self._design_obs)
+            _el, _az, _ = _sim.solar_position(self.lat, self.day, float(self.t_solar[0]))
+            cols.append(self._hz_obs(_az - self._ds_azs))           # the horizon ahead, in each site's frame
         return np.concatenate(cols, axis=1)
 
     def _sync_from_gpu(self):
@@ -1300,7 +1443,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # cmd 0..6 -> rate -1..+1 of full slew; backlash as rate noise.
         el0, az0, _ = _sim.solar_position(self.lat, self.day,
                                           float(self.t_solar[0]))
-        az0 = np.degrees(az0)
+        az0 = np.degrees(az0 - self._ds_azs)               # per agent: the sun in the site's frame
         # potential BEFORE this step's motor action: the previous
         # step's pointing error. (The zero-noise trajectory harness
         # caught the original placement: pot_prev was computed AFTER the
@@ -1315,10 +1458,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                            RATE_SPOT_PHI, RATE_SPOT_Z)
             r_ph = (np.clip(a[:, 5], 0, 6) - 3) / 3.0 * RATE_SPOT_PHI
             r_zz = (np.clip(a[:, 6], 0, 6) - 3) / 3.0 * RATE_SPOT_Z
-            lo_p, hi_p = ((_SP0 + self.M3_TURN[0], _SP0 + self.M3_TURN[1]) if self.tri
-                          else SPOT_PHI_RANGE)
+            # the head's travel is the machine's: the elbow's +-110 deg on 'cass',
+            # M3's own turn on 'tri' - PER AGENT, off the design table, since one
+            # batch can hold both (it used to be an env-wide if self.tri).
+            w_p = getattr(self, "_ds_phw", None)
+            if w_p is None:
+                w_p = self.aim_halfspan(self.tri)
             self.spot_phi = np.clip(
-                self.spot_phi + np.radians(r_ph) * self.dt, lo_p, hi_p)
+                self.spot_phi + np.radians(r_ph) * self.dt, _SP0 - w_p, _SP0 + w_p)
             self.spot_z = np.clip(self.spot_z + r_zz * self.dt,
                                   SPOT_Z_RANGE[0], SPOT_Z_RANGE[1])
             self._spot_view = (self.spot_phi, self.spot_z)
@@ -1329,7 +1476,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                             self.el_min_h - 2.0, self.el_max_h + 1.0)
         # pointing error the optics will feel (az foreshortened)
         self._e_el = self.el_m - el0
-        self._e_az = (self.az_m - az0) * np.cos(np.radians(el0))
+        _daz = self.az_m - az0; _daz = _daz - 360.0 * np.round(_daz / 360.0)     # on the circle (site frame, wrapped sun)
+        self._e_az = _daz * np.cos(np.radians(el0))
         t_before = float(self.t_solar[0])
         # potential-based tracking shaping, the same pattern as the
         # belt-rise term in the base reward: r += k (phi_prev - phi_now)
@@ -1362,7 +1510,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             el1v, az1v, _ = solar_batch(
                 torch.as_tensor(self.lat_v, dtype=torch.float32),
                 torch.as_tensor(self.day_v, dtype=torch.float32),
-                float(self.t_solar[0]))
+                float(self.t_solar[0]), az_off=torch.as_tensor(self._ds_azs, dtype=torch.float32))
             el1v = el1v.numpy()
             az1v = np.degrees(az1v.numpy())
             for i in np.nonzero(cut)[0]:
@@ -1457,7 +1605,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                               float(self.t_solar[0]))
             self.el_m = np.clip(el1 + self.rng.normal(0, 0.3, B),
                                 self.el_min_h, self.el_max_h)
-            self.az_m = np.degrees(az1) + self.rng.normal(0, 0.3, B)
+            self.az_m = np.degrees(az1 - self._ds_azs) + self.rng.normal(0, 0.3, B)
         rd = getattr(self, "reward_div", 1.0)
         if rd != 1.0:
             # trainer-facing channel only; ep_return/infos stay raw
@@ -1564,17 +1712,35 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: vertex - the bore's own axis, so the incoming cone is unchanged by it
     M3_TURN = (-0.55, 0.55)          # rad; +-31 deg reaches four loaves (measured)
 
-    def tri_target(self, psi=0.0):
+    def aim_halfspan(self, tri):
+        """Half-travel of the aim head about SPOT_PHI0 [rad]. Both machines steer
+        with the same joystick column, but it drives different hardware: on 'cass'
+        the concave elbow at the duct mouth (+-110 deg of spot azimuth on the pot
+        wall), on 'tri' the M3 turn itself (+-31 deg, and the inlet collar is what
+        caps it). Per agent since 2026-09-08 - it reaches the kernels as the design
+        table's phw column, not as a scalar in the step params."""
+        from tandoor_polar_env import SPOT_PHI_RANGE as _SPR
+        w_tri = 0.5 * (self.M3_TURN[1] - self.M3_TURN[0])
+        w_cass = 0.5 * (_SPR[1] - _SPR[0])
+        return float(np.where(np.asarray(tri, dtype=bool), w_tri, w_cass)) \
+            if np.ndim(tri) == 0 else np.where(np.asarray(tri, dtype=bool), w_tri, w_cass)
+
+    def tri_target(self, psi=0.0, pot=None):
         """The world point M3 aims at: a loaf on the bake row, turned psi about the
-        vertical through M3's vertex. psi = 0 is the loaf straight across the pot."""
-        from tandoor_polar_env import (R_SPH as _RS, Z_CPOT as _ZC, Z_CROWN as _ZCR,
-                                       Z_BAKE_LO as _ZBL, R_DUCT_WALL as _RDW)
+        vertical through M3's vertex. psi = 0 is the loaf straight across the pot.
+        pot = (R_SPH, Z_CPOT, R_DUCT_WALL) of THIS agent's pit; None = self._pot_cur, which
+        _rows_from_u sets per agent while it builds each chain (default: the nominal pit)."""
+        from tandoor_polar_env import (R_SPH as _RS0, Z_CPOT as _ZC0, Z_CROWN as _ZCR,
+                                       Z_BAKE_LO as _ZBL, R_DUCT_WALL as _RDW0)
+        _cur = pot if pot is not None else getattr(self, "_pot_cur", None)
+        _RS, _ZC, _RDW = _cur if _cur is not None else (_RS0, _ZC0, _RDW0)
         zb = 0.5 * (_ZBL + _ZCR)
-        rb = float(np.sqrt(_RS ** 2 - (zb - _ZC) ** 2))
+        rb = float(np.sqrt(max(_RS ** 2 - (zb - _ZC) ** 2, 1e-6)))
         # _bin_pot stitches the frames at the mouth: pot x = world y, pot y = -world x,
         # pot z = world z - H_POT, with the pot's axis at world x = R_POT - R_DUCT_WALL
         T0 = np.array([-rb + float(R_POT) - float(_RDW), 0.0, zb + float(H_POT)])
-        P4 = np.array([float(X_TOWER), 0.0, float(Z_DUCT) if self.z_turn is None else float(self.z_turn)])
+        P4 = np.array([float(X_TOWER) if self.x_turn is None else float(self.x_turn), 0.0,
+                       float(Z_DUCT) if self.z_turn is None else float(self.z_turn)])
         c, s_ = np.cos(psi), np.sin(psi)
         d = T0 - P4
         return P4 + np.array([c * d[0] - s_ * d[1], s_ * d[0] + c * d[1], d[2]])
@@ -1596,7 +1762,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         from F (a = c - d_strip). Packed into sc[106..138]."""
         F = np.array([self.X_TOWER_C, 0.0, self.z_fold])
         z_turn = float(Z_DUCT) if self.z_turn is None else float(self.z_turn)
-        P4 = np.array([float(X_TOWER), 0.0, z_turn])
+        P4 = np.array([float(X_TOWER) if self.x_turn is None else float(self.x_turn), 0.0, z_turn])
         # 'cass': M3 images onto the pot's inlet and an elbow re-images that onto the
         # wall. 'tri': M3 images onto the BREAD, so its second focus is the loaf and
         # the beam only passes the inlet on the way (the aperture that gates it).
@@ -1997,7 +2163,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                   ("r_m4", 0.6, 1.6), ("r_bore", 0.5, 1.2),
                   ("w_slot", 0.4, 1.0), ("r_hole", 0.3, 0.8),
                   ("strip_th_hi", 70.0, 125.0), ("strip_wk", 0.8, 1.8),
-                  ("r_duct", 0.15, 0.50))     # the inlet: charged as an aperture since 2026-09-07, and the three-mirror receiver needs it wide
+                  ("r_duct", 0.15, 0.90))     # the inlet: charged as an aperture since 2026-09-07, and on 'tri' the beam itself passes it (the collar caps the M3 turn's span: +-25 deg at 0.40, +-45 at 0.90)
     #: THE SYSTEM IS THE DESIGN: the rest of the machine, per agent
     #: (name, lo, hi): dish scale (radius, focal length and orbit scale
     #: together; mirror area ~ s^2), tower deck height (fold height and
@@ -2045,8 +2211,19 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                ("zones", 0.0, 1.0),        # < 0.5: ONE plenum zone (one pump, the uniform-pressure figure) instead of five
                ("m4_facet", 0.0, 1.0),     # < 1/3: the smooth ellipsoid M4; else flat facets of chord 0.05..0.25 m (a slope error at M4)
                ("roof_light", 0.0, 1.0),   # SITE: >= 0.5 the shop's roof is light (GI sheet / wood), not a concrete slab
-               ("grid", 0.0, 1.0))         # SITE: >= 0.5 grid power at the shop (else PV + battery)
-    SITE_KEYS = ("roof_r", "cap_scale", "demand_scale", "over_cap", "roof_light", "grid")   # drawn with the site, never chosen
+               ("grid", 0.0, 1.0),         # SITE: >= 0.5 grid power at the shop (else PV + battery)
+               ("receiver", 0.0, 1.0),     # THE RECEIVER: < 0.5 'cass' (elbow at the pot inlet), >= 0.5 'tri' (no elbow, M3 aimed at the loaf)
+               # THE SITE, CONTINUED (user, 2026-09-10: "sample different buildings"): the machine
+               # is going onto real roofs over real pits, and until now every agent had one roof
+               # orientation, one neighbourhood and one pit.
+               ("site_az", 0.0, 1.0),      # SITE: the roof's orientation - the sun's azimuth is rotated by 2 pi u in the machine's frame
+               ("pot_r", 0.75, 1.30),      # SITE: the existing pit's floor and mouth radius, as a scale on the nominal (R_POT 0.42, R_MOUTH 0.26)
+               ("pot_h", 0.70, 1.30),      # SITE: the existing pit's depth, as a scale on the nominal (H_DEPTH 2.44)
+               ("site_hz", 0.0, 1.0))      # SITE: the neighbourhood - a seed for the horizon of parapet and neighbouring buildings (see _site_horizon)
+    SITE_KEYS = ("roof_r", "cap_scale", "demand_scale", "over_cap", "roof_light", "grid",
+                 "site_az", "pot_r", "pot_h", "site_hz")   # drawn with the site, never chosen
+    SITE_NEW = ("site_az", "pot_r", "pot_h", "site_hz")    # the ones site_rand samples on a COOK run (the kit stays the built machine)
+    N_HZ = 16                                               # horizon bins round the compass
     #: THE SAND INSIDE THE TANDOOR (user): the hearth and floor sit on a
     #: sand bed of sand_depth [m] the beam charges directly and that
     #: gives the heat back to the cavity at night; sand_k [W/mK] is its
@@ -2056,8 +2233,26 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     #: the rest, an insulated bottom.
     SAND_RC = 1.28e6          # sand volumetric heat capacity [J/m3K]
     SAND_TOP = 0.08           # the sub layer's depth [m]
-    N_DESIGN = 9 + 19
-    FCT_W = 72
+    N_DESIGN = 9 + 24
+    FCT_W = 82
+    # OPEN, 2026-09-09: the receiver refactor moved the TRACED POWER of a
+    # design_rand machine with an installed SECTION, and it is not understood.
+    # Same physical kit, same design table to the bit (columns 0..71 checksum
+    # 520723.7188 on both), deterministic draws:
+    #     smooth M4 + section   17.900 W  ->  14.936 W   (-17%)
+    #     faceted M4 + section  12.203 W  ->  11.818 W   (-3%)
+    #     faceted M4 + circle    0.492 W  ->   0.514 W   (+4.5%)
+    # It is confined to design_rand + section: the FIXED-design cook envs are
+    # bit-stable across the refactor (cass 13.711473 -> 13.711477, tri exact),
+    # and Metal agrees with the eager reference INSIDE each version (parity 0),
+    # so both implementations moved together while their shared inputs did not.
+    # Ruled out: the design table, _apply_m3_turn (writes nothing for a cass
+    # agent), _bin_pot, and measurement order (HEAD is stable across repeated
+    # verify_megakernel: 17.900/17.900/17.900). NOT ruled out: _sc_base, prm,
+    # and the VALUES of _pts_l / _ray_pw, which were only ever compared by
+    # shape and sum. That checksum comparison is the next step, and it is CPU
+    # work - more ray traces cannot discriminate here.
+    # Beware when re-testing: see the harness trap in tandoor_receiver_verify.py.
     #: system block layout in the design table (offset 40)
     DS = dict(s=40, s2=41, zfold=42, zdeck=43, rate=44, ins=45, cap=46,
               lid=47, bread=48, hb=49, roti=50, lfp=51, lpl=52, fnom=53,
@@ -2065,7 +2260,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
               site=60,                  # the primary's SURFACE BLOCK: 0 the built circle, k >= 1 the k-th installed section
               film=61, rim=62, rise=63, ocap=64,  # info for the bill and the readouts: film area [m2], rim length [m], post rise [m], overhang cap [m]
               zones=65, m4sig=66, roofl=67, grid=68, m4c=69,   # plenum zones (1 or 5), M4 facet slope error [rad rms] (the kernels read it), light roof, grid power, facet chord [m]
-              sand_d=70, sand_k=71)     # the sand column: depth [m], conductivity [W/mK]; [56] the shop's demand scale
+              sand_d=70, sand_k=71,     # the sand column: depth [m], conductivity [W/mK]; [56] the shop's demand scale
+              # THE RECEIVER IS A COLUMN (2026-09-08). It used to be an env mode
+              # (self.tri / self.duct_nozzle / M3_TURN), which made a batch one
+              # machine or the other and quietly priced a mixed batch as whichever
+              # the env happened to be built as. These three carry it per agent:
+              recv=72,                  # 0 = the elbow re-images at the pot inlet ('cass'), 1 = M3 throws at the loaf ('tri')
+              noz=73,                   # the elbow class at the duct mouth: 0 none, 1 flat, 2 the concave 2-DOF mount
+              phw=74,                   # the aim head's half-travel about SPOT_PHI0 [rad]: the elbow's 110 deg, or M3's turn
+              # THE SITE (2026-09-10): the sun's azimuth offset in the machine frame [rad], and
+              # the existing pit's geometry - scales and the derived sphere the kernels bin on
+              azs=75, potr=76, poth=77, zc=78, rs=79, rdw=80, hd=81)
 
 
     def _roof_quantile(self, u):
@@ -2108,7 +2313,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  roof=float(self.sweep0), post=0.0, rail=float(self.r_rail),
                  sand_d=0.0, sand_k=0.3, demand=1.0, site=0.0,
                  film=float(np.pi * self.a_mem ** 2), rim=float(2 * np.pi * self.a_mem), rise=0.0, ocap=0.0,
-                 zones=float(getattr(self, "n_zones", 5) or 5), m4sig=0.0, roofl=0.0, grid=0.0, m4c=0.0)
+                 zones=float(getattr(self, "n_zones", 5) or 5), m4sig=0.0, roofl=0.0, grid=0.0, m4c=0.0,
+                 recv=float(self.tri), noz=float(getattr(self, "duct_nozzle", 0)),
+                 phw=self.aim_halfspan(self.tri),
+                 azs=0.0, potr=1.0, poth=1.0, **self.pot_sphere(1.0, 1.0))
         if sys:
             d.update(sys)
         row = rec + [0.0] * (self.FCT_W - 40)
@@ -2124,15 +2332,47 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         (r_strip tied to the strip footprint). _design_obs (B,N_DESIGN)
         is the unit-box coordinate 2u-1 the policy sees."""
         B = self.num_agents
-        if not self._cass or not getattr(self, "design_rand", 0):
+        if not self._cass or not (getattr(self, "design_rand", 0) or getattr(self, "site_rand", 0)):
             rows = np.tile(np.asarray(self._design_row(), dtype=np.float32),
                            (B, 1))
             self._design_u = np.zeros((B, 0))
+            self._m3_base = np.ascontiguousarray(rows[:, 15:27].copy())
+            self._m3_dO_t = None
+        elif not getattr(self, "design_rand", 0):
+            # SITE ONLY: the built machine in every row, then the four site columns drawn
+            # per agent and written over it (the kit's obs columns sit at the nominal).
+            box = tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX); names = [k for k, _, _ in box]
+            rng = np.random.default_rng(self.design_seed)
+            u = np.tile(self._u_nominal()[None, :], (B, 1))
+            for k in self.SITE_NEW:
+                u[:, names.index(k)] = rng.uniform(size=B)
+            rows = np.tile(np.asarray(self._design_row(), dtype=np.float32), (B, 1))
+            sv = {k: lo + u[:, names.index(k)] * (hi - lo) for k, lo, hi in box if k in self.SITE_NEW}
+            rows[:, self.DS["azs"]] = 2.0 * np.pi * sv["site_az"]
+            rows[:, self.DS["potr"]] = sv["pot_r"]; rows[:, self.DS["poth"]] = sv["pot_h"]
+            sph = self.pot_sphere(sv["pot_r"], sv["pot_h"])
+            for k in ("zc", "rs", "rdw", "hd"):
+                rows[:, self.DS[k]] = sph[k]
+            rs0 = float(self.pot_sphere(1.0, 1.0)["rs"])
+            for b in range(B):                                  # the chain on THIS pit: F4 on its wall
+                self._pot_cur = (float(sph["rs"][b]), float(sph["zc"][b]), float(sph["rdw"][b]))
+                self._build_cass_chain()
+                if self._cass:                                  # (the focus receiver has no chain in the row)
+                    rows[b, :len(self._fc_table)] = np.asarray(self._fc_table, dtype=np.float32)
+                _area = (float(sph["rs"][b]) / rs0) ** 2
+                rows[b, self.DS["ins"]] *= _area; rows[b, self.DS["cap"]] *= _area
+            self._pot_cur = None
+            self._build_cass_chain()
+            self._design_u = u
+            self._m3_base = np.ascontiguousarray(rows[:, 15:27].copy())
+            self._m3_dO_t = None
+            self._site_horizon(u[:, names.index("site_hz")], rows[:, self.DS["roof"]])
         else:
             u = getattr(self, "_design_u", None)
             if u is None or u.shape != (B, self.N_DESIGN):          # keep the population across set_design rebuilds
                 rng = np.random.default_rng(self.design_seed)
                 u = rng.uniform(size=(B, self.N_DESIGN))
+                u = self._kits_from_pop(u, rng)                   # START on the designer's machines, if there is a population
             self._design_u = u
             rows = self._rows_from_u(u)
         self._fct = torch.as_tensor(rows, dtype=torch.float32,
@@ -2150,6 +2390,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         B = u.shape[0]
         nominal = {k: getattr(self, k) for k, _, _ in self.DESIGN_BOX}
         nominal["r_strip"] = self.r_strip; m4_mode0 = self.m4_mode
+        tri0, noz0 = bool(self.tri), int(getattr(self, "duct_nozzle", 0))
         base = {k: getattr(self, k) for k in ("a_mem", "f_nom", "g_orbit", "z_fold", "z_deck")}
         A0 = float(self.bread_area)
         nr = len(self.DESIGN_BOX)
@@ -2165,6 +2406,20 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # a slope error c/(2 R sqrt 3) at its 0.73 m vertex radius), or a FLAT M4 at the turn
             # (> 2/3: u_f2 = 0, the strip images F straight onto the duct mouth) - a plane mirror
             # needs no forming and facets cost it nothing.
+            # THE RECEIVER, PER AGENT. _build_cass_chain reads self.tri for F4 - the
+            # second focus of M3, which is the pot's inlet on 'cass' and a loaf on
+            # 'tri' - so it has to be set before the chain is built, and put back
+            # after the loop (the env still has one nominal machine for the readouts).
+            self.tri = bool(sv.get("receiver", float(tri0)) >= 0.5)
+            # THIS AGENT'S PIT: the loaf M3 aims at sits on ITS wall, so the sphere goes in
+            # before the chain is built (tri_target reads _pot_cur); the wall's area scales
+            # the pit's capacity and its conductance to the soil (both are per m2 of wall).
+            _sph = self.pot_sphere(float(sv.get("pot_r", 1.0)), float(sv.get("pot_h", 1.0)))
+            self._pot_cur = (float(_sph["rs"]), float(_sph["zc"]), float(_sph["rdw"]))
+            _area = (float(_sph["rs"]) / float(self.pot_sphere(1.0, 1.0)["rs"])) ** 2
+            # no elbow on the three-mirror machine: M3 already threw the beam at the
+            # bread, and a second turn at the mouth would aim it again.
+            noz_b = 0 if self.tri else noz0
             uf_ = float(sv.get("m4_facet", 0.0))
             if uf_ > 2.0 / 3.0:
                 self.u_f2 = 0.0; self.m4_mode = "relay"
@@ -2214,8 +2469,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             m4sig = 0.0 if (chord <= 0.0 or not np.isfinite(R_m4)) else chord / (2.0 * R_m4 * np.sqrt(3.0))
             A = float(sv["bread_area"])
             sysd = dict(s=s, s2=s * s, zfold=self.z_fold, zdeck=self.z_deck,
-                        rate=float(sv["rate_scale"]), ins=float(sv["ins_scale"]),
-                        cap=float(sv["cap_scale"]), lid=float(sv["lid_leak"]),
+                        rate=float(sv["rate_scale"]), ins=float(sv["ins_scale"]) * _area,
+                        cap=float(sv["cap_scale"]) * _area, lid=float(sv["lid_leak"]),
                         bread=A, hb=25.0 * A,
                         roti=float(self.roti_energy) * A / A0,
                         lfp=float(np.sqrt(A) / 2.0),
@@ -2227,6 +2482,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                         demand=float(sv["demand_scale"]),
                         site=float(blk), rise=rise, zones=float(nz), m4sig=float(m4sig), m4c=float(chord),
                         roofl=float(sv.get("roof_light", 0.0) >= 0.5), grid=float(sv.get("grid", 0.0) >= 0.5),
+                        recv=float(self.tri), noz=float(noz_b), phw=self.aim_halfspan(self.tri),
+                        azs=2.0 * np.pi * float(sv.get("site_az", 0.0)), potr=float(sv.get("pot_r", 1.0)), poth=float(sv.get("pot_h", 1.0)),
+                        **self.pot_sphere(float(sv.get("pot_r", 1.0)), float(sv.get("pot_h", 1.0))),
                         film=float(rec["area"]) if rec is not None else float(np.pi * (base["a_mem"] * s) ** 2),
                         rim=float(rec["perimeter"]) if rec is not None else float(2 * np.pi * base["a_mem"] * s),
                         ocap=float(rec["cap"]) if rec is not None else 0.0)
@@ -2236,7 +2494,20 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         for k, vv in base.items():
             setattr(self, k, vv)
         self.m4_mode = m4_mode0
+        self.tri = tri0
+        self._pot_cur = None                                   # back to the nominal pit for the env's own chain
         self._build_cass_chain()
+        # THE UNTURNED M3 FIGURE, PER AGENT. _apply_m3_turn rotates M3 about the
+        # bore axis every step and writes columns 21..26; before 2026-09-08 it
+        # rotated the ENV's nominal chain and wrote that to every row, so on a
+        # design_rand run each agent's M3 ellipsoid was the nominal machine's
+        # while its a_e/c_e (27, 28) stayed its own. These are the per-agent
+        # bases it turns from, captured while the rows are still untouched.
+        self._m3_base = np.ascontiguousarray(rows[:, 15:27].copy())   # P4 (15:18), Oe0 (21:24), Ae0 (24:27)
+        self._m3_dO_t = None                                          # force the device cache to rebuild
+        # the neighbourhood, per agent, from its site seed (the roof sets the parapet distance)
+        _names = [k for k, _, _ in tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX)]
+        self._site_horizon(u[:, _names.index("site_hz")], rows[:, self.DS["roof"]])
         return rows
 
     def _load_design_pop(self):
@@ -2251,6 +2522,32 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self._pop = _json.load(fh)
         self._pop_mtime = m
         return self._pop
+
+    def _kits_from_pop(self, u, rng):
+        """The first draw of a design run (2026-09-11). redesign_at_dawn only reaches the
+        agents every redesign_days dawns and only the non-elites, so a run used to START
+        on the uniform box - where the median kit puts a tenth of the built machine's
+        light into the pot and the cook policy learns on dead machines for days. With a
+        population, each agent's kit comes from the Gaussian of its nearest roof site
+        (redesign_explore of them stay uniform so the box is never abandoned); the SITE
+        columns are untouched - they are the env's draw, not the designer's."""
+        if not self.design_pop:
+            return u
+        pop = self._load_design_pop()
+        if pop is None or not pop.get("sites"):
+            return u
+        names = [k_ for k_, _, _ in tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX)]
+        assert list(pop["names"]) == names and list(pop["site_keys"]) == list(self.SITE_KEYS), "design population was written for a different design box - regenerate it"
+        kit_idx = np.array(pop["kit_index"]); i_roof = names.index("roof_r")
+        sites = sorted(pop["sites"].values(), key=lambda s: s["site_u"][0]); roofs = np.array([s["site_u"][0] for s in sites])
+        u = u.copy()
+        for b in range(u.shape[0]):
+            if rng.uniform() < self.redesign_explore:
+                continue
+            s = sites[int(np.argmin(np.abs(roofs - u[b, i_roof])))]
+            z = np.array(s["mu"]) + np.exp(np.array(s["log_std"])) * rng.standard_normal(len(kit_idx))
+            u[b, kit_idx] = 1.0 / (1.0 + np.exp(-z))
+        return u
 
     def redesign_at_dawn(self, day_sales):
         """The metaprogrammer's move at the day-over: keep the old machine
@@ -2268,7 +2565,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         assert list(pop["names"]) == [k_ for k_, _, _ in tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX)] and list(pop["site_keys"]) == list(self.SITE_KEYS), "design population was written for a different design box - regenerate it with tandoor_designer.py"
         kit_idx = np.array(pop["kit_index"]); names = pop["names"]; i_roof = names.index("roof_r")
         sites = sorted(pop["sites"].values(), key=lambda s: s["site_u"][0]); roofs = np.array([s["site_u"][0] for s in sites])
-        elite = day_sales >= np.quantile(day_sales, 0.75)
+        # AN AGENT THAT SOLD NOTHING IS NOT AN ELITE.  A bare quantile makes every
+        # agent one as soon as a quarter of them sell nothing: the 75th percentile of
+        # day_sales is then 0, `>= 0` is true everywhere, redo comes out empty, and the
+        # designer's population can never reach the agents it was built for.  That is
+        # exactly the case it is needed in - a fragile receiver whose uniform box is
+        # mostly machines that miss - so the protection has to require real sales
+        # (2026-09-08: it pinned a tri design run to the dead uniform box).
+        elite = (day_sales > 0.0) & (day_sales >= np.quantile(day_sales, 0.75))
         redo = (rng.uniform(size=B) < self.redesign_share) & ~elite
         for b in np.where(redo)[0]:
             if rng.uniform() < self.redesign_explore:
@@ -2312,8 +2616,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             d[k] = fct[:, self.DS[k]].astype(np.float64)
         d["m4chord"] = d["m4c"]
         d["m4flat"] = (fct[:, 27] <= 1e-6).astype(np.float64)      # a_e = 0: the flat M4 at the turn
-        d["tri"] = np.full(self.num_agents, float(self.tri))       # the three-mirror receiver: no elbow, M3 actuated
+        d["tri"] = fct[:, self.DS["recv"]].astype(np.float64)      # the three-mirror receiver: no elbow, M3 actuated - PER AGENT, read off the table the machine was built from (it used to broadcast the env's own flag, which priced a mixed batch as whichever receiver the env happened to be)
         d["r_duct"] = fct[:, 39].astype(np.float64)
+        # the insulating shell this ins_scale costs, in the material the env was built with
+        t_, v_, c_ = self.shell_spec(d["ins_scale"])
+        d["shell"] = np.full(self.num_agents, {"perlite": 0.0, "glasswool": 1.0, "aac": 2.0}[self.shell])
+        d["shell_name"] = self.shell; d["shell_t"] = t_; d["shell_m3"] = v_; d["shell_MJK"] = c_ / 1e6
         return d
 
     SEC_CAPS = (1.0, 2.0, 3.5)          # the library's overhang caps [m], picked by thirds of the over_cap site key
@@ -2447,27 +2755,293 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         spot_phi, the head the elbow used to steer; on the three-mirror machine
         that head turns M3 instead. Called from every trace entry point, and from
         the fused step, which does not go through _metal_trace."""
-        if not self.tri or getattr(self, "_fct", None) is None:
+        if getattr(self, "_fct", None) is None or getattr(self, "_m3_base", None) is None:
             return
         dev = self._fct.device
         if getattr(self, "_m3_dO_t", None) is None:
-            P4 = torch.as_tensor(np.asarray(self.cs_P4, dtype=np.float32), device=dev)
-            self._m3_P4_t = P4
-            self._m3_dO_t = torch.as_tensor(np.asarray(self._m3_Oe0, dtype=np.float32), device=dev) - P4
-            self._m3_A0_t = torch.as_tensor(np.asarray(self._m3_Ae0, dtype=np.float32), device=dev)
+            # PER AGENT, from the rows each machine was built with. The env's own
+            # cs_P4/_m3_Oe0 are the nominal chain's; broadcasting those wrote the
+            # nominal M3 into every row while a_e/c_e stayed per agent, so on a
+            # design_rand run the mirror did not match the ellipsoid it was cut as.
+            base = torch.as_tensor(self._m3_base, dtype=torch.float32, device=dev)
+            self._m3_P4_t = base[:, 0:3]                       # rows 15..17
+            self._m3_dO_t = base[:, 6:9] - base[:, 0:3]        # rows 21..23, about P4
+            self._m3_A0_t = base[:, 9:12]                      # rows 24..26
+            self._m3_base_t6 = base[:, 6:12].contiguous()      # the untouched figure, for the 'cass' rows
+            self._m3_tri_t = (self._fct[:, self.DS["recv"]] > 0.5)[:, None]
+            self._m3_phw_t = self._fct[:, self.DS["phw"]]
         sp0 = (self._spot_view[0] if getattr(self, "_spot_view", None) is not None
                else self.spot_phi)                      # the live aim: numpy or device
         psi = (sp0 if torch.is_tensor(sp0)
                else torch.as_tensor(np.asarray(sp0, dtype=np.float32))).to(dev, torch.float32)
-        psi = (psi - float(_SP0)).clamp(self.M3_TURN[0], self.M3_TURN[1])
-        c, s_ = torch.cos(psi), torch.sin(psi)
+        w = self._m3_phw_t
+        psi = (psi - float(_SP0)).clamp(min=0.0) .minimum(w) \
+            + (psi - float(_SP0)).clamp(max=0.0).maximum(-w)   # +-phw, per agent
+        c, s_ = torch.cos(psi)[:, None], torch.sin(psi)[:, None]
         P4, dO, A0 = self._m3_P4_t, self._m3_dO_t, self._m3_A0_t
-        self._fct[:, 21] = P4[0] + c * dO[0] - s_ * dO[1]
-        self._fct[:, 22] = P4[1] + s_ * dO[0] + c * dO[1]
-        self._fct[:, 23] = P4[2] + dO[2]
-        self._fct[:, 24] = c * A0[0] - s_ * A0[1]
-        self._fct[:, 25] = s_ * A0[0] + c * A0[1]
-        self._fct[:, 26] = A0[2]
+        turned = torch.cat([
+            P4[:, 0:1] + c * dO[:, 0:1] - s_ * dO[:, 1:2],
+            P4[:, 1:2] + s_ * dO[:, 0:1] + c * dO[:, 1:2],
+            P4[:, 2:3] + dO[:, 2:3],
+            c * A0[:, 0:1] - s_ * A0[:, 1:2],
+            s_ * A0[:, 0:1] + c * A0[:, 1:2],
+            A0[:, 2:3]], dim=1)
+        # ONLY the three-mirror rows turn. A 'cass' agent's M3 is the built
+        # ellipsoid at the turn and its steering happens at the elbow instead;
+        # writing the untouched base back keeps this branch-free on a mixed batch.
+        self._fct[:, 21:27] = torch.where(self._m3_tri_t, turned, self._m3_base_t6)
+
+    def tri0(self):
+        """Is the RENDERED agent (0) a three-mirror machine? The HUD and the
+        drawing describe one agent, and since the receiver became a design column
+        the env's own self.tri is only the nominal machine - on a design_rand run
+        agent 0 may be either."""
+        f = getattr(self, "_fct", None)
+        if f is None or f.shape[1] <= self.DS["recv"]:
+            return bool(self.tri)
+        return bool(float(f[0, self.DS["recv"]]) > 0.5)
+
+    def pot_sphere(self, pot_r, pot_h):
+        """The existing pit as the sphere the kernels bin on, for radius scale pot_r (floor and
+        mouth together) and depth scale pot_h: Z_CPOT, R_SPH, R_DUCT_WALL, H_DEPTH - the same
+        derivation tandoor_polar_env makes for the nominal pit. Vectorised over agents."""
+        from tandoor_polar_env import R_MOUTH as _RM, H_DEPTH as _HD, Z_DUCT as _ZD
+        pr_, ph_ = np.asarray(pot_r, dtype=np.float64), np.asarray(pot_h, dtype=np.float64)
+        rm, rp, hd = _RM * pr_, float(R_POT) * pr_, _HD * ph_
+        zc = (rm ** 2 - rp ** 2 - hd ** 2) / (2.0 * hd)
+        rs = np.sqrt(rm ** 2 + zc ** 2)
+        rdw = np.sqrt(np.maximum(rs ** 2 - (float(_ZD) - zc) ** 2, 1e-6))
+        return dict(zc=zc, rs=rs, rdw=rdw, hd=hd)
+
+    @classmethod
+    def unit_of(cls, k, v):
+        """Unit-box coordinate of physical value v on knob k (DESIGN_BOX or SYS_BOX)."""
+        lo, hi = [(lo, hi) for kk, lo, hi in tuple(cls.DESIGN_BOX) + tuple(cls.SYS_BOX) if kk == k][0]
+        return float(np.clip((float(v) - lo) / (hi - lo), 0.0, 1.0))
+
+    @classmethod
+    def site_nominal_u(cls):
+        """The SITE_NEW columns of the nominal site, in unit coordinates: roof square to the
+        sun, the pit as built, the median horizon draw. The design tools pin these - the pit
+        is the site's, never the designer's choice - and a cook run with site_rand draws them."""
+        return dict(site_az=0.0, pot_r=cls.unit_of("pot_r", 1.0), pot_h=cls.unit_of("pot_h", 1.0), site_hz=0.5)
+
+    def _u_nominal(self):
+        """The built machine's unit-box coordinates, so a site-only table can carry the kit at
+        its real values in the obs. Exact where the env has the attribute; the few switches
+        (mount, section, zones, facets, receiver) from the env's state."""
+        box = tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX)
+        val = {k: getattr(self, k) for k, _, _ in self.DESIGN_BOX}
+        val.update(deck_h=float(self.deck_h), rate_scale=1.0, ins_scale=1.0, cap_scale=1.0, lid_leak=float(self.lid_leak),
+                   bread_area=float(self.bread_area), loaves_per_load=float(self.loaves_per_load),
+                   mount_post=1.0 if float(getattr(self, "r_rail", 0.0)) <= 0.0 else 0.0, sand_depth=0.0, sand_k=0.3,
+                   demand_scale=1.0, section=0.0, post_rise=0.0, over_cap=0.5, zones=0.0 if int(getattr(self, "n_zones", 5) or 5) == 1 else 1.0,
+                   m4_facet=0.0, roof_light=0.0, grid=1.0, receiver=1.0 if self.tri else 0.0,
+                   site_az=0.0, pot_r=1.0, pot_h=1.0, site_hz=0.5, roof_r=1.0)
+        return np.array([np.clip((float(val[k]) - lo) / (hi - lo), 0.0, 1.0) for k, lo, hi in box])
+
+    def _site_horizon(self, u_hz, roof_r):
+        """THE NEIGHBOURHOOD, per agent: the elevation [deg] of whatever blocks the sun in each
+        of N_HZ azimuth bins - the roof's own parapet all round, and one to three neighbouring
+        buildings of random height and distance. Drawn deterministically from the site seed
+        u_hz (so a site reproduces), scaled to the roof (a big roof keeps its neighbours
+        further off). Stored as self._hz (B,N_HZ) and self._hz_t on the device."""
+        u_hz = np.asarray(u_hz, dtype=np.float64).ravel(); roof_r = np.asarray(roof_r, dtype=np.float64).ravel()
+        B, NH = len(u_hz), self.N_HZ
+        hz = np.zeros((B, NH)); az_c = (np.arange(NH) + 0.5) * (2 * np.pi / NH)
+        for b in range(B):
+            r = np.random.default_rng(int(u_hz[b] * 2 ** 31) + 7)
+            par_h, par_d = r.uniform(0.5, 1.2), max(float(roof_r[b]), 1.5)          # the parapet, all round
+            hz[b, :] = np.degrees(np.arctan2(par_h, par_d))
+            for _ in range(r.integers(1, 4)):                                         # the neighbours
+                c, w = r.uniform(0, 2 * np.pi), r.uniform(np.radians(20), np.radians(70))
+                h, d = r.uniform(1.0, 8.0), r.uniform(3.0, 15.0) + float(roof_r[b])
+                dphi = np.abs((az_c - c + np.pi) % (2 * np.pi) - np.pi)
+                hz[b, dphi < 0.5 * w] = np.maximum(hz[b, dphi < 0.5 * w], np.degrees(np.arctan2(h, d)))
+        self._hz = hz
+        self._hz_t = torch.as_tensor(hz, dtype=torch.float32, device=self.device)
+        return hz
+
+    def _hz_obs(self, az_machine):
+        """The two horizon obs columns: the obstruction elevation in the sun's current
+        azimuth bin and in the next one along (the sun crosses a bin in ~1.5 h), each
+        /90 - so a policy can see the morning start late and the afternoon end early.
+        az_machine (B,) rad in the site's frame; numpy in -> numpy, torch in -> torch."""
+        hz = getattr(self, "_hz", None)
+        if torch.is_tensor(az_machine):
+            if hz is None:
+                return torch.zeros(az_machine.shape[0], 2, device=az_machine.device, dtype=torch.float32)
+            H = self._hz_t.to(az_machine.device)
+            b0 = ((torch.remainder(az_machine, 2 * np.pi)) / (2 * np.pi) * self.N_HZ).long().clamp(0, self.N_HZ - 1)
+            b1 = (b0 + 1) % self.N_HZ
+            return torch.stack([H.gather(1, b0[:, None])[:, 0], H.gather(1, b1[:, None])[:, 0]], 1) / 90.0
+        az_machine = np.asarray(az_machine, dtype=np.float64).ravel()
+        if hz is None:
+            return np.zeros((az_machine.shape[0], 2))
+        b0 = np.clip(((az_machine % (2 * np.pi)) / (2 * np.pi) * self.N_HZ).astype(int), 0, self.N_HZ - 1)
+        b1 = (b0 + 1) % self.N_HZ; ar = np.arange(len(b0))
+        return np.stack([hz[ar, b0], hz[ar, b1]], 1) / 90.0
+
+    def _shade(self, soil, mnt):
+        """SHADING: the sun behind the horizon costs the whole beam, and the model already has
+        a per-agent per-trace attenuation - soil - so the horizon rides on it. mask = sigmoid
+        ((el_sun - horizon(az_sun)) / 0.27 deg), the sun's half-disc as the edge. Takes numpy
+        or torch soil and returns the same kind; a no-op when no horizon was drawn."""
+        hz = getattr(self, "_hz", None)
+        if hz is None:
+            return soil
+        el, az = mnt["el"], mnt["az"]                                        # (B,) deg, (B,) rad, from the mount solve
+        if torch.is_tensor(soil):
+            elt = el.to(soil.device, soil.dtype); azt = az.to(soil.device, soil.dtype)
+            b_ = ((azt % (2 * np.pi)) / (2 * np.pi) * self.N_HZ).long().clamp(0, self.N_HZ - 1)
+            h = self._hz_t.to(soil.device, soil.dtype).gather(1, b_[:, None])[:, 0]
+            return soil * torch.sigmoid((elt - h) / 0.27)
+        eln = np.asarray(el.detach().cpu().numpy() if torch.is_tensor(el) else el, dtype=np.float64).ravel()
+        azn = np.asarray(az.detach().cpu().numpy() if torch.is_tensor(az) else az, dtype=np.float64).ravel()
+        b_ = np.clip(((azn % (2 * np.pi)) / (2 * np.pi) * self.N_HZ).astype(int), 0, self.N_HZ - 1)
+        h = hz[np.arange(len(b_)), b_]
+        return np.asarray(soil, dtype=np.float64) / (1.0 + np.exp(-(eln - h) / 0.27))
+
+    def shell_spec(self, ins, damp=False):
+        """For the pit's insulating annulus of self.shell at design factor ins (the
+        deep->halo conductance factor ins_scale): (thickness [m], volume [m3], heat
+        capacity [J/K]) per agent - the SAME spherical series _build_thermal uses
+        (wall r0+0.115 -> rf3 at k_wall, then soil 0.5 W/mK to the halo), inverted:
+        R_ins = R_no (1/ins - 1) = (1/(4 pi k)) (1/rf3 - 1/(rf3 + t))."""
+        from tandoor_rl_env import SHELL_MATERIALS as _SM, SHELL_AAC_DAMP_K as _KD
+        k, rc, _ = _SM[self.shell]
+        if damp and self.shell == "aac":
+            k = _KD
+        ins = np.clip(np.asarray(ins, dtype=np.float64), 0.05, 1.0)
+        a_tot = float(np.asarray(self.node_area).sum()); r0 = np.sqrt(a_tot / (4 * np.pi)); rf3 = r0 + 0.165
+        gsph = lambda kk, ra, rb: 4 * np.pi * kk / (1 / ra - 1 / rb)
+        R_no = 1 / gsph(self.k_wall, r0 + 0.115, rf3) + 1 / gsph(0.5, rf3, rf3 + 0.55)
+        R_ins = R_no * (1.0 / ins - 1.0)
+        inv = 1.0 / rf3 - 4 * np.pi * k * R_ins
+        rb = np.where(inv > 1e-6, 1.0 / np.maximum(inv, 1e-6), rf3 + 0.6)       # cap a hopeless factor at 60 cm
+        t = np.clip(rb - rf3, 0.0, 0.6)
+        vol = (4.0 / 3.0) * np.pi * ((rf3 + t) ** 3 - rf3 ** 3)
+        return t, vol, rc * vol
+
+    def _pot0(self):
+        """Agent 0's pit (the one on screen): rs, zc, rdw, hd - from the table when there is one."""
+        from tandoor_polar_env import R_SPH as _RS0, Z_CPOT as _ZC0, R_DUCT_WALL as _RDW0, H_DEPTH as _HD0
+        f = getattr(self, "_fct", None)
+        if f is None or f.shape[1] <= self.DS["hd"]:
+            return dict(rs=float(_RS0), zc=float(_ZC0), rdw=float(_RDW0), hd=float(_HD0))
+        r = f[0].detach().cpu().numpy()
+        return dict(rs=float(r[self.DS["rs"]]), zc=float(r[self.DS["zc"]]), rdw=float(r[self.DS["rdw"]]), hd=float(r[self.DS["hd"]]))
+
+    def receiver0(self):
+        """The RENDERED agent's receiver, as built: (r_m4, r_duct, r_beam, pass_frac,
+        turn_deg, span_deg).  r_beam is the cone's radius where _bin_pot gates it -
+        at the duct plane x = R_POT - so pass_frac is the share of M3's aperture the
+        inlet actually admits.  That number is the difference between 186 and 513
+        rotis a day and nothing on screen used to show it."""
+        f = getattr(self, "_fct", None)
+        if f is None or f.shape[1] <= self.DS["phw"]:
+            return (float(self.r_m4), float(self.r_duct), float("nan"), float("nan"), 0.0, 0.0)
+        f0 = (f[0].detach().cpu().numpy() if torch.is_tensor(f) else np.asarray(f)[0])
+        r_m4, r_duct, phw = float(f0[29]), float(f0[39]), float(f0[self.DS["phw"]])
+        tri_b = float(f0[self.DS["recv"]]) > 0.5
+        psi = float(np.clip(np.asarray(self.spot_phi, dtype=np.float64).ravel()[0] - _SP0,
+                            -phw, phw)) if getattr(self, "spot_phi", None) is not None else 0.0
+        P4 = f0[15:18].astype(np.float64)
+        F4 = self.tri_target(psi) if tri_b else np.asarray(self.cs_F4, dtype=np.float64)
+        dx = float(F4[0] - P4[0])
+        if abs(dx) < 1e-9:
+            return (r_m4, r_duct, float("nan"), float("nan"), np.degrees(psi), np.degrees(phw))
+        # on 'cass' F4 IS the duct mouth, so hit == F4, r_beam -> 0 and the inlet
+        # passes everything: the elbow re-images beyond it and the hole can be small.
+        # That is the second chance 'tri' gives up, and it is why the same 0.20 m
+        # hole is harmless on one machine and costs 96% of the beam on the other.
+        # (Idealised - a real waist has the sun's angular width, so 100% is a ceiling.)
+        hit = P4 + ((float(R_POT) - P4[0]) / dx) * (F4 - P4)
+        # r_beam is the CONE EDGE at the inlet plane (the full M3 aperture converging
+        # on F4): where the outermost rays are, not where the power is. Traced, the
+        # power-weighted r50 is ~0.4 m against an edge of ~0.95, so the admitted
+        # fraction is read off the trace (_inlet_thru), never off this radius.
+        r_beam = r_m4 * float(np.linalg.norm(hit - F4)) / max(float(np.linalg.norm(F4 - P4)), 1e-9)
+        thru = getattr(self, "_inlet_thru", None)
+        frac = float(np.asarray(thru).ravel()[0]) if thru is not None else float("nan")
+        return (r_m4, r_duct, r_beam, frac, np.degrees(psi), np.degrees(phw))
+
+    NX_EXT = 37     #: exterior surface bins (the MSL define NX): see tandoor_metal_kernel for the layout
+    #: what each bin IS, for the tag on the surface (bands and sectors collapse to one surface name)
+    EXT_NAMES = (["collar"] * 8 + ["bore wall"] * 6 + ["deck"] + ["pot exterior"] * 4 + ["pit floor", "escaped"]
+                 + ["dish: return leg blocked"] * 4 + ["dish: strip shadow"] * 4 + ["dish: slot"] * 4
+                 + ["dish: hole", "F arm", "strip: outside window", "strip: missed conic"])
+
+    def _surface_tags(self):
+        """TEXT TAGS FOR EVERY SURFACE IN THE LIGHT CONE THAT TOOK RAYS, for the agent on
+        screen - the same thing _pot_lbls does for the pot's nodes, extended to everything
+        after the secondary (and the dish it throws back through). One tag per surface,
+        placed at the power-weighted centroid of the rays that stopped there, reading the
+        surface and its watts; bore bands keep one tag each because height is the point.
+        Plus the strip and M3 themselves with what reached them. Built from _pex/_ext_cent
+        (the deposition) - no geometry is redone here."""
+        px, ce = getattr(self, "_pex", None), getattr(self, "_ext_cent", None)
+        if px is None or ce is None:
+            return []
+        px = px.reshape(-1, self.NX_EXT)[0].detach().cpu().numpy(); ce = ce.reshape(-1, self.NX_EXT, 3)[0].detach().cpu().numpy()
+        wtot = float(getattr(self, "_w_total", torch.zeros(1))[0]); ext = float(px.sum())
+        tags = []
+        # collapse sectors/quarters to one tag per surface; keep bore bands separate
+        groups = {}
+        for b in range(self.NX_EXT):
+            key = f"bore wall {b - 8}" if 8 <= b <= 13 else self.EXT_NAMES[b]
+            if px[b] > 1e-6:
+                g = groups.setdefault(key, [0.0, np.zeros(3)]); g[0] += px[b]; g[1] += px[b] * ce[b]
+        for key, (w, c) in groups.items():
+            pct = 100.0 * w / max(wtot, 1e-9)
+            col = ((255, 130, 110) if key.startswith(("collar", "bore", "pot", "deck", "pit", "escaped"))
+                   else (235, 200, 120))
+            tags.append((c / w, f"{key}  {w:.2f} W  ({pct:.0f}%)", col))
+        # the two mirrors themselves, as sums over the rays that reached them: the strip
+        # takes everything not lost on the sun leg (codes 11..14); M3 takes the rays that
+        # went through (0), hit the collar (9) or went the wrong way after it (8)
+        wc = getattr(self, "_w_by_code", None)
+        wc = wc[0].detach().cpu().numpy() if wc is not None else np.zeros(16)
+        f0 = self._fct[0].detach().cpu().numpy()
+        tags.append((np.asarray(self.F_focus, float), f"strip  {wtot - wc[11:15].sum():.2f} W hit", (200, 170, 255)))   # the strip sits about F
+        tags.append((np.asarray(f0[15:18], float), f"M3  {wc[0] + wc[8] + wc[9]:.2f} W hit", (160, 220, 240)))
+        tags.append((None, f"beam caught {wtot:.2f} W: pot {wtot - ext:.2f}, elsewhere {ext:.2f}", (200, 200, 210)))
+        return tags
+
+    def _ray_weights(self, fate, soil_t):
+        """Every ray's incident power, per agent: the kernel's own selection
+        ray_pw[block(b)*P + ip] x ray_scale x soil x the dish area factor. Also
+        stashes _w_total (the beam the dish caught) and _w_by_code (watts per fate
+        code, 0 = through) - on BOTH trace paths, from the ledger the path produced."""
+        B, P = fate.shape[0], fate.shape[1]
+        code = fate[..., 0]
+        rp = self._ray_pw.reshape(-1, P).to(fate.dtype)
+        blk = self._fct[:, 60].round().long().clamp(0, rp.shape[0] - 1)
+        pw = rp[blk]
+        rs = getattr(self, "_ray_scale", None)
+        rs = torch.ones(B, device=fate.device, dtype=fate.dtype) if rs is None else rs.to(fate.dtype).reshape(B)
+        w_all = pw * rs[:, None] * (soil_t.to(fate.dtype).reshape(B) * self._ds_s2_t.to(fate.dtype).reshape(B))[:, None]
+        self._w_total = w_all.sum(1)
+        self._w_by_code = torch.zeros(B, 16, device=fate.device, dtype=fate.dtype).scatter_add_(
+            1, code.clamp(min=0, max=15).long(), w_all)
+        return w_all
+
+    def _deposit_exterior(self, fate, soil_t):
+        """The exterior flux labelling on the torch path: every missed ray's power
+        onto the surface bin the ledger chose - the same weight _bin_pot gives a
+        through ray (ray_pw x ray_scale x soil x dish area), minus the through gate.
+        Returns (B, NX_EXT) watts; the kernel's pex is the same sum by atomic add."""
+        B, P = fate.shape[0], fate.shape[1]
+        code, binv = fate[..., 0], fate[..., 5]
+        w_all = self._ray_weights(fate, soil_t)
+        w = torch.where((code > 0.5) & (binv >= 0), w_all, torch.zeros_like(w_all))
+        idx = binv.clamp(min=0).long()
+        pex = torch.zeros(B, self.NX_EXT, device=fate.device, dtype=fate.dtype).scatter_add_(1, idx, w)
+        # the tag goes where the rays actually landed: power-weighted centroid per bin
+        cen = torch.zeros(B, self.NX_EXT, 3, device=fate.device, dtype=fate.dtype)
+        cen.scatter_add_(1, idx[..., None].expand(-1, -1, 3), fate[..., 1:4] * w[..., None])
+        self._ext_cent = cen / pex[..., None].clamp(min=1e-9)
+        return pex
 
     def tri_aim_bin(self, psi=None):
         """the loaf slot M3 is aimed at, from the turn angle (exact, by geometry)"""
@@ -2475,9 +3049,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         psi = (np.asarray(self.spot_phi, dtype=np.float64) - _SP0) if psi is None else psi
         NB = self.n_belt
         out = np.zeros(np.shape(psi), dtype=np.int64)
+        _pots = getattr(self, "_ds_rs", None)
         for i, p_ in enumerate(np.atleast_1d(psi)):
-            T = self.tri_target(float(np.clip(p_, self.M3_TURN[0], self.M3_TURN[1])))
-            px, py = T[1], -(T[0] - (float(R_POT) - float(_RDW)))      # world -> pot
+            pot_i = (float(self._ds_rs[i]), float(self._ds_zc[i]), float(self._ds_rdw[i])) if _pots is not None else None
+            T = self.tri_target(float(np.clip(p_, self.M3_TURN[0], self.M3_TURN[1])), pot=pot_i)
+            _rdw_i = pot_i[2] if pot_i is not None else float(_RDW)
+            px, py = T[1], -(T[0] - (float(R_POT) - _rdw_i))            # world -> pot
             ph = np.arctan2(py, px)
             out[i] = int(np.clip(((ph + np.pi) / (2 * np.pi) * NB), 0, NB - 1))
         return out
@@ -2495,6 +3072,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._sand_d = ds[:, D["sand_d"]]; self._sand_k = ds[:, D["sand_k"]]
         self._sand_ka = np.where(self._sand_d >= 0.05, np.clip(np.round(self._sand_d / 0.05), 1, self.KSAND), 0).astype(np.int64)
         self._ds_demand = ds[:, D["demand"]]
+        # THE RECEIVER, PER AGENT: which machine (0 cass / 1 tri), the elbow class
+        # at the duct mouth, and how far the aim head travels. _bin_pot and the
+        # numpy step read these instead of self.tri / self.duct_nozzle.
+        self._ds_recv = ds[:, D["recv"]]
+        self._ds_noz = ds[:, D["noz"]]
+        self._ds_phw = ds[:, D["phw"]]
+        # THE SITE: the sun's azimuth offset into each agent's frame [rad], and the pit
+        self._ds_azs = ds[:, D["azs"]]
+        self._ds_potr, self._ds_poth = ds[:, D["potr"]], ds[:, D["poth"]]
+        self._ds_zc, self._ds_rs, self._ds_rdw, self._ds_hd = ds[:, D["zc"]], ds[:, D["rs"]], ds[:, D["rdw"]], ds[:, D["hd"]]
         self._ds_rate = ds[:, D["rate"]]
         self._ds_lid = ds[:, D["lid"]]
         self._ds_bread = ds[:, D["bread"]:D["bread"] + 1]
@@ -2517,6 +3104,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._ds_lpl_t, self._ds_s2_t = t(self._ds_lpl), t(self._ds_s2)
         self._sand_ka_t, self._sand_d_t, self._sand_k_t = t(self._sand_ka), t(self._sand_d), t(self._sand_k)
         self._ds_demand_t = t(self._ds_demand)
+        self._ds_recv_t, self._ds_noz_t = t(self._ds_recv), t(self._ds_noz)
+        self._ds_phw_t = t(self._ds_phw)
+        self._ds_azs_t = t(self._ds_azs)
+        self._ds_zc_t, self._ds_rs_t, self._ds_rdw_t, self._ds_hd_t = t(self._ds_zc), t(self._ds_rs), t(self._ds_rdw), t(self._ds_hd)
 
     def _sand_step_t(self, T, Tc, Th, dt):
         """Torch twin of the numpy column step: T (B,N), Tc (B,2,K), Th (B,)
@@ -2671,7 +3262,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if bool(cut.any()):
             from tandoor_mount_batch import solar_batch
             el1, az1r, _ = solar_batch(S.lat_v, S.day_v,
-                                       float(self.t_solar[0]))
+                                       float(self.t_solar[0]), az_off=self._ds_azs_t)
             az1d = torch.rad2deg(az1r)
             # ALWAYS COLD on a lost-sun truncation. The warm_frac draw
             # here was a lottery: 20% chance of a free 540-620 K pot for
@@ -2800,7 +3391,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                       device=dev)
             from tandoor_mount_batch import solar_batch
             el1, az1r, _ = solar_batch(S.lat_v, S.day_v,
-                                       torch.full_like(S.day_v, self.day_start))
+                                       torch.full_like(S.day_v, self.day_start), az_off=self._ds_azs_t)
             az1d = torch.rad2deg(az1r)
             if self.night_carry:
                 self._night_cool_torch(S)
@@ -2849,13 +3440,23 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             e_el, e_az = S.e_el_prev, S.e_az_prev
             self._e_el_t, self._e_az_t = e_el, e_az
             S.belt_prev = S.T[:, :self.n_belt].max(1).values
+            az_dawn = az1r
         else:
             self.terminals[:] = False
-        return self._gpu_obs(S, dev, B, rew, p_in, e_el, e_az, infos)
+            az_dawn = None
+        return self._gpu_obs(S, dev, B, rew, p_in, e_el, e_az, infos, az_rad=az_dawn)
 
-    def _gpu_obs(self, S, dev, B, rew, p_in, e_el, e_az, infos):
+    def _gpu_obs(self, S, dev, B, rew, p_in, e_el, e_az, infos, az_rad=None):
         # ---- obs, one assembly + one copy
         ts = torch.full((B,), float(self.t_solar[0]), device=dev)
+        if getattr(self, "design_rand", 0) or getattr(self, "site_rand", 0):
+            # THE HORIZON OBS wants the sun's azimuth in the site's frame (rad). The
+            # day-over callers pass the dawn sun they just solved (az1r); anyone else
+            # gets it from the solar solve at this hour - the same solve the mount uses.
+            if az_rad is None:
+                from tandoor_mount_batch import solar_batch
+                _, az_rad, _ = solar_batch(S.lat_v, S.day_v, float(self.t_solar[0]), az_off=self._ds_azs_t)
+            hz_obs = self._hz_obs(az_rad)
         h = (ts - 8.0) / 8.0
         enc_el = ((e_el + 0.03 * S.n(B)) / 0.5).clamp(-self.enc_clamp, self.enc_clamp)
         enc_az = ((e_az + 0.03 * S.n(B)) / 0.5).clamp(-self.enc_clamp, self.enc_clamp)
@@ -2891,7 +3492,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
              else [])
           + [self._sand_obs_t(S)]
           + ([torch.stack([(S.orders / 10.0).clamp(0, 3), (S.shelf / 10.0).clamp(0, 3)], 1)] if self.demand else [])
-          + ([self._dsn_t] if getattr(self, "design_rand", 0) else []),
+          + ([self._dsn_t, hz_obs] if (getattr(self, "design_rand", 0) or getattr(self, "site_rand", 0)) else []),
             1)
         return obs, rew, infos
 
@@ -2912,13 +3513,21 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         trunc = getattr(self, "_trunc_t", None)
         if trunc is None or not self._trunc_live:
             trunc = self._term_zeros
+        if self.render_mode == "human":
+            # THE RENDERER NEEDS THE TRACE, and step() is not the only way in. tandoor_fast_collect routes evaluation
+            # through step_torch whenever the env exposes it, and step_torch used to skip these two lines - so _hv was
+            # never filled, the renderer had no rays, no dish, no fold, no duct, and drew the room and the pot alone.
+            # Same gate and same pair as the numpy path: only in human mode, so training never pays for it.
+            self._sync_from_gpu()
+            self._render_trace()
         return obs, rew, term, trunc, infos
 
     def _aim_dirs(self, B, dev):
         """Per-env elbow aim directions a1 (B,3) from the spot state
         - the same construction _bin_pot uses, so kernel and fallback
-        can never disagree about where the mirror points."""
-        from tandoor_polar_env import R_SPH, Z_CPOT
+        can never disagree about where the mirror points. The sphere is this
+        agent's pit (table columns 78/79); the elbow itself stays at the nominal
+        mouth - the machine is built to the wall, the pit varies behind it."""
         M = self._noz2["M"]
         sp, szv = self._spot_view
         ph = (sp if torch.is_tensor(sp) else
@@ -2926,7 +3535,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         zt = (szv if torch.is_tensor(szv) else
               torch.as_tensor(szv)).to(dev, torch.float32)
         rt = torch.sqrt(
-            (R_SPH**2 - (zt - Z_CPOT)**2).clamp(min=1e-4)) * 0.999
+            (self._ds_rs_t.to(zt.dtype).reshape(-1)**2 - (zt - self._ds_zc_t.to(zt.dtype).reshape(-1))**2).clamp(min=1e-4)) * 0.999
         a1 = torch.stack([rt * torch.cos(ph) - M[0],
                           rt * torch.sin(ph) - M[1],
                           zt - M[2]], 1)
@@ -2939,6 +3548,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         and now structural (the geometry never touches numpy)."""
         dev = self.device
         self._apply_m3_turn()                 # M3 where the actuator has put it
+        soil = self._shade(soil, mnt)         # the neighbourhood's horizon, on the beam
         B, P_ = p_eff.shape[0], len(self._hx)
         vp = mnt["vp"].reshape(B, 21).contiguous()
         Mt = mnt["Mt"].contiguous()
@@ -2986,6 +3596,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         out = self._geo(*args)
         (through_b, w_ray, dy, dz, d3) = out[:5]
         through = through_b.float() * w_ray
+        self._inlet_thru = (through.sum(1) / w_ray.sum(1).clamp(min=1e-9)).detach().cpu().numpy()   # what the inlet admitted (see the metal branch)
         # _bin_pot returns cpu (its numpy-path contract) - gpu_step
         # needs it back on the compute device
         return self._bin_pot(dy - off[:, 0:1], dz - off[:, 1:2],
@@ -3099,6 +3710,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
               f"{rk[-1]:.3f} m over {height:.2f} m ({n_seg} segments)")
         return list(zip(zk, rk))
 
+    def _set_hv(self, p, h1, h2, h3, ok, ok_pre, in_slot, desc, through, u, el, az, C_dish, ub, naim, el_b):
+        """the renderer's view of one agent's rays. The per-ray 'made it' flags differ by chain: the fold machine ends
+        at the duct (through_b), the Cassegrain has no M5 so it ends at the tube (ok_post_tube), and handing the
+        renderer the fold flags on a Cassegrain drew every ray as lost."""
+        self._hv = dict(dish=p[0].cpu().numpy(), fold=h1[0].cpu().numpy(),
+                        m5=h2[0].cpu().numpy(), duct=h3[0].cpu().numpy(),
+                        ok=ok[0].cpu().numpy(), ok_pre=ok_pre[0].cpu().numpy(),
+                        slot=in_slot[0].cpu().numpy(), desc=desc[0].cpu().numpy(),
+                        through=through[0].cpu().numpy(),
+                        u=u, el=el, az=float(az), C=C_dish,
+                        ub=ub, naim=naim, el_b=el_b)
+
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
         """Live ARTIST trace: dish -> fixed 2-axis fold -> waist ->
         fixed ellipsoidal M5 -> duct -> pot. The geometry runs in
@@ -3112,9 +3735,12 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                            float(self.t_solar[0]))
         if not (self.el_min_h <= el <= self.el_max_h):
             return torch.zeros(B, self.n_nodes + self.n_belt)
-        lv = np.clip((np.asarray(p_eff) / self.p0 - self.level_frac[0])
-                     / (self.level_frac[-1] - self.level_frac[0])
-                     * (self.N_LEVELS - 1), 0, self.N_LEVELS - 1)
+        # level_frac is NOT uniformly spaced (0.70, 0.82, 0.90, 0.96, 1.00, 1.04, 1.10 - the steps tighten around
+        # the nominal), so a linear inverse does not land on the levels it came from: it maps the NOMINAL pressure
+        # p_eff = p0 to level 4.5 instead of 4, half a step of defocus on every render trace. mems[4] is the level
+        # the secondary was designed for. Interpolate against the table itself.
+        lv = np.interp(np.asarray(p_eff) / self.p0, self.level_frac,
+                       np.arange(self.N_LEVELS, dtype=np.float64))
         P_ = len(self._hx)
         if getattr(self, "_det_trace", False):
             du = torch.zeros(B, P_, device=dev)
@@ -3141,6 +3767,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                  device=dev)
         mnt = mount_batch(self, day_t, lat_t,
                           float(self.t_solar[0]), dev, pnt=pnt_np)
+        soil = self._shade(soil, mnt)                    # the neighbourhood's horizon, on the beam
         Mt = mnt["Mt"].contiguous()
         Cd = mnt["Cd"].contiguous()
         Acan_t = mnt["Acan"].contiguous()
@@ -3166,6 +3793,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                          soil_t, self.n_nodes,
                                          self._aim_dirs(B, dev), scb,
                                          fct=self._fct)
+            # WHAT THE INLET ADMITTED, from the trace, not from geometry: the
+            # through weight over the pre-gate ray weight (out6[...,5] = sh_w).
+            # All upstream gates included, so this is end-to-end. The geometric
+            # cone that used to be on the HUD overstated the clipping ~3x.
+            _w = out6.reshape(B, -1, 6)[..., 5]
+            self._inlet_thru = (thr.reshape(B, -1).sum(1) / _w.sum(1).clamp(min=1e-9)).detach().cpu().numpy()
+            self._fate = getattr(self._metal, "last_fate", None)                 # the miss ledger
+            self._pex = getattr(self._metal, "last_pex", None)                   # exterior flux (B, NX)
+            if self._fate is not None:
+                self._ray_weights(self._fate, soil_t)                            # _w_total / _w_by_code on this path too
             return per.cpu()
         args = (self._pts_l, self._nrm_l, lv_t, du, de, upick, us,
                 sigb_t, Acan_t.view(B, 1, 3, 3), Mt,
@@ -3186,14 +3823,33 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             else:
                 raise
         (through_b, w_ray, dy, dz, d3, ok, ok_pre_tube, ok_post_tube,
-         lit, in_slot, graze, rad1, p, h1, h2, h3, desc) = out
+         lit, in_slot, graze, rad1, p, h1, h2, h3, desc) = out[:17]
+        self._fate = out[17].detach() if len(out) > 17 else None       # the miss ledger (cass/tri twin)
+        self._pex = (self._deposit_exterior(self._fate, torch.as_tensor(np.asarray(soil), dtype=torch.float32, device=self._fate.device))
+                     if self._fate is not None else None)              # exterior flux, the torch twin of pex
         through = through_b.float() * w_ray
+        self._inlet_thru = (through.sum(1) / w_ray.sum(1).clamp(min=1e-9)).detach().cpu().numpy()   # what the inlet admitted (see the metal branch)
         u = mnt["u"][0].cpu().numpy()
         ub = mnt["ub"][0].cpu().numpy()
         naim = mnt["naim"][0].cpu().numpy()
         el_b = float(mnt["el_b"][0])
         C_dish = mnt["Cd"][0].cpu().numpy()
-        if self.render_mode == "human" and (self.receiver == "focus" or self._cass):
+        if self.render_mode == "human" and self._cass:
+            # THE CASSEGRAIN ENDS AT THE TUBE. 'ok' is the fold chain's M5 acceptance and 'through_b' is gated on it;
+            # this chain has no M5, so both are identically zero however well the machine is working - measured
+            # lit 85.7, pre_tube 76.0, post_tube 28.1, ok 0.0, through_b 0.0, while the megakernel deposited 2.741 kW.
+            # Reporting those two as the last rungs told the renderer every ray was lost, so it drew none of them.
+            # The last stage this chain actually has is post_tube; the delivery itself is accounted in 'per'.
+            self._ladder = dict(
+                shadow=1.0 - float(lit[0].float().mean()),
+                slot=0.0,
+                strip=float((lit[0] & ~graze[0] & ~ok_pre_tube[0]).float().mean()),
+                graze=float((lit[0] & graze[0]).float().mean()),
+                tube=float((ok_pre_tube[0] & ~ok_post_tube[0]).float().mean()),
+                through=float(ok_post_tube[0].float().mean()))
+            self._set_hv(p, h1, h2, h3, ok_post_tube, ok_pre_tube, in_slot, desc, ok_post_tube,
+                         u, el, az, C_dish, ub, naim, el_b)
+        elif self.render_mode == "human" and self.receiver == "focus":
             ok1 = lit & ~graze & (rad1 < self.r_m1)
             self._ladder = dict(
                 shadow=1.0 - float(lit[0].float().mean()),
@@ -3205,13 +3861,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 m5=float((ok_post_tube[0] & ~ok[0]).float().mean()),
                 duct=float((ok[0] & ~through_b[0]).float().mean()),
                 through=float(through[0].float().mean()))
-            self._hv = dict(dish=p[0].cpu().numpy(), fold=h1[0].cpu().numpy(),
-                            m5=h2[0].cpu().numpy(), duct=h3[0].cpu().numpy(),
-                            ok=ok[0].cpu().numpy(), ok_pre=ok_pre_tube[0].cpu().numpy(),
-                            slot=in_slot[0].cpu().numpy(), desc=desc[0].cpu().numpy(),
-                            through=through_b[0].cpu().numpy(),
-                            u=u, el=el, az=float(az), C=C_dish,
-                            ub=ub, naim=naim, el_b=el_b)
+            self._set_hv(p, h1, h2, h3, ok, ok_pre_tube, in_slot, desc, through_b,
+                         u, el, az, C_dish, ub, naim, el_b)
         elif self.render_mode == "human":
             self._ladder = dict(
                 shadow=1.0 - float(lit[0].float().mean()),
@@ -3545,12 +4196,13 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # z 0) and the cook's mouth (R_MOUTH at H_POT); the belly
         # between them is over a metre across, far wider than the
         # cook. z_c and R_S solve those two circles.
-        zc_w = H_POT + Z_CPOT          # sphere centre, world frame
-        z_fl = H_POT - H_DEPTH         # coal-bed floor, world frame
-        XC = R_POT - R_DUCT_WALL       # pot AXIS: 1.21 m behind the
+        _p0 = self._pot0()
+        zc_w = H_POT + _p0["zc"]       # sphere centre, world frame (agent 0's pit)
+        z_fl = H_POT - _p0["hd"]       # coal-bed floor, world frame
+        XC = R_POT - _p0["rdw"]        # pot AXIS: 1.21 m behind the
         xc3 = np.array([XC, 0.0, 0.0])  # built duct mouth
         r_at = lambda zz: float(np.sqrt(max(
-            R_SPH*R_SPH - (zz - zc_w)**2, 1e-6)))
+            _p0["rs"]*_p0["rs"] - (zz - zc_w)**2, 1e-6)))
         pot_prof = [(zz, r_at(zz))
                     for zz in np.linspace(z_fl, H_POT, 22)]
         for zz, rr_ in pot_prof:
@@ -3648,7 +4300,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                        t_[2] + H_POT])
             Mw = p2w(M_)
             ph0_ = float(self.spot_phi[0]); zt0_ = float(self.spot_z[0])
-            rt_ = float(np.sqrt(max(R_SPH**2 - (zt0_ - Z_CPOT)**2,
+            rt_ = float(np.sqrt(max(self._pot0()["rs"]**2 - (zt0_ - self._pot0()["zc"])**2,
                                     1e-4))) * 0.995
             Tw = p2w([rt_*np.cos(ph0_), rt_*np.sin(ph0_), zt0_])
             nrm_ = Tw - Mw
@@ -3872,9 +4524,67 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 off_ = self.r_bore*(np.cos(aa)*e1_ + np.sin(aa)*e2_)
                 pr.draw_line_3d(v3(Ff_ + max(t_deck, 0.0)*ax_ + off_),
                                 v3(P4_ + off_), (120, 104, 88, 255))
-            disc(P4_, n4_, self.r_m4, (160, 220, 240, 235), 20)     # M4 (ellipsoid patch)
-            pr.draw_line_3d(v3(P4_), v3(F4_), (120, 220, 235, 200))
+            # THE RECEIVER AS BUILT, FOR THE AGENT ON SCREEN.  Row 0 of the design
+            # table, not the env's nominal - under design_rand those are different
+            # machines and the nominal one is nobody's.
+            _f0 = (self._fct[0].detach().cpu().numpy() if torch.is_tensor(self._fct)
+                   else np.asarray(self._fct)[0])
+            P4b = _f0[15:18].astype(np.float64)
+            r_m4b, r_ductb = float(_f0[29]), float(_f0[39])
+            tri_b = float(_f0[self.DS["recv"]]) > 0.5
+            phw_b = float(_f0[self.DS["phw"]])
+            psi_b = float(np.clip(np.asarray(self.spot_phi, dtype=np.float64).ravel()[0]
+                                  - _SP0, -phw_b, phw_b))
+            F4b = self.tri_target(psi_b) if tri_b else np.asarray(self.cs_F4, dtype=np.float64)
+
+            def hoop(c, nrm, r, col, seg=48):
+                """rim only, so two circles in the same plane can be compared by eye"""
+                n_ = np.asarray(nrm, float); n_ = n_ / max(np.linalg.norm(n_), 1e-9)
+                e1 = np.cross(n_, [0.0, 0.0, 1.0])
+                if np.linalg.norm(e1) < 1e-6:
+                    e1 = np.array([1.0, 0.0, 0.0])
+                e1 = e1 / np.linalg.norm(e1); e2 = np.cross(n_, e1)
+                c = np.asarray(c, float)
+                p_ = [c + r*(np.cos(t)*e1 + np.sin(t)*e2)
+                      for t in np.linspace(0, 2*np.pi, seg + 1)]
+                for j_ in range(seg):
+                    pr.draw_line_3d(v3(p_[j_]), v3(p_[j_+1]), col)
+
+            disc(P4b, n4_, r_m4b, (160, 220, 240, 235), 20)         # M3 AT ITS BUILT RADIUS
+            hoop(P4b, n4_, r_m4b, (205, 240, 255, 255))
             pr.draw_sphere(v3(F2_), 0.06, (120, 220, 235, 255))       # F2
+
+            # THE INLET, drawn where _bin_pot actually gates it: a circle of radius
+            # r_duct at (R_POT, 0, Z_DUCT), normal down the duct - and beside it the
+            # beam's OWN footprint in that plane.  On 'tri' the beam passes the hole
+            # on its way to the loaf, so the gap between these two circles IS the
+            # clipping: at r_duct 0.20 the hole passes 4.4% of the cone's area, at
+            # 0.55 it passes 33%, at 0.85 it passes 80%.
+            inl_c = np.array([float(R_POT), 0.0, float(Z_DUCT)])
+            xh_ = np.array([1.0, 0.0, 0.0])
+            dx_ = float(F4b[0] - P4b[0])
+            if abs(dx_) > 1e-9:
+                t_ = (inl_c[0] - P4b[0]) / dx_
+                hit_ = P4b + t_ * (F4b - P4b)
+                r_beam = r_m4b * float(np.linalg.norm(hit_ - F4b)) \
+                    / max(float(np.linalg.norm(F4b - P4b)), 1e-9)
+                hoop(inl_c, xh_, r_beam, (255, 205, 110, 225))        # what arrives
+            disc(inl_c, xh_, r_ductb, (255, 110, 90, 40), 28)         # what fits through
+            hoop(inl_c, xh_, r_ductb, (255, 110, 90, 255))
+
+            # WHAT THE POLICY IS DOING WITH M3.  The faint arc is every loaf the
+            # mirror can reach (+-phw about SPOT_PHI0, the design table's own travel
+            # column); the bright ray is where the actuator has it aimed THIS step.
+            if tri_b:
+                arc_ = [self.tri_target(p_) for p_ in np.linspace(-phw_b, phw_b, 25)]
+                for j_ in range(len(arc_) - 1):
+                    pr.draw_line_3d(v3(arc_[j_]), v3(arc_[j_+1]), (90, 150, 170, 150))
+                for p_ in (-phw_b, phw_b):
+                    pr.draw_sphere(v3(self.tri_target(p_)), 0.05, (90, 150, 170, 210))
+                pr.draw_line_3d(v3(P4b), v3(F4b), (120, 220, 235, 235))
+                pr.draw_sphere(v3(F4b), 0.09, (255, 230, 140, 255))   # the commanded loaf
+            else:
+                pr.draw_line_3d(v3(P4b), v3(F4b), (120, 220, 235, 200))
             Q_ = Ff_ - self.d_strip*self.cs_A if self.sec_side == "greg" else Ff_
             pr.draw_line_3d(v3(Ps_), v3(Q_), colt)                    # the arm
             for zz in np.linspace(self.z_deck, Ps_[2], 6):            # north tower
@@ -4193,16 +4903,48 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             if 8 < sp.x < 960 and 8 < sp.y < HT - 12:
                 pr.draw_text(txt, int(sp.x) - 12, int(sp.y) - 6, 13,
                              (col[0], col[1], col[2], 235))
+        # THE SURFACE TAGS: every surface after the secondary that took rays, labelled
+        # where the rays landed with what landed there (see _surface_tags)
+        _tags = []
+        for wp, txt, col in self._surface_tags():
+            if wp is None:                                   # the totals line, top-left
+                pr.draw_text(txt, 20, 36, 14, (col[0], col[1], col[2], 235)); continue
+            sp = pr.get_world_to_screen(v3(wp), cam)
+            if 8 < sp.x < 960 and 8 < sp.y < HT - 12:
+                _tags.append([float(sp.x), float(sp.y), txt, col])
+        # A tag sits AT its surface. Only when its text box would lie on top of one
+        # already drawn is it dropped a line (up to three), with a leader back to the
+        # anchor so it still reads as that surface's. The anchor dot never moves.
+        _placed = []                                      # (x0, x1, y0, y1) of drawn text boxes
+        for x_, y_, txt, col in sorted(_tags, key=lambda t_: t_[1]):
+            pr.draw_circle(int(x_), int(y_), 3.0, (col[0], col[1], col[2], 255))     # the anchor
+            w_ = 7.0 * len(txt); tx_, ty_ = x_ + 7.0, y_ - 6.0
+            for _k in range(4):
+                box = (tx_, tx_ + w_, ty_, ty_ + 13.0)
+                if not any(box[0] < b[1] and box[1] > b[0] and box[2] < b[3] and box[3] > b[2] for b in _placed):
+                    break
+                ty_ += 13.0
+            if ty_ > y_ - 6.0 + 0.5:                       # moved: leader from the anchor to the text
+                pr.draw_line(int(x_), int(y_), int(tx_), int(ty_ + 6.0), (col[0], col[1], col[2], 160))
+            pr.draw_text(txt, int(tx_), int(ty_), 13, (col[0], col[1], col[2], 235))
+            _placed.append((tx_, tx_ + w_, ty_, ty_ + 13.0))
         self._draw_bread_strip(pr, 1015, 26)
         self._draw_disturbances(pr, 1015, 120)
         if self._cass:
             tilt_ = np.degrees(np.arccos(np.clip(-self.cs_A[2], -1, 1)))
             hud = [f"dish f {self.f_nom:.1f} m hinged at F, {self.post_offset:.1f} m N of wall",
                    f"{'ellipsoid' if self.sec_side == 'greg' else 'hyperboloid'} strip d {self.d_strip:.1f} m, foci F & F2, mag {self.cs_mag:.1f}",
-                   (f"bore r {self.r_bore:.1f}; M3 ellipsoid r {self.r_m4:.1f} aimed at the bread, "
-                    f"turn {np.degrees(float(self.spot_phi[0]) - _SP0):+.0f} deg -> slot {int(self.tri_aim_bin()[0])}; inlet r {self.r_duct:.2f}"
-                    if self.tri else
-                    f"bore r {self.r_bore:.1f}, {tilt_:.0f} deg; F2 {self.u_f2:.1f} m up; M4 ellipsoid r {self.r_m4:.1f}"),
+                   ((lambda rm, rd, rb, fr, tn, sp:
+                     # one HUD row is ~55 characters before it runs under the graphs: the built
+                     # sizes, the commanded turn against its travel, and what the inlet admits
+                     f"bore {self.r_bore:.1f} M3 r{rm:.2f} turn {tn:+.0f}/{sp:.0f}d slot{int(self.tri_aim_bin()[0])} "
+                     f"inlet r{rd:.2f} {100*fr:.0f}%thru"
+                     )(*self.receiver0())
+                    if self.tri0() else
+                    (lambda rm, rd, rb, fr, tn, sp:
+                     f"bore r {self.r_bore:.1f}, {tilt_:.0f} deg; F2 {self.u_f2:.1f} m up; "
+                     f"M4 r{rm:.2f}  inlet r{rd:.2f} = {100*fr:.0f}% thru (waist)"
+                     )(*self.receiver0())),
                    f"strip {self.strip_th_lo:.0f}-{self.strip_th_hi:.0f} deg x {self.w_strip:.1f} m, shadow "
                    f"{self.obstruction*100:.0f}%"]
         elif self.receiver == "focus":
@@ -4255,7 +4997,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                       [(h_["rew"], (140, 220, 140, 255), "r/step"),
                        (h_["ret"], (200, 160, 240, 255), "ret/100")],
                       tspan=tsp, fmt=".1f")
-        if self.tri:
+        if self.tri0():
             foot1 = ("EXACT, THREE MIRRORS: dish -> rotating conic strip at the focus "
                      "(foci F, F2) -> straight bore -> M3 at the turn -> THE BREAD. No elbow.")
             foot2 = ("M3 turns about the bore's own axis to choose the roti, so the cone "

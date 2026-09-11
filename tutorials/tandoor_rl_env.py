@@ -72,6 +72,18 @@ SIGMA = 5.67e-8
 WALL_MATERIALS = {"clay": (0.9, 1900 * 880),
                   "firebrick": (1.1, 2100 * 1000),
                   "ifb": (0.25, 550 * 1000)}
+#: THE INSULATING SHELL round the pit (user, 2026-09-10: aerocrete as a shell): the annulus
+#: outside the wall that ins_scale stands for. (k [W/mK], rho*cp [J/m3K], PKR per m3 LAID -
+#: None = priced by tandoor_bom's researched per-unit perlite line instead).
+#: The thickness a given ins_scale needs is inverted from the pit's own spherical series
+#: (TandoorHashemiEnv.shell_spec), so a material with twice the k needs ~twice the annulus.
+#: 'aac' is autoclaved aerated concrete: block masonry the local trade lays, structural,
+#: ~0.5 MJ/m3K of mass on the warm side, fine to ~750 K - and about 2.5x worse per cm than
+#: fibre or perlite. Its k DOUBLES damp, so underground it needs a membrane and drainage.
+SHELL_MATERIALS = {"perlite":   (0.06, 100 * 1000, None),
+                   "glasswool": (0.05, 30 * 800, None),
+                   "aac":       (0.12, 500 * 1000, 10500.0)}   # PLACEHOLDER PRICE (block ~8000 + laying ~2500 per m3): UNRESEARCHED, replace from a quote
+SHELL_AAC_DAMP_K = 0.25          # what damp AAC does to the same shell (a design condition, not a material choice)
 T_AMB = 300.0
 # the REAL bakery loads from 180 C (user): the gate is physical
 # permission, not judgment - economics (doughy, char, beam service)

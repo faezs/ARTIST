@@ -57,8 +57,12 @@ def _rot_about_axis(u, ax, ang):
             + ax * d * (1.0 - c))
 
 
-def solar_batch(lat_deg, day, hour):
-    """el [deg], az [rad], sun unit vector (ENU) - all (B,)/(B,3)."""
+def solar_batch(lat_deg, day, hour, az_off=None):
+    """el [deg], az [rad], sun unit vector (ENU) - all (B,)/(B,3).
+    az_off (B,) rad: THE SITE'S ORIENTATION (2026-09-10) - the sun's azimuth is
+    rotated by -az_off into the machine's frame, so a roof turned 30 deg east sees
+    the same sun 30 deg later in its own frame. The MSL mount (mount_solve) reads
+    the same offset from fct[75]; the numpy step subtracts env._ds_azs."""
     phi = torch.deg2rad(lat_deg)
     delta = np.radians(23.44) * torch.sin(
         2.0 * np.pi * (284.0 + day) / 365.0)
@@ -72,6 +76,8 @@ def solar_batch(lat_deg, day, hour):
         torch.cos(el) * torch.cos(phi)).clamp(min=1e-9)
     az = torch.arccos(cos_az.clamp(-1, 1))
     az = torch.where(h > 0, 2.0 * np.pi - az, az)
+    if az_off is not None:
+        az = torch.remainder(az - az_off.to(az.dtype).reshape(az.shape), 2.0 * np.pi)
     s = torch.stack([torch.cos(el) * torch.sin(az),
                      torch.cos(el) * torch.cos(az),
                      sin_el], -1)
@@ -151,7 +157,9 @@ def mount_batch(env, day, lat, hour, dev, pnt=None):
     vp (B,7,3), Mt (B,3,3), Cd (B,3), Acan (B,3,3),
     scb (B,6) = [cosi, slot_w2_or_off, kt, ks, ray_scale, el_ok],
     el (B,) deg, el_b (B,) deg, u (B,3)."""
-    el, az, s = solar_batch(lat, day, hour)
+    _fct = getattr(env, "_fct", None); _ds = getattr(env, "DS", {})
+    az_off = _fct[:, _ds["azs"]] if (_fct is not None and "azs" in _ds and _fct.shape[1] > _ds["azs"]) else None
+    el, az, s = solar_batch(lat, day, hour, az_off=az_off)
     u = torch.stack([s[:, 1], s[:, 0], s[:, 2]], -1)
     u = u / u.norm(dim=-1, keepdim=True)          # the SUN direction
     B = u.shape[0]

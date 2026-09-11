@@ -45,6 +45,11 @@
   "fabrication_days": 6.0,
   "install_days": 4.0,
   "transport": 7500.0,
+  "chase_m2": 2000.0,
+  "roof_collar_light": 8000.0,
+  "psu_grid": 10000.0,
+  "fab_trunnion": 12500.0,
+  "m4_facet_m2": 6000.0,
   "install_day": 3300.0
  },
  "nominal": [
@@ -150,11 +155,11 @@
   {
    "group": "mount",
    "item": "mast head bearing",
-   "spec": "azimuth trunnion",
+   "spec": "fabricated trunnion: two UCP206 on a turned shaft",
    "unit": "unit",
    "qty": 1.0,
-   "unit_pkr": 38000.0,
-   "pkr": 38000.0
+   "unit_pkr": 12500.0,
+   "pkr": 12500.0
   },
   {
    "group": "mount",
@@ -258,7 +263,7 @@
   {
    "group": "control",
    "item": "power",
-   "spec": "100 W PV + battery + charger",
+   "spec": "100 W PV + battery + charger (no reliable grid)",
    "unit": "set",
    "qty": 1.0,
    "unit_pkr": 26000.0,
@@ -303,16 +308,16 @@
   {
    "group": "receiver",
    "item": "bore duct",
-   "spec": "GI sheet below the deck, r 0.70 m x 4.9 m",
+   "spec": "plastered brick chase below the deck, 1.40 m square x 4.9 m",
    "unit": "m2",
-   "qty": 21.375396415024955,
-   "unit_pkr": 3500.0,
-   "pkr": 74813.88745258734
+   "qty": 27.216,
+   "unit_pkr": 2000.0,
+   "pkr": 54432.0
   },
   {
    "group": "receiver",
    "item": "roof penetration",
-   "spec": "opening 1.4 m: collar, flashing, waterproofing",
+   "spec": "concrete slab, opening 1.4 m: collar, flashing, waterproofing",
    "unit": "job",
    "qty": 1.0,
    "unit_pkr": 60000.0,
@@ -321,7 +326,7 @@
   {
    "group": "receiver",
    "item": "M4 mirror",
-   "spec": "polished Al ellipsoid patch",
+   "spec": "polished Al ellipsoid patch, doubly curved",
    "unit": "m2",
    "qty": 5.3092915845667505,
    "unit_pkr": 16000.0,
@@ -357,7 +362,7 @@
   {
    "group": "receiver",
    "item": "inlet work",
-   "spec": "widen the native inlet",
+   "spec": "widen the native inlet to r 0.20 m",
    "unit": "job",
    "qty": 1.0,
    "unit_pkr": 5000.0,
@@ -503,11 +508,11 @@
   {
    "group": "mount",
    "item": "mast head bearing",
-   "spec": "azimuth trunnion",
+   "spec": "fabricated trunnion: two UCP206 on a turned shaft",
    "unit": "unit",
    "qty": 1.0,
-   "unit_pkr": 38000.0,
-   "pkr": 38000.0
+   "unit_pkr": 12500.0,
+   "pkr": 12500.0
   },
   {
    "group": "mount",
@@ -611,7 +616,7 @@
   {
    "group": "control",
    "item": "power",
-   "spec": "100 W PV + battery + charger",
+   "spec": "100 W PV + battery + charger (no reliable grid)",
    "unit": "set",
    "qty": 1.0,
    "unit_pkr": 26000.0,
@@ -656,16 +661,16 @@
   {
    "group": "receiver",
    "item": "bore duct",
-   "spec": "GI sheet below the deck, r 0.70 m x 4.9 m",
+   "spec": "plastered brick chase below the deck, 1.40 m square x 4.9 m",
    "unit": "m2",
-   "qty": 21.375396415024955,
-   "unit_pkr": 3500.0,
-   "pkr": 74813.88745258734
+   "qty": 27.216,
+   "unit_pkr": 2000.0,
+   "pkr": 54432.0
   },
   {
    "group": "receiver",
    "item": "roof penetration",
-   "spec": "opening 1.4 m: collar, flashing, waterproofing",
+   "spec": "concrete slab, opening 1.4 m: collar, flashing, waterproofing",
    "unit": "job",
    "qty": 1.0,
    "unit_pkr": 60000.0,
@@ -674,7 +679,7 @@
   {
    "group": "receiver",
    "item": "M4 mirror",
-   "spec": "polished Al ellipsoid patch",
+   "spec": "polished Al ellipsoid patch, doubly curved",
    "unit": "m2",
    "qty": 5.3092915845667505,
    "unit_pkr": 16000.0,
@@ -710,7 +715,7 @@
   {
    "group": "receiver",
    "item": "inlet work",
-   "spec": "widen the native inlet",
+   "spec": "widen the native inlet to r 0.20 m",
    "unit": "job",
    "qty": 1.0,
    "unit_pkr": 5000.0,

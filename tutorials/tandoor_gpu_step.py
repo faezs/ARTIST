@@ -135,7 +135,8 @@ def gpu_step(env, actions):
     S.el_m = (S.el_m + r_el * dt + 0.02 * S.n(B)).clamp(
         env.el_min_h - 2.0, env.el_max_h + 1.0)
     e_el = S.el_m - el0s
-    e_az = (S.az_m - az0d) * torch.cos(torch.deg2rad(el0s))
+    _daz = S.az_m - az0d; _daz = _daz - 360.0 * torch.round(_daz / 360.0)     # on the circle (site frame, wrapped sun)
+    e_az = _daz * torch.cos(torch.deg2rad(el0s))
 
     # ---- polar step: heads, jam, servo
     # sticky engagement: heads 0-2 latch, fresh actions land only on

@@ -203,7 +203,16 @@ def bom(d, prices=None):
         add("receiver", "inlet lintel", "steel lintel and reinforcement over a wide opening", "job", 1, 6000.0)
     if ins < 0.98:
         add("pit", "insulation trench dig", "narrow trench round the pit", "job", 1, U["trench_dig"])
-        add("pit", "trench fill", "perlite / rice-husk ash", "unit", 1.0 / ins - 1.0, U["trench_fill_unit"])
+        _sh = d.get("shell_name", "perlite")
+        try:
+            from tandoor_rl_env import SHELL_MATERIALS as _SM
+            _pkr = _SM.get(_sh, (None, None, None))[2]
+        except Exception:
+            _pkr = None
+        if _pkr is None or "shell_m3" not in d:
+            add("pit", "trench fill", "perlite / rice-husk ash", "unit", 1.0 / ins - 1.0, U["trench_fill_unit"])
+        else:
+            add("pit", "insulating shell", f"{_sh} annulus {float(d.get('shell_t', 0.0))*100:.0f} cm laid (PRICE UNRESEARCHED)", "m3", float(d["shell_m3"]), _pkr)
     if sand_d > 0.01:
         add("pit", "sand", "washed", "m3", sand_v, U["sand_m3"])
         add("pit", "sand box", "dig-out + lining", "job", 1, U["sand_box"])

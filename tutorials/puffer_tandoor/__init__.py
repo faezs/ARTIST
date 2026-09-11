@@ -114,6 +114,22 @@ _spec5.loader.exec_module(_mod5)
 TandoorHashemiEnv = _mod5.TandoorHashemiEnv
 
 
+_spec7 = importlib.util.spec_from_file_location(
+    "tandoor_flower_env", _tutorials / "tandoor_flower_env.py")
+_mod7 = importlib.util.module_from_spec(_spec7)
+sys.modules.setdefault("tandoor_flower_env", _mod7)
+_spec7.loader.exec_module(_mod7)
+TandoorFlowerEnv = _mod7.TandoorFlowerEnv
+
+# the flower's own inner loop: 1 kHz, its own actuators, a flux camera for eyes
+_spec8 = importlib.util.spec_from_file_location(
+    "tandoor_flower_fast", _tutorials / "tandoor_flower_fast.py")
+_mod8 = importlib.util.module_from_spec(_spec8)
+sys.modules.setdefault("tandoor_flower_fast", _mod8)
+_spec8.loader.exec_module(_mod8)
+TandoorFlowerFastEnv = _mod8.TandoorFlowerFastEnv
+
+
 _spec6 = importlib.util.spec_from_file_location(
     "electroform_env", _tutorials / "electroform_env.py")
 _mod6 = importlib.util.module_from_spec(_spec6)
@@ -125,6 +141,10 @@ ElectroformEnv = _mod6.ElectroformEnv
 def env_creator(name="puffer_tandoor"):
     if "electroform" in name or "plating" in name:
         return functools.partial(ElectroformEnv)
+    if "flower" in name and ("fast" in name or "khz" in name):
+        return functools.partial(TandoorFlowerFastEnv)
+    if "flower" in name:
+        return functools.partial(TandoorFlowerEnv)
     if "hashemi" in name:
         return functools.partial(TandoorHashemiEnv)
     if "coude" in name:

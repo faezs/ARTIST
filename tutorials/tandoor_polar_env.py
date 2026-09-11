@@ -415,18 +415,49 @@ class TandoorPolarEnv(TandoorEnv):
         apart downstream of the optics."""
         # jet origin on the sphere wall at the duct mouth
         ox = pxp
-        oy = torch.full_like(pxp, -R_DUCT_WALL)
+        # THE PIT, PER AGENT (Hashemi carries _ds_rs_t etc. from its design table; the
+        # polar/coude envs keep the nominal constants). Shapes (B,1) against the (B,P) rays.
+        _B = pxp.shape[0]
+        def _pot(name, const):
+            v = getattr(self, name, None)
+            return const if v is None else v.to(pxp.dtype).reshape(_B, 1)
+        RS_, ZC_, RDW_, HD_ = _pot("_ds_rs_t", R_SPH), _pot("_ds_zc_t", Z_CPOT), _pot("_ds_rdw_t", R_DUCT_WALL), _pot("_ds_hd_t", H_DEPTH)
+        oy = -RDW_ * torch.ones_like(pxp)
         oz = pyp + Z_DUCT
+        # THE ELBOW IS PER AGENT (2026-09-08). It used to be self.duct_nozzle, one
+        # class for the whole env - which is exactly the assumption that breaks once
+        # 'receiver' is a design column, because a batch then holds three-mirror
+        # machines (no elbow: M3 already threw the beam at the loaf) beside
+        # Cassegrains (the concave elbow re-images the mouth onto the wall). _ds_noz_t
+        # is the design table's noz column; without it (no design_rand) this falls
+        # back to the scalar and computes exactly what it always did.
         noz = getattr(self, "duct_nozzle", 0)
-        if noz == 1:
+        _nzc = getattr(self, "_ds_noz_t", None)
+        if _nzc is not None and _nzc.shape[0] == pxp.shape[0]:
+            _nzc = _nzc.to(dtype=pxp.dtype, device=pxp.device)
+            _m1 = ((_nzc > 0.5) & (_nzc < 1.5))[:, None]
+            _m2 = (_nzc >= 1.5)[:, None]
+            _do1, _do2 = bool(_m1.any()), bool(_m2.any())
+        else:
+            _m1 = _m2 = None
+            _do1, _do2 = (noz == 1), (noz == 2)
+
+        def _pick(m, new, old):
+            return new if m is None else torch.where(m, new, old)
+
+        def _atten(m, k, thr):
+            return thr * k if m is None else thr * (1.0 - (1.0 - k) * m.to(thr.dtype))
+
+        if _do1:
             # polished flat elbow: aims the jet at the coal bed. One
             # extra reflection: x0.95.
             cn, sn = self._nozzle_cs
             dy2 = cn * dyw - sn * dzw
-            dzw = sn * dyw + cn * dzw
-            dyw = dy2
-            through = through * 0.95
-        elif noz == 2:
+            dz2 = sn * dyw + cn * dzw
+            dyw = _pick(_m1, dy2, dyw)
+            dzw = _pick(_m1, dz2, dzw)
+            through = _atten(_m1, 0.95, through)
+        if _do2:
             # CONCAVE elbow on its 2-DOF mount: images the duct waist
             # onto the wall point (spot_phi, spot_z) - per env, per
             # step. Thin-mirror model: propagate to the mirror plane,
@@ -440,7 +471,7 @@ class TandoorPolarEnv(TandoorEnv):
             ph = torch.as_tensor(sp, dtype=dt_, device=dv_)[:, None]
             zt = torch.as_tensor(szv, dtype=dt_, device=dv_)[:, None]
             rt = torch.sqrt(
-                (R_SPH**2 - (zt - Z_CPOT)**2).clamp(min=1e-4)) * 0.999
+                (RS_**2 - (zt - ZC_)**2).clamp(min=1e-4)) * 0.999
             a1x = rt * torch.cos(ph) - M[0]
             a1y = rt * torch.sin(ph) - M[1]
             a1z = zt - M[2]
@@ -466,44 +497,46 @@ class TandoorPolarEnv(TandoorEnv):
                 return (x + cx + k1*(vy*cz - vz*cy),
                         y + cy + k1*(vz*cx - vx*cz),
                         z + cz + k1*(vx*cy - vy*cx))
-            dxw, dyw, dzw = _rot(dxw, dyw, dzw)
+            ex, ey, ez = _rot(dxw, dyw, dzw)
             px, py, pz = _rot(px, py, pz)
             qpar = px*a1x + py*a1y + pz*a1z
-            dxw = dxw - (px - qpar*a1x) / f
-            dyw = dyw - (py - qpar*a1y) / f
-            dzw = dzw - (pz - qpar*a1z) / f
-            nrm = torch.sqrt(dxw*dxw + dyw*dyw
-                             + dzw*dzw).clamp(min=1e-9)
-            dxw, dyw, dzw = dxw / nrm, dyw / nrm, dzw / nrm
-            ox = M[0] + px
-            oy = M[1] + py
-            oz = M[2] + pz
-            through = through * 0.95
+            ex = ex - (px - qpar*a1x) / f
+            ey = ey - (py - qpar*a1y) / f
+            ez = ez - (pz - qpar*a1z) / f
+            nrm = torch.sqrt(ex*ex + ey*ey + ez*ez).clamp(min=1e-9)
+            ex, ey, ez = ex / nrm, ey / nrm, ez / nrm
+            dxw = _pick(_m2, ex, dxw)
+            dyw = _pick(_m2, ey, dyw)
+            dzw = _pick(_m2, ez, dzw)
+            ox = _pick(_m2, M[0] + px, ox)
+            oy = _pick(_m2, M[1] + py, oy)
+            oz = _pick(_m2, M[2] + pz, oz)
+            through = _atten(_m2, 0.95, through)
         # strike the SPHERE (the real pit); where the far root dives
         # below the coal bed the ray lands on the floor disc instead
         # (the sphere meets z=-H_DEPTH exactly at r=R_POT, so the
         # crossing is always inside the disc)
-        ozc = oz - Z_CPOT
+        ozc = oz - ZC_
         aq = dxw**2 + dyw**2 + dzw**2
         bq = ox * dxw + oy * dyw + ozc * dzw
-        cq = ox**2 + oy**2 + ozc**2 - R_SPH**2
+        cq = ox**2 + oy**2 + ozc**2 - RS_**2
         t_wall = (-bq + torch.sqrt((bq**2 - aq * cq).clamp(min=0))) \
             / aq.clamp(min=1e-9)
         sz_s = oz + t_wall * dzw
-        hit_floor = sz_s < -H_DEPTH
-        t_floor = (-H_DEPTH - oz) / dzw.clamp(max=-1e-6)
+        hit_floor = sz_s < -HD_
+        t_floor = (-HD_ - oz) / dzw.clamp(max=-1e-6)
         fx, fy = ox + t_floor * dxw, oy + t_floor * dyw
         wz = oz + t_wall * dzw
         sx = torch.where(hit_floor, fx, ox + t_wall * dxw)
         sy = torch.where(hit_floor, fy, oy + t_wall * dyw)
-        sz = torch.where(hit_floor, torch.full_like(wz, -H_DEPTH), wz)
+        sz = torch.where(hit_floor, -HD_ * torch.ones_like(wz), wz)
         phi = torch.atan2(sy, sx)
         seg = ((phi + np.pi) / (2 * np.pi) * self.n_belt).long().clamp(
             0, self.n_belt - 1)
         seg4 = ((phi + np.pi) / (2 * np.pi) * N_LOWER).long().clamp(
             0, N_LOWER - 1)
         node = torch.where(
-            hit_floor | (sz < Z_HEARTH),
+            hit_floor | (sz < -HD_ + 0.12),
             torch.full_like(seg, self.n_belt),          # hearth = coal bed
             torch.where(sz > Z_CROWN,
                         torch.full_like(seg, self.n_belt + 2),  # near mouth
@@ -543,7 +576,9 @@ class TandoorPolarEnv(TandoorEnv):
         # loaf's, accumulated in n_belt loaf columns after the nodes
         NB = self.n_belt; N = self.n_nodes
         zb = 0.5 * (Z_BAKE_LO + Z_CROWN)
-        rb = float(np.sqrt(max(R_SPH**2 - (zb - Z_CPOT)**2, 1e-6)))
+        # the bake row's radius on THIS agent's sphere (the kernel's rb), shaped like phi
+        rb = torch.sqrt((RS_**2 - (zb - ZC_)**2).clamp(min=1e-6))
+        rb = rb.expand(phi.shape) if phi.shape[0] == B and phi.dim() == 2 else rb.repeat_interleave(phi.numel() // B).view(phi.shape)
         hl = float(np.sqrt(self.bread_area) / 2.0)
         hl_t = getattr(self, "_ds_lfp_t", None)       # per-env roti size
         if hl_t is not None and hl_t.shape[0] == B:

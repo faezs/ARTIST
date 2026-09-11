@@ -53,7 +53,8 @@ static inline bool hits_column(float px, float py, float pz,
 // step-kernel capacity guards (host asserts n_nodes/n_belt fit)
 #define NMAX 20
 #define NBMAX 12
-#define FCTW 72   // per-env design table width: [0..39] receiver, [40..59] system, [60] surface block, [70] sand depth, [71] sand conductivity
+#define NX 37     // EXTERIOR SURFACE BINS (the miss ledger as flux): 0-7 collar by azimuth, 8-13 bore wall by height, 14 deck, 15-18 pot exterior by latitude, 19 pit floor, 20 escaped, 21-24 dish blocks the return (by dish radius), 25-28 strip shadow (by radius), 29-32 slot (by radius), 33 hole, 34 F arm, 35 strip window, 36 missed the conic
+#define FCTW 82   // per-env design table width: [0..39] receiver chain, [40..59] system, [60] surface block, [70] sand depth, [71] sand conductivity, [72] receiver kind (0 cass / 1 tri), [73] elbow class, [74] aim half-travel [rad], [75] site azimuth offset [rad], [76..77] pit radius/depth scales, [78..81] the pit sphere: Z_CPOT, R_SPH, R_DUCT_WALL, H_DEPTH
 #define KSAND 8   // layers of the sand column under the hearth and the floor (>= 5 cm each)
 #define RU 20     // uniforms per agent per step: [0] cloud, [1..15] fresh-pot temps, [16..19] the demand process
 #define NDEM 3    // demand state per agent at the row's end: orders waiting, rotis on the shelf, sold today
@@ -94,7 +95,7 @@ kernel void mount_solve(
     device float*       Cd_o   [[buffer(2)]],   // (B,3)
     device float*       Ac_o   [[buffer(3)]],   // (B,9)
     device float*       scb_o  [[buffer(4)]],   // (B,7): cosi, slot, kt, ks, ray_scale, el_ok, psi
-    device float*       aux_o  [[buffer(5)]],   // (B,8) el,azd,elb,ub3,beta
+    device float*       aux_o  [[buffer(5)]],   // (B,8) el [deg], az [RAD - measured, not deg], elb, ub3, beta
     device const float* day    [[buffer(6)]],
     device const float* lat    [[buffer(7)]],
     device const float* prm    [[buffer(8)]],   // params + shadow tables
@@ -125,6 +126,8 @@ kernel void mount_solve(
         / max(cos(elr)*cos(phi), 1e-9f);
     float az = acos(clamp(cosaz, -1.0f, 1.0f));
     if (hh > 0.0f) az = 2.0f*PI_ - az;
+    az = az - ds_m[75];                                  // THE SITE'S ORIENTATION: the sun in the machine's frame (solar_batch az_off)
+    az = az - 2.0f*PI_*floor(az/(2.0f*PI_));
     float3 u = float3(cos(elr)*cos(az), cos(elr)*sin(az), sinel);
     u = normalize(u);          // ENU swapped: x=north comp = cos*cos
     // THE POINTING IS REAL: the dish frame from the mount (pnt), the
@@ -394,7 +397,9 @@ kernel void tandoor_trace(
     device const float* aim    [[buffer(25)]],  // (B,3) elbow aim dirs
     device const float* scb    [[buffer(26)]],  // (B,6) cosi,slot,kt,ks,rs,ok
     device const float* lfp    [[buffer(27)]],  // [0] loaf half-size (m): the footprint comes from the trace
-    device const float* fct    [[buffer(28)]],  // (B,40) PER-ENV receiver table (cass): _fc_table + r_duct
+    device const float* fct    [[buffer(28)]],  // (B,FCTW) PER-AGENT design table: _fc_table + r_duct (0..39), the system block (40..), and the receiver's own columns (72 kind, 73 elbow, 74 aim travel)
+    device float*       fate   [[buffer(29)]],  // (B*P,6) THE MISS LEDGER: [0] fate code, [1..3] the world point the ray stopped at, [4] surface id, [5] exterior bin (see mk_ block)
+    device float*       pex    [[buffer(30)]],  // (B,NX) EXTERIOR FLUX: a missed ray's power deposited on the surface it stopped at - the pot's per_dni, for everything that is not the pot
     uint tid [[thread_position_in_grid]])
 {
     const int B = dims[0], P = dims[1], L = dims[2];
@@ -461,6 +466,8 @@ kernel void tandoor_trace(
 
     // ==== shared outputs of the two receiver chains
     bool sh_thr = false; float sh_w = 1.0f;
+    float sh_fate = -1.0f; float3 sh_stop = float3(0.0f, 0.0f, 0.0f);  // the miss ledger; -1 = this chain keeps none (fold/focus)
+    int sh_surf = -1, sh_bin = -1;                                       // ...and the exterior surface / bin it lands its power on
     float3 sh_h3 = float3(0.0f), sh_d3 = float3(0.0f);
     float sh_dy = 0.0f, sh_dz = 0.0f;
     if (sc[106] > 0.5f && sc[106] < 1.5f) {
@@ -562,9 +569,13 @@ kernel void tandoor_trace(
     const float3 cs_ud = sdir;                     // the dish axis (mount row 2)
     const float3 cs_Hc = cs_F + cs_side*cs_d*cs_ud;
     // ---- sun leg: the strip (sphere), the hole, the open slot, the arm
-    bool cs_lit = !fc_blocked(p, ut, cs_Hc, cs_rstrip);
+    // the four sun-leg shadows, kept apart for the miss ledger (codes 11..14)
+    bool mk_shStrip = fc_blocked(p, ut, cs_Hc, cs_rstrip);
+    bool cs_lit = !mk_shStrip;
     float cs_rhol = sqrt(p_loc.x*p_loc.x + p_loc.y*p_loc.y);
-    cs_lit = cs_lit && (cs_rhol > cs_rhole);
+    bool mk_shHole = !(cs_rhol > cs_rhole);
+    cs_lit = cs_lit && !mk_shHole;
+    bool mk_shSlot = false, mk_shArm = false;
     float3 cs_zl = mrow(float3(0.0f, 0.0f, 1.0f), Mt + b*9);
     float cs_slx = -cs_zl.x, cs_sly = -cs_zl.y;
     float cs_sln = max(sqrt(cs_slx*cs_slx + cs_sly*cs_sly), 1e-9f);
@@ -575,10 +586,12 @@ kernel void tandoor_trace(
         float cs_al0 = p_loc.x*cs_slx + p_loc.y*cs_sly;
         float cs_pp0 = p_loc.x*cs_sly - p_loc.y*cs_slx;
         bool cs_ins0 = cs_slotopen && (cs_al0 > 0.0f) && (fabs(cs_pp0) < 0.5f*cs_wslot);
+        mk_shSlot = cs_ins0;
         cs_lit = cs_lit && !cs_ins0;
     }
     float cs_ts; float cs_ds = fc_seg_dist(p, ut, cs_Ps, cs_Q, cs_ts);
-    cs_lit = cs_lit && (cs_ds > cs_rstrut);
+    mk_shArm = !(cs_ds > cs_rstrut);
+    cs_lit = cs_lit && !mk_shArm;
     // ---- the strip: conic hit
     float cs_t1; float3 cs_h1, cs_nh; bool cs_v1;
     if (cs_greg) {
@@ -728,14 +741,110 @@ kernel void tandoor_trace(
         }
     }
     float3 cs_d5 = cs_d2 - 2.0f*dot(cs_d2, cs_n4)*cs_n4;
+    // A PORT-MOUNTED M3 straddles the duct plane (torch twin: 'inside' block). A ray
+    // that hit the inner half must have come in through the hole, and needs no
+    // outbound crossing: its h5 is the backward extrapolation to the plane.
+    const bool cs_inside = cs_h4.x <= sc[12];
+    const float cs_tin = (sc[12] - cs_h1.x)/min(cs_d2.x, -1e-9f);
+    const float3 cs_hin = cs_h1 + cs_tin*cs_d2;
+    const float cs_dyi = cs_hin.y + off[b*2], cs_dzi = cs_hin.z - sc[11] + off[b*2+1];
+    const bool cs_inok = !cs_inside || ((cs_d2.x < 0.0f) && (cs_tin > 0.0f) && (cs_dyi*cs_dyi + cs_dzi*cs_dzi <= cs_rduct*cs_rduct));
+    cs_ok = cs_ok && cs_inok;
     float cs_t5 = (sc[12] - cs_h4.x)/min(cs_d5.x, -1e-9f);
+    const float cs_t5raw = cs_t5;                       // before the clamp: the ledger needs the real value
     cs_ok = cs_ok && (cs_d5.x < -0.05f) && (cs_t5 < 4.0f);
     cs_t5 = min(cs_t5, 4.0f);
     float3 cs_h5 = cs_h4 + cs_t5*cs_d5;
     sh_dy = cs_h5.y + off[b*2];
     sh_dz = cs_h5.z - sc[11] + off[b*2+1];
-    sh_thr = cs_ok && (cs_t5 > 0.0f) && (sh_dy*sh_dy + sh_dz*sh_dz <= cs_rduct*cs_rduct);
+    sh_thr = cs_ok && (cs_inside || ((cs_t5 > 0.0f) && (sh_dy*sh_dy + sh_dz*sh_dz <= cs_rduct*cs_rduct)));
     sh_w = 1.0f; sh_h3 = cs_h5; sh_d3 = cs_d5;
+    // THE MISS LEDGER (2026-09-10). A ray that fails is not clamped to a sentinel
+    // and forgotten: it gets a fate code - FIRST failure wins - and a stop point on
+    // the surface it actually met, so a loss can be traced to a part.
+    //   0 through the inlet          5 the dish blocks the reflected leg
+    //   1 (unused: split into 11 strip shadow, 12 hole, 13 slot, 14 arm)   6 misses the bore
+    //   2 misses the strip's conic   7 misses M3's aperture
+    //   3 outside the strip window   8 wrong way at the duct plane (the old sentinel)
+    //   4 grazes the arm             9 hits the COLLAR: at the plane, outside r_duct
+    //  10 escapes: no surface within 20 m along its real direction
+    // For 6..9 the stop is the nearest of the bore wall, the deck, the pot's outer
+    // sphere and the pit floor along the ray; for 1..5 it is where the ray stood
+    // when the gate failed - the code names what blocked it. Torch twin: _geo_core_cass.
+    {
+        const float mk_RDW = fct[b*FCTW + 80], mk_ZC = fct[b*FCTW + 78], mk_RS = fct[b*FCTW + 79];   // the pit, per agent (as _bin_pot)
+        const float3 mk_pc = float3(sc[12] - mk_RDW, 0.0f, mk_ZC + 1.0f);           // pot sphere centre, world
+        bool mk_bore = (cs_d2.z < -0.2f) && (cs_adist < cs_rbore);
+        bool mk_m3   = cs_v4 && (length(cs_h4 - cs_P4) < cs_rm4);
+        bool mk_way  = (cs_d5.x < -0.05f) && (cs_t5raw < 4.0f) && (cs_inside || (cs_t5raw > 0.0f));
+        float mk_code = 0.0f; float3 mk_o = cs_h5, mk_d = cs_d5; bool mk_cont = false;
+        if (mk_shStrip)         { mk_code = 11.0f; sh_stop = p; }      // the strip's own shadow on the dish
+        else if (mk_shHole)     { mk_code = 12.0f; sh_stop = p; }      // inside the central hole
+        else if (mk_shSlot)     { mk_code = 13.0f; sh_stop = p; }      // in the open slot
+        else if (mk_shArm)      { mk_code = 14.0f; sh_stop = p; }      // under the F arm
+        else if (!cs_v1)        { mk_code = 2.0f; sh_stop = p; }
+        else if (!cs_on)        { mk_code = 3.0f; sh_stop = cs_h1; }
+        else if (cs_graze)      { mk_code = 4.0f; sh_stop = cs_h1; }
+        else if (cs_cross)      { mk_code = 5.0f; sh_stop = cs_h1; }
+        else if (!mk_bore)      { mk_code = 6.0f; mk_o = cs_h1; mk_d = cs_d2; mk_cont = true; }
+        else if (!mk_m3)        { mk_code = 7.0f; mk_o = cs_h1; mk_d = cs_d2; mk_cont = true; }
+        else if (!cs_inok)      { mk_code = 9.0f; sh_stop = cs_hin; }   // the collar, from the outside, on the way in
+        else if (!mk_way)       { mk_code = 8.0f; mk_o = cs_h4; mk_d = cs_d5; mk_cont = true; }
+        else if (!sh_thr)       { mk_code = 9.0f; sh_stop = cs_h5; }
+        else                    { mk_code = 0.0f; sh_stop = cs_h5; }
+        int mk_surf = -1;                        // 0 bore wall, 1 deck, 2 pot exterior, 3 pit floor
+        if (mk_cont) {
+            float mk_t = 1e9f;
+            // the bore wall: cylinder of radius cs_rbore about the axis cs_F -> cs_P4
+            float3 mk_a = normalize(cs_P4 - cs_F);
+            float3 mk_w = mk_o - cs_F;
+            float3 mk_wp = mk_w - dot(mk_w, mk_a)*mk_a, mk_dp = mk_d - dot(mk_d, mk_a)*mk_a;
+            float mk_qa = dot(mk_dp, mk_dp), mk_qb = 2.0f*dot(mk_wp, mk_dp), mk_qc = dot(mk_wp, mk_wp) - cs_rbore*cs_rbore;
+            float mk_dsc = mk_qb*mk_qb - 4.0f*mk_qa*mk_qc;
+            if (mk_qa > 1e-9f && mk_dsc >= 0.0f) {
+                float mk_r1 = (-mk_qb - sqrt(mk_dsc))/(2.0f*mk_qa), mk_r2 = (-mk_qb + sqrt(mk_dsc))/(2.0f*mk_qa);
+                if (mk_r1 > 1e-3f && mk_r1 < mk_t) { mk_t = mk_r1; mk_surf = 0; }
+                if (mk_r2 > 1e-3f && mk_r2 < mk_t) { mk_t = mk_r2; mk_surf = 0; }
+            }
+            // the deck plane
+            if (fabs(mk_d.z) > 1e-9f) { float mk_td = (cs_zdeck - mk_o.z)/mk_d.z; if (mk_td > 1e-3f && mk_td < mk_t) { mk_t = mk_td; mk_surf = 1; } }
+            // the pot's outer sphere
+            float3 mk_ws = mk_o - mk_pc;
+            float mk_sb = 2.0f*dot(mk_ws, mk_d), mk_sc = dot(mk_ws, mk_ws) - mk_RS*mk_RS;
+            float mk_sd = mk_sb*mk_sb - 4.0f*mk_sc;
+            if (mk_sd >= 0.0f) {
+                float mk_s1 = (-mk_sb - sqrt(mk_sd))*0.5f, mk_s2 = (-mk_sb + sqrt(mk_sd))*0.5f;
+                if (mk_s1 > 1e-3f && mk_s1 < mk_t) { mk_t = mk_s1; mk_surf = 2; }
+                if (mk_s2 > 1e-3f && mk_s2 < mk_t) { mk_t = mk_s2; mk_surf = 2; }
+            }
+            // the pit floor
+            if (fabs(mk_d.z) > 1e-9f) { float mk_tf = ((mk_ZC + 1.0f - mk_RS) - mk_o.z)/mk_d.z; if (mk_tf > 1e-3f && mk_tf < mk_t) { mk_t = mk_tf; mk_surf = 3; } }
+            if (mk_t > 20.0f) { mk_code = 10.0f; mk_t = 20.0f; mk_surf = -1; }
+            sh_stop = mk_o + mk_t*mk_d;
+        }
+        sh_fate = mk_code; sh_surf = mk_surf;
+        // THE EXTERIOR BIN: which patch of which surface takes this ray's power
+        {
+            float mk_rf = clamp(sqrt(p_loc.x*p_loc.x + p_loc.y*p_loc.y)/max(cs_ad, 1e-6f), 0.0f, 0.999f);
+            int mk_rb = int(mk_rf*4.0f);                                             // dish radius, quarters
+            if (mk_code == 9.0f)       sh_bin = clamp(int((atan2(cs_inok ? sh_dz : cs_dzi, cs_inok ? sh_dy : cs_dyi) + M_PI_F)/(2.0f*M_PI_F)*8.0f), 0, 7);
+            else if (mk_code == 5.0f)  sh_bin = 21 + mk_rb;
+            else if (mk_code == 11.0f) sh_bin = 25 + mk_rb;
+            else if (mk_code == 13.0f) sh_bin = 29 + mk_rb;
+            else if (mk_code == 12.0f) sh_bin = 33;
+            else if (mk_code == 14.0f) sh_bin = 34;
+            else if (mk_code == 3.0f)  sh_bin = 35;
+            else if (mk_code == 2.0f)  sh_bin = 36;
+            else if (mk_code == 10.0f) sh_bin = 20;
+            else if (mk_cont) {
+                if (mk_surf == 1)      sh_bin = 14;
+                else if (mk_surf == 2) sh_bin = 15 + int(clamp((sh_stop.z - (mk_ZC + 1.0f))/mk_RS*0.5f + 0.5f, 0.0f, 0.999f)*4.0f);
+                else if (mk_surf == 3) sh_bin = 19;
+                else { float3 mk_ax = normalize(cs_P4 - cs_F);
+                       sh_bin = 8 + int(clamp(dot(sh_stop - cs_F, mk_ax)/max(length(cs_P4 - cs_F), 1e-6f), 0.0f, 0.999f)*6.0f); }
+            }
+        }
+    }
     } else {
     // ---- occlusion, closed form (post + tube), sun leg
     float px_ = p.x - sc[10], py_ = p.y, pz_ = p.z;
@@ -870,6 +979,16 @@ kernel void tandoor_trace(
     sh_thr = thr; sh_w = w; sh_h3 = h3; sh_d3 = d3; sh_dy = dy; sh_dz = dz;
     }
     thr_o[tid] = sh_thr ? sh_w : 0.0f;
+    fate[tid*6+0] = sh_fate; fate[tid*6+1] = sh_stop.x; fate[tid*6+2] = sh_stop.y; fate[tid*6+3] = sh_stop.z;
+    fate[tid*6+4] = (float)sh_surf; fate[tid*6+5] = (float)sh_bin;
+    // THE EXTERIOR FLUX LABELLING: the pot gets per_dni; every other surface gets
+    // this. Same ray power the pot would have received - ray_pw x soil x the dish
+    // area factor x the sun-cone shares - minus only the through gate.
+    if (sh_bin >= 0 && sh_fate > 0.5f) {
+        float mk_wx = ray_pw[clamp(int(fct[b*FCTW + 60] + 0.5f), 0, dims[4] - 1)*P + ip] * soil[b] * fct[b*FCTW + 41]
+                      * scb[sb+4] * scb[sb+5];
+        atomic_fetch_add_explicit((device atomic_float*)&pex[b*NX + sh_bin], mk_wx, memory_order_relaxed);
+    }
     int o = tid*6;
     out6[o+0] = sh_h3.y;         out6[o+1] = sh_h3.z - sc[11];
     out6[o+2] = sh_d3.x;         out6[o+3] = sh_d3.y;
@@ -884,14 +1003,25 @@ kernel void tandoor_trace(
         // THE REAL PIT: spherical section, mouth R 0.26 at z 0,
         // coal-bed floor R 0.42 at z -2.44 (8 ft). Derived (mirrors
         // tandoor_polar_env): Z_CPOT, R_SPH, duct-wall radius.
-        const float ZD = -0.86f, HD = 2.44f;
-        const float ZC = -1.2422951f, RS = 1.2692112f;
-        const float RDW = 1.2102675f;
+        // THE PIT IS PER AGENT (2026-09-10, "pot dimensions variation"): its sphere comes off
+        // the design table - fct[78] Z_CPOT, [79] R_SPH, [80] R_DUCT_WALL, [81] H_DEPTH - as
+        // TandoorHashemiEnv.pot_sphere derives them from the site's pot_r / pot_h. The duct
+        // plane sc[12] and the mouth-relative bands (-0.22, -0.85) stay: the machine is
+        // built to the wall, the pit grows away from it.
+        const float ZD = -0.86f;
+        const float HD = fct[b*FCTW + 81];
+        const float ZC = fct[b*FCTW + 78], RS = fct[b*FCTW + 79];
+        const float RDW = fct[b*FCTW + 80];
         const int NB = 8;
         float pxp = sh_h3.y, pyp = sh_h3.z - sc[11];
         float dxw = sh_d3.y, dyw = -sh_d3.x, dzw = sh_d3.z;
         float ox = pxp, oyv = -RDW, oz = pyp + ZD;
-        if (sc[105] > 1.5f) {
+        // THE ELBOW IS A COLUMN, NOT A SCALAR (2026-09-08): sc[105] was the env's
+        // one duct_nozzle, so a batch was all-elbow or no-elbow. With 'receiver' a
+        // design variable the same batch carries three-mirror machines (no elbow:
+        // M3 threw the beam at the loaf already) beside Cassegrains.
+        const float mk_noz = fct[b*FCTW + 73];
+        if (mk_noz > 1.5f) {
             // CONCAVE ELBOW on its 2-DOF mount (duct_nozzle 2):
             // per-env aim direction from the aim buffer (computed
             // env-side from spot_phi/spot_z, one source of truth).
@@ -937,7 +1067,7 @@ kernel void tandoor_trace(
                       : (sz > -0.85f ? seg : NB + 3 + seg4));
         float wgt = ray_pw[clamp(int(fct[b*FCTW + 60] + 0.5f), 0, dims[4] - 1)*P + ip] * soil[b] * fct[b*FCTW + 41] * (sh_thr ? sh_w : 0.0f)
                     * scb[sb+4] * scb[sb+5]
-                    * (sc[105] > 0.5f ? 0.95f : 1.0f);
+                    * (mk_noz > 0.5f ? 0.95f : 1.0f);
         atomic_fetch_add_explicit(
             (device atomic_float*)&per_dni[b*dims[3] + node],
             wgt, memory_order_relaxed);
@@ -1042,14 +1172,23 @@ kernel void step_pre(
     if (sp[24] > 0.5f) {
         float r_ph = (float)(clamp(a[5], 0, 6) - 3) / 3.0f * sp[4];
         float r_zz = (float)(clamp(a[6], 0, 6) - 3) / 3.0f * sp[5];
-        s[S0+22] = clamp(s[S0+22] + r_ph*PI_/180.0f*dt, sp[6], sp[7]);
+        // the aim head's travel is the machine's, per agent: the concave elbow's
+        // +-110 deg of spot azimuth on 'cass', M3's own +-31 deg turn on 'tri'.
+        // sp[6] is the centre (SPOT_PHI0); the half-span comes off the design table.
+        const float mk_phw = fct[b*FCTW + 74];
+        s[S0+22] = clamp(s[S0+22] + r_ph*PI_/180.0f*dt, sp[6] - mk_phw, sp[6] + mk_phw);
         s[S0+23] = clamp(s[S0+23] + r_zz*dt, sp[8], sp[9]);
     }
     s[S0+15] = s[S0+15] + r_az*dt + 0.02f*rb[0];
     s[S0+14] = clamp(s[S0+14] + r_el*dt + 0.02f*rb[1],
                      sp[14] - 2.0f, sp[15] + 1.0f);
     float e_el = s[S0+14] - el0;
-    float e_az = (s[S0+15] - az0d) * cos(el0*PI_/180.0f);
+    // ON THE CIRCLE (2026-09-11): the mount's azimuth runs on continuously while the
+    // sun's comes wrapped to [0, 360) in the SITE's frame (mount_solve), so on a roof
+    // turned far enough for the sun to cross machine-north the raw difference jumped
+    // by 360 deg at that crossing - the guillotine fired ~50 times a day on such sites.
+    float daz = s[S0+15] - az0d; daz = daz - 360.0f*floor(daz/360.0f + 0.5f);
+    float e_az = daz * cos(el0*PI_/180.0f);
     // ---- heads, jam, servo
     // sticky engagement: heads 0-2 latch, fresh actions land only on
     // ticks where tick % sticky_k == 0 (numpy twin: polar step)
@@ -1125,7 +1264,10 @@ kernel void step_pre(
     dvec[b*2+0] = 2.0f*fct[b*FCTW + 53]*e_el*PI_/180.0f;
     dvec[b*2+1] = 2.0f*fct[b*FCTW + 53]*e_az*PI_/180.0f;
     float ph = s[S0+22], zt = s[S0+23];
-    float rt = sqrt(max(sp[29]*sp[29] - (zt - sp[30])*(zt - sp[30]),
+    // the elbow aims at THIS agent's pit wall (fct[79] R_SPH, fct[78] Z_CPOT - what
+    // _aim_dirs and _bin_pot read); sp[29]/sp[30] are the nominal pit's
+    float sp_rs = fct[b*FCTW + 79], sp_zc = fct[b*FCTW + 78];
+    float rt = sqrt(max(sp_rs*sp_rs - (zt - sp_zc)*(zt - sp_zc),
                         1e-4f)) * 0.999f;
     float3 a1 = normalize(float3(rt*cos(ph) - sp[31],
                                  rt*sin(ph) - sp[32], zt - sp[33]));
@@ -1449,6 +1591,7 @@ kernel void step_post(
         }
         float el1, az1d;
         solar_pos(lat[b], day[b], mprm[0] + sp[42], &el1, &az1d);
+        az1d = az1d - ds[75]*180.0f/PI_;          // the crew re-acquires the sun in the SITE's frame (mount_solve's)
         s[S0+14] = clamp(el1 + 0.3f*rn[b*12+10], sp[14], sp[15]);
         s[S0+15] = az1d + 0.3f*rn[b*12+11];
         s[S0+16] = 0.0f;
@@ -1571,6 +1714,9 @@ class MetalGeo:
         dev = du.device
         thr = torch.empty(B * P, dtype=torch.float32, device=dev)
         out6 = torch.empty(B * P, 6, dtype=torch.float32, device=dev)
+        fate = torch.zeros(B * P, 6, dtype=torch.float32, device=dev)   # the miss ledger: code, stop xyz, surface, bin
+        pex = torch.zeros(B * 37, dtype=torch.float32, device=dev)       # exterior flux, NX = 37 bins (see the MSL define)
+        assert fct is None or fct.shape[-1] == 82, f"design table is {fct.shape[-1]} wide, the kernel indexes at FCTW 82"
         NBL = 8                                   # loaf columns after the nodes
         per = torch.zeros(B, n_nodes + NBL, dtype=torch.float32, device=dev)
         key = (B, P, L, S, n_nodes, dev)
@@ -1587,17 +1733,27 @@ class MetalGeo:
         c = lambda t: t.contiguous()
         if fct is None:
             # no per-env table given: every row is the shared static block
-            row = torch.zeros(72, dtype=torch.float32, device=dev)
+            row = torch.zeros(82, dtype=torch.float32, device=dev)   # FCTW - the kernel indexes b*FCTW, so this width is not optional
             k = min(39, max(0, int(sc.shape[0]) - 106))
             row[:k] = sc[106:106 + k]
             row[39] = sc[13]
             row[40] = 1.0; row[41] = 1.0; row[44:47] = 1.0; row[61:70] = 1.0   # [60] = block 0, the built dish
             row[51] = float(getattr(self, "loaf_h", 0.1732))
+            # the receiver's own columns for an env with no design table: the built
+            # machine is the Cassegrain, its elbow is whatever sc[105] says, and the
+            # aim head is the elbow's +-110 deg (SPOT_PHI_RANGE)
+            row[72] = 0.0
+            row[73] = sc[105] if int(sc.shape[0]) > 105 else 0.0
+            row[74] = 1.9198622
+            row[75] = 0.0; row[76] = 1.0; row[77] = 1.0                                   # site: no azimuth offset, the nominal pit
+            row[78] = -1.2422951; row[79] = 1.2692112; row[80] = 1.2102675; row[81] = 2.44   # ...its sphere (Z_CPOT, R_SPH, R_DUCT_WALL, H_DEPTH)
             fct = row[None, :].expand(B, -1)
         self.lib.tandoor_trace(
             thr, out6, c(pts_l), c(nrm_l), c(lv), c(du), c(de), c(upick),
             c(sigb), c(dvec.reshape(B, -1)[:, :2]), c(off), c(vp), c(sc),
             c(Acan), c(Mt), c(Cd), c(ellM), c(ellS), c(ellC), c(V0t),
             dims, c(ray_pw), c(soil), per, c(us), c(aim), c(scb), lfp,
-            c(fct))
+            c(fct), fate, pex)
+        self.last_fate = fate.view(B, P, 6)          # (code, stop xyz, surface, bin) per ray - read it after the call
+        self.last_pex = pex.view(B, 37)              # watts per exterior surface bin
         return thr.view(B, P), out6.view(B, P, 6), per

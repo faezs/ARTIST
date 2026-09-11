@@ -46,13 +46,24 @@ class Policy:
 
 
 def env_kwargs(B, seed=1234, night_carry=0, roof_table="/Users/faezs/ARTIST/tutorials/data/tandoor/quetta_tandoor_roof_quantiles.json",
-               sections="/Users/faezs/ARTIST/tutorials/data/tandoor/section_library.pt"):
-    return dict(night_carry=night_carry, roof_table=roof_table, sections=sections, num_agents=B, seed=1, wide_shutter=1, device=DEV, gpu=1, n_rays=512, warm_frac=0.0,
+               sections="/Users/faezs/ARTIST/tutorials/data/tandoor/section_library.pt", receiver="cass", shell="perlite"):
+    """receiver: the env's NOMINAL machine - 'cass' (dish, strip, M3, elbow) or 'tri'
+    (dish, strip, an actuated M3 on the bread).  Since 2026-09-08 this no longer
+    decides the batch: 'receiver' is a design-box column, so under design_rand every
+    agent carries its own, and this kwarg only sets what the readouts and the
+    renderer call the nominal machine.  Read the built receiver per agent off
+    design_points()['tri'].
+
+    They are still DIFFERENT MACHINES to the policy - spot_phi steers the elbow on
+    one and turns M3 on the other - which is exactly why the receiver reaches the
+    net as a design obs column: a checkpoint that cannot see which one it is
+    driving will read the same obs column as two different actuators."""
+    return dict(receiver=receiver, shell=shell, night_carry=night_carry, roof_table=roof_table, sections=sections, num_agents=B, seed=1, wide_shutter=1, device=DEV, gpu=1, n_rays=512, warm_frac=0.0,
                 demand=1, demand_day=500.0, day_start=6.0, day_end=21.5, form_drift=2.0,      # the evaluation env is the design run's (hashemi_design.ini)
                 lat=30.2,                                                                     # Quetta: the site the roof table and the section library were solved for
                 day_random=0, lat_random=0, wall_obs=1, n_zones=5, nurbs=1, flare_ratio=1.4, flare_reflect=0.6,
                 silvered=1, duct_nozzle=2, spot_bread=1, roti_kj=130.0, bread_area=0.12, loaves_per_load=8,
-                elbow_aim=1, load_ctrl=1, reward_div=75.0, receiver="cass", r_m4=1.3, g_orbit=4.0, zone_c=0.4,
+                elbow_aim=1, load_ctrl=1, reward_div=75.0, r_m4=1.3, g_orbit=4.0, zone_c=0.4,
                 deck_h=4.0, beta_dev=0.0, beta_cap_z=7.6, cut_penalty=75.0, lost_deg=5.0, enc_clamp=6.0,
                 sticky_k=2, wall="firebrick", insulation=0, design_rand=1, design_seed=seed)
 
@@ -124,13 +135,15 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("ckpt"); ap.add_argument("--agents", type=int, default=2048)
     ap.add_argument("--days", default="172,355"); ap.add_argument("--label", default="")
     ap.add_argument("--seasoned", type=int, default=1, help="consecutive days with night carry-over; the last day is read")
+    ap.add_argument("--receiver", default="cass", choices=("cass", "tri"),   # the NOMINAL machine only: the design box's 'receiver' column decides per agent
+                    help="'cass' (dish, strip, M3, elbow) or 'tri' (dish, strip, an actuated M3 on the bread) - a checkpoint drives only the machine it was trained on")
     ap.add_argument("--out", default="/private/tmp/claude-501/-Users-faezs-ARTIST/40abdad5-aefb-4c8a-a67b-a45db67e0f41/scratchpad/design_readout.json")
     args = ap.parse_args()
     B = args.agents
     sd = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     pol = Policy(sd)
     with contextlib.redirect_stdout(io.StringIO()):
-        e = TandoorHashemiEnv(**env_kwargs(B, night_carry=int(args.seasoned > 1)))
+        e = TandoorHashemiEnv(**env_kwargs(B, night_carry=int(args.seasoned > 1), receiver=args.receiver))
     nh, nv = e.N_HEADS, int(e.single_action_space.nvec[0])
     assert sd["policy.encoder.0.weight"].shape[1] == e.single_observation_space.shape[0], "obs dim mismatch: pad the checkpoint"
     BOX = tuple(e.DESIGN_BOX) + tuple(getattr(e, "SYS_BOX", ()))
