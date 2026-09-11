@@ -106,3 +106,15 @@ worst of the year: Cn -2.0, 6.3 mrad. All of it is now in the table both envs re
 |F| 0.323 +- 0.065 q A against 0.366 +- 0.005 with steady inflow; |Cm| 0.014 +- 0.010 against 0.008 +- 0.001. The moment
 fluctuation is 0.0095 rms for 6 % inflow turbulence; the site's gust ratio at U >= 6 is ~0.7, and scaling linearly gives
 ~0.11 - the CM_RMS 0.15 the envs carry is the right order for this convective site. Spectral peaks at 0.4-1.0 Hz.
+
+## Coverage fix (2026-09-11 evening)
+
+`tandoor_wind_table.head_aero` still masked incidence beyond 100 deg as uncovered from before the W/NW runs took the table
+to 154 deg, so both envs ran the old drag model (1.4-1.7x low on the back of the dish) and the old 4 mrad film constant
+(1.4-3x high there) for the morning and afternoon poses with the wind on the back. The mask is gone (`COVER_DEG` 180):
+the table serves every incidence, held flat beyond its ends (below 37 deg and above 154). Both flat ends are pessimistic
+for the film - the n = 1 harmonic vanishes by symmetry at 0 and 180 deg and the table holds 0.39 / 0.36 there - and
+within ~10 % for the force of a dish this shallow. In the envs' own site-wind draw (seed 11, three steps after reset)
+20 % of the fast env's 256 agents and 25 % of the slow env's 64 sit beyond 100 deg, with the film constant there
+9.6e-6 to 2.0e-5 rad/(m/s)^2 against the old 2.63e-5. The watcher's evals of run 3 from this point run with slightly
+different loads from the run's training, so the fair comparison is a re-eval of every checkpoint after run 3 ends.
