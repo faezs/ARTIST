@@ -7,7 +7,7 @@ trace any optic on any mount the register has drawn, with the frame type named i
 
 | dialect | where | what it says |
 |---|---|---|
-| optics | `tandoor_metal_kernel.py`, `tandoor_mount_batch.py` | every mirror a conic named by its foci and axis; the dish as sampled points in a body frame with a rotation and a vertex per agent; M2 a point and an axis in the view rows; M3 in design-table columns; M4 one shared quadric |
+| optics | `tandoor_metal_kernel.py`, `tandoor_mount_batch.py` | every mirror a conic named by its foci and axis; the dish as sampled points in a body frame with a rotation and a vertex per agent; M2 a point and an axis in the view rows; M3 and the cass M4 in design-table columns per agent; the fold chain's relay one shared quadric |
 | mechanisms | `tandoor_screw_render.py`, `tandoor_flower_env.py` | a mechanism is a list of screws; `realise` turns screws into blades, pins and torsion bars, `evaluate` into a 6 x 6 at the screw's point; `pedicel_fk/ik` a closed-form chain; `hexapod_jacobian`; `compliance` the beams |
 | sensitivity | `tandoor_flower_env.miss_gains` | the image walk at F per metre and per radian of head motion, by finite differences on the reflection law |
 
@@ -45,9 +45,12 @@ pointing the mirror's reflection of it, beta the angle between (atan2). Every li
 is the old path, so the cook env is untouched. `tandoor_mount_batch` carries the torch twin for CUDA and CPU; the CUDA
 transpile of the new source is clean.
 
-M4 is per agent too: `ellM/ellS/ellC/V0` are (B, ...) rows the trace indexes by agent, a shared M4 expanded once and
-cached, and `TandoorHashemiEnv.set_m4_frame(T)` moves the built ellipsoid's foci, centre, vertex and axes by a rigid
-motion per agent, shape unchanged.
+The optics beyond the head, per agent: the cass/tri chain's M2 (the strip), M3 and M4 already live in the design table
+(columns 0..38, per agent, the aim head turning M3 in 21..26), so a mount for them is a rewrite of those columns - the
+next step, not this one. The fold chain's relay ellipsoid (`ellM/ellS/ellC/V0`, "M5 far root" in the kernel) was the
+one shared quadric left: it is now (B, ...) rows the trace indexes by agent, a shared relay expanded once and cached,
+and `TandoorHashemiEnv.set_relay_frame(T)` moves the built ellipsoid's foci, centre, vertex and axes by a rigid motion
+per agent, shape unchanged (test E: identity is bit-identical, a 20 mrad tilt moves the power between the pot's nodes).
 
 The strip's frame follows the link it is mounted on (row [2]): Hashemi's tube and the fork's follow the mount's
 pointing; the flower's strip sits on the pipe and turns to face the head, so it follows the line from F to the head

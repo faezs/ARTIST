@@ -89,6 +89,31 @@ print("D. the torch twin against the Metal kernel, same rows")
 drv._mnt_prm[0] = hour
 tw = MB.mount_batch(drv, day_t, lat_t, hour, dev, pnt=pnt, mech=rows_c.to(dev))
 for k in ("Mt", "Cd", "vp", "scb", "Acan"): check(f"{k}: torch twin vs kernel", dmax(tw[k].reshape(mc[k].shape), mc[k]), 3e-5)
+
+vecenv.close()
+
+print("E. the fold chain's relay ellipsoid per agent, moved by a rigid motion (receiver = fold: the cass/tri chains keep their M4 in the design table)")
+sys.argv = [sys.argv[0]]
+args = pufferl.load_config("puffer_flower_fast"); args["env"]["num_agents"] = 128; args["env"]["on_device"] = 0; args["env"]["receiver"] = "fold"; args["vec"] = dict(backend="Serial", num_envs=1)
+vecenv = pufferl.load_env("puffer_flower_fast", args); drv = vecenv.driver_env; ob, _ = vecenv.reset(seed=11)
+T0 = drv._fl_stem().to(dev)[None].expand(B, 3).contiguous()
+qd = {k: drv._fl["q_" + k].detach().float() for k in ("slew", "luff", "ext", "pitch", "yaw")}
+C_fk, n_fk = FE.pedicel_fk(T0, qd)
+drv.set_relay_frame(None); thr0, out0, per0 = drv.trace(C_fk.float().contiguous(), n_fk.float().contiguous(), lv, sigb)
+I = torch.eye(4, device=dev)[None].repeat(B, 1, 1); drv.set_relay_frame(I)
+thr1, out1, per1 = drv.trace(C_fk.float().contiguous(), n_fk.float().contiguous(), lv, sigb)
+check("identity frame per agent: rays through identical", dmax(thr0, thr1), 1e-6)
+check("identity frame per agent: power identical", dmax(per0, per1), 1e-6)
+ctr = drv.ell_ctr_t.float().to(dev)[None].expand(B, 3)
+w_t = torch.zeros(B, 3, device=dev); w_t[:, 1] = 1.0                                   # tilt M4 about its centre, about east
+Tt = SC.exp_screw(w_t, ctr, torch.zeros(B, device=dev), torch.full((B,), 0.02, device=dev))
+drv.set_relay_frame(Tt); thr2, out2, per2 = drv.trace(C_fk.float().contiguous(), n_fk.float().contiguous(), lv, sigb)
+# 'through' is decided before the underground relay: a tilted relay moves the power between the pot's nodes, so the per-node
+# distribution is what must change
+d_per = float((per2.float() - per0.float()).abs().sum(1).mean()/per0.float().abs().sum(1).mean().clamp(min=1e-9))
+print(f"     the relay tilted 20 mrad about its centre: rays through {100*float(thr0.float().mean()):.1f} % -> {100*float(thr2.float().mean()):.1f} %, per-node power moved by {100*d_per:.1f} % of the total")
+check("a tilted relay moves the power between the nodes", 1.0 if d_per < 1e-3 else 0.0, 0.5)
+drv.set_relay_frame(None)
 vecenv.close()
 print("\nFAILED: " + ", ".join(fails) if fails else "\nall passed")
 sys.exit(1 if fails else 0)

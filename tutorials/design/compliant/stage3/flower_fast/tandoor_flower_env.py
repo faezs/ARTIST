@@ -309,7 +309,8 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         # the blocks' 6 x 6. Stowed agents park through the old path whichever is set.
         self.mount = str(mount); self._mech_rows = None; self._fork_C0 = None
         assert self.mount in ("hashemi", "pedicel", "fork"), self.mount
-        if self.mount != "hashemi" and "mech" not in inspect.signature(self._mount).parameters:
+        self._mount_mech = "mech" in inspect.signature(self._mount).parameters          # this checkout's kernel takes the chain
+        if self.mount != "hashemi" and not self._mount_mech:
             print(f"  [flower] mount = {self.mount} needs the screw-chain mount solve (tandoor_hashemi_env._mount(mech=...), "
                   f"tandoor_metal_kernel mount_solve buffer 12); this checkout's kernel has none - falling back to mount = hashemi")
             self.mount = "hashemi"
@@ -419,7 +420,8 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             el_t = torch.as_tensor(el_m, dtype=torch.float32, device=dev).reshape(-1)
             az_t = torch.as_tensor(az_m, dtype=torch.float32, device=dev).reshape(-1)
         pnt = torch.stack([el_t, az_t], 1)
-        mnt = self._mount(day_t, lat_t, float(self.t_solar[0]), pnt=pnt, mech=False)     # the TARGET: Hashemi's law from the command, never the chain
+        mnt = self._mount(day_t, lat_t, float(self.t_solar[0]), pnt=pnt,
+                          **({"mech": False} if getattr(self, "_mount_mech", False) else {}))   # the TARGET: Hashemi's law from the command, never the chain
         if self._fl is not None:
             self._fl["el_cmd"], self._fl["az_cmd"] = el_t, az_t
             bk = mnt.get("beta_t", None)

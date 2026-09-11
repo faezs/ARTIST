@@ -588,7 +588,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         Acan = _align_batch(yh, torch.einsum("bij,bj->bi", Mt, -self._sun_dir(B, dev))).contiguous()
         thr, out6, per = self._metal(self._pts_l, self._nrm_l, lv, T["du"], T["de"], T["upick"], T["us"], sigb,
                                      Acan, Mt, C.contiguous(), T["dvec"], T["off"], T["vp"], self._sc_base,
-                                     *self.m4_args(),
+                                     *(self.m4_args() if hasattr(self, "m4_args") else (self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)),   # per-agent M4 where the kernel has it
                                      self._ray_pw, T["soil"], self.n_nodes, T["aim"], T["scb"], fct=self._fct)
         return thr, out6, per
 

@@ -3157,14 +3157,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         return self
 
     def m4_args(self):
-        """the M4 ellipsoid the Metal trace reads: per agent when a mount has moved it (set_m4_frame), else the shared one"""
+        """the fold chain's relay ellipsoid (ellM/ellS/ellC/V0, 'M5 far root' in the kernel) as the Metal trace reads it:
+        per agent when a mount has moved it (set_relay_frame), else the shared, built one. The cass/tri chain's M2, M3
+        and M4 live in the per-agent design table instead (columns 0..38), where the aim head already turns M3."""
         m4 = getattr(self, "_m4_b", None)
         return m4 if m4 is not None else (self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
 
-    def set_m4_frame(self, T):
-        """M4 on a mount: T (B,4,4) the rigid motion of the mirror from where it was built (tandoor_screws.poe or
-        exp_screw). The ellipsoid's foci, centre, vertex and body axes move with it, its shape does not - so a tilted M4
-        throws the beam where a tilted M4 throws it. None restores the shared, built M4."""
+    def set_relay_frame(self, T):
+        """the fold chain's relay ellipsoid on a mount: T (B,4,4) the rigid motion of the mirror from where it was built
+        (tandoor_screws.poe or exp_screw). The ellipsoid's foci, centre, vertex and body axes move with it, its shape does
+        not - so a tilted relay throws the beam where a tilted relay throws it. None restores the shared, built one."""
         if T is None: self._m4_b = None; return
         B = T.shape[0]; R = T[:, :3, :3].float(); t = T[:, :3, 3].float()
         M = self.ell_M.float()[None].expand(B, 3, 3)                                    # rows: the body axes in the world
