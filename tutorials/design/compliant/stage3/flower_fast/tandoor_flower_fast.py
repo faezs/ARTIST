@@ -101,7 +101,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
     """1 kHz, own actuators, flux-camera observation, Hashemi's reward and Hashemi's membrane."""
     N_ACT = 11
     def __init__(self, *a, cam_n=24, episode_s=8.0, wind_scale=1.0, wind_mean=None, cam_bits=8,
-                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, fine_only=0, reward="hashemi", miss_scale=0.20, cam_plane="receiver", **k):
+                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, fine_only=0, reward="hashemi", miss_scale=0.20, miss_shape=20.0, cam_plane="receiver", **k):
         k.setdefault("num_agents", 1024)
         self._vec_buf = k.get("buf", None)          # the vector backend's shared buffer, if it gave us one
         super().__init__(*a, wind_scale=wind_scale, **k)
@@ -114,7 +114,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         # per step, one at miss_scale metres: the thing a flux camera can see and a fine stage can fix. Hashemi's cooking reward
         # is 3e-7 a step here and the loop's whole share of it is under a third of that; a policy trained on it stayed uniform
         # random after 240 epochs and, integrated on the fine stage's rate commands, walked the image 20 cm off.
-        self.fine_only = int(fine_only); self.reward = str(reward); self.miss_scale = float(miss_scale)
+        self.fine_only = int(fine_only); self.reward = str(reward); self.miss_scale = float(miss_scale); self.miss_shape = float(miss_shape)
         # WHERE THE CAMERA LOOKS. 'receiver': the megakernel's landing points at the bread (the original). Measured: a miss at F
         # moves that frame's centroid 0.0005 px per mm - at the bread the beam is a pupil image, which brightens and dims with
         # the miss but does not shift, so the loop cannot see which way to push. 'F': the same 64 membrane rays, reflected off
@@ -383,7 +383,18 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         rew = 2.0*(phi_new - phi_old) - 0.02*scale                                # cooking pays, holding is rent
         rew = rew/float(getattr(self, "reward_div", 1.0))
         if self.reward == "miss":
-            rew = -torch.linalg.norm(S["miss"], dim=1)/self.miss_scale         # the fast loop's own reward: -|miss at F|, -1 at miss_scale
+            # THE FAST LOOP'S OWN REWARD, v2. v1 paid -|miss|/scale a step at gamma 0.999: returns of order -100, a critic that
+            # never fitted them (loss 4 -> 135), advantages of pure noise, a policy that stayed uniform for 74 epochs and
+            # then NaN. v2: the level term -|miss|/scale still, plus potential-based shaping on the same potential -
+            # miss_prev - miss_now, the credit for having moved the right way THIS step, which is what a 1 ms rate command
+            # can earn - and the ini runs gamma 0.99 (a 100 ms horizon, the fine stage's own) with reward_div bringing the
+            # returns to order one. Shaping on a potential leaves the optimal policy alone.
+            m_now = torch.linalg.norm(S["miss"], dim=1)
+            m_prev = S["miss_prev"] if "miss_prev" in S else m_now
+            rew = -m_now/self.miss_scale + self.miss_shape*(m_prev - m_now)/self.miss_scale
+            S["miss_prev"] = m_now.detach()
+            rew = rew/float(getattr(self, "reward_div", 1.0))
+        rew = torch.nan_to_num(rew, nan=-1.0, posinf=-1.0, neginf=-1.0)         # a stray NaN must not poison a 2 M-sample batch
 
         # ---- 9. the frame, the tail, and the episode
         img = self.flux_image(thr, out6) if self.cam_plane != "F" else img_F
@@ -396,13 +407,14 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                                   torch.clamp(phi_new/max(int(self.loaves_per_load), 1), 0, 1)]
                                + ([0.5 + 0.5*torch.clamp(F["m_root"][:, 0]/self._m_ref, -1, 1),
                                    0.5 + 0.5*torch.clamp(F["m_root"][:, 1]/self._m_ref, -1, 1)] if self.obs_strain else []), 1)
-            obs = torch.cat([img, torch.clamp(prop, 0, 1)], 1)
+            obs = torch.nan_to_num(torch.cat([img, torch.clamp(prop, 0, 1)], 1), nan=0.0)
         else:
             obs = img
         S["t"] = S["t"] + 1
         done = (S["t"] >= self.episode_n)                                          # no .any(): branching here syncs the device
         S["t"] = torch.where(done, torch.zeros_like(S["t"]), S["t"])
         S["E"] = torch.where(done[:, None], torch.zeros_like(S["E"]), S["E"])
+        if "miss_prev" in S: S["miss_prev"] = torch.where(done, torch.zeros_like(S["miss_prev"]), S["miss_prev"])
         done = done.float()
         self._obs_t, self._rew_t, self._done_t = obs, rew, done                    # the on-device collector reads these
         if not self.on_device:
