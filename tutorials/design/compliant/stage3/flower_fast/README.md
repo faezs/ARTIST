@@ -358,3 +358,31 @@ throughput sits 4.6 points under the integral's at a smaller mean miss, and the 
 at full rate, so the gap is most likely the dither of a stochastic policy at 1 kHz clipping at the collar rather than
 its aim. The remaining checkpoints (every 20 epochs to 300 M steps) land in `runs/eval_miss.log` as the watcher
 reaches them.
+
+### Run 2 to the end: the tilts at the ceiling, the piston in the null space
+
+The watcher's evals of run 2's checkpoints (256 agents, 3 s, seed 11, site wind; baselines re-run each time: no-op
+2.67 cm / 67.5 %, integral on the F camera 0.34 / 87.2 %, integral on the true miss 0.03 / 86.8 %):
+
+| epoch | miss cm (2nd half) | rays through | |piston| mm |
+|---|---|---|---|
+| 20 | 0.28 | 82.6 % | |
+| 60 | 0.11 | 85.6 % | |
+| 100 | 0.09 | 81.3 % | |
+| 144 (end), sampled | 0.10 | 74.7 % | 49.5 |
+| 144, greedy | 0.07 | 74.3 % | 50.0 |
+| 144, sampled, piston held at neutral | 0.08 | **87.2 %** | 0 |
+
+The miss converges to a millimetre by epoch 100 and stays there; the throughput falls after epoch 60 while the miss
+does not move. Greedy actions change nothing, so it is not the dither. `fast_eval.py --heads 2` holds the third head at
+neutral and the same weights deliver 87.2 %, the integral controller's figure and the true-miss ceiling's, at a quarter
+of the integral's miss. The crown's third head is the PISTON: it moves the focus along the chief ray and the image's
+centroid not at all, so the miss reward has a null space along it, and the policy - paid nothing either way - walked it
+to the 50 mm stop (|piston| 49.5 mm at the end of an episode, throughput 79.9 % in the first half and 74.7 in the
+second: a random walk in the null space, integrated by the rate command, defocusing the beam at the collar).
+
+Run 3 puts the collar's acceptance into the reward: `thru_w = 1.0`, `thru_ref = 0.85`, reward += thru_w x (fraction of
+the traced rays reaching the bread - thru_ref), everything else as run 2. The F camera sees the spot's spread as well
+as its centre, and the piston is the one actuator that can refocus at 1 kHz when the wind softens the film, so the
+term gives the third head a job rather than taking it away (`--heads 2` is the eval's way of showing what holding it
+would give; a `fine_only = 2` env would be the other fix). Eleven epochs in: explained variance 0.94.
