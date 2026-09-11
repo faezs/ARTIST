@@ -7,7 +7,7 @@ import os, sys, argparse, time, numpy as np, torch
 ART = "/Users/faezs/ARTIST"
 for p in (ART, os.path.join(ART, "tutorials"), os.path.join(ART, "tutorials", "puffer_tandoor")):
     if p not in sys.path: sys.path.insert(0, p)
-ap = argparse.ArgumentParser(); ap.add_argument("--ckpt", default=None); ap.add_argument("--agents", type=int, default=256); ap.add_argument("--seconds", type=float, default=3.0); ap.add_argument("--seed", type=int, default=11); ap.add_argument("--gain", type=float, default=0.6)
+ap = argparse.ArgumentParser(); ap.add_argument("--ckpt", default=None); ap.add_argument("--greedy", type=int, default=0); ap.add_argument("--heads", default="3"); ap.add_argument("--agents", type=int, default=256); ap.add_argument("--seconds", type=float, default=3.0); ap.add_argument("--seed", type=int, default=11); ap.add_argument("--gain", type=float, default=0.6)
 A = ap.parse_args(); sys.argv = [sys.argv[0]]
 import pufferlib, pufferlib.pytorch
 from pufferlib import pufferl
@@ -36,12 +36,15 @@ print(f"per full-rate step: camera head1 {G[:, 0].round(4)} head2 {G[:, 1].round
 def run(mode):
     ob, _ = vecenv.reset(seed=A.seed)
     state = dict(lstm_h=torch.zeros(A.agents, policy.hidden_size, device=device), lstm_c=torch.zeros(A.agents, policy.hidden_size, device=device)) if (policy is not None and use_rnn) else {}
-    rews, miss, thru, sat = [], [], [], []
+    rews, miss, thru, sat, fc = [], [], [], [], []
     for t in range(steps):
         if mode == "policy":
             with torch.no_grad():
-                logits, _ = policy.forward_eval(torch.as_tensor(ob).to(device), state); action, _, _ = pufferlib.pytorch.sample_logits(logits)
+                logits, _ = policy.forward_eval(torch.as_tensor(ob).to(device), state)
+                if A.greedy: action = torch.stack([l.argmax(-1) for l in logits], 1) if isinstance(logits, (list, tuple)) else logits.argmax(-1)
+                else: action, _, _ = pufferlib.pytorch.sample_logits(logits)
             act = action.cpu().numpy().reshape(A.agents, n_act)
+            if A.heads == "2": act[:, fine_idx[2]] = 3                               # the piston head held at neutral
         elif mode == "noop": act = neutral()
         elif mode == "random": act = np.random.randint(0, 7, size=(A.agents, n_act))
         elif mode == "integral (camera)":
@@ -50,10 +53,11 @@ def run(mode):
         elif mode == "integral (true miss)":
             u = -A.gain*(true_miss() @ Gminv.T); act = neutral(); act[:, fine_idx[0]] = np.clip(np.round(3 + 3*u[:, 0]), 0, 6); act[:, fine_idx[1]] = np.clip(np.round(3 + 3*u[:, 1]), 0, 6)
         ob, rew, term, trunc, _ = vecenv.step(act)
-        rews.append(float(np.mean(rew))); miss.append(float(torch.linalg.norm(drv.S["miss"], dim=1).mean())); thru.append(float(drv._fl["rays_thru"].mean())); sat.append(float((drv.S["fine_c"].abs() > 0.95*drv.S["fine_c"].abs().max().clamp(min=1e-9)).float().mean()))
+        rews.append(float(np.mean(rew))); miss.append(float(torch.linalg.norm(drv.S["miss"], dim=1).mean())); thru.append(float(drv._fl["rays_thru"].mean())); sat.append(float((drv.S["fine_c"].abs() > 0.95*drv.S["fine_c"].abs().max().clamp(min=1e-9)).float().mean())); fc.append(drv.S["fine_c"].abs().mean(0).cpu().numpy())
     last = slice(steps//2, None)
-    return np.mean(rews[last]), 100*np.mean(miss[last]), 100*np.mean(thru[last]), 100*np.mean(miss[:100])
+    fcm = np.mean(np.array(fc)[last], 0)
+    return np.mean(rews[last]), 100*np.mean(miss[last]), 100*np.mean(thru[last]), 100*np.mean(miss[:100]), 100*np.mean(thru[:steps//2]), 1e3*fcm[0], 1e3*fcm[1], 1e3*fcm[2]
 modes = ["noop", "random", "integral (camera)", "integral (true miss)"] + (["policy"] if policy else [])
-print(f"{'controller':<22} {'reward/step':>12} {'miss cm (2nd half)':>19} {'rays through':>13} {'miss at start':>14}   ({A.agents} agents, {A.seconds:.0f} s, seed {A.seed}, site wind, gain {A.gain})")
+print(f"{'controller':<22} {'reward/step':>12} {'miss cm (2nd half)':>19} {'rays through':>13} {'miss at start':>14} {'thru 1st half':>14} {'|tilt x| |tilt y| |piston| mrad/mm':>36}   ({A.agents} agents, {A.seconds:.0f} s, seed {A.seed}, site wind, gain {A.gain}, greedy {A.greedy}, heads {A.heads})")
 for m in modes:
-    r = run(m); print(f"{m:<22} {r[0]:12.4f} {r[1]:19.2f} {r[2]:12.1f} % {r[3]:14.2f}", flush=True)
+    r = run(m); print(f"{m:<22} {r[0]:12.4f} {r[1]:19.2f} {r[2]:12.1f} % {r[3]:14.2f} {r[4]:12.1f} % {r[5]:12.2f} {r[6]:8.2f} {r[7]:8.2f}", flush=True)

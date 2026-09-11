@@ -101,7 +101,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
     """1 kHz, own actuators, flux-camera observation, Hashemi's reward and Hashemi's membrane."""
     N_ACT = 11
     def __init__(self, *a, cam_n=24, episode_s=8.0, wind_scale=1.0, wind_mean=None, cam_bits=8,
-                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, fine_only=0, reward="hashemi", miss_scale=0.20, miss_shape=20.0, cam_plane="receiver", **k):
+                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, fine_only=0, reward="hashemi", miss_scale=0.20, miss_shape=20.0, thru_w=0.0, thru_ref=0.85, cam_plane="receiver", **k):
         k.setdefault("num_agents", 1024)
         self._vec_buf = k.get("buf", None)          # the vector backend's shared buffer, if it gave us one
         super().__init__(*a, wind_scale=wind_scale, **k)
@@ -115,6 +115,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         # is 3e-7 a step here and the loop's whole share of it is under a third of that; a policy trained on it stayed uniform
         # random after 240 epochs and, integrated on the fine stage's rate commands, walked the image 20 cm off.
         self.fine_only = int(fine_only); self.reward = str(reward); self.miss_scale = float(miss_scale); self.miss_shape = float(miss_shape)
+        self.thru_w, self.thru_ref = float(thru_w), float(thru_ref)
         # WHERE THE CAMERA LOOKS. 'receiver': the megakernel's landing points at the bread (the original). Measured: a miss at F
         # moves that frame's centroid 0.0005 px per mm - at the bread the beam is a pupil image, which brightens and dims with
         # the miss but does not shift, so the loop cannot see which way to push. 'F': the same 64 membrane rays, reflected off
@@ -393,6 +394,13 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
             m_prev = S["miss_prev"] if "miss_prev" in S else m_now
             rew = -m_now/self.miss_scale + self.miss_shape*(m_prev - m_now)/self.miss_scale
             S["miss_prev"] = m_now.detach()
+            # v3: the miss has a NULL SPACE - the crown's piston head moves the focus along the chief ray and the centroid
+            # not at all - and the v2 policy filled it with a random walk to the 50 mm stop: 0.10 cm of miss and 75 % of the
+            # rays through against the integral controller's 87 % with the piston held. The collar's acceptance is the
+            # receiver's own quantity, the F camera sees the spot's spread as well as its centre, and the piston is the
+            # one actuator that can refocus at 1 kHz when the wind softens the film. So the fraction of the traced rays
+            # that reach the bread enters the reward, centred on thru_ref so the level term stays of order the miss's.
+            if self.thru_w > 0: rew = rew + self.thru_w*(F["rays_thru"] - self.thru_ref)
             rew = rew/float(getattr(self, "reward_div", 1.0))
         rew = torch.nan_to_num(rew, nan=-1.0, posinf=-1.0, neginf=-1.0)         # a stray NaN must not poison a 2 M-sample batch
 
