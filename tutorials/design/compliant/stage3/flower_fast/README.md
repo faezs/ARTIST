@@ -311,3 +311,33 @@ is 3e-7 a step and the loop's share of it is smaller still. Three changes, all s
 
 Nulling the standing 2.5 cm takes the delivered rays from 68 to 87 %: the tri chain's acceptance at the collar is what
 the earlier +0.4 % (per-loaf power, broad acceptance) hid. The training on this job is the next entry.
+
+## The miss policy, run 1: uniform for 74 epochs, then NaN
+
+`puffer train puffer_flower_fast` on the job above (8192 agents, 129K SPS after the profiler fix, 300 M steps): the
+policy's action entropy went 5.83 -> 5.71 over 74 epochs against 5.84 for uniform over 7^3 bins, approx_kl 0.000, and
+the value loss climbed 4.6 -> 24 -> 51 -> 71 -> 116 -> 135 with explained variance 0.03 and turned NaN at epoch 75
+(14 NaN parameters in `model_000100.pt`; the run kept stepping the NaN weights to 300 M). The two checkpoints the
+watcher evaluated, against the baselines above:
+
+| epoch | reward/step | miss cm | rays through |
+|---|---|---|---|
+| 20 | -0.78 | 15.6 | 10 % |
+| 100 (NaN weights) | -0.42 | 8.4 | 37 % (= random) |
+
+The cause is the reward's scale, not the camera or the heads. -|miss|/0.2 is -0.13 a step at the no-op miss and
+-0.4 once the integrated random commands have walked the image, and at gamma 0.999 that is a return of order -100
+per sample with reward_div 1.0: the critic never fitted it, the advantages were the critic's noise, the policy
+gradient had nothing to follow (KL 0.000) while vf_coef 2 kept pushing the value head until it overflowed.
+
+Run 2 (`reward = miss`, v2) changes the reward's shape and horizon, nothing else:
+
+- potential-based shaping on the same quantity: reward = -|miss|/scale + 20 (|miss|_prev - |miss|)/scale, the credit
+  for having moved the image the right way THIS step, which is what a 1 ms rate command can earn. Shaping on a
+  potential leaves the optimal policy unchanged (Ng, Harada, Russell 1999).
+- gamma 0.99: a 100 ms horizon, the fine stage's own response time, in place of a 1 s one.
+- reward_div 10: returns of order one for the critic.
+- `nan_to_num` on the reward and the observation, so a stray NaN in one agent cannot poison a 2 M-sample batch.
+
+Five minutes in: value loss 0.001, explained variance 0.97, entropy 5.65 and falling, KL 0.002. The critic fits and
+the policy is moving; whether it moves the right way is the epoch-20 eval below.
