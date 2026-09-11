@@ -386,3 +386,47 @@ the traced rays reaching the bread - thru_ref), everything else as run 2. The F 
 as its centre, and the piston is the one actuator that can refocus at 1 kHz when the wind softens the film, so the
 term gives the third head a job rather than taking it away (`--heads 2` is the eval's way of showing what holding it
 would give; a `fine_only = 2` env would be the other fix). Eleven epochs in: explained variance 0.94.
+
+## Every checkpoint re-evaluated on the fixed wind table (runs 2 and 3)
+
+`runs/reeval_all.sh`, after run 3 ended (it hung at exit like run 2; the script killed it): 256 agents, 3 s, seed 11,
+site wind, actions sampled unless marked, the table serving every incidence. Baselines: no-op 2.67 cm / 67.5 %, random
+7.93 / 40.5, integral on the F camera 0.34 / 87.2, integral on the true miss 0.03 / 86.8 - unchanged to the printed
+digit from before the coverage fix: at the site's winds the back-of-dish loads move the image by less than 0.01 cm.
+
+| checkpoint | miss cm (2nd half) | rays through | \|tilt\| mrad | \|piston\| mm |
+|---|---|---|---|---|
+| run 2 ep 20 | 0.28 | 82.6 % | 2.1 | 43.9 |
+| run 2 ep 40 | 0.12 | 86.4 % | 2.1 | 7.8 |
+| run 2 ep 60 | 0.11 | 85.6 % | 2.1 | 12.2 |
+| run 2 ep 80 | 0.11 | 77.6 % | 2.1 | 41.3 |
+| run 2 ep 100 | 0.09 | 81.5 % | 2.1 | 30.3 |
+| run 2 ep 120 | 0.09 | 74.7 % | 2.1 | 49.3 |
+| run 2 ep 144 | 0.10 | 74.7 % | 2.1 | 49.5 |
+| run 2 ep 144, greedy | 0.07 | 74.3 % | 2.1 | 50.0 |
+| **run 2 ep 144, piston held** | **0.08** | **87.1 %** | 2.1 | 0 |
+| run 3 ep 20 | 0.37 | 87.3 % | 2.2 | 14.3 |
+| run 3 ep 40 | 0.34 | 86.1 % | 2.2 | 7.5 |
+| run 3 ep 60 | 7.17 | 76.5 % | 7.9 | 15.5 |
+| run 3 ep 80 | 25.4 | 48.1 % | 23.5 | 24.9 |
+| run 3 ep 100 | 14.6 | 64.8 % | 14.0 | 9.6 |
+| run 3 ep 120 | 13.2 | 65.8 % | 12.7 | 13.2 |
+| run 3 ep 144 | 15.6 | 62.7 % | 14.8 | 10.5 |
+| run 3 ep 144, greedy | 17.2 | 60.0 % | 16.1 | 29.1 |
+| run 3 ep 144, piston held | 16.0 | 62.1 % | 15.1 | 0 |
+
+Run 2 is as before: the tilts converge by epoch 40 and the piston wanders in the miss's null space; with the piston
+held its last checkpoint is the best controller on the page. Run 3 (the throughput term) did what it was added for
+through epoch 40 - piston 7-14 mm instead of 44, throughput 86-87 % - and then COLLAPSED: from epoch 60 the tilt
+commands run to 8, then 23 mrad, the image 7-25 cm off, half the rays lost, and it never recovers. Three checks say
+the collapse is the policy's and not the eval's: the epoch-80 checkpoint gives the same 25.4 cm on the old coverage
+mask (its training conditions), over 8 s episodes (the training length) and on another seed (21.6 cm). The trainer
+showed none of it: explained variance 0.94-0.98, value loss 0.007-0.02, entropy falling smoothly 5.32 -> 4.59, KL
+0.001 - the critic tracked a return that was getting worse, and the fast env emits no per-episode statistics, so the
+dashboard's User Stats stayed empty. The cause is not established. What is known: the reward's only new ingredient is
+the throughput term, which near the optimum is flat and quantised (the ceiling controller at 0.03 cm gets 86.8 %, the
+camera integral at 0.34 cm gets 87.2 %) so its per-step noise (+-1-2 rays of 64) exceeds the level term's signal
+(0.5 mm of miss pays 0.0005 a step); and an episode end resets only the clock, the shaping memory and the plenum
+energy - the fine stage, the gusts and the day carry over, so `done` is a bookkeeping cut with the bootstrap set to
+zero, in both runs. Before any run 4: give the fast env infos (miss, rays through, |tilt|, |piston| per episode) so the
+trainer's dashboard shows a collapse when it happens, and keep the best checkpoint by eval rather than the last.
