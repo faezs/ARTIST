@@ -48,6 +48,7 @@ DT_HASH = 15.0                   # the step Hashemi's reward weights were writte
 L_KARMAN = 50.0                  # the gust's integral length [m]
 FINE_BW_ACT, FINE_RATE = 50.0, 0.8        # the fine stage's actuator: 50 Hz first-order, 0.8 m/s of leg speed
 FINE_CMD_RATE = 5.0                       # full command sweeps the whole stroke in 1/5 s - the heads command a RATE
+ROD_EVERY = 8                             # steps between refreshes of the rod's geometry and the chain's 6 x 6 (the loads are every step)
 CAM_FOV = 0.30                   # the flux camera's half-width AT THE RECEIVER [m]: the traced spot has a 3 cm rms
 CAM_FOV_F = 0.15                 # the camera AT F: half-width [m], 1.25 cm a pixel at 24; the spot is ~2 cm, the standing miss 2.5
 CAM_REF_F = 0.06                 # the F frame's fixed reference ring [m]: a spot with nothing to be off-centre from teaches nothing
@@ -155,7 +156,9 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         # ---- the fast state
         z = lambda n=None: (torch.zeros(B, device=dev) if n is None else torch.zeros(B, n, device=dev))
         self.S = dict(u=z(3), v=z(3), cm=z(3),               # the gust along the wind, across it, and in pitching moment
-                      th=z(2), thd=z(2),                     # the head's TILT and its rate: the moment's own mode
+                      sb=z(6), sbd=z(6), sm=z(6), smd=z(6),  # THE ROD'S TWIST at the vertex in the boom's basis (t1, t2, bu) x (v; omega):
+                                                             # the force-type loads on the bending mode, the moment-type on the pitching mode
+                      th=z(2), thd=z(2),                     # the head's TILT and its rate: the moment's own mode (a readout now)
                       q_vs=z(), qd_vs=z(), acc_l=z(), ph_d=z(),   # the boom's wake oscillator, and the dish's shedding phase
 
                       x=z(2), xd=z(2),                       # the head's lateral deflection and its rate
@@ -271,7 +274,14 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         drag = 0.5*RHO_AIR*Vh*Vh*A_D*cd
         side = 0.5*RHO_AIR*Vh*S["va"]*A_D*0.9
 
-        # ---- 4. the structure: a damped oscillator at THIS extension, so it rings where a real boom rings
+        # ---- 4. THE STRUCTURE AS A ROD, THE WIND AS A FIELD ALONG IT (tandoor_screws.rod_twist: the derivative of the curve).
+        # The stem and boom are a curve; the wind is a velocity field - the log profile from the site's 10 m reference, the
+        # same gust at every height - and along the curve it is a force density: the crossflow drag on the tubes, the
+        # shedding lift on the boom, and at the vertex the bowl's force from the LES table with its MEAN pitching moment,
+        # signed (Cm_s about n x w_hat). The rod integrates the densities and the end loads into the head's static twist,
+        # once for the force-type loads and once for the moment-type, and each part rings on its own mode per bending
+        # plane: the bending mode at the head's transverse stiffness, the pitching mode at the rotational one, both from
+        # the chain's 6 x 6 at the vertex. No 3/8 lumps: a density's tip rotation is q L^3/6EI and the lump gave 9/8 of it.
         Cb0 = C0 - D_REC*n0; bu = Cb0 - T0
         bu = bu/torch.linalg.norm(bu, dim=1).clamp(min=1e-9)[:, None]
         zc = torch.zeros_like(bu); zc[:, 2] = 1.0
@@ -279,7 +289,13 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         t2 = torch.cross(bu, t1, dim=1)                                            # the boom's own bending plane
         zhat = torch.stack([torch.zeros_like(ca), torch.zeros_like(ca), torch.ones_like(ca)], 1)
         v_hat = torch.cross(zhat, w_hat, dim=1)                                          # the horizontal across the wind
-        # ---- vortex shedding, before the forces are assembled: the wake's lift is one of them
+        T0b = (T0 if T0.dim() == 2 else T0[None, :].expand(B, 3)).contiguous()
+        one = torch.ones_like(U)
+        prof_C = SC.wind_profile(C0[:, 2], one)                                          # the profile at the head's own height
+        V = torch.clamp(prof_C*(U + u_g), min=0.0)                                       # the point gust AT THE HEAD: the film, the shedding
+        Vh = torch.clamp(prof_C*(U + S["ua"]), min=0.0)                                  # the admittance-filtered gust the head's loads see
+        W_ref = (U + S["ua"])[:, None]*w_hat + S["va"][:, None]*v_hat + S["wa"][:, None]*zhat   # the filtered field at the reference height
+        # ---- vortex shedding on the boom: the wake oscillator; its lift is a DENSITY along the boom now
         cos_ax = (w_hat*bu).sum(1)
         un = V*torch.sqrt(torch.clamp(1 - cos_ax*cos_ax, min=0.0))              # only the CROSS-flow component sheds
         ws = 2*np.pi*ST_CYL*un/D_TUBE; F["f_vs"] = ws/(2*np.pi)
@@ -288,58 +304,89 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         qdd = (-EPS_VS*ws*(S["q_vs"]*S["q_vs"] - 1.0)*S["qd_vs"] - ws*ws*S["q_vs"]
                + (A_VS/D_TUBE)*S["acc_l"])                                      # the structure feeds the wake back
         S["qd_vs"] = S["qd_vs"] + qdd*self.dt; S["q_vs"] = S["q_vs"] + S["qd_vs"]*self.dt
-        F_vs = 0.5*RHO_AIR*un*un*D_TUBE*F["q_ext"]*(CL0/2)*S["q_vs"]*0.375      # distributed; 3/8 of it as a tip load
+        q_vs = 0.5*RHO_AIR*un*un*D_TUBE*(CL0/2)*S["q_vs"]                         # N/m along lf, the whole boom
         # and the dish's own shedding: far below both modes, so no lock-in, but a real narrowband force in the band
         # the coarse loop has to hold
         S["ph_d"] = torch.remainder(S["ph_d"] + 2*np.pi*ST_DISC*V/D_DISH*self.dt, 2*np.pi)
         F_disc = 0.5*RHO_AIR*V*V*A_D*CL_DISC*torch.sin(S["ph_d"])
         F["f_vs_d"] = ST_DISC*V/D_DISH
-        Fw = drag[:, None]*w_hat + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf
+        # ---- the bowl's load at the vertex: the LES table at the instantaneous incidence, at the head's height
+        Fw = drag[:, None]*w_hat + (side + F_disc)[:, None]*v_hat
         k_film = torch.full_like(V, SIG_MEM_K)
+        zero3 = torch.zeros(B, 3, device=dev)
         if getattr(self, "wind_table", 1):
             # the LES table: the bowl's load as a normal force along its axis (with its downward vertical part, which the
-            # drag-only assembly above never had), and the film's figure constant by incidence; the table runs to 154 deg
-            # (the W/NW runs) and is held flat beyond, so the back of the dish is the table's too
-            # the INSTANTANEOUS wind direction: the lateral and vertical gusts swing the incidence, and on a bowl dCn/dtheta
-            # is -0.7 per 10 deg between 60 and 80 deg, so the swing loads the head as much as the along-wind gust does
-            w_inst = Vh[:, None]*w_hat + S["va"][:, None]*v_hat + S["wa"][:, None]*zhat
+            # drag-only assembly above never had), the film's figure constant by incidence, and the mean pitching moment,
+            # SIGNED, about the axis across the wind; the table runs to 154 deg and is held flat beyond. The INSTANTANEOUS
+            # wind direction: the lateral and vertical gusts swing the incidence, and on a bowl dCn/dtheta is -0.7 per 10 deg
+            # between 60 and 80 deg, so the swing loads the head as much as the along-wind gust does
+            w_inst = Vh[:, None]*w_hat + (prof_C*S["va"])[:, None]*v_hat + (prof_C*S["wa"])[:, None]*zhat
             V_inst = torch.linalg.norm(w_inst, dim=1).clamp(min=1e-6)
             F_tab, theta_w, k_tab, covered = WT.head_force(n0, w_inst/V_inst[:, None], 0.5*RHO_AIR*V_inst*V_inst, A_D)
-            Fw = torch.where(covered[:, None], F_tab + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf, Fw)
+            Fw = torch.where(covered[:, None], F_tab + (side + F_disc)[:, None]*v_hat, Fw)
             k_film = torch.where(covered, k_tab, k_film); F["theta_w"] = theta_w
-        cmp_ = compliance(F["q_ext"], self.boom_kind, self.boom_ratio, self.boom_root,
-                          m_tip=D_REC*(n0*bu).sum(1))                            # the drag acts at the dish, past the tip
-        k = cmp_["k_lat"]; m = M_HEAD + M_CROWN
-        w0 = torch.sqrt(k/m)
-        f_t = torch.stack([(Fw*t1).sum(1), (Fw*t2).sum(1)], 1)                     # only the transverse part bends it
-        F["m_root"] = f_t*(F["q_ext"] + 1.0)[:, None]                              # the stem foot's wind moment, N m: the gauges
-        acc = f_t/m - 2*ZETA*w0[:, None]*S["xd"] - (w0*w0)[:, None]*S["x"]
-        S["xd"] = S["xd"] + acc*self.dt; S["x"] = S["x"] + S["xd"]*self.dt
-        S["acc_l"] = acc[:, 0]*(lf*t1).sum(1) + acc[:, 1]*(lf*t2).sum(1)        # what the wake sees of the motion
-        # THE PITCHING MOMENT, on its own mode. An end moment on the stem-and-boom chain turns the tip by
-        # theta = M (Lb/EI_b + Ls/EI_s), so the rotational stiffness is that reciprocal and the inertia is the head's
-        # own. On this machine that mode sits near 14 Hz - above the fine stage's 8 Hz loop, which is exactly what
-        # makes it the interesting part of the job rather than a slow bias.
-        k_th = 1.0/torch.clamp(F["q_ext"]/EI_BOOM + 1.0/EI_STEM, min=1e-12)
-        w_th = torch.sqrt(k_th/J_HEAD); F["f_th"] = w_th/(2*np.pi)
-        M_w = 0.5*RHO_AIR*Vh*Vh*A_D*D_DISH*cm_g                                    # the fluctuating moment, about the
-        m_t = torch.stack([M_w*(w_hat*t2).sum(1), -M_w*(w_hat*t1).sum(1)], 1)      # axis across the wind
-        a_th = m_t/J_HEAD - 2*ZETA*w_th[:, None]*S["thd"] - (w_th*w_th)[:, None]*S["th"]
-        S["thd"] = S["thd"] + a_th*self.dt; S["th"] = S["th"] + S["thd"]*self.dt
-        F["f_n"] = w0/(2*np.pi); F["k_img"] = cmp_["k_img"]; F["drag"] = drag; F["V"] = U; F["gust"] = u_g
+            Cm_s, e_m = WT.head_moment(n0, w_inst/V_inst[:, None])
+            M_head = (0.5*RHO_AIR*V_inst*V_inst*A_D*D_DISH*(Cm_s + cm_g))[:, None]*e_m   # the mean moment and its gust, one axis
+        else:
+            e_m = torch.cross(n0, w_hat, dim=1); e_m = e_m/torch.linalg.norm(e_m, dim=1).clamp(min=1e-9)[:, None]
+            M_head = (0.5*RHO_AIR*Vh*Vh*A_D*D_DISH*cm_g)[:, None]*e_m
+        # ---- the rod: the stem from the deck to T0, the boom to the wrist; the densities from the field at each element's
+        # middle. One element per member: a uniform density is exact in closed form whatever the count, and the profile
+        # changes by a few per cent over the boom, so more elements would only cost launches (the rod is ~40 small ops a call)
+        # the GEOMETRY of the rod and the chain's 6 x 6 are refreshed every ROD_EVERY steps: the joints move at most
+        # 0.8 m/s and 5 deg/s, a few millimetres in that time, and the frames, the 6 x 6 and the modes cost ~60 launches
+        rc = getattr(self, "_rod_cache", None)
+        if rc is None or rc["tick"] % ROD_EVERY == 0 or rc["B"] != B:
+            els = SC.rod_elements(T0b, Cb0, n_stem=1, n_boom=1, z_foot=torch.full_like(U, float(self.z_deck)))
+            C6 = SC.pedicel_compliance(T0b, Cb0, n0, D_REC, EI_STEM, EI_BOOM, kind=self.boom_kind, ratio=self.boom_ratio,
+                                       root=self.boom_root, Ls=float(self.stem_z))
+            Cvv, Cww = C6[:, :3, :3], C6[:, 3:, 3:]
+            k1 = 1.0/torch.einsum("bi,bij,bj->b", t1, Cvv, t1).clamp(min=1e-12); k2 = 1.0/torch.einsum("bi,bij,bj->b", t2, Cvv, t2).clamp(min=1e-12)
+            kt1 = 1.0/torch.einsum("bi,bij,bj->b", t1, Cww, t1).clamp(min=1e-12); kt2 = 1.0/torch.einsum("bi,bij,bj->b", t2, Cww, t2).clamp(min=1e-12)
+            m = M_HEAD + M_CROWN
+            prof_e = [SC.wind_profile(e["mid"][:, 2], one)[:, None] for e in els]
+            rc = dict(tick=0, B=B, els=els, prof_e=prof_e, w1=torch.sqrt(k1/m), w2=torch.sqrt(k2/m),
+                      wt1=torch.sqrt(kt1/J_HEAD), wt2=torch.sqrt(kt2/J_HEAD))
+            self._rod_cache = rc
+        rc["tick"] += 1
+        els = rc["els"]; w1, w2, wt1, wt2 = rc["w1"], rc["w2"], rc["wt1"], rc["wt2"]
+        for e in els: e["q"] = zero3
+        xi_M, root_M = SC.rod_twist(els, [(torch.cat([zero3, M_head], 1), C0)], C0)     # the moment-type loads, no densities
+        for e, pf in zip(els, rc["prof_e"]):
+            e["q"] = SC.tube_density(pf*W_ref, e["axis"], 0.215 if e["name"] == "stem" else D_TUBE, rho=RHO_AIR)
+            if e["name"] == "boom": e["q"] = e["q"] + q_vs[:, None]*lf
+        xi_F, root_F = SC.rod_twist(els, [(torch.cat([Fw, zero3], 1), C0)], C0)         # the force-type loads: the densities and the bowl
+        # the static twists in the boom's basis (t1, t2, bu) x (v; omega); plane 1 is deflection along t1 with rotation about
+        # t2, plane 2 the other way; along and about the boom quasi-static. Each component rings at its plane's mode.
+        def basis(xi):
+            return torch.stack([(xi[:, :3]*t1).sum(1), (xi[:, :3]*t2).sum(1), (xi[:, :3]*bu).sum(1),
+                                (xi[:, 3:]*t1).sum(1), (xi[:, 3:]*t2).sum(1), (xi[:, 3:]*bu).sum(1)], 1)
+        def world(s):
+            return torch.cat([s[:, 0:1]*t1 + s[:, 1:2]*t2 + s[:, 2:3]*bu, s[:, 3:4]*t1 + s[:, 4:5]*t2 + s[:, 5:6]*bu], 1)
+        big = torch.full_like(w1, 1e9)
+        wb = torch.stack([w1, w2, big, w2, w1, big], 1)                                  # the bending mode per component
+        wm = torch.stack([wt2, wt1, big, wt1, wt2, big], 1)                              # the pitching mode per component
+        acc_b = None
+        for key, wv, xs in (("sb", wb, basis(xi_F)), ("sm", wm, basis(xi_M))):
+            static = wv > 1e8
+            acc = torch.where(static, torch.zeros_like(wv), wv*wv*(xs - S[key]) - 2*ZETA*wv*S[key + "d"])
+            S[key + "d"] = torch.where(static, torch.zeros_like(wv), S[key + "d"] + acc*self.dt)
+            S[key] = torch.where(static, xs, S[key] + S[key + "d"]*self.dt)
+            if key == "sb": acc_b = acc
+        S["x"] = S["sb"][:, :2]; S["th"] = S["sm"][:, 3:5]                              # the old readouts: the deflection, the pitching tilt
+        S["acc_l"] = acc_b[:, 0]*(lf*t1).sum(1) + acc_b[:, 1]*(lf*t2).sum(1)           # what the wake sees of the motion
+        mr = root_F[:, 3:] + root_M[:, 3:]
+        F["m_root"] = mr[:, :2]                                                          # the stem foot's bending moments about x and y: the gauges
+        F["f_n"] = w1/(2*np.pi); F["f_th"] = wt1/(2*np.pi)
+        cmp_ = compliance(F["q_ext"], self.boom_kind, self.boom_ratio, self.boom_root, m_tip=D_REC*(n0*bu).sum(1))   # the HUD's scalar
+        F["k_img"] = cmp_["k_img"]; F["drag"] = drag; F["V"] = U; F["gust"] = u_g
+        xi_head = world(S["sb"]) + world(S["sm"])
 
-        # ---- 5. where the head really is: the joints, plus the structure's deflection, minus what the fine stage took out
+        # ---- 5. where the head really is: the joints, plus the rod's twist, plus the crown's own three
         xl, yl = head_frame(n0)
-        dx = S["x"][:, 0:1]*t1 + S["x"][:, 1:2]*t2
+        dx = xi_head[:, :3]
         C = C0 + dx + S["fine"][:, 2:3]*n0
-        # A cantilever's tip does not only move - it TURNS, by theta/delta radians per metre of deflection, about the axis
-        # perpendicular to the load. That rotation is what the image feels: 5.01 m of walk per radian against 0.95 m per
-        # metre, so getting it as a rotation rather than a vector nudge is the difference between the dominant term being
-        # right and being decorative. Rotate n by phi about (bu x load), small-angle: n + phi x n.
-        kt = (cmp_["theta"]/torch.clamp(cmp_["delta"], min=1e-12))[:, None]
-        phi = kt*(S["x"][:, 0:1]*t2 - S["x"][:, 1:2]*t1)                           # bending about the boom's own axes
-        phi = phi + S["th"][:, 0:1]*t1 + S["th"][:, 1:2]*t2                        # and the pitching moment's own tilt
-        phi = phi + S["fine"][:, 0:1]*yl - S["fine"][:, 1:2]*xl                  # and the crown's own two tilts
+        phi = xi_head[:, 3:] + S["fine"][:, 0:1]*yl - S["fine"][:, 1:2]*xl               # the rod's rotation, and the crown's two tilts
         n = n0 + torch.cross(phi, n0, dim=1)
         n = n/torch.linalg.norm(n, dim=1).clamp(min=1e-9)[:, None]
         if self.mech_kernel and self._mk_day is None: self._sun_dir(B, dev)          # the episode's sun, day and pointing, cached

@@ -202,6 +202,99 @@ def invert_compliance(K, k_free=None, w_free=None):
 
 
 # ======================================================================================================================
+# THE ROD: the structure as a curve, the wind as a density along it - the derivative of the curve
+#   The stem and boom are a curve g(s) in SE(3); its derivative g^-1 dg/ds is a twist per unit length, the strain. The
+#   wind is a velocity field; along the curve it is a wrench density w(s), and the balance is dF/ds + ad*_xi F + w = 0.
+#   Discretised: N elements, each a cantilever segment with its own 6 x 6 and its own uniform density; the internal
+#   wrench at an element's tip is every load outboard of it carried there by the adjoint; the element's own density
+#   bends it by the closed form (q l^4/8EI, q l^3/6EI); the tip twist is the sum of the elements' twists carried to the
+#   point asked for. A point load at the end with one element per member is series_at; N -> infinity is the rod.
+# ======================================================================================================================
+def beam_own_load_twist(L, q_loc, EIy, EIz, EA):
+    """the tip twist (local, at the element's tip) of a cantilever segment along local +x under its OWN uniform density
+    q_loc (B,3) [N/m in the local frame]: v_y = q_y L^4/(8 EIz), omega_z = q_y L^3/(6 EIz), v_z = q_z L^4/(8 EIy),
+    omega_y = -q_z L^3/(6 EIy), v_x = q_x L^2/(2 EA)."""
+    B = L.shape[0]; xi = torch.zeros(B, 6, dtype=L.dtype, device=L.device)
+    L2, L3, L4 = L*L, L*L*L, L*L*L*L
+    xi[:, 0] = q_loc[:, 0]*L2/(2*EA)
+    xi[:, 1] = q_loc[:, 1]*L4/(8*EIz); xi[:, 5] = q_loc[:, 1]*L3/(6*EIz)
+    xi[:, 2] = q_loc[:, 2]*L4/(8*EIy); xi[:, 4] = -q_loc[:, 2]*L3/(6*EIy)
+    return xi
+
+
+def rod_twist(elements, loads, P_ref):
+    """the deflection twist at the world point P_ref (B,3), world orientation, of a chain of cantilever elements from the
+    ground out to P_ref (rigidly attached to the last element's tip).
+    elements: list root -> tip of dicts with T (B,4,4) the element's TIP frame in the world (local +x along the element,
+      root at -L), L (B,), EIy, EIz, GJ, EA (B,), and q (B,3) the wind's force density on it in the WORLD frame [N/m].
+    loads: list of (W (B,6) wrench (f; m) in the world, P (B,3) its point) applied at or beyond the last element's tip.
+    Returns the twist (B,6) at P_ref and the wrench (B,6) at the root of the first element (the foot's load cell).
+    Vectorised over the elements and the loads: a dozen tensor ops whatever their number (the MPS launch is the cost)."""
+    B = P_ref.shape[0]; dt, dv = P_ref.dtype, P_ref.device; N = len(elements)
+    T = torch.stack([e["T"] for e in elements], 1); R = T[:, :, :3, :3]; p = T[:, :, :3, 3]            # (B,N,3,3), (B,N,3)
+    L = torch.stack([e["L"] for e in elements], 1); q = torch.stack([e["q"] for e in elements], 1)     # (B,N), (B,N,3)
+    EIy = torch.stack([e["EIy"] for e in elements], 1); EIz = torch.stack([e["EIz"] for e in elements], 1)
+    GJ = torch.stack([e["GJ"] for e in elements], 1); EA = torch.stack([e["EA"] for e in elements], 1)
+    x = R[:, :, :, 0]; mid = p - 0.5*L[:, :, None]*x
+    # every load as a wrench at a point: the end loads, then each element's own density as a resultant at its middle
+    Ke = len(loads)
+    W_all = torch.cat([torch.stack([W for W, _ in loads], 1) if Ke else torch.zeros(B, 0, 6, dtype=dt, device=dv),
+                       torch.cat([q*L[:, :, None], torch.zeros(B, N, 3, dtype=dt, device=dv)], 2)], 1)        # (B,K,6)
+    P_all = torch.cat([torch.stack([P for _, P in loads], 1) if Ke else torch.zeros(B, 0, 3, dtype=dt, device=dv), mid], 1)
+    K = Ke + N
+    # outboard[i, k]: load k lies beyond element i's tip - the end loads always, an element's own resultant only for the
+    # elements inboard of it (its own bending is the closed form below)
+    outboard = torch.ones(N, K, dtype=dt, device=dv)
+    for i in range(N):
+        for j in range(N): outboard[i, Ke + j] = 1.0 if j > i else 0.0
+    f = W_all[:, None, :, :3]; m = W_all[:, None, :, 3:]                                                   # (B,1,K,3)
+    d = P_all[:, None, :, :] - p[:, :, None, :]                                                           # (B,N,K,3): load point from the tip
+    F_w = torch.cat([(outboard[None, :, :, None]*f).sum(2), (outboard[None, :, :, None]*(m + torch.cross(d, f.expand(B, N, K, 3), dim=3))).sum(2)], 2)   # (B,N,6) at the tips, world
+    Rt = R.transpose(2, 3)
+    F_loc = torch.cat([torch.einsum("bnij,bnj->bni", Rt, F_w[:, :, :3]), torch.einsum("bnij,bnj->bni", Rt, F_w[:, :, 3:])], 2)
+    C = beam_compliance(L.reshape(-1), EIy.reshape(-1), EIz.reshape(-1), GJ.reshape(-1), EA.reshape(-1)).reshape(B, N, 6, 6)
+    q_loc = torch.einsum("bnij,bnj->bni", Rt, q)
+    xi_loc = torch.einsum("bnij,bnj->bni", C, F_loc) + beam_own_load_twist(L.reshape(-1), q_loc.reshape(-1, 3), EIy.reshape(-1), EIz.reshape(-1), EA.reshape(-1)).reshape(B, N, 6)
+    # to P_ref, world orientation: omega = R omega_loc, v = R v_loc + (p_i - P_ref) x omega
+    om = torch.einsum("bnij,bnj->bni", R, xi_loc[:, :, 3:]); v = torch.einsum("bnij,bnj->bni", R, xi_loc[:, :, :3]) + torch.cross(p - P_ref[:, None, :], om, dim=2)
+    total = torch.cat([v.sum(1), om.sum(1)], 1)
+    # the foot's load cell: every load carried to the root of the first element, world orientation
+    root_p = p[:, 0] - L[:, 0:1]*x[:, 0]
+    root_w = torch.cat([W_all[:, :, :3].sum(1), (W_all[:, :, 3:] + torch.cross(P_all - root_p[:, None, :], W_all[:, :, :3], dim=2)).sum(1)], 1)
+    return total, root_w
+
+
+def tube_density(V, axis, D, Cd=1.2, rho=1.03):
+    """the wind's force density on a circular tube [N/m], world frame: the crossflow principle - only the velocity
+    component normal to the tube's axis loads it, 1/2 rho |V_n| V_n Cd D. V (B,3) the wind velocity at the element, axis (B,3)."""
+    a = axis/torch.linalg.norm(axis, dim=1, keepdim=True).clamp(min=1e-12)
+    Vn = V - (V*a).sum(1, keepdim=True)*a
+    return 0.5*rho*torch.linalg.norm(Vn, dim=1, keepdim=True)*Vn*Cd*D
+
+
+def wind_profile(z, U_ref, z_ref=10.0, z0=0.3):
+    """the log law: the speed at height z from the reference (ERA5's 10 m wind), z0 0.3 m for a built-up site"""
+    return U_ref*torch.log(torch.clamp(z, min=z0*1.01)/z0)/math.log(z_ref/z0)
+
+
+def rod_elements(T0, Cb, n_stem=1, n_boom=4, z_foot=None, stem_d=(0.215, 0.009), boom_d=(0.219, 0.008), E=200e9):
+    """the pedicel as a rod: the stem from its foot (z_foot, or T0.z - 1) up to T0 in n_stem elements, the boom from T0
+    to the wrist Cb in n_boom elements. Returns the element list rod_twist wants, with q = 0 (fill from the wind)."""
+    B = T0.shape[0]; dt, dv = T0.dtype, T0.device
+    EIs, GJs, EAs = chs_section(*stem_d, E=E); EIb, GJb, EAb = chs_section(*boom_d, E=E)
+    foot = T0.clone(); foot[:, 2] = (T0[:, 2] - 1.0) if z_foot is None else z_foot
+    els = []
+    for name, a, b, n, EI, GJ, EA in (("stem", foot, T0, n_stem, EIs, GJs, EAs), ("boom", T0, Cb, n_boom, EIb, GJb, EAb)):
+        d = b - a; L = torch.linalg.norm(d, dim=1).clamp(min=1e-6); x = d/L[:, None]
+        for i in range(n):
+            tip = a + (i + 1)/n*d
+            els.append(dict(name=name, T=frame_along(x, tip), L=L/n, EIy=torch.full_like(L, EI), EIz=torch.full_like(L, EI),
+                            GJ=torch.full_like(L, GJ), EA=torch.full_like(L, EA), q=torch.zeros(B, 3, dtype=dt, device=dv),
+                            mid=a + (i + 0.5)/n*d, axis=x))
+    return els
+
+
+# ======================================================================================================================
 # the catalogue: the frame types the register has drawn, as screws at home
 # ======================================================================================================================
 def _e(B, x, y, z, dtype, device):
@@ -298,6 +391,20 @@ def pedicel_compliance(T0, Cb, n, D_REC, EI_stem, EI_boom, kind="uniform", ratio
         els.append((beam_compliance(Lb, torch.full_like(Lb, EI_boom), torch.full_like(Lb, EI_boom), torch.full_like(Lb, GJb),
                                     torch.full_like(Lb, EAb)), frame_along(bu, Cb)))
     return series_at(els, Cb + D_REC*n)
+
+
+def pedicel_scalars(T0, Cb, n, t_dir, D_REC, EI_stem, EI_boom, G_ROT, G_TR, m_head, kind="uniform", ratio=45.0, root=0.25,
+                    Ls=1.0):
+    """the slow env's compliance() interface from the 6 x 6: a unit force along t_dir (B,3) at the vertex, delta the
+    vertex's deflection along it, theta the head's rotation, k_lat and the first mode at the vertex, k_img the unsigned
+    walk. The 3-D truth in the scalar's clothes: the stem in torsion under a crosswind, its axial strain, the vertex's
+    lever - none of which the planar cantilever pair had."""
+    C6 = pedicel_compliance(T0, Cb, n, D_REC, EI_stem, EI_boom, kind=kind, ratio=ratio, root=root, Ls=Ls)
+    W = torch.cat([t_dir, torch.zeros_like(t_dir)], 1)
+    xi = torch.bmm(C6, W[:, :, None])[:, :, 0]
+    delta = (xi[:, :3]*t_dir).sum(1).clamp(min=1e-15); theta = torch.linalg.norm(xi[:, 3:], dim=1)
+    k_lat = 1.0/delta; f_n = torch.sqrt(k_lat/m_head)/(2*math.pi)
+    return dict(theta=theta, delta=delta, k_lat=k_lat, f_n=f_n, k_img=G_ROT*theta + G_TR*delta, C6=C6)
 
 
 def crown_compliance(n, xl, yl, k_tilt=77e6, k_focus=60e6, k_inplane=38e6, k_spin=147e6):

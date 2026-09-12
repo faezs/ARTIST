@@ -440,3 +440,10 @@ Re-run under the corrected trace: no-op 2.67 cm / 67.5 % (unchanged), random 7.9
 F camera 0.34 / 89.8 (was 87.2), integral on the true miss 0.03 / 89.8 (was 86.8), run 2 ep 144 with the piston held
 0.08 / 89.8 (was 87.1). The tables above carry the old throughput; the miss columns are unaffected, the conclusions
 stand, and the ceiling is 89.8 %.
+
+## The wind as a field (2026-09-12)
+
+The fast env's structure is a rod now (`../screws/README.md`): the tubes' drag and the boom's shedding as densities
+along the stem and boom from the log profile, the bowl's force and its signed mean pitching moment at the vertex, two
+rod solutions a step rung on the bending and pitching modes from the chain's 6 x 6 (3.0 and 10.5 Hz, not 4 and 14).
+At the site's winds the tables above do not move; at 9 m/s the no-op's head twists 8.7 mm and 2.3 mrad.

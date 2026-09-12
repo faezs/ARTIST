@@ -118,3 +118,12 @@ within ~10 % for the force of a dish this shallow. In the envs' own site-wind dr
 20 % of the fast env's 256 agents and 25 % of the slow env's 64 sit beyond 100 deg, with the film constant there
 9.6e-6 to 2.0e-5 rad/(m/s)^2 against the old 2.63e-5. The watcher's evals of run 3 from this point run with slightly
 different loads from the run's training, so the fair comparison is a re-eval of every checkpoint after run 3 ends.
+
+## Three more columns (2026-09-12): `tilt1`, `k_fig`, `Cm_s`
+
+`dish_table.py` now solves each harmonic's membrane response and writes the n = 1 deflection plane (`tilt1`, rad per
+(m/s)^2 along the wind's projection on the dish; `tilt1_x` across it, ~0 by symmetry: +0.77 mrad at 37 deg, +2.33 at
+53, +1.98 at 59, falling through zero near grazing to -0.8..-1.1 on the back), the figure residual with that plane
+removed from n = 1 (`k_fig`), and the mean pitching moment SIGNED about n x w_hat (`Cm_s`: -0.08..-0.20 with the wind
+into the bowl, +0.03..+0.11 on the back). `tilt1` is information, not a pointing bias: a rim-fixed film's aperture-mean
+slope is zero by Gauss, so the n = 1 harmonic moves no centroid. `Cm_s` is what the fast env applies at the vertex.

@@ -562,8 +562,16 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         walk_pose = G_TR*torch.linalg.norm(dC, dim=1)                                 # the vertex error slides the image; the axis error turns it
 
         # ---- 4. the structure: compliance and first mode at THIS extension, not a constant
-        cmp_ = compliance(F["Lb"], self.boom_kind, self.boom_ratio, self.boom_root,
-                          m_tip=D_REC*(n_got*qc["bu"]).sum(1))                      # the drag acts at the dish, D_REC past the tip
+        # THE 6 x 6, not the planar pair (tandoor_screws.pedicel_scalars): the stem and boom as a rod in 3-D, a unit force
+        # at the vertex across the boom and horizontal (the wind's), the vertex's own deflection and the head's rotation.
+        # The planar scalar bent the stem with the boom's root moment; in 3-D that moment is the stem's TORSION under a
+        # crosswind, and the vertex rides D_REC ahead of the tip, which the scalar's tip figures never saw.
+        T0b = (T0 if T0.dim() == 2 else T0[None, :].expand(B, 3)).contiguous()
+        bu_ = qc["bu"]; w_dir = F["wdir"]
+        t_b = w_dir - (w_dir*bu_).sum(1, keepdim=True)*bu_
+        t_b = t_b/torch.linalg.norm(t_b, dim=1, keepdim=True).clamp(min=1e-9)
+        cmp_ = SC.pedicel_scalars(T0b, C_got - D_REC*n_got, n_got, t_b, D_REC, EI_STEM, EI_BOOM, G_ROT, G_TR, M_HEAD + M_CROWN,
+                                  kind=self.boom_kind, ratio=self.boom_ratio, root=self.boom_root, Ls=float(self.stem_z))
         F["f_n"], F["k_img"] = cmp_["f_n"], cmp_["k_img"]
 
         # ---- 5. the crown: the wind wrench through the 6 x 6 Jacobian into six axial forces

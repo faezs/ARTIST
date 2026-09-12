@@ -137,5 +137,51 @@ xi = torch.bmm(Cf, Wf[:, :, None])[:, :, 0]
 print(f"  1 N up at F moves F by {1e9*xi[:, 2].max():.3f} nm; 1 N m about the axis: {1e9*torch.abs(torch.bmm(Cf, Wm[:, :, None])[:, 3:, 0]*w_el).sum(1).max():.1f} nrad")
 check("translations at F stiff (< 1 um/N)", xi[:, :3].abs().max().item(), 1e-6)
 
+print("9. the rod: the derivative of the curve, against the closed forms")
+EI, GJ, EA = SC.chs_section(0.219, 0.008)
+Lb = torch.rand(B, dtype=dt)*5 + 1.0; T0 = rnd(B, 3); T0[:, 2] = 1.0; x = torch.zeros(B, 3, dtype=dt); x[:, 0] = 1; z = zh
+Cb = T0 + Lb[:, None]*x
+# (a) a point load at the tip through N elements equals one element (series_at) - the discretisation is exact for point loads
+W = torch.cat([rnd(B, 3)*100, rnd(B, 3)*20], 1)
+def rigid(e):
+    for k in ("EIy", "EIz", "GJ", "EA"): e[k][:] = 1e30
+els1 = SC.rod_elements(T0, Cb, n_stem=1, n_boom=1); rigid(els1[0])
+els8 = SC.rod_elements(T0, Cb, n_stem=1, n_boom=8); rigid(els8[0])
+xi1, _ = SC.rod_twist(els1, [(W, Cb)], Cb); xi8, _ = SC.rod_twist(els8, [(W, Cb)], Cb)
+Cloc = SC.beam_compliance(Lb, torch.full_like(Lb, EI), torch.full_like(Lb, EI), torch.full_like(Lb, GJ), torch.full_like(Lb, EA))
+Wl = torch.bmm(SC.ad_wrench(torch.bmm(SC.inverse(els1[1]["T"]), SC.frame_at(Cb))), W[:, :, None])[:, :, 0]   # W is given AT Cb
+xi_ref = torch.bmm(SC.ad_twist(torch.bmm(SC.inverse(SC.frame_at(Cb)), els1[1]["T"])), torch.bmm(Cloc, Wl[:, :, None]))[:, :, 0]   # at Cb, world orientation
+check("tip point load: 1 element = the 6 x 6", (xi1 - xi_ref).abs().max().item()/xi_ref.abs().max().item(), 1e-12)
+check("tip point load: 8 elements = 1 element", (xi8 - xi1).abs().max().item()/xi1.abs().max().item(), 1e-10)
+# (b) a uniform density along the boom: q L^4 / 8EI and q L^3 / 6EI at the tip, with any number of elements
+q = rnd(B)*50
+for n_el in (1, 3, 8):
+    els = SC.rod_elements(T0, Cb, n_stem=1, n_boom=n_el); els[0]["EIy"][:] = 1e30; els[0]["EIz"][:] = 1e30; els[0]["EA"][:] = 1e30
+    for e in els[1:]: e["q"] = q[:, None]*z
+    xi, root = SC.rod_twist(els, [], Cb)
+    check(f"uniform density, {n_el} elements: v_z = q L^4 / 8EI", ((xi[:, 2] - q*Lb**4/(8*EI))/(q*Lb**4/(8*EI))).abs().max().item(), 1e-9)
+    check(f"uniform density, {n_el} elements: |omega_y| = q L^3 / 6EI", ((xi[:, 4].abs() - q.abs()*Lb**3/(6*EI))/(q.abs()*Lb**3/(6*EI))).abs().max().item(), 1e-9)
+# (c) the foot's load cell: the total force and the moment of a uniform density about the root of the stem
+els = SC.rod_elements(T0, Cb, n_stem=1, n_boom=4)
+for e in els[1:]: e["q"] = q[:, None]*z
+xi, root = SC.rod_twist(els, [], Cb)
+foot = T0.clone(); foot[:, 2] -= 1.0
+m_ref = torch.cross(T0 + 0.5*Lb[:, None]*x - foot, (q*Lb)[:, None]*z, dim=1)
+check("foot: force = q L", ((root[:, 2] - q*Lb)/(q*Lb)).abs().max().item(), 1e-12)
+check("foot: moment = the resultant at the boom's middle", ((root[:, 3:] - m_ref).abs().max(1).values/m_ref.abs().max(1).values).max().item(), 1e-12)
+# (d) the 3/8 lumping the fast env used for the boom's shedding: right for the deflection, 12.5 % high for the rotation
+els = SC.rod_elements(T0, Cb, n_stem=1, n_boom=8); els[0]["EIy"][:] = 1e30; els[0]["EIz"][:] = 1e30; els[0]["EA"][:] = 1e30
+xi_lump, _ = SC.rod_twist(els, [(torch.cat([(0.375*q*Lb)[:, None]*z, torch.zeros(B, 3, dtype=dt)], 1), Cb)], Cb)
+for e in els[1:]: e["q"] = q[:, None]*z
+xi_dist, _ = SC.rod_twist(els, [], Cb)
+print(f"  record: the 3/8 tip lump vs the density: deflection ratio {float((xi_lump[:, 2]/xi_dist[:, 2]).mean()):.4f}, rotation ratio {float((xi_lump[:, 4]/xi_dist[:, 4]).mean()):.4f} (= 9/8)")
+check("the lump's rotation is 9/8 of the density's", (float((xi_lump[:, 4]/xi_dist[:, 4]).mean()) - 1.125), 1e-9)
+# (e) the crossflow density and the log profile
+V = torch.zeros(B, 3, dtype=dt); V[:, 0] = 10.0
+qd = SC.tube_density(V, x, 0.219)
+check("a tube along the wind carries no drag", qd.abs().max().item(), 1e-12)
+qd = SC.tube_density(V, z, 0.219); check("a tube across a 10 m/s wind: 1/2 rho V^2 Cd D", ((qd[:, 0] - 0.5*1.03*100*1.2*0.219)/(0.5*1.03*100*1.2*0.219)).abs().max().item(), 1e-12)
+check("the log profile is 1 at the reference height", (SC.wind_profile(torch.tensor([10.0], dtype=dt), torch.tensor([7.0], dtype=dt)) - 7.0).abs().item(), 1e-12)
+
 print("\nFAILED: " + ", ".join(fails) if fails else "\nall passed")
 sys.exit(1 if fails else 0)

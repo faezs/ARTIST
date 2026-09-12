@@ -18,6 +18,45 @@ supply chex, dm-haiku, jraph, dm-tree, trimesh, rtree, fiddle, h5netcdf, absl-py
 xarray >= 2025 no longer decodes timedeltas by default (`decode_timedelta=True` or the lead-time arithmetic fails); and
 `make.sh` is not involved here, that one is FluidX3D's.
 
+## GraphCast on the Apple GPU (graphcast_mlx.py), 2026-09-12
+
+`jax-metal` cannot run it: the plugin is pinned to an old StableHLO and jax 0.10 rejects it ("unknown attribute
+code: 22"), so the model was re-expressed in MLX, weight for weight - MLPs, LayerNorm, gather, scatter-add; the
+graph tables are the package's own numpy - and the JAX model is the reference it is tested against:
+
+| | MLX f32 vs JAX f32, one step | MLX bf16 vs the demo (JAX bf16), 24 h |
+|---|---|---|
+| 2 m temperature | max 3e-5 K, rel rms 3e-7 | rel rms 1.4e-3 .. 2.9e-3 |
+| every variable | rel rms < 4e-6 | rel rms < 1.4e-2 (bf16 rounding) |
+| error vs ERA5 at +6 h, 2 m T | 0.567 K, both | 0.569 / 0.569 K |
+
+Speed: 40 steps (10 days, 1 deg) in 40-52 s on the M1 Max GPU, about 1 s a step; the JAX CPU path is ~10 s a
+step after its JIT. `GraphCast_small_mlx.npz` is the flat checkpoint (`convert_checkpoint`).
+
+- `tests/test_graphcast.py` - 8 offline tests: the checkpoint and configs, the graphs (10242 mesh nodes, 81900 multimesh
+  edges, every grid point in one triangle), the 183+3 feature stacking, f32 parity, bf16 parity, skill over persistence
+  against ERA5, the Quetta readout against the README numbers, no leakage of the file's targets into the rollout. Three
+  more with `-m network`: ECMWF open data initial state (with the orientation guard), Google's ERA5 archive, and
+  GraphCast +6/+12 h against ECMWF's own forecast from the same analysis.
+- `ifs_initial_state.py` - TODAY's initial state from ECMWF open data (free, no account): the two latest 6-hourly
+  analyses at step 0 (2t, 10u, 10v, msl; t, gh, u, v, w, q on the 13 levels), the previous cycle's 6 h precipitation,
+  ERA5's static fields. The open data runs -180..179.75 in longitude: the first build assigned it to 0..359 and rotated
+  the planet by 180 deg (Quetta got Baja California's weather, 4-8 K global RMSE against IFS). Now regridded by exact
+  coordinate match and guarded by IFS's own land-sea mask having to land on ERA5's (> 97 %).
+- `weather_at.py now LAT LON [STEPS]` - the forecast from the latest analysis; `forecast` (ERA5 archive hindcasts) also
+  runs on MLX now, `--jax` for the CPU reference.
+
+GraphCast_small from the 2026-09-12 06 UTC analysis against ECMWF's IFS HRES from the same analysis (global RMSE
+between the two forecasts): 2 m T 0.85 K at +6 h, 1.0 at +24 h, 2.4 at +144 h; msl 0.7 / 0.9 / 4.5 hPa; 10 m wind
+1.0 / 1.3 / 2.5 m/s. That is the expected spread between a 1 deg ML model and a 9 km NWP model.
+
+## Quetta, the forecast of 2026-09-12 (PKT), grid point 30 N 67 E
+
+Ten dry, calm, sunny days: highs 27.5-30 C, lows 15-19 C, 10 m wind under 3.5 m/s (afternoon W/SW 2-3 m/s, night E
+drainage ~1), < 1 mm/day, 700 hPa humidity falling from 5 to 3 g/kg over the week. IFS agrees to ~1.5 K at the point.
+`data/forecast_ifs_20260912T06_quetta.csv` has the 6-hourly rows; `weather_at.py now 30.2 67.0` refreshes it.
+GraphCast has no cloud or radiation variable; precipitation and 700 hPa humidity are the cloud proxies.
+
 ## GraphCast_small on the CPU, checked (run_small.py, 2022-01-01 00Z, Google's example input)
 
 At Quetta, +6/+12/+18/+24 h: 10 m wind 1.79/0.63/0.85/1.33 m/s against ERA5's 1.65/0.48/0.79/1.87; 2 m temperature within

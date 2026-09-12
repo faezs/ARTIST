@@ -71,3 +71,11 @@ Parity: Hashemi's machine as a chain reproduces the kernel's law to 2e-7; the pe
 to 2e-6 m; the slow env with the chain matches the injection path to 1e-6 in reward with the wind off. Found on the
 way: the fast env's trace froze the sun's direction in the dish frame at reset, so the crown's tilts turned the
 traced beam once instead of twice - fixed, and the throughput ceiling is 89.8 %, not 87 (`screws/README.md`).
+
+## The wind as a field (2026-09-12): `screws/`, the rod
+
+The stem and boom as a curve, the wind as a density along it: `tandoor_screws.rod_twist` (the derivative of the curve,
+exact for uniform densities with any number of elements), `tube_density`, `wind_profile`. The fast env rings two rod
+solutions a step on the modes of the chain's 6 x 6 (3.0 / 10.5 Hz); the slow env takes its walk per newton from the
+same 6 x 6 (14 um/N, not the planar 6.3). The LES table carries the signed mean pitching moment, now applied, and the
+film's n = 1 deflection plane, which is figure and not pointing (Gauss: a rim-fixed film has no mean slope).

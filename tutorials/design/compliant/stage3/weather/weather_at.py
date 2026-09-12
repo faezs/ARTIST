@@ -1,15 +1,19 @@
 """WEATHER FOR ANY SPOT ON EARTH. Two backends, one call:
   history   ERA5 hourly at the point (Open-Meteo's archive: 10 m wind, direction, gusts, 100 m wind), any date since 1940
-  forecast  GraphCast_small (Google DeepMind, public weights, 1 deg, 13 levels) run here on the CPU from an initial state
-            built out of Google's public ERA5 archive (ARCO-ERA5 on GCS, anonymous): any date 1959-2022, 6-hourly, 10 days
+  forecast  GraphCast_small (Google DeepMind, public weights, 1 deg, 13 levels) run here on the Apple GPU (graphcast_mlx,
+            the MLX port; --jax for the CPU reference) from an initial state built out of Google's public ERA5 archive
+            (ARCO-ERA5 on GCS, anonymous): any date 1959-2022, 6-hourly, 10 days
+  now       the same model from TODAY's ECMWF analysis (open data, ifs_initial_state): the actual forecast, 10 days
 
     weather_at.py history  LAT LON START END            -> CSV of the hourly series
     weather_at.py forecast LAT LON YYYY-MM-DDTHH STEPS  -> the point's 6-hourly forecast (and the global fields as netCDF)
+    weather_at.py now      LAT LON [STEPS]              -> the point's forecast from the latest analysis (40 steps = 10 days)
 
 The initial state: 2 analyses 6 h apart, the 13 GraphCast levels picked from ERA5's 37, 0.25 deg subsampled to 1 deg
 (every 4th point), latitude flipped to ascending, precipitation summed to 6 h accumulations, TISR left to the model's own
 solar-radiation code. The target slots are NaN with real datetimes so the forcings (solar, day/year progress) are exact."""
 import sys, os, json, time, functools, urllib.request, concurrent.futures as cf, numpy as np, pandas as pd, xarray as xr
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")      # weights, stats, inputs and forecasts live here (untracked)
 os.makedirs(D, exist_ok=True)
 LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
@@ -63,14 +67,46 @@ def era5_initial_state(t0, n_steps, workers=8):
                   datetime=(("batch", "time"), np.array([[t.to_datetime64() for t in times_all]], dtype="datetime64[ns]")))
     return xr.Dataset(data, coords=coords)
 
-def forecast(lat, lon, t0, n_steps):
+def _point_rows(pred, lat, lon):
+    at = lambda v, **s: pred[v].sel(lat=lat, lon=lon % 360, method="nearest", **s).values.ravel()
+    u, v = at("10m_u_component_of_wind"), at("10m_v_component_of_wind"); sp = np.hypot(u, v); dr = (np.degrees(np.arctan2(-u, -v)) + 360) % 360
+    return pd.DataFrame(dict(datetime=pred.datetime.values.ravel(), U10=sp.round(2), dir10=dr.round(0), T2=(at("2m_temperature") - 273.15).round(1),
+                             msl_hPa=(at("mean_sea_level_pressure") / 100).round(1), tp6_mm=(at("total_precipitation_6hr") * 1000).round(2),
+                             q700_gkg=(at("specific_humidity", level=700) * 1000).round(2), z500_m=(at("geopotential", level=500) / 9.80665).round(0)))
+
+
+def run_mlx(ex, n_steps):
+    """the rollout on the Apple GPU; the datetime coordinate of the targets restored on the predictions"""
+    import mlx.core as mx, graphcast_mlx as G
+    m = G.load_model(dtype=mx.float32, grid_lat=ex.lat.values, grid_lon=ex.lon.values)
+    t_s = time.time(); pred = G.predict(m, ex, n_steps, verbose=False)
+    print(f"GraphCast_small: {n_steps} steps of 6 h ({6 * n_steps / 24:.1f} days) on the GPU (MLX) in {time.time() - t_s:.0f} s", flush=True)
+    return pred.assign_coords(datetime=(("batch", "time"), ex.datetime.values[:, 2:2 + n_steps]))
+
+
+def now(lat, lon, n_steps=40):
+    from ifs_initial_state import ifs_initial_state
+    ex = ifs_initial_state(n_steps=n_steps); t0 = pd.Timestamp(ex.datetime.values[0, 1]); tag = t0.strftime("%Y%m%dT%H")
+    ex.to_netcdf(f"{D}/init_ifs_{tag}_{n_steps}.nc"); print(f"initial state: ECMWF analyses {t0 - pd.Timedelta('6h')} and {t0} UTC", flush=True)
+    pred = run_mlx(ex, n_steps); pred.to_netcdf(f"{D}/forecast_ifs_{tag}_{n_steps}steps.nc")
+    rows = _point_rows(pred, lat, lon); rows.to_csv(f"{D}/forecast_ifs_{tag}_{n_steps}steps_{lat}_{lon}.csv", index=False); return rows
+
+
+def forecast(lat, lon, t0, n_steps, backend="mlx"):
+    cache = f"{D}/init_{pd.Timestamp(t0).strftime('%Y%m%dT%H')}_{n_steps}.nc"
+    if backend == "mlx":
+        if os.path.exists(cache): ex = xr.load_dataset(cache, decode_timedelta=True); print(f"initial state from cache {cache}", flush=True)
+        else:
+            print(f"building the initial state for {t0} from ARCO-ERA5 ...", flush=True)
+            ex = era5_initial_state(t0, n_steps); ex.to_netcdf(cache); print(f"   cached -> {cache}", flush=True)
+        pred = run_mlx(ex, n_steps); tag = pd.Timestamp(t0).strftime("%Y%m%dT%H"); pred.to_netcdf(f"{D}/forecast_{tag}_{n_steps}steps.nc")
+        rows = _point_rows(pred, lat, lon); rows.to_csv(f"{D}/forecast_{tag}_{n_steps}steps_{lat}_{lon}.csv", index=False); return rows
     import jax, haiku as hk
     from weathernext.weathernext1_graph import graphcast
     from weathernext.utils import checkpoint, data_utils, rollout, normalization, autoregressive, casting
     with open(f"{D}/GraphCast_small.npz", "rb") as f: ckpt = checkpoint.load(f, graphcast.CheckPoint)
     params, state, model_config, task_config = ckpt.params, {}, ckpt.model_config, ckpt.task_config
     diffs_stddev = xr.load_dataset(f"{D}/diffs_stddev_by_level.nc").compute(); mean_by = xr.load_dataset(f"{D}/mean_by_level.nc").compute(); stddev_by = xr.load_dataset(f"{D}/stddev_by_level.nc").compute()
-    cache = f"{D}/init_{pd.Timestamp(t0).strftime('%Y%m%dT%H')}_{n_steps}.nc"
     if os.path.exists(cache):
         ex = xr.load_dataset(cache, decode_timedelta=True); print(f"initial state from cache {cache}", flush=True)
     else:
@@ -105,5 +141,7 @@ if __name__ == "__main__":
     if mode == "history":
         d, tz, elev = history(lat, lon, sys.argv[4], sys.argv[5]); p = f"{D}/history_{lat}_{lon}_{sys.argv[4]}_{sys.argv[5]}.csv"; d.to_csv(p, index=False)
         print(f"{len(d)} hours at {lat} N {lon} E (elevation {elev} m, {tz}): U10 mean {d.U10.mean():.2f} m/s, 95 % {d.U10.quantile(0.95):.2f}, gust 95 % {d.gust10.quantile(0.95):.2f} -> {p}")
+    elif mode == "now":
+        rows = now(lat, lon, int(sys.argv[4]) if len(sys.argv) > 4 else 40); print(rows.to_string(index=False))
     else:
-        rows = forecast(lat, lon, sys.argv[4], int(sys.argv[5])); print(rows.to_string(index=False))
+        rows = forecast(lat, lon, sys.argv[4], int(sys.argv[5]), backend="jax" if "--jax" in sys.argv else "mlx"); print(rows.to_string(index=False))

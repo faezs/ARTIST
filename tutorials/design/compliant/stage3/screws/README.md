@@ -111,3 +111,49 @@ The no-op does not move, so it is unchanged; random tilting was 2.4x too kind; t
 about 2 mrad of tilt were 2.6 points too harsh, because the trace's beam lagged the tilt by half. The conclusions of
 `flower_fast/README.md` stand (the miss converges, the piston wanders, run 3 collapsed), and the throughput ceiling is
 89.8 %, not 87.
+
+## The wind as a field: the rod (2026-09-12)
+
+The stem and boom are a curve g(s) in SE(3); its derivative g⁻¹ dg/ds is a twist per unit length, the strain. The wind
+is a velocity field; along the curve it is a wrench density w(s), and the balance is dF/ds + ad*_ξ F + w = 0. That is
+now the library and the fast env:
+
+- `rod_twist(elements, loads, P_ref)`: N cantilever elements, each with its own 6 x 6 and its own uniform density; the
+  internal wrench at an element's tip is every load outboard of it carried there by the adjoint, the element's own
+  density bends it by the closed form (q L^4/8EI, q L^3/6EI), and the elements' twists are carried to the point asked
+  for. A point load at the end with one element per member is `series_at`; the density is what the lumped wrench
+  never had. Vectorised over elements and loads, a dozen tensor ops. Plus `tube_density` (the crossflow principle:
+  only the velocity normal to a tube loads it), `wind_profile` (the log law from ERA5's 10 m reference, z0 0.3 m),
+  `rod_elements` (the pedicel as stem + boom), `pedicel_scalars` (the slow env's compliance() interface from the 6 x 6).
+- Tests (`test_screws.py` 9): a tip point load through 8 elements equals the 6 x 6 to 1e-16; a uniform density gives
+  q L^4/8EI and q L^3/6EI exactly with 1, 3 or 8 elements; the foot's load cell; the record that the 3/8 tip lump the
+  fast env used for the boom's shedding is right for the deflection and 9/8 for the rotation, and the image answers
+  rotation five to one.
+- The fast env (section 4): the log profile at the head and at each element, the same gust at every height; the
+  tubes' crossflow drag as a density on the stem and the boom, the shedding lift as a density along the boom; at the
+  vertex the LES force at the head's own height and the MEAN pitching moment, signed, from the table's new `Cm_s`
+  about n x w_hat, with its gust about the same axis. Two rod solutions a step, the force-type loads and the
+  moment-type, each rung on its own mode per bending plane, the modes from the chain's 6 x 6 at the vertex (the
+  head's transverse and rotational stiffness, with the vertex's lever and the stem in torsion): 3.0 Hz and 10.5 Hz
+  where the planar scalars said 4 and 14. The geometry and the 6 x 6 are refreshed every 8 steps, the loads every
+  step; 15 -> 23 ms a step at 256 agents on the numpy path.
+- The slow env (step 4): `compliance()`'s planar pair replaced by `pedicel_scalars`, the 6 x 6 with a unit crosswind at
+  the vertex: 14 um of image per newton on the reset poses where the scalar said 6.3, the difference being the
+  vertex's lever on the tip's rotation and the stem's torsion path.
+
+What it does to the numbers. At the site's own winds nothing visible: no-op 2.67 cm / 67.5 %, the integral controllers
+0.34 and 0.03 cm at 89.8 %, run 2's best checkpoint 0.08 cm at 89.8 %, as before the rod. At 9 m/s from the west on
+the no-op (theta 149 deg, the boom at 5.8 m) the head's twist is 8.7 mm and 2.3 mrad, the foot carries 2.8 kN m, and
+the miss is 2.97 cm against 2.67 in calm air - the signed walk, the rotation and the translation partly cancelling as
+the boom study found.
+
+The film. The LES table now carries, per attitude, the n = 1 harmonic's deflection plane (`tilt1`, 0.8-2.3 mrad at
+12 m/s into the bowl, signed along the wind's projection, the across component ~0 by symmetry), the figure residual
+(`k_fig`) and the signed mean moment (`Cm_s`). The tilt is NOT applied as a pointing bias, and the reason is a
+theorem: a film fixed at its rim has zero aperture-mean slope for any harmonic (Gauss - the integral of the gradient
+over the disc is the boundary integral of w, which vanishes), so the n = 1 harmonic moves no centroid and is figure,
+which `k_film` already carries as slope rms. The step this does not take is the deterministic slope FIELD per ray in
+the trace (the n = 1..3 profiles per attitude with the wind's azimuth in the dish frame, as a new per-agent buffer
+the kernel would sample at each ray's (r, phi)); the isotropic rms has the right second moment and the wrong shape at
+the collar, and that is the next thing to build. Also still absent: wind on the strip and on M3, the dish's wake over
+the boom, motion-induced aerodynamic damping, the building's flow field.

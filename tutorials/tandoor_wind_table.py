@@ -25,8 +25,20 @@ def load(path=_PATH):
         k = (round(r["el"]), round(r["az"]))
         if k not in best or r["dx"] < best[k]["dx"]: best[k] = r
     rows = sorted(best.values(), key=lambda r: r["theta_w"])
-    _T = {k: np.array([r[k] for r in rows], dtype=np.float32) for k in ("theta_w", "Cn", "Ct", "Cd", "Cl", "Cm", "k_film", "n1", "n2", "n3", "dx")}
+    keys = ("theta_w", "Cn", "Ct", "Cd", "Cl", "Cm", "k_film", "n1", "n2", "n3", "dx", "Cm_s", "k_fig", "tilt1")
+    _T = {k: np.array([r.get(k, 0.0) for r in rows], dtype=np.float32) for k in keys}
     return _T
+
+
+def head_moment(n, w):
+    """the MEAN pitching moment's coefficient, SIGNED, and its axis: the table's Cm_s is the mean moment about
+    e_m = n x w_hat (w_hat where the wind blows), per q A D. Returns Cm_s (B,) and e_m (B,3); a zero e_m where the wind
+    is along the axis. tilt1 in the table is the n = 1 harmonic's deflection plane and is NOT an optical bias: a film
+    fixed at its rim has zero aperture-mean slope (Gauss), so the whole harmonic is figure, which k_film carries."""
+    up = -w/torch.linalg.norm(w, dim=1, keepdim=True).clamp(min=1e-9)
+    theta_w = torch.rad2deg(torch.arccos((n*up).sum(1).clamp(-1.0, 1.0)))
+    e_m = torch.cross(n, -up, dim=1); e_m = e_m/torch.linalg.norm(e_m, dim=1, keepdim=True).clamp(min=1e-9)
+    return interp(theta_w, "Cm_s"), e_m
 
 
 def table():
