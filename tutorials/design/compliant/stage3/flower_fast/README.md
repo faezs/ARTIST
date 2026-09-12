@@ -448,6 +448,42 @@ along the stem and boom from the log profile, the bowl's force and its signed me
 rod solutions a step rung on the bending and pitching modes from the chain's 6 x 6 (3.0 and 10.5 Hz, not 4 and 14).
 At the site's winds the tables above do not move; at 9 m/s the no-op's head twists 8.7 mm and 2.3 mrad.
 
+## Run 4: the run-3 configuration again, and it holds (2026-09-13, `runs/reeval_run4.log`)
+
+The user re-ran `flowerfast.ini` as it stands (thru_w 1.0, thru_ref 0.85, mech_kernel 1, gamma 0.99, reward_div 10,
+miss_shape 20; 178922398387, 144 epochs, 302 M steps in 45 min) and it ended cleanly at the prompt. The dashboard's
+last frames read policy loss 0, clipfrac 0, KL 0: that is `anneal_lr` taking the learning rate to zero, not a collapse
+(clipfrac falls 0.08 -> 0 over the last 60 epochs, entropy 4.99 -> 4.73 with ent_coef 0, explained variance 0.95-0.98;
+the value loss climbs 0.01 -> 0.085 after epoch 100). Every checkpoint with `fast_eval.py` as before - 256 agents, 3 s,
+seed 11, site wind, sampled unless marked - with the baselines from the env as it is now (the corrected Acan: random
+is 15.8 % through, not 40.5; integral 89.8, not 87):
+
+| checkpoint | reward/step | miss cm (2nd half) | rays through | \|tilt\| mrad | \|piston\| mm |
+|---|---|---|---|---|---|
+| no-op | -0.0309 | 2.67 | 67.5 % | 0 | 0 |
+| random | -0.1107 | 8.27 | 15.8 % | 6.2 | 6.3 |
+| integral on the F camera | 0.0031 | 0.34 | 89.8 % | 2.2 | 0 |
+| integral on the true miss | 0.0047 | 0.03 | 89.8 % | 2.1 | 0 |
+| run 4 ep 20 | 0.0033 | 0.29 | 89.7 % | 2.2 | 11.3 |
+| run 4 ep 40 | 0.0008 | 0.58 | 88.7 % | 2.3 | 27.0 |
+| run 4 ep 60 | 0.0042 | 0.13 | 89.8 % | 2.1 | 46.6 |
+| run 4 ep 80 | 0.0029 | 0.32 | 89.5 % | 2.2 | 21.5 |
+| run 4 ep 100 | -0.0022 | 1.05 | 88.0 % | 2.7 | 43.7 |
+| run 4 ep 120 | 0.0043 | 0.09 | 89.8 % | 2.1 | 41.6 |
+| run 4 ep 140 | 0.0044 | 0.09 | 89.8 % | 2.1 | 36.6 |
+| **run 4 ep 144** | **0.0044** | **0.09** | **89.8 %** | 2.1 | 36.6 |
+| run 4 ep 144, greedy | -0.0002 | 0.78 | 88.8 % | 2.6 | 37.1 |
+| run 4 ep 144, piston held | 0.0040 | 0.15 | 89.8 % | 2.2 | 0 |
+
+The same configuration that collapsed at epoch 60 in run 3 reaches the ceiling here and stays there: from epoch 120
+the sampled policy sits at 0.09 cm and 89.8 % through, the integral controller's throughput to the digit and its
+true-miss reward within 0.0003 per step, above the camera integral. The dips at epochs 40 and 100 recover. The
+piston wanders between 11 and 47 mm and does not walk to its 50 mm stop as run 2's did - the throughput term does
+give it a gradient - and holding it costs 0.06 cm and nothing in throughput. Greedy is worse than sampled (0.78 cm,
+88.8 %), as with the champion policies: deploy sampled. Run 3's collapse was therefore not the configuration; with no
+infos from the fast env it remains a seed's story, and the lesson stands that the checkpoint to keep is the one the
+eval picks, not the last. Best controller on the page: run 4 epoch 144 sampled.
+
 ## The film (2026-09-12)
 
 Two fixes in the film's wind model (`../wind/README.md`, 'The film itself'): the valve no longer shields the n >= 1
