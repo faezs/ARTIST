@@ -127,3 +127,45 @@ different loads from the run's training, so the fair comparison is a re-eval of 
 removed from n = 1 (`k_fig`), and the mean pitching moment SIGNED about n x w_hat (`Cm_s`: -0.08..-0.20 with the wind
 into the bowl, +0.03..+0.11 on the back). `tilt1` is information, not a pointing bias: a rim-fixed film's aperture-mean
 slope is zero by Gauss, so the n = 1 harmonic moves no centroid. `Cm_s` is what the fast env applies at the vertex.
+
+## The film itself (2026-09-12)
+
+The head is 50 um PET, flat, inflated to f = 4. That shape costs strain before any wind blows: a flat disc pulled into a
+paraboloid stretches its area by a^2/16f^2, half of that as biaxial strain, plus the pretension's 1.08 %.
+
+| f m | f/D | sag m | dome strain | total strain | stress MPa | of yield | shape pressure Pa |
+|---|---|---|---|---|---|---|---|
+| 4 | 0.95 | 0.276 | 0.86 % | 1.94 % | 116 | 1.29 | 1449 |
+| 5 | 1.19 | 0.221 | 0.55 % | 1.63 % | 97 | 1.08 | 974 |
+| 6 | 1.43 | 0.184 | 0.38 % | 1.46 % | 87 | 0.97 | 728 |
+| 8 | 1.90 | 0.138 | 0.22 % | 1.30 % | 77 | 0.86 | 484 |
+
+(the FvK solve says 98 MPa area-mean at f 4, 106 at the centre: the same story with the real strain distribution). PET
+yields at ~90 MPa, 2.4 % strain. A flat PET film at f 4 is AT YIELD by geometry, and the strain is set by the shape, so a
+thicker film changes the stress not at all. The hub hole concentrates it 2x: 196 MPa at its edge, above PET's ultimate
+(~170). PET creeps ~1 % per decade of hours at 60 MPa; near yield it runs away: the shape drifts, the pump raises the
+pressure to hold f, the stress rises with it. This is the fragility, and it is a design fact, not a wind fact.
+
+The ways out, with their cost:
+- a longer focal length: f 6 is at yield still, f 8 at 0.86 of it; the receiver geometry is built around f 4.
+- a PRE-FORMED film, thermoformed to the paraboloid or sewn from gores like a balloon: the elastic strain is then only
+  what the pretension asks, and the pretension only has to beat the wind's suction on the film (net Cp up to 1.7 q) with
+  a margin. Holding to 15 m/s with a margin of 2 needs 394 Pa, 1576 N/m, 32 MPa - a third of yield, 55 at the hole - and
+  the wind figure, which goes as 1/T, is 3.1x today's: 3.4 mrad at the worst attitude in 5 m/s, 11 in 9 m/s, with the
+  modes at 0.57x (6.5 Hz for (0,1), still far above the gust). Holding to 9 m/s and stowing above it needs 11 MPa and
+  gives 9.5 mrad at 5 m/s. The trade is the film's life against its figure in wind, and the five plenum zones and the
+  fine stage are what buy the figure back.
+- a stiffer film (polyimide, PEN) moves the yield strain, not the geometry.
+
+Two model errors found on the way, both fixed in the envs:
+- the sealed plenum's gas spring resists a change of VOLUME; the n >= 1 harmonics of the wind's pressure change none, so
+  the valve does nothing to the figure error. The fast env multiplied the whole figure by 0.03 when sealed (the default):
+  a 33x understatement; the slow env multiplied it by 33 when open. Now k_film V^2 softened, sealed or not.
+- the n = 0 load, Cp_net q, DOES change the volume: sealed it is resisted 33x, open it reaches the focal length one to
+  one - 42 cm of f at 12 m/s with the valve open, 1.3 cm sealed, 7 cm open at 5 m/s. The fast env now adds it to the
+  plenum pressure the level and the focal length are read from (`film_load`, the table's `Cp_net` by incidence); the slow
+  env carries it as a defocus blur in its readout. Opening the valve in wind is a focus hazard the policy can now see.
+
+What the envs read out: `film_sig`, the tension over the thickness following the pressure as p^(2/3) from 98 MPa at the
+design pressure, and `film_yield` past 90. The slow env's HUD says AT YIELD, which at f 4 it always is. The cook's fused
+step still traces with its own wind blur (`sigw` in step_pre), not with this figure; that is the next seam.

@@ -25,9 +25,19 @@ def load(path=_PATH):
         k = (round(r["el"]), round(r["az"]))
         if k not in best or r["dx"] < best[k]["dx"]: best[k] = r
     rows = sorted(best.values(), key=lambda r: r["theta_w"])
-    keys = ("theta_w", "Cn", "Ct", "Cd", "Cl", "Cm", "k_film", "n1", "n2", "n3", "dx", "Cm_s", "k_fig", "tilt1")
+    keys = ("theta_w", "Cn", "Ct", "Cd", "Cl", "Cm", "k_film", "n1", "n2", "n3", "dx", "Cm_s", "k_fig", "tilt1", "Cp_net")
     _T = {k: np.array([r.get(k, 0.0) for r in rows], dtype=np.float32) for k in keys}
     return _T
+
+
+def film_load(n, w):
+    """the n = 0 part of the wind's pressure field on the film: the net Cp (front minus back, mean over the film), positive
+    pushing the film back into the plenum - up to 1.7 into the bowl, -1.6 on the back. A uniform load changes the plenum's
+    volume, so a sealed plenum resists it 33x and an open valve passes it to the focal length; the n >= 1 harmonics
+    (k_film) change no volume and the valve does nothing to them."""
+    up = -w/torch.linalg.norm(w, dim=1, keepdim=True).clamp(min=1e-9)
+    theta_w = torch.rad2deg(torch.arccos((n*up).sum(1).clamp(-1.0, 1.0)))
+    return interp(theta_w, "Cp_net")
 
 
 def head_moment(n, w):

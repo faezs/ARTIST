@@ -130,6 +130,7 @@ SIG_MEM_K = 2.63e-5                                           # rad rms of film 
 # own softening of the film: a tensioned membrane in a stream loses stiffness as q D / T (Tiomkin & Raveh 2017, divergence
 # at T* = T/(q D) ~ 1). At the working area-mean tension 4922 N/m that is 6 % at 12 m/s, 10 % at 15, divergence at 48 m/s.
 T_WORK, D_AERO = 4922.0, 4.2
+FILM_SIG_WORK, FILM_SIG_YIELD = 98.4, 90.0                    # MPa: T_WORK over 50 um of PET at the design pressure, and PET's yield - the film at f 4 is AT yield
 
 
 def film_soften(V):
@@ -661,7 +662,21 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             a0 = torch.as_tensor(act, device=dev).reshape(B, -1)[:, 0].float()
             open_ = (a0 != 3.0).float()                                                 # the level action is off neutral: the valve is open this step
         F["plenum"] = 1.0 - open_
-        F["sig_mem"] = F["k_film"]*V*V*film_soften(V)*torch.where(open_ > 0.5, torch.full_like(V, 1.0/PLENUM_SEALED), torch.ones_like(V))
+        # THE FILM UNDER THE WIND, in two parts (mem_theory.py, wind/README.md 'The film itself'). The n >= 1 harmonics change no
+        # volume, so the valve does nothing to them: k_film V^2 softened by the flow, sealed or not (it was 33x LARGER here with
+        # the valve open, the inverse of the fast env's error - both wrong). The n = 0 load, Cp_net q, does change the volume:
+        # sealed it is resisted 33x, open it reaches the focal length one to one, and that defocus is a blur of
+        # A_M |dp| / p_shape / g_orbit. Both are a READOUT in this env: the cook's fused step traces with its own wind blur.
+        pass_w = torch.where(open_ > 0.5, torch.ones_like(V), torch.full_like(V, PLENUM_SEALED))
+        q_w = 0.5*RHO_AIR*V*V                                                        # (q is the joints' dict by now)
+        if self.wind_table and "theta_w" in F:
+            dp_w = WT.film_load(n_h, wdir)*q_w*pass_w
+        else:
+            dp_w = 1.4*q_w*pass_w
+        p_sh = float(getattr(self, "p0", 1200.0))
+        F["defocus_w"] = A_M*dp_w.abs()/p_sh/float(getattr(self, "g_orbit", G_ORB))
+        F["sig_mem"] = torch.sqrt((F["k_film"]*V*V*film_soften(V))**2 + F["defocus_w"]**2)
+        F["film_sig"] = FILM_SIG_WORK*torch.clamp(1.0 + dp_w/p_sh, min=0.05)**(2.0/3.0)   # MPa: the tension follows p^(2/3) from 98 at the design pressure
 
         # ---- 10. beta, two-tier at the traced optimum (tree/beta_flux.py)
         if self.two_tier_beta:
@@ -692,14 +707,14 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F = self._fl
         if F is None:
             return dict(V=0.0, gust=0.0, drag=0.0, lift=0.0, pitch=0.0, strut=0.0, leg=np.zeros(6), walk=np.zeros(2),
-                        d_el=0.0, d_az=0.0, sig_mem=0.0, Lb=0.0, f_n=0.0, k_img=0.0, q=dict(slew=0.0, luff=0.0, ext=0.0, pitch=0.0, yaw=0.0),
+                        d_el=0.0, d_az=0.0, sig_mem=0.0, film_sig=0.0, Lb=0.0, f_n=0.0, k_img=0.0, q=dict(slew=0.0, luff=0.0, ext=0.0, pitch=0.0, yaw=0.0),
                         lim_hit=0.0, rate_hit=0.0, pose_err=0.0, fine_use=0.0, fine_sat=0.0, ball_sig=0.0, ball_defl=0.0,
                         ball_ang=0.0, stow=0.0, beta=float(getattr(self, 'beta_dev', BETA_OPT)), plenum=1.0, walk_open=0.0, ext_ask=0.0, acq=0.0, rail=0.0, thru=0.0,
                         iu=IU, from_deg=float(self._fl_from))
         g = lambda k: float(F[k][0])
         return dict(V=g("V"), gust=g("gust"), drag=g("drag"), lift=g("lift"), pitch=g("pitch"), strut=g("strut"),
                     leg=F["leg"][0].detach().cpu().numpy(), walk=np.array([g("walk_a"), g("walk_x")]),
-                    d_el=g("d_el"), d_az=g("d_az"), sig_mem=g("sig_mem"), Lb=g("Lb"), f_n=g("f_n"), k_img=g("k_img"),
+                    d_el=g("d_el"), d_az=g("d_az"), sig_mem=g("sig_mem"), film_sig=g("film_sig"), Lb=g("Lb"), f_n=g("f_n"), k_img=g("k_img"),
                     q=dict(slew=g("q_slew"), luff=g("q_luff"), ext=g("q_ext"), pitch=g("q_pitch"), yaw=g("q_yaw")),
                     lim_hit=g("lim_hit"), rate_hit=g("rate_hit"), pose_err=g("pose_err"), fine_use=g("fine_use"),
                     fine_sat=g("fine_sat"), ball_sig=g("ball_sig"), ball_defl=g("ball_defl"), ball_ang=g("ball_ang"),
@@ -1092,7 +1107,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             + (f"  SATURATED by {1e3*fl['fine_sat']:.1f} mm" if fl["fine_sat"] > 0 else "")
             + f"   open loop {100*fl['walk_open']:.1f} cm -> held to {100*np.linalg.norm(fl['walk']):.2f} cm at F",
             f"pointing handed to the kernel  el {60*fl['d_el']:.2f}'  az {60*fl['d_az']:.2f}'"
-            f"   blur: kernel sig_wind {1e3*sig_env:.2f} mrad . film {1e3*fl['sig_mem']:.2f} mrad rms ({'sealed plenum' if fl['plenum'] > 0.5 else 'PLENUM OPEN to the blower'})",
+            f"   blur: kernel sig_wind {1e3*sig_env:.2f} mrad . film {1e3*fl['sig_mem']:.2f} mrad rms, {fl['film_sig']:.0f} MPa{' AT YIELD' if fl['film_sig'] > 90.0 else ''} ({'sealed plenum' if fl['plenum'] > 0.5 else 'PLENUM OPEN to the blower'})",
         ]
         if sc is not None:
             lines.append(f"the pedicel's screw system: rank {sc['rank']}/5, condition {sc['cond']:.1f}, smallest singular value {sc['sv'][-1]:.2f}"

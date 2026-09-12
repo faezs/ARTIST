@@ -49,6 +49,7 @@ L_KARMAN = 50.0                  # the gust's integral length [m]
 FINE_BW_ACT, FINE_RATE = 50.0, 0.8        # the fine stage's actuator: 50 Hz first-order, 0.8 m/s of leg speed
 FINE_CMD_RATE = 5.0                       # full command sweeps the whole stroke in 1/5 s - the heads command a RATE
 ROD_EVERY = 8                             # steps between refreshes of the rod's geometry and the chain's 6 x 6 (the loads are every step)
+FILM_SIG_WORK, FILM_SIG_YIELD = 98.4, 90.0   # MPa: the working tension 4922 N/m over 50 um at the design pressure (mem_theory.py), and PET's yield
 CAM_FOV = 0.30                   # the flux camera's half-width AT THE RECEIVER [m]: the traced spot has a 3 cm rms
 CAM_FOV_F = 0.15                 # the camera AT F: half-width [m], 1.25 cm a pixel at 24; the spot is ~2 cm, the standing miss 2.5
 CAM_REF_F = 0.06                 # the F frame's fixed reference ring [m]: a spot with nothing to be off-centre from teaches nothing
@@ -325,9 +326,11 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
             F_tab, theta_w, k_tab, covered = WT.head_force(n0, w_inst/V_inst[:, None], 0.5*RHO_AIR*V_inst*V_inst, A_D)
             Fw = torch.where(covered[:, None], F_tab + (side + F_disc)[:, None]*v_hat, Fw)
             k_film = torch.where(covered, k_tab, k_film); F["theta_w"] = theta_w
-            Cm_s, e_m = WT.head_moment(n0, w_inst/V_inst[:, None])
+            wdir_i = w_inst/V_inst[:, None]
+            Cm_s, e_m = WT.head_moment(n0, wdir_i)
             M_head = (0.5*RHO_AIR*V_inst*V_inst*A_D*D_DISH*(Cm_s + cm_g))[:, None]*e_m   # the mean moment and its gust, one axis
         else:
+            wdir_i = w_hat
             e_m = torch.cross(n0, w_hat, dim=1); e_m = e_m/torch.linalg.norm(e_m, dim=1).clamp(min=1e-9)[:, None]
             M_head = (0.5*RHO_AIR*Vh*Vh*A_D*D_DISH*cm_g)[:, None]*e_m
         # ---- the rod: the stem from the deck to T0, the boom to the wrist; the densities from the field at each element's
@@ -410,10 +413,23 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         S["p_dist"] = torch.clamp(S["p_dist"] + (bias - S["p_dist"])/900.0*self.dt
                                   + 1.2*np.sqrt(self.dt/DT_HASH)*torch.randn(B, generator=gen, device=dev), -40, 60)
         S["p_act"] = S["p_act"] + torch.clamp(p_set + S["p_dist"] - S["p_act"], -self.pump_slew*self.dt, self.pump_slew*self.dt)
-        f_now = self._lerp_lv(S["p_act"])                                          # on device: a .cpu() here cost 50x the physics
-        defocus = A_M*torch.abs(f_now - self.f_nom)/max(self.f_nom, 1e-6)          # the spot's growth from the wrong focal length
+        # THE FILM UNDER THE WIND, in two parts. The n = 0 part of the pressure field (Cp_net q, up to 1.7 q into the bowl) is
+        # a uniform load that changes the plenum's VOLUME: the sealed plenum's gas spring resists it 33x (PLENUM_SEALED) and
+        # an open valve passes it one to one, and it moves the focal length - 42 cm at 12 m/s with the valve open, 1.3 cm
+        # sealed - which the trace sees through the level. The n >= 1 harmonics change no volume, so the valve does nothing
+        # to them: the figure error is k_film V^2, softened by the flow, sealed or not. (Until 2026-09-12 the harmonics were
+        # multiplied by 0.03 whenever the valve was shut, the default: a 33x understatement of the film's wind figure.)
         wind_pass = torch.where(S["valve"] > 0.5, torch.full_like(V, PLENUM_SEALED), torch.ones_like(V))
-        sig_film = k_film*V*V*film_soften(V)*wind_pass                             # the film's figure under wind (LES table by incidence), softened by the flow
+        dp_w = WT.film_load(n0, wdir_i)*(0.5*RHO_AIR*Vh*Vh)*wind_pass            # Pa on the film: positive pushes it back, deeper
+        p_eff = S["p_act"] + dp_w
+        f_now = self._lerp_lv(p_eff)                                                # on device: a .cpu() here cost 50x the physics
+        defocus = A_M*torch.abs(f_now - self.f_nom)/max(self.f_nom, 1e-6)          # the spot's growth from the wrong focal length
+        sig_film = k_film*V*V*film_soften(V)                                       # the film's figure under wind (LES table by incidence), softened by the flow
+        # THE FILM'S STRESS: the working tension follows the pressure as p^(2/3) (Hencky's inflated membrane) from the FvK
+        # figure at f 4, 98 MPa in 50 um PET - PET's yield. The number is a readout and a flag, because the design at f 4
+        # is at yield before any wind blows (design/compliant/stage3/wind/README.md, 'The film itself').
+        F["film_sig"] = FILM_SIG_WORK*torch.clamp(p_eff/self.p0, min=0.05)**(2.0/3.0)
+        F["film_yield"] = (F["film_sig"] > FILM_SIG_YIELD).float()
 
         # ---- 7. the optics: THE RAY TRACE. The megakernel is handed the dish frame the flower's joints actually
         # produced, so the power is what those rays deliver - not a closed form fitted to a half-power radius.
@@ -428,7 +444,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         # the beam's angular budget, composed the way the kernel composes it (tandoor_hashemi_env.py:1259), plus the
         # film's own wind gradient and the plenum's defocus, which is what the membrane's actuation buys or loses
         sigb = torch.sqrt(self.sig_static**2 + (2*0.35*sig_film)**2 + (defocus/max(float(self.g_orbit), 1e-6))**2)
-        lv_f = torch.clamp((S["p_act"]/self.p0 - self.level_frac[0])
+        lv_f = torch.clamp((p_eff/self.p0 - self.level_frac[0])
                            /(self.level_frac[-1] - self.level_frac[0])*(len(self.p_lv) - 1), 0, len(self.p_lv) - 1)
         thr, out6, per = self.trace(C, n, lv_f, sigb)
         if self.cam_plane == "F": img_F = self.flux_image_F(C, n, lv_f, sig_film, s_dir, r, e1, e2, Ff, gen)

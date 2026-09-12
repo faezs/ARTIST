@@ -447,3 +447,10 @@ The fast env's structure is a rod now (`../screws/README.md`): the tubes' drag a
 along the stem and boom from the log profile, the bowl's force and its signed mean pitching moment at the vertex, two
 rod solutions a step rung on the bending and pitching modes from the chain's 6 x 6 (3.0 and 10.5 Hz, not 4 and 14).
 At the site's winds the tables above do not move; at 9 m/s the no-op's head twists 8.7 mm and 2.3 mrad.
+
+## The film (2026-09-12)
+
+Two fixes in the film's wind model (`../wind/README.md`, 'The film itself'): the valve no longer shields the n >= 1
+figure error (it never could: a harmonic changes no plenum volume; the fast env had it 33x too small when sealed), and
+the n = 0 load now reaches the focal length through the plenum pressure - sealed 33x less, open one to one, 42 cm of f
+at 12 m/s. `film_sig` reads the film's stress: 98 MPa at the design pressure, PET's yield, before any wind.
