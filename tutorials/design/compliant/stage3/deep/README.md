@@ -6,10 +6,10 @@ set to f and the receiver block's f_dish set to f (design-table columns 53, 55, 
 the bore's rays with the deep bowl). Nothing is written back. Scripts: `deep_trace.py` (the built strip),
 `deep_greg.py` (the Gregorian cap), `deep_greg_near.py` (F2 brought in), `deep_year.py` / `deep_year2.py` (three days
 by nine hours; `D_CAP` and `SIGB` env vars), `deep_blur.py` (figure tolerance), `deep_greg_cap.py` (the cap the rays
-actually meet), `deep_greg_d.py` (the cap's distance beyond F). Logs: `deep_year2.log` (a perfect film, the cap's shadow
+actually meet), `deep_greg_d.py` (the cap's distance beyond F), `deep_relay.py` / `deep_relay_year.py` (the relay at F2 down the axis, a\nvalidated torch twin of the kernel's ray model with the fourth pass's folds; section 8). Logs: `deep_year2.log` (a perfect film, the cap's shadow
 sphere at the semi-minor axis), `deep_year2_sig43.log` (the envs' 4.3 mrad static figure, same sphere),
 `deep_year2_cap_sig43.log` (4.3 mrad, the true cap footprint), `deep_year2_d15_sig43.log` (4.3 mrad, the cap at 0.15 m),
-`deep_greg_d.log`. Quetta, 512 rays, 128-256 agents.
+`deep_greg_d.log`, `deep_relay.log` (the relay's validation, sweep and year), `deep_relay_year_neck18.log`. Quetta, 512 rays,\n128-256 agents.
 
 ## 1. The strip's shadow does not grow with depth
 
@@ -137,16 +137,109 @@ yield); the formed film at 1576 N/m needs 1576 Pa of shape pressure at f 1.05, s
 
 ## 7. The machine this points to
 
-A 4.2 m formed paraboloid at f 1.05, F in the rim plane, a Gregorian cap 0.15 m beyond F - a 0.57 m dome whose
-shadow falls inside the film's hole - imaging onto F2 3 m from F, 1.95 m below the vertex, with magnification 21 and
-a 41 cm image; a relay at F2 sending the beam down the dish's own axis through the neck and stalk, the pipe's shadow
-inside the hole, a mount eleven times stiffer against the wind. Traced here to the cap and through the built machine's
-collar: 84 % of the sun's rays at noon with a perfect film, 71 % with today's figure, and (section 4) 3.2 to 6.1 times
-the built machine's daily light with the cap at 0.1 m, more with the cap at 0.15. The cap's optics are benign: the
-rays from F meet it at 0 deg on the axis and 42 deg for the rim ray (F2 at 3 m; 41-44 deg for F2 anywhere from 1.2 to
-8 m), where aluminium is within 5 % of its normal reflectance - no grazing; its flux is 36-44 kW/m^2 at d 0.15 (77-99 at
-d 0.1), against 125-160 on the built strip 0.3 m before F, and it absorbs about 0.9 kW of the 11.8 collected at 8 %,
-so it is a cooled metal mirror as the strip already is. Below F2 it is the fourth pass's optics, which this kernel does
-not carry, and the optimum d it found is the built collar's acceptance, to be redone with the relay's. What it still
-lacks: the relay's trace, a deep cup's wind loads (the LES table is the shallow bowl's), and a formed film's
-manufacture and figure.
+A 4.2 m formed paraboloid at f 1.05, F in the rim plane; a Gregorian cap 0.20 m beyond F - a 0.72 m dome on three
+blades in the rim plane, its shadow inside a 0.4 m hole - imaging F onto F2 0.45 m behind the vertex at magnification 8;
+the fourth pass's folds behind the head: M3 at the neck 1.8 m behind the vertex relaying F2 into the hollow elevation
+pivot, M4 on the yoke at the stalk 1.4 m beside the axis relaying it down the stalk to the built bore, the built
+chain below the deck unchanged; a mount eleven times stiffer against the wind. Traced end to end in section 8 with the
+envs' 4.3 mrad figure and the sun's disc: 82-88 % of the sun's rays through the collar at every hour of the year,
+4.0 / 5.9 / 8.3 times the built machine's daily light in rays (midwinter / equinox / midsummer), 3.5 / 5.2 / 7.3 times
+after the two extra reflections. The cap's optics are benign: incidence 0-44 deg (aluminium within 5 % of normal),
+flux 30-45 kW/m^2 against 125-160 on the built strip, about 0.9 kW absorbed at 8 %, a cooled metal mirror as the strip
+already is. What it still lacks: the receiver below the deck redone for the smaller, slower source (the tri mirror's
+imaging onto the loaf; section 8), the fold mirrors' mass on the head and the yoke (1.1 x 1.55 and 1.2 x 1.7 m), a deep
+cup's wind loads (the LES table is the shallow bowl's), and a formed film's manufacture and figure.
+
+## 8. The relay at F2, down the axis, traced (`deep_relay.py`, `deep_relay.log`)
+
+The fourth pass's chain (`../coude/memo.md`) put behind the deep dish: the cap images F onto F2 on the dish's own axis
+behind the vertex; M3 on the head at the neck, an ellipsoidal fold, turns the beam 90 deg along the neck axis - the
+elevation axis, horizontal, turning with the yoke - and relays F2 to F3 inside the hollow cartwheel pivot (bore r 0.30 m,
+0.4-1.0 m from the stalk); M4 on the yoke at the stalk, 1.4 m to one side of the dish axis, turns it 90 deg down the
+stalk - the azimuth axis, a tube of r 0.46 - and relays F3 to F2c on the built bore's axis; below the deck the built
+chain is unchanged (the tri machine's mirror at the turn, the way, the inlet collar r 0.55). Both folds sit at 45 deg at
+every elevation because the head turns about the neck axis. The stalk is 1.3 m here, not the fourth pass's 1.0: the deep
+head's rim is 1.05 m ahead of its vertex and clears the deck by 0.3 m at el 12 only with the neck at z 5.35. The cap
+hangs on three blades in the rim plane (F's plane), 4 mm thick and 50 mm tall, from the rim ring to the cap's edge:
+the converging beam is wholly below that plane and the return beam wholly inside the cap's radius, so the blades
+cross no light and shade 0.17 % on the sun leg; the fourth pass's style from the hole does not work for a Gregorian,
+whose return beam is wide exactly where the hole's dark cone is narrow.
+
+The kernel does not carry this chain, so the trace is a torch twin of the kernel's ray model - the same 512-point
+grid, the same canonical-ray rotation, the same per-ray Gaussian on the incident ray, the same ellipsoid, way and
+collar tests - validated first on the kernel's own vertical-bore deep machine with the same noise draws:
+
+| day / hour | who | through | cap shade | hole | crossing | bore | turn mirror | collar |
+|---|---|---|---|---|---|---|---|---|
+| midsummer noon | kernel | 80.6 % | 1.8 | 4.0 | 0 | 0.1 | 0.8 | 12.6 |
+| | twin | 80.0 % | 1.8 | 4.0 | 0 | 0.1 | 0.8 | 13.2 |
+| equinox noon | kernel | 8.2 % | 1.8 | 4.0 | 84.8 | 0.1 | 0.1 | 1.0 |
+| | twin | 8.2 % | 1.8 | 4.0 | 84.8 | 0.1 | 0.1 | 1.0 |
+| equinox 9 h, midwinter noon | both | 0 | 1.8 | 4.0 | 94.2 | 0 | 0 | 0 |
+
+(no slot, no strut, 4.3 mrad, 128 x 512 rays.) Found on the way: the fast env's trace has no sun. `trace_setup` sets
+`upick = us = 0.5`, so the kernel's sun table gives every ray the same 3.2 mrad offset in one direction - a pointing
+error, not the 4.65 mrad limb-darkened disc the slow env samples. The year logs above are all so. The built machine
+hardly notices (its losses are geometric: 25.4 instead of 24.6 % at midwinter 9 h with the disc, 7.9 instead of 8.4 at
+midsummer noon), a machine that magnifies the sun twentyfold does, so the relay is traced both ways and the honest
+column is the disc's.
+
+The first sweep, with F2 1.2-1.5 m behind the vertex (2c 2.25-2.55) and M3 relaying 1:1 or magnifying, lost 33-70 %
+of the rays in the pivot's bore and a further 7-40 % at M4: the cap's image at magnification 16-26 is 10-14 cm rms
+before the sun's disc is added, and the fold cannot pass it through a 0.30 m bore with the cone it carries. The
+etendue says where the optimum is: a conduit of radius R over +-L about a focus passes an image of radius r with a cone
+theta when r + L theta < R, and r theta is fixed by the dish and the figure, so the image at F3 wants r ~ sqrt(L r theta),
+about 7 cm - the cap's image demagnified by half, which means F2 nearer the vertex (a longer run to M3) and a slower
+cone at F2c for the built bore below (M4 magnifying again). So the second sweep brought 2c to 1.5-1.8 and had M3
+demagnify and M4 magnify:
+
+| neck | F2 behind the vertex (2c) | cap d, r, magnification | M3 in -> out | M4 in -> out | hole | through at noon, disc | beam rms at M3, M4 |
+|---|---|---|---|---|---|---|---|
+| 1.3 | 0.15 m (1.2) | 0.20, 0.35 m, 7 | 1.15 -> 0.80 | 0.60 -> 3.5 | 0.4 | 88.7 % | 31, 28 cm |
+| 1.8 | 0.45 m (1.5) | 0.20, 0.36 m, 8 | 1.35 -> 0.80 | 0.60 -> 3.5 | 0.4 | 87.9 % | 32, 29 cm |
+| 1.3 | 0.30 m (1.35) | 0.25, 0.43 m, 6 | 1.00 -> 0.80 | 0.60 -> 3.5 | 0.5 | 87.9 % | 29, 27 cm |
+| 1.8 | 0.45 m (1.5) | 0.20, 0.36 m, 8 | 1.35 -> 0.70 | 0.70 -> 2.8 | 0.5 | 80.7 % | 32, 35 cm |
+| 1.8 | 0.45 m (1.5) | 0.15, 0.28 m, 11 | 1.35 -> 0.70 | 0.70 -> 0.8 | 0.5 | 11.7 % | 30, 33 cm |
+| 1.8 | 1.20 m (2.25) | 0.15, 0.29 m, 16 | 0.60 -> 0.60 | 0.80 -> 0.8 | 0.5 | 4.2 % | - |
+
+(432 designs in `deep_relay.log`; the last two rows are the first sweep's, `SIGB=0.0043`, 65 536 rays with the sun's
+disc.) The machine taken forward keeps the fourth pass's neck at 1.8 m (the second row): F2 0.45 m behind the vertex,
+the cap 0.20 m beyond F (a 0.72 m dome, magnification 8, its shadow inside a 0.4 m hole), M3 demagnifying 0.59 onto
+F3 at 0.6 m from the stalk inside the pivot, M4 magnifying 5.8 onto F2c 3.5 m below the neck axis - at env z 1.85,
+1.75 m below the deck, 1.7 m above the turn - so the cone down the stalk and the built bore is slow. Its ledger at
+midsummer noon: cap shade 2.8 % (inside the hole), hole 0.8, M3 patch (r 0.55) 3.4, pivot bore 1.6, M4 patch (r 0.6)
+2.2, stalk 0, turn mirror 0.3, collar 1.0, through 87.9. The images: 7.7 cm rms at F2 (11 kW in open air, about
+600 kW/m^2 within that radius, 0.45 m behind the film - nothing may stand there, and the plenum's back needs a clear
+duct of r 0.15 from the hole to M3), 4.9 cm at F3, 21 cm at F2c, 10 cm at the deck. The beams: 32 cm rms at M3 and
+29 cm at M4, so the patches of r 0.55 and 0.6 are ellipses of 1.1 x 1.55 m and 1.2 x 1.7 m at 45 deg and still lose
+3-6 % between them; this is the etendue price of the 4.3 mrad figure (the fourth pass's M3 carried a 0.34 m beam at
+0.5 mrad), and the pivot's 0.30 m bore, which the first sweep could not pass, loses 1.6 %.
+
+The year (`deep_relay_year_neck18.log`), rays through with the sun's disc, and the spot's rms radius at the collar
+plane (the built machine's from the kernel's `out6`):
+
+| day | hour | sun el | built, fixed | built, disc | built spot | coude, fixed | coude, disc | coude spot | spot at the bread |
+|---|---|---|---|---|---|---|---|---|---|
+| midwinter | 9 | 21 | 24.7 % | 25.4 % | 42 cm | 89.8 % | 85.4 % | 21 cm | 58 cm |
+| midwinter | 12 | 36 | 19.0 | 18.4 | 43 | 89.2 | 84.6 | 22 | 44 |
+| midwinter | 15 | 21 | 28.3 | 26.0 | 42 | 86.7 | 82.2 | 22 | 38 |
+| equinox | 9 | 37 | 16.3 | 17.5 | 43 | 91.3 | 86.8 | 21 | 59 |
+| equinox | 12 | 59 | 10.5 | 9.9 | 42 | 90.4 | 86.5 | 22 | 44 |
+| equinox | 15 | 37 | 20.2 | 17.7 | 43 | 87.9 | 84.2 | 22 | 39 |
+| midsummer | 9 | 50 | 12.1 | 13.0 | 43 | 92.6 | 87.6 | 20 | 60 |
+| midsummer | 12 | 83 | 8.4 | 7.9 | 42 | 91.0 | 87.9 | 21 | 47 |
+| midsummer | 15 | 50 | 15.1 | 13.2 | 43 | 88.9 | 86.1 | 21 | 43 |
+
+Summed over nine hours weighted by sin(el), relative to the built machine: rays through 4.0x midwinter, 5.9x equinox,
+8.3x midsummer (4.1, 6.0, 8.4 with the kernel's fixed offset); net light with 0.94 per reflection, five against three,
+3.5x, 5.2x, 7.3x. Every hour of the year is between 82 and 88 % because the beam goes down the dish's own axis: no
+crossing, no slot, no strut, and the built machine's high-sun collapse (8 % at midsummer noon) is not there. The neck
+at 1.3 m with F2 0.15 m behind the vertex adds one point (`deep_relay.log`'s year) and puts the 600 kW/m^2 image at
+the film's back; it is not taken.
+
+What the spot columns say. The deep machine's beam at the collar is half the built one's (21 cm rms against 42, which
+is the collar's disc filled), so the receiver below the deck sees a smaller source; but the tri mirror at the turn
+images F2c onto the loaf with L_out / u_f2 = 1.8 here (F2c 1.7 m above the turn, the loaf 3.1 m from it), and the 21 cm
+image at F2c becomes 38-60 cm rms on the bread. 'Through' is the collar, as it is for the built machine, and the
+loaf's flux is the receiver's own design - the other fork's - to redo for this source: a smaller image at F2c costs a
+faster cone in the built bore (r 0.7) and the trade sits below the deck. The relay above it is traced end to end.
