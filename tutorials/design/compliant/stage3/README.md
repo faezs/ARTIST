@@ -79,3 +79,17 @@ exact for uniform densities with any number of elements), `tube_density`, `wind_
 solutions a step on the modes of the chain's 6 x 6 (3.0 / 10.5 Hz); the slow env takes its walk per newton from the
 same 6 x 6 (14 um/N, not the planar 6.3). The LES table carries the signed mean pitching moment, now applied, and the
 film's n = 1 deflection plane, which is figure and not pointing (Gauss: a rim-fixed film has no mean slope).
+
+## The deep dish, traced (2026-09-12): `deep/`
+
+The user's 'you really do need deeper dishes', put to the flower's kernel with the geometry kept out of the configs:
+a formed paraboloid at f 1.05-2 replaces the film for the study, the orbit and f_dish follow. The strip's shadow is its
+own area at any depth; a hyperboloid with foci 4 m apart catches only 18-22 deg about the axis, so the Cassegrain
+strip cannot serve a deep bowl wherever it sits; the ellipsoid beyond F (`sec_side = greg`) as a full cap catches every
+ray, and the cap the rays meet is a dome ~2 d across (the ellipse's polar form from its focus, not its semi-minor
+axis), so its shadow sits inside the hole. The vertical bore crosses the deep bowl whenever the sun is more than ~30 deg
+from the zenith: the beam must go down the dish's own axis (the fourth pass). With F2 3 m from F and the cap at
+0.15 m (magnification 21, a 41 cm image, incidence <= 42 deg, 36-44 kW/m^2): 84 % of the sun's rays through at noon
+with a perfect film, 71 % with the envs' 4.3 mrad; over the year 3-6x the built machine's daily light. The deep machine
+pays ~5 points per milliradian of figure through the magnification; its mount walks the image 11x less per newton
+(`deep/README.md`).

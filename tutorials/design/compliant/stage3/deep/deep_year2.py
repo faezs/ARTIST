@@ -1,15 +1,16 @@
-"""the year again with the better cap: the Gregorian 0.1 m beyond F with F2 3 m from F (m4_mode relay, u_f2 = |P4 - F| - 3):
-cap half-width 0.56 m, shadow 7 %, magnification 31, a 60 cm image at F2"""
+"""the year again with the better cap: the Gregorian D_CAP m beyond F (env var, 0.1 by default) with F2 3 m from F (m4_mode relay,
+u_f2 = |P4 - F| - 3). The kernel's shadow sphere is the cap the rays meet, a(1 - e^2) ~ 2 D_CAP across from the axis at F's level
+(deep_greg_cap.py), not the ellipsoid's semi-minor axis: 0.19 m at 0.1, inside the 0.5 m hole. SIGB sets the per-ray figure."""
 import os, sys, numpy as np, torch
 sys.argv = [sys.argv[0]]
 src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "deep_year.py")).read()
 head = src.split("v, drv = build(); base = sweep(drv, None); v.close()")[0]
 exec(head)
 v, drv = build(); base = sweep(drv, None); LFP = float(np.linalg.norm(np.asarray(drv.cs_P4) - np.asarray(drv.F_focus))); v.close()
-c = 1.5; d = 0.1; b = np.sqrt(2*c*d + d*d)
+c = 1.5; d = float(os.environ.get("D_CAP", "0.1")); b = (c + d)*(1 - (c/(c + d))**2)   # the cap the rays meet: a(1 - e^2) ~ 2d, its true shadow disc
 v, drv = build(sec_side="greg", d_strip=d, r_strip=float(b), w_strip=50.0, strip_wk=0.0, strip_th_lo=0.0, strip_th_hi=180.0, m4_mode="relay", u_f2=float(LFP - 2*c))
 deep = {f: sweep(drv, f) for f in (1.05, 1.5)}; v.close()
-print(f"\nrays through (%), the Gregorian cap 0.1 m beyond F with F2 3 m from F (shadow {100*b*b/(2.1*2.1):.0f} %); 'axis' = the crossing rays counted as passed")
+print(f"\nrays through (%), the Gregorian cap {d} m beyond F with F2 3 m from F (cap r {b:.3f} m, shadow {100*b*b/(2.1*2.1):.1f} % inside the hole, magnification {(2*c + d)/d:.0f}); 'axis' = the crossing rays counted as passed")
 print(f"{'day':<10} {'hour':>4} {'el':>5} | {'built f4':>8} | {'deep 1.05':>9} {'axis 1.05':>9} | {'deep 1.5':>8} {'axis 1.5':>8}")
 tot = {}
 for dname in DAYS:
