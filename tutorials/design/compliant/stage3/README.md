@@ -84,8 +84,8 @@ film's n = 1 deflection plane, which is figure and not pointing (Gauss: a rim-fi
 
 The user's 'you really do need deeper dishes', put to the flower's kernel with the geometry kept out of the configs:
 a formed paraboloid at f 1.05-2 replaces the film for the study, the orbit and f_dish follow. The strip's shadow is its
-own area at any depth; a hyperboloid with foci 4 m apart catches only 18-22 deg about the axis, so the Cassegrain
-strip cannot serve a deep bowl wherever it sits; the ellipsoid beyond F (`sec_side = greg`) as a full cap catches every
+own area at any depth; the built strip's BAND catches only the shallow cone (a full hyperboloid shell would pass 72 %
+at f 1.05, erratum 2 - the 'asymptote' reason first given was wrong); the ellipsoid beyond F (`sec_side = greg`) as a full cap catches every
 ray, and the cap the rays meet is a dome ~2 d across (the ellipse's polar form from its focus, not its semi-minor
 axis), so its shadow sits inside the hole. The vertical bore crosses the deep bowl whenever the sun is more than ~30 deg
 from the zenith: the beam would have to go down the dish's own axis, and that relay - the fourth pass's M3 at the neck
@@ -100,3 +100,19 @@ gain is the built machine's high-sun crossing and slot, nothing in winter. Not t
 numbers agree). What the study leaves the tri machine: the film's figure is its throughput lever - 82 % with a perfect
 film at midsummer noon, 50 at 4.3 mrad, seven points per milliradian through the strip's 27x - so the zones and a film
 off yield come first; and a relay that magnifies at M3 loses two thirds of its light in a 0.30 m pivot bore.
+
+## The tri machine, the production architecture (2026-09-13): `tri/`
+
+The user's call: the coude is not the play; the machine is the tri receiver at f 4. Four steps on it. The zones were
+already on (`n_zones 5, zone_c 0.4`); the 4.3 mrad the envs put on every ray is the film's own slope (2 mrad) and
+print (0.8), doubled on reflection, and at the working level it costs the tri machine 30 points at high sun. The
+rim-fed film (the rim a spool, `film_T` in the base env, the flower envs and inis, the cook's wind blur through
+`sp[7]`) takes the film from yield to 42 MPa at the price of 2.3x the wind figure. The LES pressure maps traced on the
+film as a per-ray field (`wind/film_field.py`) pass the strip and the collar like an isotropic blur of the same rms,
+cost 3 points of the year at the site's 5 m/s and 17 at 9, and show the film's smoothness worth 12 points of the year.
+The receiver's box searched by the MCTS under the three film models (`tri/mcts_run.py`) lands on the same machine
+each time - tri, section, high deck, post mount, d_strip 0.7, r_duct high - and the film model moves only the value
+(-8 % rim-fed, -2.5 % at 1 mrad). The lever it exposes: the strip's distance. At d_strip 0.7 (magnification 11) the
+tri machine passes 80-90 % with today's film against 50-78 % at the flower configs' 0.3 (27), and 68-82 % with a film
+twice as bad; `hashemi.ini` is at 0.6 already. Run 4's controller transfers to the rim-fed env unchanged
+(`tri/README.md`).

@@ -25,6 +25,18 @@ The sections below are corrected in place; `deep_relay_year_neck18_lv475.log` is
 found it: the fast env's own loop reaches 89.8 % through at equinox 8 h, and the kernel at the mount-law pose gives
 89.8 % at level 4.75 with a perfect film and 21.9 % at level 3. Trace the baseline at the level the machine runs at.
 
+## Erratum 2 (2026-09-13): the hyperboloid's asymptote does not limit a Cassegrain secondary
+
+Section 2 says a hyperboloid with foci F and F2 intercepts only the rays inside its asymptotic cone acos(a / c). That
+is the view from the hyperboloid's centre; from the dish's side every ray converging to F crosses the F-sheet, which
+is a complete surface of revolution with its vertex d before F (from the focus, r = a (e^2 - 1) / (1 + e cos theta) is
+finite out to theta = acos(-1/e) = 158 deg). The 64-72 % 'off strip' the ledger showed at f 1.05 was the BUILT strip's
+window - a 1.2 m band over 0-100 deg of polar angle - not the sheet. Traced with a full hyperboloid shell (`w_strip
+50, strip_wk 0, strip_th_hi 180`, shadow sphere 0.65 m, d 0.3) at midsummer noon: f 1.05 passes 72.0 % with a perfect
+film and 71.3 % at 4.3 mrad (shadow 9.9 %, crossing 9 %), against the built band's 17 %. The Gregorian cap remains the
+better secondary for a deep dish - its shadow sits inside the hole and it magnifies 8-21 against the shell's 27 - but
+the reason given in section 2 was wrong, and the cap was not the only way.
+
 ## 1. The strip's shadow does not grow with depth
 
 8.5 % of the sun's rays hit the strip (either face) on their way to the primary at every f, and 2.6 % of them would have

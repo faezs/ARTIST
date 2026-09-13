@@ -44,3 +44,44 @@ The year at the site's 99th-percentile 5.2 m/s and at 9 m/s, the wind from the w
 Gaussian of the field's rms (the coherent shape passes the strip's 27x like a blur, so the table's rms is enough);
 45.5 rim-fed at 9 m/s (the mornings, theta_w 117-135, lose 40-50 points at 7-8 mrad); 74.1 with the film at 1 mrad of
 slope and the field at 5.2 m/s; 56.1 at 9. The film's smoothness is worth four times what the wind takes at 5 m/s.
+
+## 4. The receiver's box searched under the three film models (`mcts_run.py`, `mcts3.log`, `mcts_*.json`)
+
+`tandoor_design_mcts.py` with the user's settings (site p25, day 172, seasoned 4, priced rotis, 16 simulations x 3
+children x 256 completions, seed 0) and the design-trained tri cook 178905899043/model_001010 (the newer cooks were
+trained on the user's checkout after its observation changed and bake nothing on the branch; `mcts_diag.log`), the
+film's tension and slope passed through `--film-T` / `--film-slope`:
+
+| film model | best design's rotis (seasoned day 4) | net value, 5 yr | kit | d_strip | u_f2 | r_m4 | r_bore | r_duct | w_slot | r_hole |
+|---|---|---|---|---|---|---|---|---|---|---|
+| as built (4922 N/m, 2 mrad) | 200 | 2.22 M PKR | 705 k | 0.74 | 4.6 | 1.53 | 0.85 | 0.80 | 0.72 | 0.48 |
+| rim-fed (2100, 2 mrad) | 175 | 2.04 M | 649 k | 0.69 | 3.3 | 1.13 | 0.82 | 0.77 | 0.64 | 0.35 |
+| rim-fed, film at 1 mrad | 183 | 2.20 M | 680 k | 0.74 | 3.8 | 1.21 | 0.77 | 0.75 | 0.93 | 0.34 |
+
+The greedy path is the same machine under all three: tri, a section of the parent, post_rise and deck_h high, a post
+mount, d_strip in the middle third (0.67-0.93), r_bore mid, r_duct high; the parameters the tree reaches last (strip_wk,
+strip_th_hi, w_slot, r_hole, 1-5 visits) wobble within the search's noise. The film model moves the value, not the
+geometry: -8 % of the greedy path's value with the rim-fed film at 2 mrad, -2.5 % at 1 mrad (1177 / 1074 / 1148 k).
+
+What the search says that the year traces did not: the strip's distance. The box searches d_strip over 0.4-1.2 and
+lands at 0.7 (magnification (2c - d)/d = 11); `hashemi.ini` runs the env's default 0.6 (13); the flower configs run
+0.3 (27), outside the box, and that is where the film's seven points per milliradian came from. Traced at the working
+level, the same machine with the strip moved:
+
+| d_strip (magnification) | film figure | equinox 8 h | equinox noon | midsummer noon | midwinter noon |
+|---|---|---|---|---|---|
+| 0.3 (27) | perfect | 89.8 % | 80.4 | 81.9 | 90.1 |
+| | 4.3 mrad | 78.4 | 54.5 | 50.2 | 70.5 |
+| | 8 mrad | 46.4 | 27.3 | 23.6 | 39.6 |
+| 0.5 (16) | 4.3 mrad | 89.0 | 76.7 | 75.0 | 88.4 |
+| | 8 mrad | 73.6 | 54.4 | 49.9 | 70.3 |
+| 0.7 (11) | perfect | 87.2 | 81.5 | 81.9 | 90.1 |
+| | 4.3 mrad | 84.0 | 80.0 | 80.1 | 89.9 |
+| | 8 mrad | 75.3 | 69.9 | 67.6 | 82.3 |
+
+(the strip's shadow sphere r 0.6 in every row: 8 % shade throughout.) At d 0.7 the tri machine passes 80-90 % with
+today's film and 68-82 % with a film twice as bad, for 2.6 points at low sun with a perfect film. The strip's
+distance, not the film, is the first lever on the tri machine's figure budget: it takes the sensitivity from seven
+points per milliradian to under one, and with it the rim-fed film's 2.3x wind figure and the film's own smoothness
+stop mattering at the site's winds. `hashemi.ini` is already at 0.6; the flower configs' 0.3 is a choice to revisit
+(the strip on the pipe under F, run 4's env), not changed here.
