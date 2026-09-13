@@ -981,7 +981,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, x_turn=None, r_m4=1.3, shell="perlite",
-                 r_strut=0.08, film_T=4922.0, film_slope=2.0e-3, **kwargs):
+                 r_strut=0.08, film_T=4922.0, film_slope=2.0e-3, film_t=None, **kwargs):
         # OPTICAL-EFFICIENCY levers (defaults = current machine):
         # beta_dev: off-axis deviation [deg] of the beam from retro.
         #   The primary is a SPHERE - it has no optical axis, so the
@@ -1177,7 +1177,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # which the cook's fused step reads from sp[7] and the flower envs from film_k_scale. film_slope is the film's
         # own rms slope error (2 mrad as assumed so far; 1 mrad is the lever: +12 points of the year through the strip's
         # 27x, stage3/wind/README.md 'The rim-fed film'), doubled on reflection into sig_static with the print.
-        self.film_T = float(film_T); self.film_slope = float(film_slope)
+        self.film_T = float(film_T if film_t is None else film_t); self.film_slope = float(film_slope)   # film_t: the ini loader lower-cases its keys
         self.film_k_scale = 4922.0/self.film_T; self.film_sig_work = 98.4/self.film_k_scale
         # x_turn: M3's x. None = over the chase (X_TOWER, the bore's foot). Set it to
         # R_POT and the mirror's vertex sits IN the inlet plane - the port-mounted M3

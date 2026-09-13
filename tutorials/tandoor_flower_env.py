@@ -304,6 +304,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
         import inspect as _insp
         _base_has_film = "film_T" in _insp.signature(super().__init__).parameters
+        if "film_t" in k: k["film_T"] = k.pop("film_t")                        # the ini loader lower-cases its keys
         _film_T = k.pop("film_T", T_WORK) if not _base_has_film else None
         if not _base_has_film: k.pop("film_slope", None)
         super().__init__(*a, **k)
