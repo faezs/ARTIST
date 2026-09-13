@@ -1,0 +1,17 @@
+fm_machine: doy 80 12 h, el 59, az 180; net aperture 13.07 m2
+    cass: focal tube: 1.279 m2 = 9.78 %
+    cass: strip ring at the tube top: 0.190 m2 = 1.45 %
+    cass: inflated rim toroid: 0.018 m2 = 0.14 %
+    cass: F2: 0.004 m2 = 0.03 %
+    MOUNT total 0.000 m2 = 0.00 %;  cass machine's own (tube, strip ring, rim, F markers) 1.384 m2 = 10.59 %
+fm_summer: doy 172 12 h, el 83, az 180; net aperture 13.07 m2
+    cass: focal tube: 0.227 m2 = 1.74 %
+    cass: strip ring at the tube top: 0.166 m2 = 1.27 %
+    cass: inflated rim toroid: 0.018 m2 = 0.14 %
+    MOUNT total 0.000 m2 = 0.00 %;  cass machine's own (tube, strip ring, rim, F markers) 0.332 m2 = 2.54 %
+fm_morning: doy 80 9 h, el 37, az 117; net aperture 13.07 m2
+    cass: focal tube: 1.308 m2 = 10.01 %
+    cass: strip ring at the tube top: 0.206 m2 = 1.58 %
+    cass: inflated rim toroid: 0.018 m2 = 0.14 %
+    MOUNT total 0.000 m2 = 0.00 %;  cass machine's own (tube, strip ring, rim, F markers) 1.433 m2 = 10.97 %
+(the strip itself is drawn as lines; its obscuration is the Cassegrain secondary's, in the other fork's ray trace)

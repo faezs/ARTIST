@@ -1,0 +1,5 @@
+fifth pass, one stem, the env's head law (orbit sphere |P - F| = 4.0, axis the bisector, beta <= 45.0 deg): F at 4.87 m over the deck; the receptacle 4.0 m north of it at 1.0 m; rim at least 0.3 m over the deck; the hub within 0.6-5.0 m of the receptacle (the hexapod's reach)
+sun samples 479, reachable 479; head axis elevation 6-63 deg; off-retro beta mean 35.7 deg, max 44.2
+hub travel: x 0.78..4.00 m, y +-3.22 m, z 2.02..5.29 m over the deck; the whole path fits in a box 3.22 x 6.44 x 3.27 m
+pipe + strip shadow on the aperture: mean 3.0 %, max 18.8 % (retro would be about 31 %)
+rim: lowest 0.46 m, highest 7.35 m over the deck

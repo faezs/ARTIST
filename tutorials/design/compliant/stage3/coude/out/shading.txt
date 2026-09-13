@@ -1,0 +1,15 @@
+cd_equinox_noon: doy 80 12 h, el 59, az 180; net aperture (r 0.12..2.1) 13.81 m2
+    the style: conical shell from the hole rim to the secondary : 0.321 m2 = 2.32 %
+    hyperboloid secondary r 0.34 m at 3.35 m: the only new shado: 0.321 m2 = 2.32 %
+    inflated rim toroid: 0.018 m2 = 0.13 %
+    TOTAL in front of the membrane 0.339 m2 = 2.45 % (the cass machine's above-deck parts: 17-25 %)
+cd_summer_noon: doy 172 12 h, el 83, az 180; net aperture (r 0.12..2.1) 13.81 m2
+    the style: conical shell from the hole rim to the secondary : 0.321 m2 = 2.32 %
+    hyperboloid secondary r 0.34 m at 3.35 m: the only new shado: 0.321 m2 = 2.32 %
+    inflated rim toroid: 0.018 m2 = 0.13 %
+    TOTAL in front of the membrane 0.339 m2 = 2.45 % (the cass machine's above-deck parts: 17-25 %)
+cd_morning: doy 80 9 h, el 37, az 117; net aperture (r 0.12..2.1) 13.81 m2
+    the style: conical shell from the hole rim to the secondary : 0.321 m2 = 2.32 %
+    hyperboloid secondary r 0.34 m at 3.35 m: the only new shado: 0.321 m2 = 2.32 %
+    inflated rim toroid: 0.018 m2 = 0.13 %
+    TOTAL in front of the membrane 0.339 m2 = 2.46 % (the cass machine's above-deck parts: 17-25 %)

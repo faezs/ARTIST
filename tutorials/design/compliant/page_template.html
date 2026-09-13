@@ -1,0 +1,70 @@
+<title>Tandoor Flexure Register</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#eef2f6;--paper:#ffffff;--ink:#14213d;--muted:#5b6b7f;--line:#c7d0da;--block:#1f3a5f;--blockink:#eaf0f7;--flex:#d9480f;--kin:#0e7490;--soft:#e3e9f0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ground:#0f1720;--paper:#ffffff;--ink:#e6edf3;--muted:#9fb0c3;--line:#2a3948;--block:#16283d;--blockink:#dbe6f2;--flex:#ff7a2f;--kin:#22b8cf;--soft:#172230}}
+:root[data-theme="dark"]{--ground:#0f1720;--paper:#ffffff;--ink:#e6edf3;--muted:#9fb0c3;--line:#2a3948;--block:#16283d;--blockink:#dbe6f2;--flex:#ff7a2f;--kin:#22b8cf;--soft:#172230}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans",system-ui,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 24px 64px}
+header{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;border-bottom:2px solid var(--ink);padding-bottom:16px}
+h1{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;font-weight:600;font-size:34px;letter-spacing:.01em;margin:0;text-wrap:balance}
+.lede{max-width:64ch;color:var(--muted);margin:8px 0 0}
+.legend{font-family:"IBM Plex Mono",monospace;font-size:12px;display:grid;gap:6px}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{width:22px;height:4px;border-radius:2px;display:inline-block}
+section{margin-top:40px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+h2{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:24px;margin:4px 0 6px;text-wrap:balance}
+.intro{max-width:66ch;margin:0 0 16px;color:var(--ink)}
+table.audit td{font-size:11px;vertical-align:top}table.audit{table-layout:fixed}
+table.corr{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0 18px;background:var(--paper);color:#14213d}
+table.corr th,table.corr td{border-top:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+table.corr th{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.organ{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.plate{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);gap:0;border:1px solid var(--line);margin-top:16px;background:var(--soft)}
+.paper{background:var(--paper);padding:10px;overflow-x:auto}
+.paper3d{padding:0;position:relative;min-height:520px}
+.view3d{width:100%;height:520px}
+.hint{position:absolute;left:10px;bottom:8px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:#5b6b7f;background:rgba(255,255,255,.8);padding:2px 6px;border-radius:3px}
+.block{background:var(--block);color:var(--blockink);padding:16px 18px;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.sheet{letter-spacing:.14em;font-size:11px;opacity:.8}
+.block h3{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:19px;margin:6px 0 4px;color:#fff;text-wrap:balance}
+.ref{font-size:11.5px;opacity:.85;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:10px}
+.tb{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-variant-numeric:tabular-nums}
+.tb .k{opacity:.7;white-space:nowrap}
+.tb .v{color:#fff}
+.note{font-family:"IBM Plex Sans",sans-serif;font-size:13px;margin:12px 0 0;opacity:.92;border-top:1px solid rgba(255,255,255,.18);padding-top:10px}
+footer{margin-top:48px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--muted);max-width:80ch}
+footer code{font-family:"IBM Plex Mono",monospace;font-size:12px}
+@media (max-width:900px){.plate{grid-template-columns:1fr}header{grid-template-columns:1fr}}
+a:focus-visible{outline:2px solid var(--kin);outline-offset:2px}
+</style>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Tandoor Flexure Register</h1>
+    <p class="lede">The flower: one 1 m stem, a crown that carries the exact hashemi.ini spherical membrane on the sun's orbit about a fixed F on the roof's light pipe (a Masdar beam-down), the crown sized by wind as a hexapod of steel struts on a pedicel, and the machine setting itself up, identifying itself and tracking in two simulations, soft-body (Warp XPBD) and Cosserat rods (PyElastica). Everything before the fifth pass is in the branch's history, not here.</p>
+  </div>
+  <div class="legend">
+    <span><i class="sw" style="background:#c2410c"></i> flexing element (the part that bends to do the job)</span>
+    <span><i class="sw" style="background:#0e7490"></i> kinematic centre, motion, load</span>
+    <span><i class="sw" style="background:#9ca3af"></i> ground, hatched; moving body, grey</span>
+  </div>
+</header>
+
+<section>
+  <div class="eyebrow">Fifth pass · the flower proper · one stem, the membrane on the crown</div>
+  <h2>One stem, a crown of branches, the exact spherical membrane on their tips, F on the light pipe</h2>
+  <p class="intro">This is the flower as it was described from the start, read literally at last: one trunk, a 1 m stem; lots of branches rooted on it, whose tips form the scatter pattern on which the membrane rests; the foliage shaped in one direction because the head always stands on the anti-sun side of F; and the surface cut out of that foliage a spherical section, not a paraboloid, because the primary of <code>hashemi.ini</code> is the sphere of radius 8 m that has no optical axis. That is what makes one stem enough: a paraboloid on the orbit needs its vertex at F - 4 s and its axis along s, and a stem from one root cannot give both (the second pass); the sphere needs only its centre of curvature at F + 4 s, and its attitude about that centre is the freedom the env already spends as beta_dev. The light pipe is not part of the tree: it is the cass machine's bore on the roof, the hyperboloid strip at its top before F, M4 and the duct below, a Masdar beam-down in miniature. The sheets put the head where the env puts it (beta_dev 0, retro) at five suns; the sweep sheet shows what the crown must do to follow it, and the wind row what it must hold: 0.75 kN at 9 m/s to 5 cm at F. The audit of the earlier passes' calculations and the wind gating of every machine are in progress in a separate pass and will replace the numbers they touch.</p>
+  <!--PLATES_TREE-->
+</section>
+
+<section>
+  <div class="eyebrow">Audit · wind</div>
+  <h2>What wind gates</h2>
+  <!--AUDIT-->
+</section>
+
+<footer>
+  <p>Source of every number: branch <code>compliant-mechanisms</code>, <code>tutorials/design/compliant/stage3/tree/</code> (model, sweep, path, wind_size and their memo), <code>stage3/setup_sim/</code> (setup_sim5.py, flower_elastica.py, ident_offline.py, memo.md), <code>stage3/audit/</code>; designed against Howell, Magleby &amp; Olsen, <em>Handbook of Compliant Mechanisms</em> (Wiley 2013), ch. 6 (Hopkins, FACT) and ch. 7 (Frecker, topology optimization); the membrane is the repo's own FvK model (tutorials/03_membrane_beamdown_tandoor.py, membrane_fvk2d.py).</p>
+</div>

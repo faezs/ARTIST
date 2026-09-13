@@ -35,6 +35,8 @@ weight and multiplied by dt/15, so a second of this env pays exactly what a seco
 """
 import numpy as np, torch, gymnasium, pufferlib
 import tandoor_wind_table as WT
+import tandoor_site_wind as SW
+import tandoor_screws as SC
 from tandoor_flower_env import (TandoorFlowerEnv, compliance, pedicel_fk, hexapod_jacobian, head_frame,
                                 EI_BOOM, EI_STEM, D_DISH,
                                 D_REC, R_PLAT, A_M, RHO_AIR, CD_BOWL, CD_BACK, C_M, IU, M_HEAD, M_CROWN,
@@ -46,7 +48,11 @@ DT_HASH = 15.0                   # the step Hashemi's reward weights were writte
 L_KARMAN = 50.0                  # the gust's integral length [m]
 FINE_BW_ACT, FINE_RATE = 50.0, 0.8        # the fine stage's actuator: 50 Hz first-order, 0.8 m/s of leg speed
 FINE_CMD_RATE = 5.0                       # full command sweeps the whole stroke in 1/5 s - the heads command a RATE
+ROD_EVERY = 8                             # steps between refreshes of the rod's geometry and the chain's 6 x 6 (the loads are every step)
+FILM_SIG_WORK, FILM_SIG_YIELD = 98.4, 90.0   # MPa: the working tension 4922 N/m over 50 um at the design pressure (mem_theory.py), and PET's yield
 CAM_FOV = 0.30                   # the flux camera's half-width AT THE RECEIVER [m]: the traced spot has a 3 cm rms
+CAM_FOV_F = 0.15                 # the camera AT F: half-width [m], 1.25 cm a pixel at 24; the spot is ~2 cm, the standing miss 2.5
+CAM_REF_F = 0.06                 # the F frame's fixed reference ring [m]: a spot with nothing to be off-centre from teaches nothing
                                  # spread and the duct is r 0.2, so 0.3 frames both the spot and the rim it must sit in
 SUN_MRAD = 4.65e-3               # the sun's angular radius
 
@@ -98,7 +104,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
     """1 kHz, own actuators, flux-camera observation, Hashemi's reward and Hashemi's membrane."""
     N_ACT = 11
     def __init__(self, *a, cam_n=24, episode_s=8.0, wind_scale=1.0, wind_mean=None, cam_bits=8,
-                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, **k):
+                 cam_noise=1.0, obs_proprio=1, obs_strain=0, on_device=0, fine_only=0, reward="hashemi", miss_scale=0.20, miss_shape=20.0, thru_w=0.0, thru_ref=0.85, cam_plane="receiver", mech_kernel=0, **k):
         k.setdefault("num_agents", 1024)
         self._vec_buf = k.get("buf", None)          # the vector backend's shared buffer, if it gave us one
         super().__init__(*a, wind_scale=wind_scale, **k)
@@ -106,6 +112,29 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         self.dt = DT                                       # every rate limit in the parent reads self.dt
         self.cam_n = int(cam_n); self.cam_bits = int(cam_bits); self.cam_noise = float(cam_noise)
         self.obs_proprio = int(obs_proprio); self.obs_strain = int(obs_strain); self.episode_n = int(episode_s/DT)
+        # THE FAST LOOP'S OWN JOB. fine_only restricts the policy to the crown's three fine-stage heads (the pedicel's joints,
+        # the plenum's level and the valve stay at neutral: they belong to the 15 s policy). reward='miss' pays -|image miss at F|
+        # per step, one at miss_scale metres: the thing a flux camera can see and a fine stage can fix. Hashemi's cooking reward
+        # is 3e-7 a step here and the loop's whole share of it is under a third of that; a policy trained on it stayed uniform
+        # random after 240 epochs and, integrated on the fine stage's rate commands, walked the image 20 cm off.
+        self.fine_only = int(fine_only); self.reward = str(reward); self.miss_scale = float(miss_scale); self.miss_shape = float(miss_shape)
+        self.thru_w, self.thru_ref = float(thru_w), float(thru_ref)
+        # WHERE THE CAMERA LOOKS. 'receiver': the megakernel's landing points at the bread (the original). Measured: a miss at F
+        # moves that frame's centroid 0.0005 px per mm - at the bread the beam is a pupil image, which brightens and dims with
+        # the miss but does not shift, so the loop cannot see which way to push. 'F': the same 64 membrane rays, reflected off
+        # the level-interpolated normals with the film's slope error, histogrammed where they cross the plane through F normal
+        # to the chief ray - the plane the miss reward is paid on.
+        self.cam_plane = str(cam_plane)
+        # THE KERNEL TRACES THE CHAIN (tandoor_screws): with mech_kernel the pedicel's joints go to mount_solve as five screws
+        # and the structure's deflection with the crown's tilts as one elastic twist; the kernel returns the head's frame and
+        # the receiver rows that follow it. Off, the frame is assembled here to first order and the rows stay as at reset.
+        self.mech_kernel = int(mech_kernel); self._mk_day = self._mk_lat = self._mk_pnt = None
+        import inspect as _insp
+        if self.mech_kernel and "mech" not in _insp.signature(self._mount).parameters:
+            print("  [flower fast] mech_kernel needs the screw-chain mount solve (tandoor_hashemi_env._mount(mech=...)); this checkout's "
+                  "kernel has none - the frame is assembled on the host as before")
+            self.mech_kernel = 0
+        self.n_act = 3 if self.fine_only else self.N_ACT
         # THE STEM AS A LOAD CELL. A compliant member is a force sensor: two strain gauges at the stem's foot read the
         # wind's bending moment the instant the gust arrives, a quarter-period before the boom's mode has moved the
         # image and whether or not the spot is still in the frame. The reading is the WIND part only - the gravity
@@ -128,7 +157,9 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         # ---- the fast state
         z = lambda n=None: (torch.zeros(B, device=dev) if n is None else torch.zeros(B, n, device=dev))
         self.S = dict(u=z(3), v=z(3), cm=z(3),               # the gust along the wind, across it, and in pitching moment
-                      th=z(2), thd=z(2),                     # the head's TILT and its rate: the moment's own mode
+                      sb=z(6), sbd=z(6), sm=z(6), smd=z(6),  # THE ROD'S TWIST at the vertex in the boom's basis (t1, t2, bu) x (v; omega):
+                                                             # the force-type loads on the bending mode, the moment-type on the pitching mode
+                      th=z(2), thd=z(2),                     # the head's TILT and its rate: the moment's own mode (a readout now)
                       q_vs=z(), qd_vs=z(), acc_l=z(), ph_d=z(),   # the boom's wake oscillator, and the dish's shedding phase
 
                       x=z(2), xd=z(2),                       # the head's lateral deflection and its rate
@@ -148,7 +179,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         self.n_prop = ((6 + 3 + 3) + (2 if self.obs_strain else 0)) if self.obs_proprio else 0
         # joints, fine stage, plenum+valve+dough, and with obs_strain the stem's two bending moments
         self.single_observation_space = gymnasium.spaces.Box(low=0.0, high=1.0, shape=(n_img + self.n_prop,), dtype=np.float32)
-        self.single_action_space = gymnasium.spaces.MultiDiscrete([7]*self.N_ACT)
+        self.single_action_space = gymnasium.spaces.MultiDiscrete([7]*self.n_act)
         for attr in ("observation_space", "action_space"):                   # the parent already made the joint spaces,
             if hasattr(self, attr): delattr(self, attr)                      # and PufferEnv refuses to see them on entry
         # and it must be re-run against the SHARED buffer the vector backend handed us, not a fresh one: a native
@@ -167,6 +198,8 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         self.cam_r = torch.sqrt(self.cam_x**2 + self.cam_y**2)
         self.cam_rim = ((self.cam_r > self.r_duct*0.98) & (self.cam_r < self.r_duct*1.10)).float()
         self.cam_rim = self.cam_rim.reshape(-1)
+        rF = torch.sqrt(self.cam_x**2 + self.cam_y**2)*(CAM_FOV_F/CAM_FOV)                    # the same grid, scaled to the F field
+        self.cam_rim_F = ((rF > CAM_REF_F*0.9) & (rF < CAM_REF_F*1.15)).float().reshape(-1)
 
     # ---------------------------------------------------------------- the frame
     def _unused_flux_frame(self, miss, sig, peak):
@@ -190,7 +223,9 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
     def step_torch(self, actions):
         dev = self.device; B = self.num_agents; S = self.S; F = self._fl
         gen = getattr(self, "_gen", None)
-        a = torch.as_tensor(actions, device=dev).reshape(B, self.N_ACT).float()
+        a = torch.as_tensor(actions, device=dev).reshape(B, self.n_act).float()
+        if self.fine_only:                                                     # the three fine heads land on 6..8; the rest at neutral
+            full = torch.full((B, self.N_ACT), 3.0, device=dev); full[:, 6:9] = a; a = full
         cmd = (a.clamp(0, 6) - 3.0)/3.0                                        # every head: -1 .. +1
 
         # ---- 1. the pedicel: six rate commands, its own travel and its two drive speeds
@@ -217,12 +252,14 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         S["fine"] = S["fine"] + (S["fine_c"] - S["fine"])*min(1.0, 2*np.pi*FINE_BW_ACT*self.dt)
 
         # ---- 3. the wind, resolved
-        U = torch.clamp((torch.as_tensor(float(self.wind_mean), device=dev).expand(B) if self.wind_mean is not None
-                         else torch.as_tensor(self._gpu.wind if getattr(self, "_gpu", None) is not None else 6.0,
-                                              device=dev).reshape(-1).expand(B))*self.wind_scale, min=0.0)
-        S["u"] = karman_step(S["u"], self.dt, U, IU, gen, dev)
-        S["v"] = karman_step(S["v"], self.dt, U, 0.6*IU, gen, dev)
-        S["w"] = karman_step(S["w"], self.dt, U, 0.5*IU, gen, dev)                     # the vertical gust: sigma_w ~ 0.5 sigma_u in the surface layer
+        if self.wind_mean is not None: U = torch.as_tensor(float(self.wind_mean), device=dev).expand(B)
+        elif "site_U" in S: U = S["site_U"]                                            # the recorded day's wind at this hour
+        else: U = torch.as_tensor(self._gpu.wind if getattr(self, "_gpu", None) is not None else 6.0, device=dev).reshape(-1).expand(B)
+        U = torch.clamp(U*self.wind_scale, min=0.0)
+        iu = S["site_iu"] if "site_iu" in S else IU                                     # the recorded day's gustiness, or the sheared default
+        S["u"] = karman_step(S["u"], self.dt, U, iu, gen, dev)
+        S["v"] = karman_step(S["v"], self.dt, U, 0.6*iu, gen, dev)
+        S["w"] = karman_step(S["w"], self.dt, U, 0.5*iu, gen, dev)                     # the vertical gust: sigma_w ~ 0.5 sigma_u in the surface layer
         S["cm"] = karman_step(S["cm"], self.dt, torch.ones_like(U), CM_RMS, gen, dev)
         u_g = karman_sum(S["u"]); v_g = karman_sum(S["v"]); cm_g = karman_sum(S["cm"])
         V = torch.clamp(U + u_g, min=0.0)                                              # the point gust: the film, the boom's shedding
@@ -230,22 +267,36 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         w_g = karman_sum(S["w"])
         S["ua"] = S["ua"] + (u_g - S["ua"])*k_adm; S["va"] = S["va"] + (v_g - S["va"])*k_adm; S["wa"] = S["wa"] + (w_g - S["wa"])*k_adm
         Vh = torch.clamp(U + S["ua"], min=0.0)                                          # the gust the head's loads see
-        ca = (n0[:, 0]*self._fl_what_x)
+        w_hat = S["wdir"]                                                             # where the wind blows to, per agent
+        ca = (n0*w_hat).sum(1)
         into = ca < 0
         cd = 0.25 + (torch.where(into, torch.full_like(ca, CD_BOWL), torch.full_like(ca, CD_BACK)) - 0.25)*ca*ca
         A_D = np.pi*A_M**2
         drag = 0.5*RHO_AIR*Vh*Vh*A_D*cd
         side = 0.5*RHO_AIR*Vh*S["va"]*A_D*0.9
 
-        # ---- 4. the structure: a damped oscillator at THIS extension, so it rings where a real boom rings
+        # ---- 4. THE STRUCTURE AS A ROD, THE WIND AS A FIELD ALONG IT (tandoor_screws.rod_twist: the derivative of the curve).
+        # The stem and boom are a curve; the wind is a velocity field - the log profile from the site's 10 m reference, the
+        # same gust at every height - and along the curve it is a force density: the crossflow drag on the tubes, the
+        # shedding lift on the boom, and at the vertex the bowl's force from the LES table with its MEAN pitching moment,
+        # signed (Cm_s about n x w_hat). The rod integrates the densities and the end loads into the head's static twist,
+        # once for the force-type loads and once for the moment-type, and each part rings on its own mode per bending
+        # plane: the bending mode at the head's transverse stiffness, the pitching mode at the rotational one, both from
+        # the chain's 6 x 6 at the vertex. No 3/8 lumps: a density's tip rotation is q L^3/6EI and the lump gave 9/8 of it.
         Cb0 = C0 - D_REC*n0; bu = Cb0 - T0
         bu = bu/torch.linalg.norm(bu, dim=1).clamp(min=1e-9)[:, None]
         zc = torch.zeros_like(bu); zc[:, 2] = 1.0
         t1 = torch.cross(bu, zc, dim=1); t1 = t1/torch.linalg.norm(t1, dim=1).clamp(min=1e-6)[:, None]
         t2 = torch.cross(bu, t1, dim=1)                                            # the boom's own bending plane
-        w_hat = torch.stack([torch.full_like(ca, self._fl_what_x), torch.zeros_like(ca), torch.zeros_like(ca)], 1)
-        v_hat = torch.stack([torch.zeros_like(ca), torch.ones_like(ca), torch.zeros_like(ca)], 1)
-        # ---- vortex shedding, before the forces are assembled: the wake's lift is one of them
+        zhat = torch.stack([torch.zeros_like(ca), torch.zeros_like(ca), torch.ones_like(ca)], 1)
+        v_hat = torch.cross(zhat, w_hat, dim=1)                                          # the horizontal across the wind
+        T0b = (T0 if T0.dim() == 2 else T0[None, :].expand(B, 3)).contiguous()
+        one = torch.ones_like(U)
+        prof_C = SC.wind_profile(C0[:, 2], one)                                          # the profile at the head's own height
+        V = torch.clamp(prof_C*(U + u_g), min=0.0)                                       # the point gust AT THE HEAD: the film, the shedding
+        Vh = torch.clamp(prof_C*(U + S["ua"]), min=0.0)                                  # the admittance-filtered gust the head's loads see
+        W_ref = (U + S["ua"])[:, None]*w_hat + S["va"][:, None]*v_hat + S["wa"][:, None]*zhat   # the filtered field at the reference height
+        # ---- vortex shedding on the boom: the wake oscillator; its lift is a DENSITY along the boom now
         cos_ax = (w_hat*bu).sum(1)
         un = V*torch.sqrt(torch.clamp(1 - cos_ax*cos_ax, min=0.0))              # only the CROSS-flow component sheds
         ws = 2*np.pi*ST_CYL*un/D_TUBE; F["f_vs"] = ws/(2*np.pi)
@@ -254,59 +305,105 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         qdd = (-EPS_VS*ws*(S["q_vs"]*S["q_vs"] - 1.0)*S["qd_vs"] - ws*ws*S["q_vs"]
                + (A_VS/D_TUBE)*S["acc_l"])                                      # the structure feeds the wake back
         S["qd_vs"] = S["qd_vs"] + qdd*self.dt; S["q_vs"] = S["q_vs"] + S["qd_vs"]*self.dt
-        F_vs = 0.5*RHO_AIR*un*un*D_TUBE*F["q_ext"]*(CL0/2)*S["q_vs"]*0.375      # distributed; 3/8 of it as a tip load
+        q_vs = 0.5*RHO_AIR*un*un*D_TUBE*(CL0/2)*S["q_vs"]                         # N/m along lf, the whole boom
         # and the dish's own shedding: far below both modes, so no lock-in, but a real narrowband force in the band
         # the coarse loop has to hold
         S["ph_d"] = torch.remainder(S["ph_d"] + 2*np.pi*ST_DISC*V/D_DISH*self.dt, 2*np.pi)
         F_disc = 0.5*RHO_AIR*V*V*A_D*CL_DISC*torch.sin(S["ph_d"])
         F["f_vs_d"] = ST_DISC*V/D_DISH
-        Fw = drag[:, None]*w_hat + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf
+        # ---- the bowl's load at the vertex: the LES table at the instantaneous incidence, at the head's height
+        Fw = drag[:, None]*w_hat + (side + F_disc)[:, None]*v_hat
         k_film = torch.full_like(V, SIG_MEM_K)
+        zero3 = torch.zeros(B, 3, device=dev)
         if getattr(self, "wind_table", 1):
             # the LES table: the bowl's load as a normal force along its axis (with its downward vertical part, which the
-            # drag-only assembly above never had), and the film's figure constant by incidence; the back keeps the drag model
-            # the INSTANTANEOUS wind direction: the lateral and vertical gusts swing the incidence, and on a bowl dCn/dtheta
-            # is -0.7 per 10 deg between 60 and 80 deg, so the swing loads the head as much as the along-wind gust does
-            w_inst = torch.stack([Vh*self._fl_what_x, S["va"], S["wa"]], 1)
+            # drag-only assembly above never had), the film's figure constant by incidence, and the mean pitching moment,
+            # SIGNED, about the axis across the wind; the table runs to 154 deg and is held flat beyond. The INSTANTANEOUS
+            # wind direction: the lateral and vertical gusts swing the incidence, and on a bowl dCn/dtheta is -0.7 per 10 deg
+            # between 60 and 80 deg, so the swing loads the head as much as the along-wind gust does
+            w_inst = Vh[:, None]*w_hat + (prof_C*S["va"])[:, None]*v_hat + (prof_C*S["wa"])[:, None]*zhat
             V_inst = torch.linalg.norm(w_inst, dim=1).clamp(min=1e-6)
             F_tab, theta_w, k_tab, covered = WT.head_force(n0, w_inst/V_inst[:, None], 0.5*RHO_AIR*V_inst*V_inst, A_D)
-            Fw = torch.where(covered[:, None], F_tab + (side + F_disc)[:, None]*v_hat + F_vs[:, None]*lf, Fw)
+            Fw = torch.where(covered[:, None], F_tab + (side + F_disc)[:, None]*v_hat, Fw)
             k_film = torch.where(covered, k_tab, k_film); F["theta_w"] = theta_w
-        cmp_ = compliance(F["q_ext"], self.boom_kind, self.boom_ratio, self.boom_root,
-                          m_tip=D_REC*(n0*bu).sum(1))                            # the drag acts at the dish, past the tip
-        k = cmp_["k_lat"]; m = M_HEAD + M_CROWN
-        w0 = torch.sqrt(k/m)
-        f_t = torch.stack([(Fw*t1).sum(1), (Fw*t2).sum(1)], 1)                     # only the transverse part bends it
-        F["m_root"] = f_t*(F["q_ext"] + 1.0)[:, None]                              # the stem foot's wind moment, N m: the gauges
-        acc = f_t/m - 2*ZETA*w0[:, None]*S["xd"] - (w0*w0)[:, None]*S["x"]
-        S["xd"] = S["xd"] + acc*self.dt; S["x"] = S["x"] + S["xd"]*self.dt
-        S["acc_l"] = acc[:, 0]*(lf*t1).sum(1) + acc[:, 1]*(lf*t2).sum(1)        # what the wake sees of the motion
-        # THE PITCHING MOMENT, on its own mode. An end moment on the stem-and-boom chain turns the tip by
-        # theta = M (Lb/EI_b + Ls/EI_s), so the rotational stiffness is that reciprocal and the inertia is the head's
-        # own. On this machine that mode sits near 14 Hz - above the fine stage's 8 Hz loop, which is exactly what
-        # makes it the interesting part of the job rather than a slow bias.
-        k_th = 1.0/torch.clamp(F["q_ext"]/EI_BOOM + 1.0/EI_STEM, min=1e-12)
-        w_th = torch.sqrt(k_th/J_HEAD); F["f_th"] = w_th/(2*np.pi)
-        M_w = 0.5*RHO_AIR*Vh*Vh*A_D*D_DISH*cm_g                                    # the fluctuating moment, about the
-        m_t = torch.stack([M_w*(w_hat*t2).sum(1), -M_w*(w_hat*t1).sum(1)], 1)      # axis across the wind
-        a_th = m_t/J_HEAD - 2*ZETA*w_th[:, None]*S["thd"] - (w_th*w_th)[:, None]*S["th"]
-        S["thd"] = S["thd"] + a_th*self.dt; S["th"] = S["th"] + S["thd"]*self.dt
-        F["f_n"] = w0/(2*np.pi); F["k_img"] = cmp_["k_img"]; F["drag"] = drag; F["V"] = U; F["gust"] = u_g
+            wdir_i = w_inst/V_inst[:, None]
+            Cm_s, e_m = WT.head_moment(n0, wdir_i)
+            M_head = (0.5*RHO_AIR*V_inst*V_inst*A_D*D_DISH*(Cm_s + cm_g))[:, None]*e_m   # the mean moment and its gust, one axis
+        else:
+            wdir_i = w_hat
+            e_m = torch.cross(n0, w_hat, dim=1); e_m = e_m/torch.linalg.norm(e_m, dim=1).clamp(min=1e-9)[:, None]
+            M_head = (0.5*RHO_AIR*Vh*Vh*A_D*D_DISH*cm_g)[:, None]*e_m
+        # ---- the rod: the stem from the deck to T0, the boom to the wrist; the densities from the field at each element's
+        # middle. One element per member: a uniform density is exact in closed form whatever the count, and the profile
+        # changes by a few per cent over the boom, so more elements would only cost launches (the rod is ~40 small ops a call)
+        # the GEOMETRY of the rod and the chain's 6 x 6 are refreshed every ROD_EVERY steps: the joints move at most
+        # 0.8 m/s and 5 deg/s, a few millimetres in that time, and the frames, the 6 x 6 and the modes cost ~60 launches
+        rc = getattr(self, "_rod_cache", None)
+        if rc is None or rc["tick"] % ROD_EVERY == 0 or rc["B"] != B:
+            els = SC.rod_elements(T0b, Cb0, n_stem=1, n_boom=1, z_foot=torch.full_like(U, float(self.z_deck)))
+            C6 = SC.pedicel_compliance(T0b, Cb0, n0, D_REC, EI_STEM, EI_BOOM, kind=self.boom_kind, ratio=self.boom_ratio,
+                                       root=self.boom_root, Ls=float(self.stem_z))
+            Cvv, Cww = C6[:, :3, :3], C6[:, 3:, 3:]
+            k1 = 1.0/torch.einsum("bi,bij,bj->b", t1, Cvv, t1).clamp(min=1e-12); k2 = 1.0/torch.einsum("bi,bij,bj->b", t2, Cvv, t2).clamp(min=1e-12)
+            kt1 = 1.0/torch.einsum("bi,bij,bj->b", t1, Cww, t1).clamp(min=1e-12); kt2 = 1.0/torch.einsum("bi,bij,bj->b", t2, Cww, t2).clamp(min=1e-12)
+            m = M_HEAD + M_CROWN
+            prof_e = [SC.wind_profile(e["mid"][:, 2], one)[:, None] for e in els]
+            rc = dict(tick=0, B=B, els=els, prof_e=prof_e, w1=torch.sqrt(k1/m), w2=torch.sqrt(k2/m),
+                      wt1=torch.sqrt(kt1/J_HEAD), wt2=torch.sqrt(kt2/J_HEAD))
+            self._rod_cache = rc
+        rc["tick"] += 1
+        els = rc["els"]; w1, w2, wt1, wt2 = rc["w1"], rc["w2"], rc["wt1"], rc["wt2"]
+        for e in els: e["q"] = zero3
+        xi_M, root_M = SC.rod_twist(els, [(torch.cat([zero3, M_head], 1), C0)], C0)     # the moment-type loads, no densities
+        for e, pf in zip(els, rc["prof_e"]):
+            e["q"] = SC.tube_density(pf*W_ref, e["axis"], 0.215 if e["name"] == "stem" else D_TUBE, rho=RHO_AIR)
+            if e["name"] == "boom": e["q"] = e["q"] + q_vs[:, None]*lf
+        xi_F, root_F = SC.rod_twist(els, [(torch.cat([Fw, zero3], 1), C0)], C0)         # the force-type loads: the densities and the bowl
+        # the static twists in the boom's basis (t1, t2, bu) x (v; omega); plane 1 is deflection along t1 with rotation about
+        # t2, plane 2 the other way; along and about the boom quasi-static. Each component rings at its plane's mode.
+        def basis(xi):
+            return torch.stack([(xi[:, :3]*t1).sum(1), (xi[:, :3]*t2).sum(1), (xi[:, :3]*bu).sum(1),
+                                (xi[:, 3:]*t1).sum(1), (xi[:, 3:]*t2).sum(1), (xi[:, 3:]*bu).sum(1)], 1)
+        def world(s):
+            return torch.cat([s[:, 0:1]*t1 + s[:, 1:2]*t2 + s[:, 2:3]*bu, s[:, 3:4]*t1 + s[:, 4:5]*t2 + s[:, 5:6]*bu], 1)
+        big = torch.full_like(w1, 1e9)
+        wb = torch.stack([w1, w2, big, w2, w1, big], 1)                                  # the bending mode per component
+        wm = torch.stack([wt2, wt1, big, wt1, wt2, big], 1)                              # the pitching mode per component
+        acc_b = None
+        for key, wv, xs in (("sb", wb, basis(xi_F)), ("sm", wm, basis(xi_M))):
+            static = wv > 1e8
+            acc = torch.where(static, torch.zeros_like(wv), wv*wv*(xs - S[key]) - 2*ZETA*wv*S[key + "d"])
+            S[key + "d"] = torch.where(static, torch.zeros_like(wv), S[key + "d"] + acc*self.dt)
+            S[key] = torch.where(static, xs, S[key] + S[key + "d"]*self.dt)
+            if key == "sb": acc_b = acc
+        S["x"] = S["sb"][:, :2]; S["th"] = S["sm"][:, 3:5]                              # the old readouts: the deflection, the pitching tilt
+        S["acc_l"] = acc_b[:, 0]*(lf*t1).sum(1) + acc_b[:, 1]*(lf*t2).sum(1)           # what the wake sees of the motion
+        mr = root_F[:, 3:] + root_M[:, 3:]
+        F["m_root"] = mr[:, :2]                                                          # the stem foot's bending moments about x and y: the gauges
+        F["f_n"] = w1/(2*np.pi); F["f_th"] = wt1/(2*np.pi)
+        cmp_ = compliance(F["q_ext"], self.boom_kind, self.boom_ratio, self.boom_root, m_tip=D_REC*(n0*bu).sum(1))   # the HUD's scalar
+        F["k_img"] = cmp_["k_img"]; F["drag"] = drag; F["V"] = U; F["gust"] = u_g
+        xi_head = world(S["sb"]) + world(S["sm"])
 
-        # ---- 5. where the head really is: the joints, plus the structure's deflection, minus what the fine stage took out
+        # ---- 5. where the head really is: the joints, plus the rod's twist, plus the crown's own three
         xl, yl = head_frame(n0)
-        dx = S["x"][:, 0:1]*t1 + S["x"][:, 1:2]*t2
+        dx = xi_head[:, :3]
         C = C0 + dx + S["fine"][:, 2:3]*n0
-        # A cantilever's tip does not only move - it TURNS, by theta/delta radians per metre of deflection, about the axis
-        # perpendicular to the load. That rotation is what the image feels: 5.01 m of walk per radian against 0.95 m per
-        # metre, so getting it as a rotation rather than a vector nudge is the difference between the dominant term being
-        # right and being decorative. Rotate n by phi about (bu x load), small-angle: n + phi x n.
-        kt = (cmp_["theta"]/torch.clamp(cmp_["delta"], min=1e-12))[:, None]
-        phi = kt*(S["x"][:, 0:1]*t2 - S["x"][:, 1:2]*t1)                           # bending about the boom's own axes
-        phi = phi + S["th"][:, 0:1]*t1 + S["th"][:, 1:2]*t2                        # and the pitching moment's own tilt
-        phi = phi + S["fine"][:, 0:1]*yl - S["fine"][:, 1:2]*xl                  # and the crown's own two tilts
+        phi = xi_head[:, 3:] + S["fine"][:, 0:1]*yl - S["fine"][:, 1:2]*xl               # the rod's rotation, and the crown's two tilts
         n = n0 + torch.cross(phi, n0, dim=1)
         n = n/torch.linalg.norm(n, dim=1).clamp(min=1e-9)[:, None]
+        if self.mech_kernel and self._mk_day is None: self._sun_dir(B, dev)          # the episode's sun, day and pointing, cached
+        if self.mech_kernel and self._mk_day is not None:
+            # the same joints and the same rotation vector, walked by the kernel: exact rotations where the line above is
+            # first order, and the receiver rows (the fold, the strip's frame) re-solved for where the head is
+            rows = SC.mech_rows(B, device=dev)
+            T0b = (T0 if T0.dim() == 2 else T0[None, :].expand(B, 3)).contiguous()
+            ch = SC.pedicel_chain(T0b, D_REC, device=dev)
+            SC.set_chain(rows, ch["screws"], SC.pedicel_theta(q), ch["C0"], ch["n0"], strip=1)   # the strip on the pipe faces the head
+            SC.set_elastic(rows, torch.cat([dx + S["fine"][:, 2:3]*n0, phi], 1))
+            mnt = self._mount(self._mk_day, self._mk_lat, float(self.t_solar[0]), pnt=self._mk_pnt, mech=rows)
+            C = mnt["Cd"].clone(); n = mnt["Mt"][:, 2, :].clone()
+            self._tr["vp"] = mnt["vp"].reshape(B, 21).clone(); self._tr["scb"] = mnt["scb"].clone()   # the receiver rows follow the head
 
         # ---- 6. the primary: Hashemi's membrane, actuated
         lvl = torch.clamp(a[:, 9].long(), 0, len(self.p_lv) - 1)
@@ -316,10 +413,23 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         S["p_dist"] = torch.clamp(S["p_dist"] + (bias - S["p_dist"])/900.0*self.dt
                                   + 1.2*np.sqrt(self.dt/DT_HASH)*torch.randn(B, generator=gen, device=dev), -40, 60)
         S["p_act"] = S["p_act"] + torch.clamp(p_set + S["p_dist"] - S["p_act"], -self.pump_slew*self.dt, self.pump_slew*self.dt)
-        f_now = self._lerp_lv(S["p_act"])                                          # on device: a .cpu() here cost 50x the physics
-        defocus = A_M*torch.abs(f_now - self.f_nom)/max(self.f_nom, 1e-6)          # the spot's growth from the wrong focal length
+        # THE FILM UNDER THE WIND, in two parts. The n = 0 part of the pressure field (Cp_net q, up to 1.7 q into the bowl) is
+        # a uniform load that changes the plenum's VOLUME: the sealed plenum's gas spring resists it 33x (PLENUM_SEALED) and
+        # an open valve passes it one to one, and it moves the focal length - 42 cm at 12 m/s with the valve open, 1.3 cm
+        # sealed - which the trace sees through the level. The n >= 1 harmonics change no volume, so the valve does nothing
+        # to them: the figure error is k_film V^2, softened by the flow, sealed or not. (Until 2026-09-12 the harmonics were
+        # multiplied by 0.03 whenever the valve was shut, the default: a 33x understatement of the film's wind figure.)
         wind_pass = torch.where(S["valve"] > 0.5, torch.full_like(V, PLENUM_SEALED), torch.ones_like(V))
-        sig_film = k_film*V*V*film_soften(V)*wind_pass                             # the film's figure under wind (LES table by incidence), softened by the flow
+        dp_w = WT.film_load(n0, wdir_i)*(0.5*RHO_AIR*Vh*Vh)*wind_pass            # Pa on the film: positive pushes it back, deeper
+        p_eff = S["p_act"] + dp_w
+        f_now = self._lerp_lv(p_eff)                                                # on device: a .cpu() here cost 50x the physics
+        defocus = A_M*torch.abs(f_now - self.f_nom)/max(self.f_nom, 1e-6)          # the spot's growth from the wrong focal length
+        sig_film = k_film*V*V*film_soften(V, self.film_T)*self.film_k_scale         # the film's figure under wind (LES table by incidence, at T_WORK: 1/T), softened by the flow
+        # THE FILM'S STRESS: the working tension follows the pressure as p^(2/3) (Hencky's inflated membrane) from the FvK
+        # figure at f 4, 98 MPa in 50 um PET - PET's yield. The number is a readout and a flag, because the design at f 4
+        # is at yield before any wind blows (design/compliant/stage3/wind/README.md, 'The film itself').
+        F["film_sig"] = self.film_sig_work*torch.clamp(p_eff/self.p0, min=0.05)**(2.0/3.0)   # 98 MPa at the design pressure as built, 42 rim-fed
+        F["film_yield"] = (F["film_sig"] > FILM_SIG_YIELD).float()
 
         # ---- 7. the optics: THE RAY TRACE. The megakernel is handed the dish frame the flower's joints actually
         # produced, so the power is what those rays deliver - not a closed form fitted to a half-power radius.
@@ -334,9 +444,11 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         # the beam's angular budget, composed the way the kernel composes it (tandoor_hashemi_env.py:1259), plus the
         # film's own wind gradient and the plenum's defocus, which is what the membrane's actuation buys or loses
         sigb = torch.sqrt(self.sig_static**2 + (2*0.35*sig_film)**2 + (defocus/max(float(self.g_orbit), 1e-6))**2)
-        lv_f = torch.clamp((S["p_act"]/self.p0 - self.level_frac[0])
+        lv_f = torch.clamp((p_eff/self.p0 - self.level_frac[0])
                            /(self.level_frac[-1] - self.level_frac[0])*(len(self.p_lv) - 1), 0, len(self.p_lv) - 1)
         thr, out6, per = self.trace(C, n, lv_f, sigb)
+        if self.cam_plane == "F": img_F = self.flux_image_F(C, n, lv_f, sig_film, s_dir, r, e1, e2, Ff, gen)
+        F["rays_thru"] = thr.reshape(B, -1).float().mean(1)                          # the fraction of the rays that reached the bread: the trace, working
         # PER LOAF, not in total. The megakernel already bins each ray onto the loaf it lands on (the eight columns
         # after the nodes), and that spatial term is the whole point: total throughput barely moves when the beam
         # wanders, because the duct is r 0.2 and the spot is 3 cm rms - the traced acceptance is still 99 % at 8 mm
@@ -357,9 +469,29 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         scale = self.dt/DT_HASH
         rew = 2.0*(phi_new - phi_old) - 0.02*scale                                # cooking pays, holding is rent
         rew = rew/float(getattr(self, "reward_div", 1.0))
+        if self.reward == "miss":
+            # THE FAST LOOP'S OWN REWARD, v2. v1 paid -|miss|/scale a step at gamma 0.999: returns of order -100, a critic that
+            # never fitted them (loss 4 -> 135), advantages of pure noise, a policy that stayed uniform for 74 epochs and
+            # then NaN. v2: the level term -|miss|/scale still, plus potential-based shaping on the same potential -
+            # miss_prev - miss_now, the credit for having moved the right way THIS step, which is what a 1 ms rate command
+            # can earn - and the ini runs gamma 0.99 (a 100 ms horizon, the fine stage's own) with reward_div bringing the
+            # returns to order one. Shaping on a potential leaves the optimal policy alone.
+            m_now = torch.linalg.norm(S["miss"], dim=1)
+            m_prev = S["miss_prev"] if "miss_prev" in S else m_now
+            rew = -m_now/self.miss_scale + self.miss_shape*(m_prev - m_now)/self.miss_scale
+            S["miss_prev"] = m_now.detach()
+            # v3: the miss has a NULL SPACE - the crown's piston head moves the focus along the chief ray and the centroid
+            # not at all - and the v2 policy filled it with a random walk to the 50 mm stop: 0.10 cm of miss and 75 % of the
+            # rays through against the integral controller's 87 % with the piston held. The collar's acceptance is the
+            # receiver's own quantity, the F camera sees the spot's spread as well as its centre, and the piston is the
+            # one actuator that can refocus at 1 kHz when the wind softens the film. So the fraction of the traced rays
+            # that reach the bread enters the reward, centred on thru_ref so the level term stays of order the miss's.
+            if self.thru_w > 0: rew = rew + self.thru_w*(F["rays_thru"] - self.thru_ref)
+            rew = rew/float(getattr(self, "reward_div", 1.0))
+        rew = torch.nan_to_num(rew, nan=-1.0, posinf=-1.0, neginf=-1.0)         # a stray NaN must not poison a 2 M-sample batch
 
         # ---- 9. the frame, the tail, and the episode
-        img = self.flux_image(thr, out6)
+        img = self.flux_image(thr, out6) if self.cam_plane != "F" else img_F
         if self.n_prop:
             prop = torch.stack([ (F["q_" + kk] - lim[kk][0])/(lim[kk][1] - lim[kk][0]) for kk in keys ]
                                + [torch.remainder(F["q_rail"]/(2*np.pi) + 0.5, 1.0)]
@@ -369,13 +501,14 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                                   torch.clamp(phi_new/max(int(self.loaves_per_load), 1), 0, 1)]
                                + ([0.5 + 0.5*torch.clamp(F["m_root"][:, 0]/self._m_ref, -1, 1),
                                    0.5 + 0.5*torch.clamp(F["m_root"][:, 1]/self._m_ref, -1, 1)] if self.obs_strain else []), 1)
-            obs = torch.cat([img, torch.clamp(prop, 0, 1)], 1)
+            obs = torch.nan_to_num(torch.cat([img, torch.clamp(prop, 0, 1)], 1), nan=0.0)
         else:
             obs = img
         S["t"] = S["t"] + 1
         done = (S["t"] >= self.episode_n)                                          # no .any(): branching here syncs the device
         S["t"] = torch.where(done, torch.zeros_like(S["t"]), S["t"])
         S["E"] = torch.where(done[:, None], torch.zeros_like(S["E"]), S["E"])
+        if "miss_prev" in S: S["miss_prev"] = torch.where(done, torch.zeros_like(S["miss_prev"]), S["miss_prev"])
         done = done.float()
         self._obs_t, self._rew_t, self._done_t = obs, rew, done                    # the on-device collector reads these
         if not self.on_device:
@@ -423,6 +556,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                 pnt = torch.stack([torch.as_tensor(el_m, dtype=torch.float32, device=dev).reshape(-1),
                                    torch.as_tensor(az_m, dtype=torch.float32, device=dev).reshape(-1)], 1)
                 mnt = mount_batch(self, day_t, lat_t, float(self.t_solar[0]), dev, pnt=pnt)
+                self._mk_day, self._mk_lat, self._mk_pnt = day_t, lat_t, pnt    # for the per-step kernel mount (mech_kernel)
                 u = mnt["u"].float()
             except Exception:
                 u = None
@@ -463,6 +597,17 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         self._bias_t = 0.05*(self._dni_t.mean() - 400.0)/10.0
         self.acquire()
         self.trace_setup()
+        # THE SITE'S WIND for the episode: a recorded day near this day of the year, read at this hour - speed, direction, gustiness
+        B, dev = self.num_agents, self.device
+        if getattr(self, "_site", None) is not None:
+            S_ = getattr(self, "_gpu", None); doy = getattr(S_, "day_v", None) if S_ is not None else None
+            doy = torch.as_tensor(doy if doy is not None else float(getattr(self, "day", 172)), device=dev).reshape(-1).expand(B)
+            idx = self._site.sample_days(doy.round().long().clamp(1, 366), gen)
+            hour = torch.as_tensor(np.asarray(self.t_solar, dtype=np.float32), device=dev).reshape(-1).expand(B)
+            U_s, dir_s, iu_s = self._site.at(idx, hour)
+            self.S["site_U"], self.S["site_iu"], self.S["wdir"] = U_s, iu_s, SW.bearing_vec(dir_s.cpu()).to(dev)
+        else:
+            self.S["wdir"] = self._fl_wdir0.to(dev).expand(B, 3).clone()
         self.observations[:] = 0.0
         return self.observations, [{}]
 
@@ -477,6 +622,7 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         pnt = torch.stack([torch.as_tensor(np.asarray(self.el_m, dtype=np.float32), device=dev).reshape(-1),
                            torch.as_tensor(np.asarray(self.az_m, dtype=np.float32), device=dev).reshape(-1)], 1)
         mnt = mount_batch(self, day_t, lat_t, float(self.t_solar[0]), dev, pnt=pnt)
+        self._mk_day, self._mk_lat, self._mk_pnt = day_t, lat_t, pnt                # for the per-step kernel mount (mech_kernel)
         gen = getattr(self, "_gen", None)
         z = lambda: torch.zeros(B, P, device=dev)
         self._tr = dict(Acan=mnt["Acan"].contiguous(), vp=mnt["vp"].reshape(B, 21).contiguous(),
@@ -496,11 +642,43 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         T = self._tr; dev = self.device; B = self.num_agents
         zc = torch.zeros_like(n); zc[:, 2] = 1.0
         Mt = _align_batch(zc[0], n).transpose(1, 2).contiguous()
+        # THE SUN IN THE DISH FRAME, per step. Acan turns the kernel's canonical sun ray (0,1,0) into the incident direction in
+        # the dish's own frame, and the kernel reflects there and maps out with Mt. Frozen at reset (as it was until 2026-09-12)
+        # the sun rode with the head: a tilt of the dish turned the traced beam by theta, not 2 theta, so the trace's rays
+        # through were half as sensitive to the crown's tilts as the miss the reward pays on. Found by the kernel-mount path,
+        # which re-solves it every step (design/compliant/stage3/screws/test_env_mount.py).
+        yh = torch.zeros(3, device=dev); yh[1] = 1.0
+        Acan = _align_batch(yh, torch.einsum("bij,bj->bi", Mt, -self._sun_dir(B, dev))).contiguous()
         thr, out6, per = self._metal(self._pts_l, self._nrm_l, lv, T["du"], T["de"], T["upick"], T["us"], sigb,
-                                     T["Acan"], Mt, C.contiguous(), T["dvec"], T["off"], T["vp"], self._sc_base,
-                                     self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t,
+                                     Acan, Mt, C.contiguous(), T["dvec"], T["off"], T["vp"], self._sc_base,
+                                     *(self.m4_args() if hasattr(self, "m4_args") else (self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)),   # per-agent M4 where the kernel has it
                                      self._ray_pw, T["soil"], self.n_nodes, T["aim"], T["scb"], fct=self._fct)
         return thr, out6, per
+
+    def flux_image_F(self, C, n, lv, sig_film, s_dir, r, e1, e2, Ff, gen):
+        """THE CAMERA AT F: the megakernel's own 64 membrane rays, reflected off the normals of the level the pump has
+        reached, each normal tilted by the film's slope error, binned where they cross the plane through F normal to the
+        chief ray. The miss reward is paid on this plane, and here 1 mm of miss is 0.08 px, not 0.0005."""
+        from tandoor_mount_batch import _align_batch
+        B, nn = self.num_agents, self.cam_n; L, P, _ = self._pts_l.shape; dev = self.device
+        zc = torch.zeros_like(n); zc[:, 2] = 1.0
+        Mt = _align_batch(zc[0], n).transpose(1, 2).contiguous()                              # local -> world, as the kernel has it
+        l0 = lv.floor().long().clamp(0, L - 1); l1 = (l0 + 1).clamp(max=L - 1); fr = (lv - l0.float()).clamp(0, 1)[:, None, None]
+        pl = self._pts_l[l0]*(1 - fr) + self._pts_l[l1]*fr; nl = self._nrm_l[l0]*(1 - fr) + self._nrm_l[l1]*fr
+        pw = torch.bmm(pl, Mt) + C[:, None, :]; nw = torch.bmm(nl, Mt)
+        nw = nw + (0.5*sig_film)[:, None, None]*torch.randn(B, P, 3, generator=gen, device=dev)   # the film's slope error, per ray
+        nw = nw/torch.linalg.norm(nw, dim=-1, keepdim=True).clamp(min=1e-9)
+        sd = s_dir[:, None, :]; d = -sd + 2*(sd*nw).sum(-1, keepdim=True)*nw                   # reflected off the film
+        t = ((Ff[None, None, :] - pw)*r[:, None, :]).sum(-1)/(d*r[:, None, :]).sum(-1).clamp(min=1e-6)
+        X = pw + t[..., None]*d - Ff[None, None, :]
+        x = (X*e1[:, None, :]).sum(-1); y = (X*e2[:, None, :]).sum(-1)                         # metres in the F plane
+        ix = torch.clamp(((x + CAM_FOV_F)/(2*CAM_FOV_F)*nn).long(), 0, nn - 1); iy = torch.clamp(((y + CAM_FOV_F)/(2*CAM_FOV_F)*nn).long(), 0, nn - 1)
+        w = self._ray_pw[None, :].expand(B, P)
+        img = torch.zeros(B, nn*nn, device=dev); img.scatter_add_(1, iy*nn + ix, w)
+        img = img/torch.clamp(img.amax(dim=1, keepdim=True), min=1e-6)*0.9 + 0.18*self.cam_rim_F[None, :]
+        if self.cam_noise > 0: img = img + (0.01*self.cam_noise)*torch.randn(img.shape, generator=gen, device=dev)
+        q = float(2**self.cam_bits - 1)
+        return torch.clamp((img*q).round()/q, 0.0, 1.0)
 
     def flux_image(self, thr, out6):
         """the camera: bin every ray that got through by where it landed on the receiver. No Gaussian, no assumed spot

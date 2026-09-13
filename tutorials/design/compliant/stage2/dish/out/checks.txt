@@ -1,0 +1,11 @@
+blade 150.0 x 0.8 mm, length 120 mm at 45 deg: range at 450 MPa = 38.0 deg from neutral (need 18.0)
+distributed pivot: 12 cells along 2 m, 24 blades
+redundancy: 24 blades (72 lines) rank 5; one blade removed rank 5 -> still 1 DOF; stiffness change ~4.2 %
+FE: compliant/stiff ratio 8.72e-09; softest [ 0.032  0.    -0.    -0.     1.     0.   ]
+FE: K_theta about the pitch axis 261 N m/rad; spring torque at 18.0 deg 82 N m; stiff: k_x 2444 kN/mm, k_y 7610, k_z 2444 kN/mm; K_thx 797450 MN m/rad, K_thz 797450 MN m/rad
+actuator holds spring + wind(9 m/s) + gravity = 512 N m -> 640 N on the 0.8 m lever (Tr20x4 self-locking screw, R6)
+in-plane load per blade at 9 m/s: 68 N vs buckling P_cr 3567 N -> SF 52.3; at 25 m/s survival (stops engaged, R4): 286 N -> SF 12.5
+blade bending stress at 18.0 deg: 213 MPa = 0.14 sigma_y (R3 <= 0.30); daily sweep Goodman with sigma_a = sigma_m = 107 MPa
+first pitch mode with the 140 kg dish: 0.19 Hz (I 185 kg m2); gust band 0.1-2 Hz -> add the eddy damper of the first memo
+thermal +40 K: steel blades and beams grow together; the axis stays on the crossing line by symmetry; carrier-vs-Al rim relief needed for 1.0 mm differential over 2 m (R9)
+mass: blades 2.70 kg, two 2 m beams (40 x 60, 40 % open) 30.0 kg

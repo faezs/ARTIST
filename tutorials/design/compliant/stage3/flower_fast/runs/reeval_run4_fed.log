@@ -1,0 +1,8 @@
+== run4 ep144 on the rim-fed film (film_T 2100) 06:09:34
+controller              reward/step  miss cm (2nd half)  rays through  miss at start  thru 1st half   |tilt x| |tilt y| |piston| mrad/mm   (256 agents, 3 s, seed 11, site wind, gain 0.6, greedy 0, heads 3)
+noop                        -0.0309                2.67         67.5 %           2.67         67.4 %         0.00     0.00     0.00
+random                      -0.1129                8.66         15.7 %           2.83         35.7 %         6.92     6.37     5.74
+integral (camera)            0.0031                0.34         89.8 %           0.58         89.7 %         2.26     2.11     0.00
+integral (true miss)         0.0047                0.03         89.8 %           0.30         89.7 %         2.16     2.01     0.00
+policy                       0.0044                0.09         89.8 %           0.78         89.4 %         2.19     2.03    35.77
+== done 06:21:17

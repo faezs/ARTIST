@@ -1,0 +1,51 @@
+== asbuilt film_T 4922 slope 2e-3 06:07:13
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+MCTS over the design: site p25 (roof half-width 1.7 m), day 172 seasoned 4, 16 simulations x 3 children x 256 completions
+  objective: NET VALUE [PKR]: bread-weighted rotis x 8 PKR x 300 days x 5 yr, minus the kit; site: cap_scale u=0.375, demand_scale u=0.3333333333333333, site_az u=0.0, pot_r u=0.45454545454545453, pot_h u=0.5, site_hz u=0.5, over_cap u=0.5
+  sim 0 (uniform, 768 designs): mean -580, best-quartile mean -474, best -358 k PKR net  [88 s]
+  sim  1: expand [root] -> receiver cass -480, tri -472; batch mean -581, best so far -358 k PKR net  [174 s]
+  sim  2: expand [receiver:tri] -> section circle -474, section -472; batch mean -576, best so far -358 k PKR net  [255 s]
+  sim  3: expand [receiver:cass] -> section circle -470, section -474; batch mean -574, best so far -358 k PKR net  [335 s]
+  sim  4: expand [receiver:tri > section:section] -> post_rise lo -478, mid -473, hi -470; batch mean -572, best so far -358 k PKR net  [416 s]
+  sim  5: expand [receiver:cass > section:circle] -> post_rise lo -471, mid -480, hi -466; batch mean -573, best so far -358 k PKR net  [497 s]
+  sim  6: expand [receiver:tri > section:circle] -> post_rise lo -471, mid -481, hi -480; batch mean -575, best so far -358 k PKR net  [577 s]
+  sim  7: expand [receiver:cass > section:section] -> post_rise lo -464, mid -470, hi -470; batch mean -574, best so far -358 k PKR net  [658 s]
+  sim  8: expand [receiver:cass > section:circle > post_rise:hi] -> deck_h lo -452, mid -482, hi -497; batch mean -572, best so far -358 k PKR net  [740 s]
+  sim  9: expand [receiver:cass > section:section > post_rise:lo] -> deck_h lo -449, mid -480, hi -496; batch mean -573, best so far -358 k PKR net  [824 s]
+  sim 10: expand [receiver:cass > section:section > post_rise:hi] -> deck_h lo -447, mid -477, hi -498; batch mean -572, best so far -354 k PKR net  [942 s]
+  sim 11: expand [receiver:cass > section:circle > post_rise:lo] -> deck_h lo -458, mid -481, hi -497; batch mean -578, best so far -354 k PKR net  [1067 s]
+  sim 12: expand [receiver:tri > section:section > post_rise:hi] -> deck_h lo -461, mid -486, hi -503; batch mean -579, best so far -354 k PKR net  [1191 s]
+  sim 13: expand [receiver:cass > section:section > post_rise:mid] -> deck_h lo -451, mid -482, hi -506; batch mean -573, best so far -354 k PKR net  [1315 s]
+  sim 14: expand [receiver:tri > section:circle > post_rise:lo] -> deck_h lo -455, mid -473, hi -510; batch mean -580, best so far -354 k PKR net  [1439 s]
+  sim 15: expand [receiver:cass > section:section > post_rise:lo > deck_h:lo] -> mount_post rail -454, post -454; batch mean -547, best so far -341 k PKR net  [1567 s]
+  sim 16: expand [receiver:tri > section:circle > post_rise:lo > deck_h:lo] -> mount_post rail -451, post -453; batch mean -543, best so far -341 k PKR net  [1693 s]
+
+greedy path (parameter: bin, estimated best-quartile value, visits):
+  receiver         cass        -459 k PKR net  n=10
+  section          section     -456 k PKR net  n=6
+  post_rise        lo          -455 k PKR net  n=3
+  deck_h           lo          -451 k PKR net  n=2
+  mount_post       rail        -454 k PKR net  n=1
+
+  (as built: SECTION, film 1.7 m2, dish_scale 0.35, rise 0.0 m, 1 plenum zone(s), cass)
+
+best single design: 0 rotis (day 172, seasoned day 4), kit 341k PKR (OVER the 100k budget): d_strip=0.78, u_f2=4.08, r_m4=0.79, r_bore=0.51, w_slot=0.64, r_hole=0.46, strip_th_hi=97.24, strip_wk=1.04, r_duct=0.15, roof_r=1.69, deck_h=3.27, rate_scale=0.77, ins_scale=0.82, cap_scale=1.00, lid_leak=0.17, bread_area=0.15, loaves_per_load=7.94, mount_post=0.31, sand_depth=0.34, sand_k=1.11, demand_scale=1.00, section=0.72, post_rise=0.17, over_cap=0.50, zones=1.00, m4_facet=0.79, roof_light=0.90, grid=1.00, receiver=0.01, site_az=0.00, pot_r=1.00, pot_h=1.00, site_hz=0.50, dish_scale=0.35, site=1.00, film=1.70, rim=4.62, rise=0.00, ocap=0.00, film_m2=1.70, rim_m=4.62, r_out_max=0.74, m4sig=0.00, roofl=1.00, m4c=0.25, m4chord=0.25, m4flat=1.00, tri=0.00, shell=0.00, shell_name=perlite, shell_t=0.01, shell_m3=0.29, shell_MJK=0.03
+bill of materials:
+  dish           14.0k
+  tower          42.5k
+  mount          38.9k
+  motors         18.4k
+  strip          22.0k
+  m4             11.9k
+  bore           41.5k
+  insulation     10.1k
+  sand           20.0k
+  lid             9.4k
+  fixed         112.8k
+  TOTAL         341.4k PKR  (OVER the 100k budget)
+evaluated 13056 machines in 1693 s
+== asbuilt done 06:36:01
+== fed film_T 2100 slope 2e-3 06:36:01
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+MCTS over the design: site p25 (roof half-width 1.7 m), day 172 seasoned 4, 16 simulations x 3 children x 256 completions
+  objective: NET VALUE [PKR]: bread-weighted rotis x 8 PKR x 300 days x 5 yr, minus the kit; site: cap_scale u=0.375, demand_scale u=0.3333333333333333, site_az u=0.0, pot_r u=0.45454545454545453, pot_h u=0.5, site_hz u=0.5, over_cap u=0.5

@@ -1,0 +1,58 @@
+STEP 1  desired motions: rotation about the vertical through F (azimuth, 220 deg), rotation about the horizontal through F (elevation, 71 deg, el 12-83),
+        and fine tip/tilt/focus of the dish about its vertex (+-20 mrad, +-30 mm). Rotation about F only, F fixed on the tube: Hashemi figs 3-5.
+STEP 2  freedom spaces: azimuth and elevation are each 1 DOF Type 1 (a rotation line, thesis 3.2.1); at an instant the pair is 2 DOF Type 1 (a disk of
+        intersecting rotation lines through F, 3.3.1). The fine motion is 3 DOF Type 1 about the vertex (3.4.1).
+STEP 3  parallel or serial: 220 and 71 deg are beyond any parallel flexure; the system is SERIAL (Fig. 2.7, right branch).
+STEP 4  intermediate freedom spaces from ground: [bearing: 1R vertical through F] -> [flexure: 1R horizontal through F] -> [flexure: 3 DOF Type 1 about the vertex].
+        1 + 1 + 3 = 5 twists, the five wanted; the dish's roll about its own axis is fixed by no stage and needed by none: the chain is not underconstrained (p. 36).
+STEP 5  ground = the deck and the tube (F is on the tube; the strip's own ring at the tube top turns with the fork). Stage 1 = the fork: a ring beam r 3.61 m
+        on the deck rail and two posts up to the elevation axis. Stage 2 = the cradle: two side arms at |y| 2.45 m (outside the rim, 2.22 m), a back frame
+        0.6 m behind the vertex, counterweights 2.6 m up-sun of the axis. Stage 3 = the dish on its back ring.
+
+STEP 6  constraints from the constraint spaces
+  trunnion block, stage A: 18 blade lines (6 blades in 3 cells at +-45 deg crossing on the axis) -> rank 5, DOF 1: ['rotation about axis through [-0.  0. -0.] along [ 0. -1. -0.]']
+  trunnion block, stage B: rank 5, DOF 1: ['rotation about axis through [-0.  0. -0.] along [-0. -1. -0.]']
+  reciprocal product of every blade line of both blocks with the rotation about the axis: 0.0e+00
+  the two blocks together (one stage each, in parallel across the cradle): rank 5, DOF 1: ['rotation about axis through [0. 0. 0.] along [ 0. -1.  0.]']
+        the same lines meet the axis whether the blocks sit at F or at |y| 3.25 m: the constraint space of a rotation does not depend on where along its axis
+        the constraints are placed (thesis 3.2.1). At F they would cross the aperture in projection and the tube's reach; at |y| 3.25 m they do neither.
+  blades 200 x 1.0 x 120 mm 17-7PH: +-25.8 deg per stage at 0.25 sigma_y; needed +-17.8 per stage (71 deg over two stages)
+        -> 258 MPa = 0.17 sigma_y at el 12 and 83, neutral at el 47.5
+  spring: 2EI/L = 55.6 N m/rad per crossed pair, 167 per stage, 83 per block (two stages in series), 167 N m/rad for the two blocks; 103 N m at the ends of travel
+  cradle mass: dish 60 + frame 40 + arms 258 + water 2 x 131 + cranks 30 = 650 kg, balanced about the axis
+  9 m/s: drag 751 N; its moment about F 3.0 kN m becomes +-0.46 kN along the dish axis at the two blocks 6.5 m apart;
+        worst blade 906 N in plane (9 m/s, crosswind, el 44) vs fixed-fixed buckling 9139 N -> SF 10.1
+  25 m/s: drag 5797 N; its moment about F 23.2 kN m becomes +-3.57 kN along the dish axis at the two blocks 6.5 m apart;
+        worst blade 1940 N in plane (25 m/s, crosswind, el 44) vs fixed-fixed buckling 9139 N -> SF 4.7
+        the third pass put one block at F and counted forces only; the crosswind's 3.0 kN m at 9 m/s on cells 0.33 m apart would have loaded its blades 3.2 kN: over buckling. Two blocks fix that.
+  both blocks hold y (over-constraint across 6.5 m): 13 K between cradle and fork = 1.0 mm; the posts (328 kN/m each, 250 x 8 x 4.34 m) give it at 166 N;
+        crosswind at 9 m/s moves the axis 1.1 mm in y (0.3 mrad of pointing, inside the fine stage); axis alignment of the two blocks to 0.2 mrad at assembly
+  azimuth: the fork's ring beam r 3.61 m on the deck rail (Hashemi's ring rail); its rollers' lines meet the vertical F-F2 axis, the 1R constraint space; 220 deg; a bearing, not a flexure.
+  fine stage: three flat tangential blades at (60.0, 180.0, 300.0) deg from the slot (9 lines, all in the back plane) -> rank 3, DOF 3: ['rotation about axis through [ 0.  0. -0.] along [0. 1. 0.]', 'translation along [0. 0. 1.]', 'rotation about axis through [0. 0. 0.] along [1. 0. 0.]']
+  reciprocal products with tip, tilt, focus: 0.0e+00; constraint space = the plane + a normal torque (Fig. 3.38): matched
+  blades 60 x 1.5 x 450 mm: +-20 mrad -> end offset 29 mm, S-bend 130 MPa = 0.09 sigma_y; tangential stiffness EA/L 40 MN/m;
+        radial (thermal) compliance 711 kN/m: the 0.62 mm Al/steel mismatch loads a blade 457 N at 114 MPa in-plane; out-of-plane 12EI/L^3 444 N/m (the DOF)
+  three flexure struts on the normals at r 1.6 m, (90.0, 210.0, 315.0) deg (actuation space = box of normals, Fig. 4.3; each a wire line): with the blades rank 6, DOF 0
+  strut arms on (tip, tilt, focus): [[1.6, -0.0, 1.0], [-0.8, 1.39, 1.0], [-1.13, -1.13, 1.0]]
+  locked stage: 90 MN m/rad about the vertex (columns); drag asymmetry 315 N m at 9 m/s -> 4 urad; 1 mL = 62 urad
+  the slot: the tube passes through the membrane at el 55-83 anywhere along the slot, so the back ring and the frame ring are open +-40/40 deg about it and no station or column stands within |y| 0.5 m of it
+
+ACTUATION  elevation: a crank 1.0 m from the axis on each arm (20 deg up-sun of the perpendicular) and a self-locking screw jack to a bracket 0.25 m behind and 2.75 m below the axis on each post:
+        jack length 2.06-3.22 m (stroke 1.16), lever 0.81-1.00 m over el 12-83;
+        9 m/s: wind torque about the axis 3.0 kN m (+ 103 N m of blade spring) -> 1.9 kN per jack at the worst lever
+        25 m/s: wind torque about the axis 23.2 kN m (+ 103 N m of blade spring) -> 14.3 kN per jack at the worst lever
+        holding stiffness ~50 MN m/rad per jack -> 30 urad under the 9 m/s mean; gusts inside the fine stage's +-20 mrad. No power to hold. Tr40 jacks, 50 kN, 1.2 m stroke.
+        turgor: pumping 46 L from the up-sun tanks to a tank on the back frame cancels the 9 m/s mean torque; the jack holds the rest.
+        azimuth: a pinion on the ring beam. fine: the columns on the beam-centroid loop at the tube's waist.
+
+CLEARANCE  tube vs cradle and fork over 59 Quetta sun positions: worst 71 mm (dish back ring, summer 11.0 h, el 75)
+        the arms at |y| 2.45 m clear the rim toroid (2.22 m) by 155 mm; the posts at |y| 3.61 m are outside the dish's sweep at every hour
+        at el 12 the tank ends reach 1.6 m south of the tube axis at z 10.5; at el 83 they stand at z 12.8
+        ring beam diameter 7.5 m inside the 7.8 m the dish's sweep already needs
+
+SHADING  every mount part projects outside the aperture along the sun line by construction (arms and posts at |y| > 2.1 m, blocks beyond them,
+        counterweights on the arms); shading.py rasterises the model to confirm it. The tube, the strip and its ring are the cass machine's own.
+
+WHAT IS COMPLIANT HERE  the elevation pivots (two blocks of twelve blades, exact 1R about the axis through F, 71 deg, no bearing, no backlash), the fine stage
+        (three blades, exact 3 DOF Type 1, microradians), the flexure struts of the actuators, and the posts as the thermal compliance of the trunnion pair.
+        Not compliant and not pretending: the ring bearing, the tube, the arms, the jacks.

@@ -981,7 +981,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, x_turn=None, r_m4=1.3, shell="perlite",
-                 r_strut=0.08, **kwargs):
+                 r_strut=0.08, film_T=4922.0, film_slope=2.0e-3, film_t=None, **kwargs):
         # OPTICAL-EFFICIENCY levers (defaults = current machine):
         # beta_dev: off-axis deviation [deg] of the beam from retro.
         #   The primary is a SPHERE - it has no optical axis, so the
@@ -1169,6 +1169,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 print(f"  [hashemi] receiver='tri': duct_nozzle={kwargs['duct_nozzle']} ignored, the three-mirror machine has no elbow")
             kwargs["duct_nozzle"] = 0
         self.z_turn, self.r_m4, self.r_strut = z_turn, float(r_m4), float(r_strut)
+        # THE FILM (2026-09-13): its tension and its own slope error, the two numbers the whole optical budget hangs on.
+        # film_T 4922 N/m is the flat disc pumped to f 4 - at PET's yield by geometry (98 MPa, 196 at the hole); 2100 is
+        # the RIM-FED film (the rim a spool dispensing the meridional length the dome asks for), which carries only
+        # Gauss's hoop strain: 42 MPa, 83 at the hole, no wrinkle, the same sphere at a lower pressure (p = 2T/R). The
+        # FvK ladder's shapes stand and every pressure on it scales with T (p0 below); the wind's figure goes as 1/T,
+        # which the cook's fused step reads from sp[7] and the flower envs from film_k_scale. film_slope is the film's
+        # own rms slope error (2 mrad as assumed so far; 1 mrad is the lever: +12 points of the year through the strip's
+        # 27x, stage3/wind/README.md 'The rim-fed film'), doubled on reflection into sig_static with the print.
+        self.film_T = float(film_T if film_t is None else film_t); self.film_slope = float(film_slope)   # film_t: the ini loader lower-cases its keys
+        self.film_k_scale = 4922.0/self.film_T; self.film_sig_work = 98.4/self.film_k_scale
         # x_turn: M3's x. None = over the chase (X_TOWER, the bore's foot). Set it to
         # R_POT and the mirror's vertex sits IN the inlet plane - the port-mounted M3
         # (user, 2026-09-10): half the disc inside the wall, the strip's beam landing
@@ -1944,8 +1954,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.p0 = float(0.5 * (lo + hi))
         self.R_sphere = _sphere_R(_solve(self.p0))
         cfg.dp = self.p0
+        self._p0_flat = self.p0                     # the flat disc's design pressure; the rim-fed film holds the same shape at p0 / (4922 / film_T)
         self.level_frac = np.array(self.LEVEL_FRAC)   # coude's wide dump
         mems = [_solve(self.p0 * fr) for fr in self.level_frac]
+        if getattr(self, "film_k_scale", 1.0) != 1.0:
+            self.p0 = self._p0_flat/self.film_k_scale   # the same shapes, pressures scaled with the tension (the ladder's fractions stand)
         self._mem0 = mems[4]
         self.f_nom = float(mems[4]["z0"] + mems[4]["f_fit"])
         self.X_TOWER_C = float(X_TOWER) + (
@@ -2029,7 +2042,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             csr_frac=self.csr_frac)
         # circular on-axis rim: no off-axis astigmatism term
         self.sigma_offaxis = 0.0
-        self.sig_static = float(np.sqrt((2 * 2.0e-3) ** 2
+        self.sig_static = float(np.sqrt((2 * self.film_slope) ** 2
                                         + (2 * self.sigma_print) ** 2))
         # film 0.88 w/ rim thinning, fold 0.95, M5 0.95, duct lip 0.96
         if self.silvered:
@@ -3156,17 +3169,43 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._apply_system_design()
         return self
 
-    def _mount(self, day_t, lat_t, hour, pnt=None):
+    def m4_args(self):
+        """the fold chain's relay ellipsoid (ellM/ellS/ellC/V0, 'M5 far root' in the kernel) as the Metal trace reads it:
+        per agent when a mount has moved it (set_relay_frame), else the shared, built one. The cass/tri chain's M2, M3
+        and M4 live in the per-agent design table instead (columns 0..38), where the aim head already turns M3."""
+        m4 = getattr(self, "_m4_b", None)
+        return m4 if m4 is not None else (self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
+
+    def set_relay_frame(self, T):
+        """the fold chain's relay ellipsoid on a mount: T (B,4,4) the rigid motion of the mirror from where it was built
+        (tandoor_screws.poe or exp_screw). The ellipsoid's foci, centre, vertex and body axes move with it, its shape does
+        not - so a tilted relay throws the beam where a tilted relay throws it. None restores the shared, built one."""
+        if T is None: self._m4_b = None; return
+        B = T.shape[0]; R = T[:, :3, :3].float(); t = T[:, :3, 3].float()
+        M = self.ell_M.float()[None].expand(B, 3, 3)                                    # rows: the body axes in the world
+        ellM = torch.bmm(M, R.transpose(1, 2)).reshape(B, 9).contiguous()               # each row e -> (R e)^T
+        ellC = (torch.einsum("bij,j->bi", R, self.ell_ctr_t.float()) + t).contiguous()
+        V0 = (torch.einsum("bij,j->bi", R, self._V0t.float()) + t).contiguous()
+        self._m4_b = (ellM, self.ell_S.float()[None].expand(B, 3).contiguous(), ellC, V0)
+
+    def _mount(self, day_t, lat_t, hour, pnt=None, mech=None):
         """Mount solve dispatch: the Metal kernel when present (one
-        launch, B threads), the batched torch solve otherwise."""
+        launch, B threads), the batched torch solve otherwise.
+        mech (B, MECHW): the mount as screws + compliance per agent
+        (tandoor_screws); None takes the env's standing rows
+        (self._mech_rows, set by a mount-aware subclass), False forces
+        Hashemi's law from pnt."""
+        if mech is None: mech = getattr(self, "_mech_rows", None)
+        if mech is False: mech = None
         if self._metal is not None:
             self._mnt_prm[0] = float(hour)
             return self._metal.mount(day_t, lat_t, self._mnt_prm,
                                      day_t.shape[0], pnt=pnt,
-                                     fct=getattr(self, "_fct", None))
+                                     fct=getattr(self, "_fct", None),
+                                     mech=mech)
         from tandoor_mount_batch import mount_batch
         return mount_batch(self, day_t, lat_t, float(hour),
-                           day_t.device, pnt=pnt)
+                           day_t.device, pnt=pnt, mech=mech)
 
     def _finish_trace_build(self, a, g, f_design):
         dev = self.device
@@ -3566,9 +3605,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         lv = level_of(p_eff / self.p0, self.level_frac)       # against the ladder (the kernel's step_pre does the same)
         if self._metal is not None:
             args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
-                    sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc,
-                    self.ell_M, self.ell_S, self.ell_ctr_t,
-                    self._V0t)
+                    sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc) + self.m4_args()
             _, _, per = self._metal(*args, self._ray_pw, soil,
                                     self.n_nodes,
                                     self._aim_dirs(B, dev), scb,
