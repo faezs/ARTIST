@@ -169,3 +169,53 @@ Two model errors found on the way, both fixed in the envs:
 What the envs read out: `film_sig`, the tension over the thickness following the pressure as p^(2/3) from 98 MPa at the
 design pressure, and `film_yield` past 90. The slow env's HUD says AT YIELD, which at f 4 it always is. The cook's fused
 step still traces with its own wind blur (`sigw` in step_pre), not with this figure; that is the next seam.
+
+## The rim-fed film, and the wind's figure as a field on the tri machine (2026-09-13)
+
+The user's film is not a flat disc held at its rim: the rim is a spool that dispenses the meridional length the dome
+asks for as the plenum sucks the film in. That removes the pretension's 1.08 % strain and leaves only what Gauss demands
+of the hoop, a^2/6R^2: at f 4, 2.4 cm of film fed all round, 1.1 % strain, 42 MPa in the film and 83 at the hole - half
+of yield, no wrinkle - against the flat disc's 98 and 196. The same sphere at a lower pressure (p = 2T/R). What the feed
+cannot do is go deeper: the hoop excess of a flat sheet on a sphere is geometric, and where the film cannot carry it
+as tension it wrinkles, and a wrinkle's slope is 2 sqrt(excess) whatever its pitch - 63 mrad at 0.1 %, 200 at 1 %, 1.5 rad
+at a hemisphere's rim - so a wrinkled annulus is optically dead and only the unwrinkled middle focuses: 72 % of the
+area at f 4 (all of it at yield), 39 % at f 3, 19 % at f 2.1, 5 % at a hemisphere (a third of yield; 100, 100, 55, 14 % at
+yield). The deepest wrinkle-free section a fed flat PET film makes is f 3 at yield, f 4 at half of it. The envs carry it
+as `film_T` (tandoor_flower_env / tandoor_flower_fast; `flower.ini`, `flowerfast.ini` = 2100): the FvK ladder's shapes
+stand and its pressures scale with T (p0 961 -> 410 Pa), the wind figure goes as 1/T (2.3x the table), the stress readout
+starts from 42 MPa, and the n = 0 defocus dp/p is 2.3x for the same wind, so the valve stays sealed in wind.
+
+`film_field.py` then puts the LES pressure maps on the film as a FIELD: 24 x 48 probes, both faces, the 14 attitudes at
+4 cm, the membrane's harmonics n = 0..3 (n = 0 through the sealed plenum's 0.03; harmonics above 3 add < 0.02 mrad), the
+map turned about the axis onto each hour's wind projection, the slopes at the kernel's 512 ray points as its per-ray
+deviation (du = 2 w_x, de = -2 w_y, sigb = 1, calibrated in the deep study's twin), the film's own static figure (2 mrad
+of slope and 0.8 of print, both doubled on reflection: the envs' 4.3) as the Gaussian it always was. The tri machine at
+its working level (4.75, f 4.05) at the mount-law pose, the year at Quetta with the wind from the west, rays through,
+sin(el)-weighted year means (`film_field.log`):
+
+| film | wind | year mean | worst hours |
+|---|---|---|---|
+| static 4.3 mrad, no wind | - | 62.0 % | midsummer 11-14 h, 49-51 |
+| + the field at 5.2 m/s, T 4922 (as built) | the site's 99th percentile | 61.3 % | midsummer 9-10 h, 51-63 |
+| + the field at 5.2 m/s, T 2100 (rim-fed) | | 58.6 % | midsummer 9-10 h, 43-51 |
+| + an isotropic Gaussian of the field's rms, T 2100 | | 58.3 % | the same |
+| + the field at 9 m/s, T 2100 | | 45.5 % | mornings 17-32 |
+| film 1 mrad + the field at 5.2 m/s, T 2100 | | 74.1 % | midsummer 10-13 h, 57-70 |
+| film 1 mrad + the field at 9 m/s, T 2100 | | 56.1 % | mornings 25-40 |
+
+Three things it settles. The coherent shape passes the strip's 27x and the collar exactly like a blur of the same rms
+(58.6 against 58.3): the table's rms is the whole story and no per-ray field is needed in the envs. The rim-fed film's
+2.3x wind figure costs 3 points of the year at the site's 99th-percentile wind, on the attitudes where the wind is on
+the back of the bowl at 40-60 deg from the axis (theta_w 117-135, the west wind on a dish facing the morning sun,
+2.2-2.7 mrad) and nothing elsewhere (0.2-1.2 mrad); at 9 m/s those mornings lose 40-50 points (7-8 mrad): a tension
+or a stow question for the spool, which can pull the film taut in wind at the price of stress. And the film's own
+smoothness is the lever the machine has: 1 mrad of film slope instead of 2 is worth 12 points of the year, more than
+the wind takes at 5 m/s, because the strip magnifies whatever is at F 27 times. The zones are on in every one of these
+traces (n_zones 5, zone_c 0.4); the 4.3 mrad is the film's slope and print, not the shape.
+
+The knob lives in the base env since the same evening (`tandoor_hashemi_env`: `film_T`, `film_slope`), so the design
+tools see it: p0 is scaled there before the ladder is read, `sig_static` is built from `film_slope` (2 mrad as
+assumed, doubled on reflection with the 0.8 print), and the cook's own wind blur in the fused step reads the scale
+4922 / film_T from `sp[7]` (a slot nothing read; the Metal kernel line, parity test unchanged). The flower envs take
+the knob from the base, or, on a checkout whose base lacks it, scale p0 themselves. `tandoor_design_mcts.py` takes
+`--film-T` and `--film-slope`; `../tri/mcts_run.py` runs it on the worktree's modules.

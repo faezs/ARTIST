@@ -981,7 +981,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, x_turn=None, r_m4=1.3, shell="perlite",
-                 r_strut=0.08, **kwargs):
+                 r_strut=0.08, film_T=4922.0, film_slope=2.0e-3, **kwargs):
         # OPTICAL-EFFICIENCY levers (defaults = current machine):
         # beta_dev: off-axis deviation [deg] of the beam from retro.
         #   The primary is a SPHERE - it has no optical axis, so the
@@ -1169,6 +1169,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 print(f"  [hashemi] receiver='tri': duct_nozzle={kwargs['duct_nozzle']} ignored, the three-mirror machine has no elbow")
             kwargs["duct_nozzle"] = 0
         self.z_turn, self.r_m4, self.r_strut = z_turn, float(r_m4), float(r_strut)
+        # THE FILM (2026-09-13): its tension and its own slope error, the two numbers the whole optical budget hangs on.
+        # film_T 4922 N/m is the flat disc pumped to f 4 - at PET's yield by geometry (98 MPa, 196 at the hole); 2100 is
+        # the RIM-FED film (the rim a spool dispensing the meridional length the dome asks for), which carries only
+        # Gauss's hoop strain: 42 MPa, 83 at the hole, no wrinkle, the same sphere at a lower pressure (p = 2T/R). The
+        # FvK ladder's shapes stand and every pressure on it scales with T (p0 below); the wind's figure goes as 1/T,
+        # which the cook's fused step reads from sp[7] and the flower envs from film_k_scale. film_slope is the film's
+        # own rms slope error (2 mrad as assumed so far; 1 mrad is the lever: +12 points of the year through the strip's
+        # 27x, stage3/wind/README.md 'The rim-fed film'), doubled on reflection into sig_static with the print.
+        self.film_T = float(film_T); self.film_slope = float(film_slope)
+        self.film_k_scale = 4922.0/self.film_T; self.film_sig_work = 98.4/self.film_k_scale
         # x_turn: M3's x. None = over the chase (X_TOWER, the bore's foot). Set it to
         # R_POT and the mirror's vertex sits IN the inlet plane - the port-mounted M3
         # (user, 2026-09-10): half the disc inside the wall, the strip's beam landing
@@ -1944,8 +1954,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.p0 = float(0.5 * (lo + hi))
         self.R_sphere = _sphere_R(_solve(self.p0))
         cfg.dp = self.p0
+        self._p0_flat = self.p0                     # the flat disc's design pressure; the rim-fed film holds the same shape at p0 / (4922 / film_T)
         self.level_frac = np.array(self.LEVEL_FRAC)   # coude's wide dump
         mems = [_solve(self.p0 * fr) for fr in self.level_frac]
+        if getattr(self, "film_k_scale", 1.0) != 1.0:
+            self.p0 = self._p0_flat/self.film_k_scale   # the same shapes, pressures scaled with the tension (the ladder's fractions stand)
         self._mem0 = mems[4]
         self.f_nom = float(mems[4]["z0"] + mems[4]["f_fit"])
         self.X_TOWER_C = float(X_TOWER) + (
@@ -2029,7 +2042,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             csr_frac=self.csr_frac)
         # circular on-axis rim: no off-axis astigmatism term
         self.sigma_offaxis = 0.0
-        self.sig_static = float(np.sqrt((2 * 2.0e-3) ** 2
+        self.sig_static = float(np.sqrt((2 * self.film_slope) ** 2
                                         + (2 * self.sigma_print) ** 2))
         # film 0.88 w/ rim thinning, fold 0.95, M5 0.95, duct lip 0.96
         if self.silvered:

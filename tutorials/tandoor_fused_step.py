@@ -53,10 +53,11 @@ def _step_params(env):
     # travel is the mirror's, not the elbow's
     # ...and the travel is PER AGENT now (a batch can hold both machines), so
     # sp[6] carries only the CENTRE and the kernel reads each agent's half-span
-    # from the design table's phw column. sp[7] is left as the centre too: nothing
-    # reads it, and a stale lo/hi pair there would be a trap for the next reader.
+    # from the design table's phw column. sp[7] (2026-09-13) is the FILM'S WIND-FIGURE
+    # SCALE, 4922 / film_T: the wind blur sigw in step_pre goes as 1/T (1 as built,
+    # 2.34 for the rim-fed film at 2100 N/m).
     sp[0:11] = [dt, env.p0, env.RATE_AZ, env.RATE_EL, RATE_SPOT_PHI,
-                RATE_SPOT_Z, float(SPOT_PHI0), float(SPOT_PHI0),
+                RATE_SPOT_Z, float(SPOT_PHI0), float(getattr(env, "film_k_scale", 1.0)),
                 SPOT_Z_RANGE[0], SPOT_Z_RANGE[1],
                 3.5 if env.wide_shutter else 0.5]
     sp[11:17] = [env.jam_gain, env.wall_shelter, env.sig_static,

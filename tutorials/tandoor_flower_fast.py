@@ -424,11 +424,11 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
         p_eff = S["p_act"] + dp_w
         f_now = self._lerp_lv(p_eff)                                                # on device: a .cpu() here cost 50x the physics
         defocus = A_M*torch.abs(f_now - self.f_nom)/max(self.f_nom, 1e-6)          # the spot's growth from the wrong focal length
-        sig_film = k_film*V*V*film_soften(V)                                       # the film's figure under wind (LES table by incidence), softened by the flow
+        sig_film = k_film*V*V*film_soften(V, self.film_T)*self.film_k_scale         # the film's figure under wind (LES table by incidence, at T_WORK: 1/T), softened by the flow
         # THE FILM'S STRESS: the working tension follows the pressure as p^(2/3) (Hencky's inflated membrane) from the FvK
         # figure at f 4, 98 MPa in 50 um PET - PET's yield. The number is a readout and a flag, because the design at f 4
         # is at yield before any wind blows (design/compliant/stage3/wind/README.md, 'The film itself').
-        F["film_sig"] = FILM_SIG_WORK*torch.clamp(p_eff/self.p0, min=0.05)**(2.0/3.0)
+        F["film_sig"] = self.film_sig_work*torch.clamp(p_eff/self.p0, min=0.05)**(2.0/3.0)   # 98 MPa at the design pressure as built, 42 rim-fed
         F["film_yield"] = (F["film_sig"] > FILM_SIG_YIELD).float()
 
         # ---- 7. the optics: THE RAY TRACE. The megakernel is handed the dish frame the flower's joints actually

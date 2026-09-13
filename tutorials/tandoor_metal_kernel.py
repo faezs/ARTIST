@@ -1308,7 +1308,7 @@ kernel void step_pre(
     float gain = (want > 0.5f) ? sp[11] : 1.0f;
     float p_eff = ((want > 0.5f) ? s[S0+5] : s[S0+0])
                   + gain*qw*sign(rb[5]);
-    float sigw = gain * 0.88e-3f * pow(max(qw, 1e-9f)/15.0f, 0.6f);
+    float sigw = gain * sp[7] * 0.88e-3f * pow(max(qw, 1e-9f)/15.0f, 0.6f);   // sp[7]: the film's wind-figure scale, 4922 / film_T
     float sigd = fabs(s[S0+7] - decl) * PI_/180.0f * 0.04f;
     sigb[b] = sqrt(sp[13]*sp[13] + (0.7f*sigw)*(0.7f*sigw)
                    + sigd*sigd);

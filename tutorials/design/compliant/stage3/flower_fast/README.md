@@ -490,3 +490,10 @@ Two fixes in the film's wind model (`../wind/README.md`, 'The film itself'): the
 figure error (it never could: a harmonic changes no plenum volume; the fast env had it 33x too small when sealed), and
 the n = 0 load now reaches the focal length through the plenum pressure - sealed 33x less, open one to one, 42 cm of f
 at 12 m/s. `film_sig` reads the film's stress: 98 MPa at the design pressure, PET's yield, before any wind.
+
+## The film's tension as a knob (2026-09-13)
+
+`film_T` in both flower envs and inis (2100 N/m: the rim-fed film at half of PET's yield; 4922 the flat disc at yield):
+the FvK ladder's shapes stand, its pressures scale with T (p0 961 -> 410 Pa), the wind figure goes as 1/T, `film_sig`
+starts from 42 MPa, the n = 0 defocus is 2.3x for the same wind. Run 4 was trained at 4922. The year of the tri machine
+under the LES pressure field at both tensions, and the film's smoothness as the lever, is in `../wind/README.md`.

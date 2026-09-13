@@ -133,9 +133,9 @@ T_WORK, D_AERO = 4922.0, 4.2
 FILM_SIG_WORK, FILM_SIG_YIELD = 98.4, 90.0                    # MPa: T_WORK over 50 um of PET at the design pressure, and PET's yield - the film at f 4 is AT yield
 
 
-def film_soften(V):
+def film_soften(V, T=T_WORK):
     """the film's compliance under wind over its still-air compliance, 1/(1 - q D/T), capped short of divergence"""
-    return 1.0/(1.0 - torch.clamp(0.5*RHO_AIR*V*V*D_AERO/T_WORK, max=0.6))
+    return 1.0/(1.0 - torch.clamp(0.5*RHO_AIR*V*V*D_AERO/float(T), max=0.6))
 
 
 def hexapod_jacobian():
@@ -302,7 +302,26 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                  boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=1, wind_table=1,
                  base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, mount="hashemi", **k):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
+        import inspect as _insp
+        _base_has_film = "film_T" in _insp.signature(super().__init__).parameters
+        _film_T = k.pop("film_T", T_WORK) if not _base_has_film else None
+        if not _base_has_film: k.pop("film_slope", None)
         super().__init__(*a, **k)
+        # THE FILM'S TENSION (2026-09-13). T_WORK 4922 N/m is the flat disc pumped to f 4: at PET's yield by geometry (98 MPa,
+        # 196 at the hole). A RIM-FED film - the rim a spool that dispenses the meridional length the dome asks for - carries
+        # only the hoop strain Gauss demands, a^2/6R^2 = 1.1 % at f 4: 2100 N/m, 42 MPa, 83 at the hole, no wrinkle
+        # (stage3/wind/README.md 'The rim-fed film'). The same sphere at a lower pressure (p = 2T/R), so the FvK ladder's
+        # shapes stand and every pressure on it scales with T; the wind figure goes as 1/T (2.3x the LES table), the film's
+        # stress readout starts from 42 MPa, and the n = 0 load's defocus, dp/p, is 2.3x for the same wind - which is why the
+        # valve stays sealed in wind. The base env owns the knob (p0 scaled there before the ladder is read, the cook's wind
+        # blur through sp[7]); on a checkout whose base lacks it, it is taken here and p0 scaled here.
+        if not _base_has_film:
+            self.film_T = float(_film_T); self.film_k_scale = T_WORK/self.film_T
+            if self.film_k_scale != 1.0:
+                self.p0 = float(self.p0)/self.film_k_scale
+                if hasattr(self, "p_set"): self.p_set[:] = self.p0
+                if hasattr(self, "p_act"): self.p_act[:] = self.p0
+        self.film_T = float(getattr(self, "film_T", T_WORK)); self.film_k_scale = T_WORK/self.film_T; self.film_sig_work = FILM_SIG_WORK/self.film_k_scale
         # THE FRAME TYPE the kernel traces (tandoor_screws). 'hashemi': the pedicel's pose becomes an equivalent el/az error
         # injected into the motors and the kernel applies Hashemi's law (the old path). 'pedicel': the achieved joints go to
         # the kernel as a screw chain and the residual walk as an elastic twist, so it traces the head where the pedicel put it.
@@ -497,7 +516,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F["drag"] = q*A_DISH*cd
         F["lift"] = q*A_DISH*0.9*ca.abs()*torch.sqrt(torch.clamp(1 - ca*ca, min=0.0))
         F["pitch"] = q*A_DISH*D_DISH*torch.where(into, torch.full_like(ca, C_M), torch.full_like(ca, 0.10))*2*ca.abs()*torch.sqrt(torch.clamp(1 - ca*ca, min=0.0))
-        F["k_film"] = torch.full_like(V, SIG_MEM_K)
+        F["k_film"] = torch.full_like(V, SIG_MEM_K*self.film_k_scale)
         if self.wind_table:
             # THE LES TABLE (stage3/wind): on the bowl's face the load is a normal force Cn q A along the axis (Cn ~ -1.6 from
             # 37 to 59 deg of incidence, gone by 83), the vertical part downward and 2-3x the heuristic above with the opposite
@@ -507,7 +526,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             F_tab, theta_w, k_tab, covered = WT.head_force(n_h, w_h, q, A_DISH)
             F["drag"] = torch.where(covered, (F_tab*w_h).sum(1), F["drag"])
             F["lift"] = torch.where(covered, F_tab[:, 2], F["lift"])
-            F["k_film"] = torch.where(covered, k_tab, F["k_film"]); F["theta_w"] = theta_w
+            F["k_film"] = torch.where(covered, k_tab*self.film_k_scale, F["k_film"]); F["theta_w"] = theta_w   # the table is at T_WORK; the figure goes as 1/T
 
         # ---- 2. stow: the design tracks to stow_wind mean and parks face-up for the gust (tree/out/wind_size.txt)
         stow = torch.where(U > self.stow_wind, torch.ones_like(U),
@@ -515,13 +534,13 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F["stow"] = stow
 
         if not self.mech:
-            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V)
+            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V, self.film_T)
             F["d_el"] = torch.zeros(B, device=dev); F["d_az"] = torch.zeros(B, device=dev); return
 
         # ---- 3. the pedicel: invert the five joints, hold them to their travel and their drives' rates
         C, n = self._fl_head_pose()
         if C is None:
-            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V); return
+            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V, self.film_T); return
         dt0 = float(getattr(self, "dt", 15.0))
         Cb_want = C - D_REC*n
         T0, phi, rail_hit = self._fl_base(Cb_want, F["q_rail"], dt0)
@@ -675,8 +694,8 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             dp_w = 1.4*q_w*pass_w
         p_sh = float(getattr(self, "p0", 1200.0))
         F["defocus_w"] = A_M*dp_w.abs()/p_sh/float(getattr(self, "g_orbit", G_ORB))
-        F["sig_mem"] = torch.sqrt((F["k_film"]*V*V*film_soften(V))**2 + F["defocus_w"]**2)
-        F["film_sig"] = FILM_SIG_WORK*torch.clamp(1.0 + dp_w/p_sh, min=0.05)**(2.0/3.0)   # MPa: the tension follows p^(2/3) from 98 at the design pressure
+        F["sig_mem"] = torch.sqrt((F["k_film"]*V*V*film_soften(V, self.film_T))**2 + F["defocus_w"]**2)
+        F["film_sig"] = self.film_sig_work*torch.clamp(1.0 + dp_w/p_sh, min=0.05)**(2.0/3.0)   # MPa: the tension follows p^(2/3) from 98 at the design pressure (42 rim-fed)
 
         # ---- 10. beta, two-tier at the traced optimum (tree/beta_flux.py)
         if self.two_tier_beta:
