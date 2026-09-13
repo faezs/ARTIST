@@ -497,3 +497,5 @@ at 12 m/s. `film_sig` reads the film's stress: 98 MPa at the design pressure, PE
 the FvK ladder's shapes stand, its pressures scale with T (p0 961 -> 410 Pa), the wind figure goes as 1/T, `film_sig`
 starts from 42 MPa, the n = 0 defocus is 2.3x for the same wind. Run 4 was trained at 4922. The year of the tri machine
 under the LES pressure field at both tensions, and the film's smoothness as the lever, is in `../wind/README.md`.
+Run 4 epoch 144 on the rim-fed env (film_T 2100, `runs/reeval_run4_fed.log`): 0.09 cm, 89.8 %, reward 0.0044 - identical to
+the flat film at the site's wind; the policy transfers.
