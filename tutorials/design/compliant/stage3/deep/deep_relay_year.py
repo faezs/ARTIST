@@ -7,6 +7,7 @@ _sp = importlib.util.spec_from_file_location("deep_relay", os.path.join(os.path.
 from deep_relay import *   # noqa  (the exec'd prefix: build, CODES, KEYS ...)
 NECK_B, two_c, d_c, s1p, s2p, rh = [float(x) for x in os.environ.get("DESIGN", "1.8,1.5,0.2,0.8,3.5,0.4").split(",")]
 cc = two_c/2; a_c = cc + d_c; rc = a_c*(1 - (cc/a_c)**2); SIGB = DR.SIGB; K = 128
+LV_BUILT = float(os.environ.get("LV_BUILT", "4.75"))   # the built machine at the fast env's WORKING pump level (f 4.05), not the ladder's middle (level 3, f 4.30) the first year logs used
 v, drv = DR.build(); B = drv.num_agents; dev = drv.device; L, P, _ = drv._pts_l.shape
 rays = DR.Rays(drv, K, seed=7)
 F, P4, F4 = np.asarray(drv.F_focus, dtype=np.float64), np.asarray(drv.cs_P4, dtype=np.float64), np.asarray(drv.cs_F4, dtype=np.float64)
@@ -29,7 +30,7 @@ for dname, day in DAYS.items():
         res = []
         for disc in (False, True):
             drv._tr["us"] = (rays.us.float() if disc else torch.full((K, P), 0.5)).to(dev); drv._tr["upick"] = (rays.upick.float() if disc else torch.full((K, P), 0.5)).to(dev)
-            thr, out6, per = drv.trace(m["Cd"].clone().contiguous(), m["Mt"][:, 2, :].clone().contiguous(), torch.full((B,), float(L//2), device=dev), torch.full((B,), SIGB, device=dev))
+            thr, out6, per = drv.trace(m["Cd"].clone().contiguous(), m["Mt"][:, 2, :].clone().contiguous(), torch.full((B,), LV_BUILT, device=dev), torch.full((B,), SIGB, device=dev))
             fate = drv._metal.last_fate.view(B, P, 6)[:, :, 0].detach().cpu(); ok = (fate == 0)
             yz = out6[..., :2].detach().float().cpu(); r2 = (yz**2).sum(-1)
             res.append((float((ok.float()*w_ray[None]).sum(1).mean()), float(torch.sqrt((r2*ok.float()*w_ray[None]).sum()/(ok.float()*w_ray[None]).sum().clamp(min=1e-9)))))

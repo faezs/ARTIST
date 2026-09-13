@@ -80,7 +80,7 @@ solutions a step on the modes of the chain's 6 x 6 (3.0 / 10.5 Hz); the slow env
 same 6 x 6 (14 um/N, not the planar 6.3). The LES table carries the signed mean pitching moment, now applied, and the
 film's n = 1 deflection plane, which is figure and not pointing (Gauss: a rim-fixed film has no mean slope).
 
-## The deep dish, traced (2026-09-12/13): `deep/`
+## The deep dish, traced (2026-09-12/13, corrected 13th): `deep/`
 
 The user's 'you really do need deeper dishes', put to the flower's kernel with the geometry kept out of the configs:
 a formed paraboloid at f 1.05-2 replaces the film for the study, the orbit and f_dish follow. The strip's shadow is its
@@ -88,13 +88,15 @@ own area at any depth; a hyperboloid with foci 4 m apart catches only 18-22 deg 
 strip cannot serve a deep bowl wherever it sits; the ellipsoid beyond F (`sec_side = greg`) as a full cap catches every
 ray, and the cap the rays meet is a dome ~2 d across (the ellipse's polar form from its focus, not its semi-minor
 axis), so its shadow sits inside the hole. The vertical bore crosses the deep bowl whenever the sun is more than ~30 deg
-from the zenith: the beam must go down the dish's own axis. That relay - the fourth pass's M3 at the neck and M4 at
-the stalk, the hollow pivot between them, the stalk, the built chain below the deck - is traced end to end in
-`deep_relay.py`, a torch twin of the kernel's ray model validated against it to 0.6 points (and which found that the
-fast env's trace has no sun disc: `upick = us = 0.5`, a fixed 3.2 mrad offset). With F2 0.45 m behind the vertex, the
-cap 0.20 m beyond F (magnification 8), M3 demagnifying into the pivot and M4 magnifying down the stalk: 82-88 % of the
-sun's rays through the collar at every hour of the year with the envs' 4.3 mrad figure and the sun's disc, 4.0 / 5.9 /
-8.3x the built machine's daily light in rays, 3.5 / 5.2 / 7.3x after the two extra reflections; the beam at the collar
-half the built one's. A relay that magnifies at M3 loses two thirds of the light in the pivot's bore - the etendue of a
-4.3 mrad figure is what sizes every mirror behind the head. The deep machine pays ~5 points per milliradian of figure;
-its mount walks the image 11x less per newton (`deep/README.md`).
+from the zenith: the beam would have to go down the dish's own axis, and that relay - the fourth pass's M3 at the neck
+and M4 at the stalk, the hollow pivot between them, the stalk, the built chain below the deck - is traced end to end
+in `deep_relay.py`, a torch twin of the kernel's ray model validated against it to 0.6 points (which also found that
+the fast env's trace has no sun disc: `upick = us = 0.5`, a fixed 3.2 mrad offset). ERRATUM: the first version traced
+the built machine at the film ladder's middle level (f 4.30) instead of its working level (f 4.05); the strip
+magnifies 27x, so the built machine read 8-28 % through where it passes 48-80 %, and the '4-8x' was wrong. Corrected:
+the coude machine passes 82-88 % of the sun's rays at every hour with the envs' 4.3 mrad figure and the sun's disc,
+1.2 / 1.4 / 1.6x the built machine in rays and 1.06 / 1.25 / 1.43x in net light after its two extra reflections - its
+gain is the built machine's high-sun crossing and slot, nothing in winter. Not the play (the user's call, and the
+numbers agree). What the study leaves the tri machine: the film's figure is its throughput lever - 82 % with a perfect
+film at midsummer noon, 50 at 4.3 mrad, seven points per milliradian through the strip's 27x - so the zones and a film
+off yield come first; and a relay that magnifies at M3 loses two thirds of its light in a 0.30 m pivot bore.

@@ -9,7 +9,21 @@ by nine hours; `D_CAP` and `SIGB` env vars), `deep_blur.py` (figure tolerance), 
 actually meet), `deep_greg_d.py` (the cap's distance beyond F), `deep_relay.py` / `deep_relay_year.py` (the relay at F2 down the axis, a\nvalidated torch twin of the kernel's ray model with the fourth pass's folds; section 8). Logs: `deep_year2.log` (a perfect film, the cap's shadow
 sphere at the semi-minor axis), `deep_year2_sig43.log` (the envs' 4.3 mrad static figure, same sphere),
 `deep_year2_cap_sig43.log` (4.3 mrad, the true cap footprint), `deep_year2_d15_sig43.log` (4.3 mrad, the cap at 0.15 m),
-`deep_greg_d.log`, `deep_relay.log` (the relay's validation, sweep and year), `deep_relay_year_neck18.log`. Quetta, 512 rays,\n128-256 agents.
+`deep_greg_d.log`, `deep_relay.log` (the relay's validation, sweep and year), `deep_relay_year_neck18.log`,
+`deep_relay_year_neck18_lv475.log` (the corrected year, erratum). Quetta, 512 rays,\n128-256 agents.
+
+## Erratum (2026-09-13): the built machine's baseline was traced at the wrong pump level
+
+Every 'built machine' number in the first version of this study (sections 4, 5, 7, 8 and the logs `deep_year2*.log`,
+`deep_relay.log`, `deep_relay_year_neck18.log`) was traced at the film ladder's middle level (3, f 4.30) instead of the
+fast env's working level (4.75, f 4.05). The strip magnifies F's image 27 times into the bore, so 25 cm of focal length
+put most of the light on the bore wall: the built machine read 8-28 % through where it passes 48-80 %. The deep rows
+were not affected (the formed paraboloid replaced every level), so the deep machine's absolute numbers stand and the
+RATIOS were wrong by three to four times: the coude machine is 1.2 / 1.4 / 1.6x the built one in rays through
+(midwinter / equinox / midsummer) and 1.06 / 1.25 / 1.43x in net light after its two extra reflections, not 4-8x.
+The sections below are corrected in place; `deep_relay_year_neck18_lv475.log` is the corrected year. The check that
+found it: the fast env's own loop reaches 89.8 % through at equinox 8 h, and the kernel at the mount-law pose gives
+89.8 % at level 4.75 with a perfect film and 21.9 % at level 3. Trace the baseline at the level the machine runs at.
 
 ## 1. The strip's shadow does not grow with depth
 
@@ -76,49 +90,50 @@ stalk through the elevation pivot. The year table gives that machine as 'axis', 
 an upper bound, since those rays are not traced past the bowl (at noon, where everything is traced, the chain below
 the cap loses about a fifth to the figure, so discount the off-noon 'axis' figures by that).
 
-## 4. The year, with the envs' own 4.3 mrad figure on every ray (`deep_year2_d15_sig43.log`)
+## 4. The year, with the envs' own 4.3 mrad figure on every ray (`deep_year2_d15_sig43.log`, built column from `deep_relay_year_neck18_lv475.log`)
 
-Rays through, the Gregorian cap 0.15 m beyond F with F2 3 m from F, f 1.05:
+Rays through, the Gregorian cap 0.15 m beyond F with F2 3 m from F, f 1.05; the built machine at its working level:
 
 | day | hour | sun el | built f 4 | deep, vertical bore | deep, beam down the axis |
 |---|---|---|---|---|---|
-| midwinter | 9 | 21 | 25 % | 0 | 80 % |
-| midwinter | 12 | 36 | 19 % | 0 | 84 % |
-| equinox | 9 | 37 | 16 % | 0 | 86 % |
-| equinox | 12 | 59 | 11 % | 66 % | 66 % |
-| equinox | 15 | 37 | 20 % | 0 | 87 % |
-| midsummer | 9 | 50 | 12 % | 0 | 92 % |
-| midsummer | 12 | 83 | 8 % | 71 % | 71 % |
-| midsummer | 15 | 50 | 15 % | 0 | 92 % |
+| midwinter | 9 | 21 | 80 % | 0 | 80 % |
+| midwinter | 12 | 36 | 71 % | 0 | 84 % |
+| equinox | 9 | 37 | 73 % | 0 | 86 % |
+| equinox | 12 | 59 | 55 % | 66 % | 66 % |
+| equinox | 15 | 37 | 66 % | 0 | 87 % |
+| midsummer | 9 | 50 | 66 % | 0 | 92 % |
+| midsummer | 12 | 83 | 50 % | 71 % | 71 % |
+| midsummer | 15 | 50 | 61 % | 0 | 92 % |
 
-Summed over nine hours weighted by sin(el), relative to the built machine: midwinter 3.8x, equinox 5.1x, midsummer
-7.2x (f 1.5: 3.8, 5.3, 6.9). With the cap at 0.1 m and its true footprint (`deep_year2_cap_sig43.log`) it is 3.2, 4.3,
-6.1x, and 3.1, 4.3, 6.1 with the oversized shadow sphere the first runs used (`deep_year2_sig43.log`). The built
-machine is worst when the sun is high, where its vertical tube crosses the light and the slot opens; the deep dish is
-worst there too, for the figure. The off-noon 'axis' column counts the crossing rays as passed and is not traced past
-the bowl; section 3's discount applies.
+Summed over nine hours weighted by sin(el), relative to the built machine: midwinter 1.13x, equinox
+1.23x, midsummer 1.38x (f 1.5: 1.14, 1.27, 1.32). The built machine is worst when the sun is high,
+where its vertical tube crosses the light and the slot opens, and the deep dish is worst there too, for the figure. The
+off-noon 'axis' column counts the crossing rays as passed and is not traced past the bowl; section 8 traces that chain.
 
-## 5. What the deep dish is sensitive to that the shallow one is not: the film's figure
+## 5. What the deep dish is sensitive to, and the built one too: the film's figure
 
-Midsummer noon, rays through against the per-ray slope error (`deep_blur.py`):
+Midsummer noon, rays through against the per-ray slope error (`deep_blur.py`; the built column at its working level):
 
 | figure, mrad rms | built f 4 | deep f 1.5 | deep f 1.05 |
 |---|---|---|---|
-| 0 | 5.8 % | 72.7 % | 76.6 % |
-| 3 | 7 % | 50 % | 67 % |
-| 4.3 (the envs) | 8 % | 38 % | 56 % |
-| 6 | 9 % | 26 % | 43 % |
-| 8 | 9 % | 17 % | 30 % |
-| 12 | 7 % | 9 % | 16 % |
+| 0 | 81.9 % | 72.7 % | 76.6 % |
+| 2 | 74.3 % | - | - |
+| 3 | - | 50 % | 67 % |
+| 4.3 (the envs) | 50.2 % | 38 % | 56 % |
+| 6 | 35.2 % | 26 % | 43 % |
+| 8 | 23.6 % | 17 % | 30 % |
+| 12 | 12.3 % | 9 % | 16 % |
 
-The built machine is flat because its losses are geometric. The deep machine pays about five points per milliradian
-through the cap's magnification (a 4.3 mrad figure is 28 cm at F2 against a 61 cm image), and the shorter f is the more
-tolerant, as the blur at F scales with the path. This is where the formed film's price lands: at a third of yield its
-wind figure is 3.1x today's table, which at the site's 99th-percentile 5.2 m/s is 0.25 mrad on the common attitudes
-(total 4.3, nothing) and 3.7 mrad at the worst (total 5.7 mrad, 45 % instead of 56); at 9 m/s the worst attitude gives
-11 mrad and the cap delivers 16 %. The deep machine wants the zones and the fine stage for the figure, and a stow at
-lower wind than 15 m/s on the worst attitudes; a film formed at a higher tension than a third of yield buys figure back
-at the cost of life.
+The first version of this table had the built machine flat at 6-9 %, an artefact of the wrong pump level (erratum): at
+its working level the built machine is the MORE sensitive of the two, seven points per milliradian against the deep
+dish's five, because its strip magnifies F's image 27 times ((2c - d)/d at d 0.3) into a 0.7 m bore and a 0.55 m collar,
+where the cap at d 0.15 magnifies 21 and at d 0.2 only 8. The film's figure is the throughput lever of the machine as
+built: a perfect film passes 82 % at midsummer noon and 90 % at equinox 8 h, the envs' 4.3 mrad 50 and 78. This is where
+the formed film's price lands: at a third of yield its wind figure is 3.1x today's table, which at the site's
+99th-percentile 5.2 m/s is 0.25 mrad on the common attitudes (total 4.3, nothing) and 3.7 mrad at the worst (total 5.7
+mrad, 45 instead of 56 for the deep dish, about 38 instead of 50 for the built one); at 9 m/s the worst attitude gives
+11 mrad. Both machines want the zones (0.5 mrad static) before anything else; the deep one also wants a stow at lower
+wind than 15 m/s on the worst attitudes.
 
 ## 6. The mount and the film, for the record
 
@@ -135,20 +150,18 @@ stem do not shrink with the boom. The film: a flat PET disc cannot be pumped to 
 yield); the formed film at 1576 N/m needs 1576 Pa of shape pressure at f 1.05, so the wind's n = 0 load moves the focus
 8 cm with the valve open at 12 m/s instead of 42; the sealed plenum resists it 33x as before.
 
-## 7. The machine this points to
+## 7. The machine this points to, corrected
 
-A 4.2 m formed paraboloid at f 1.05, F in the rim plane; a Gregorian cap 0.20 m beyond F - a 0.72 m dome on three
-blades in the rim plane, its shadow inside a 0.4 m hole - imaging F onto F2 0.45 m behind the vertex at magnification 8;
-the fourth pass's folds behind the head: M3 at the neck 1.8 m behind the vertex relaying F2 into the hollow elevation
-pivot, M4 on the yoke at the stalk 1.4 m beside the axis relaying it down the stalk to the built bore, the built
-chain below the deck unchanged; a mount eleven times stiffer against the wind. Traced end to end in section 8 with the
-envs' 4.3 mrad figure and the sun's disc: 82-88 % of the sun's rays through the collar at every hour of the year,
-4.0 / 5.9 / 8.3 times the built machine's daily light in rays (midwinter / equinox / midsummer), 3.5 / 5.2 / 7.3 times
-after the two extra reflections. The cap's optics are benign: incidence 0-44 deg (aluminium within 5 % of normal),
-flux 30-45 kW/m^2 against 125-160 on the built strip, about 0.9 kW absorbed at 8 %, a cooled metal mirror as the strip
-already is. What it still lacks: the receiver below the deck redone for the smaller, slower source (the tri mirror's
-imaging onto the loaf; section 8), the fold mirrors' mass on the head and the yoke (1.1 x 1.55 and 1.2 x 1.7 m), a deep
-cup's wind loads (the LES table is the shallow bowl's), and a formed film's manufacture and figure.
+With the built machine traced at its working level (erratum), the deep coude machine of section 8 - a formed
+paraboloid at f 1.05, the Gregorian cap 0.20 m beyond F on three blades, the fourth pass's folds, the built chain below
+the deck - passes 82-88 % of the sun's rays at every hour against the built machine's 48-80 %: 1.2 / 1.4 / 1.6x in rays
+(midwinter / equinox / midsummer) and 1.06 / 1.25 / 1.43x in net light after its two extra reflections. Its gain is
+where the built machine's vertical tube crosses the light with the sun high; in winter it is nothing. For that it needs
+a formed film, two fold mirrors of 1.1 x 1.55 and 1.2 x 1.7 m, a 600 kW/m^2 image in the head, a relay through the pivot,
+and a receiver redone for its source. The user's call is that this is not the play, and the numbers agree: the machine
+stays the tri machine at f 4, and what the deep study leaves it is section 5 - the film's figure is its throughput
+lever (82 % with a perfect film, 50 at 4.3 mrad at midsummer noon), which the zones and a film that is not at yield
+address directly. The cap's optics, for the record: incidence 0-44 deg, flux 30-45 kW/m^2, a cooled metal mirror.
 
 ## 8. The relay at F2, down the axis, traced (`deep_relay.py`, `deep_relay.log`)
 
@@ -220,25 +233,27 @@ plane (the built machine's from the kernel's `out6`):
 
 | day | hour | sun el | built, fixed | built, disc | built spot | coude, fixed | coude, disc | coude spot | spot at the bread |
 |---|---|---|---|---|---|---|---|---|---|
-| midwinter | 9 | 21 | 24.7 % | 25.4 % | 42 cm | 89.8 % | 85.4 % | 21 cm | 58 cm |
-| midwinter | 12 | 36 | 19.0 | 18.4 | 43 | 89.2 | 84.6 | 22 | 44 |
-| midwinter | 15 | 21 | 28.3 | 26.0 | 42 | 86.7 | 82.2 | 22 | 38 |
-| equinox | 9 | 37 | 16.3 | 17.5 | 43 | 91.3 | 86.8 | 21 | 59 |
-| equinox | 12 | 59 | 10.5 | 9.9 | 42 | 90.4 | 86.5 | 22 | 44 |
-| equinox | 15 | 37 | 20.2 | 17.7 | 43 | 87.9 | 84.2 | 22 | 39 |
-| midsummer | 9 | 50 | 12.1 | 13.0 | 43 | 92.6 | 87.6 | 20 | 60 |
-| midsummer | 12 | 83 | 8.4 | 7.9 | 42 | 91.0 | 87.9 | 21 | 47 |
-| midsummer | 15 | 50 | 15.1 | 13.2 | 43 | 88.9 | 86.1 | 21 | 43 |
+| midwinter | 9 | 21 | 79.5 % | 73.9 % | 32 cm | 89.8 % | 85.4 % | 21 cm | 58 cm |
+| midwinter | 12 | 36 | 70.5 | 67.8 | 35 | 89.2 | 84.6 | 22 | 44 |
+| midwinter | 15 | 21 | 74.7 | 74.5 | 32 | 86.7 | 82.2 | 22 | 38 |
+| equinox | 9 | 37 | 72.6 | 66.3 | 35 | 91.3 | 86.8 | 21 | 59 |
+| equinox | 12 | 59 | 54.5 | 52.4 | 36 | 90.4 | 86.5 | 22 | 44 |
+| equinox | 15 | 37 | 66.0 | 66.4 | 35 | 87.9 | 84.2 | 22 | 39 |
+| midsummer | 9 | 50 | 66.4 | 60.5 | 36 | 92.6 | 87.6 | 20 | 60 |
+| midsummer | 12 | 83 | 49.9 | 48.1 | 37 | 91.0 | 87.9 | 21 | 47 |
+| midsummer | 15 | 50 | 60.5 | 60.7 | 36 | 88.9 | 86.1 | 21 | 43 |
 
-Summed over nine hours weighted by sin(el), relative to the built machine: rays through 4.0x midwinter, 5.9x equinox,
-8.3x midsummer (4.1, 6.0, 8.4 with the kernel's fixed offset); net light with 0.94 per reflection, five against three,
-3.5x, 5.2x, 7.3x. Every hour of the year is between 82 and 88 % because the beam goes down the dish's own axis: no
-crossing, no slot, no strut, and the built machine's high-sun collapse (8 % at midsummer noon) is not there. The neck
-at 1.3 m with F2 0.15 m behind the vertex adds one point (`deep_relay.log`'s year) and puts the 600 kW/m^2 image at
-the film's back; it is not taken.
+(the built machine at its working level 4.75, `deep_relay_year_neck18_lv475.log`; the first version of this table had it
+at level 3, erratum.) Summed over nine hours weighted by sin(el), relative to the built machine: rays through 1.2x
+midwinter, 1.4x equinox, 1.6x midsummer (the same with the kernel's fixed offset); net light with 0.94 per reflection,
+five against three, 1.06x, 1.25x, 1.43x. Every hour of the coude machine's year is between 82 and 88 % because the beam
+goes down the dish's own axis: no crossing, no slot, no strut. The built machine at its working level passes 66-80 %
+with the sun low and 48-55 % with it high, where its vertical tube crosses the light and the slot opens; that high-sun
+gap is the whole of the coude machine's gain. The neck at 1.3 m with F2 0.15 m behind the vertex adds one point
+(`deep_relay.log`'s year) and puts the 600 kW/m^2 image at the film's back; it is not taken.
 
-What the spot columns say. The deep machine's beam at the collar is half the built one's (21 cm rms against 42, which
-is the collar's disc filled), so the receiver below the deck sees a smaller source; but the tri mirror at the turn
+What the spot columns say. The deep machine's beam at the collar is smaller than the built one's (21 cm rms against
+32-37), so the receiver below the deck sees a smaller source; but the tri mirror at the turn
 images F2c onto the loaf with L_out / u_f2 = 1.8 here (F2c 1.7 m above the turn, the loaf 3.1 m from it), and the 21 cm
 image at F2c becomes 38-60 cm rms on the bread. 'Through' is the collar, as it is for the built machine, and the
 loaf's flux is the receiver's own design - the other fork's - to redo for this source: a smaller image at F2c costs a
