@@ -85,3 +85,22 @@ distance, not the film, is the first lever on the tri machine's figure budget: i
 points per milliradian to under one, and with it the rim-fed film's 2.3x wind figure and the film's own smoothness
 stop mattering at the site's winds. `hashemi.ini` is already at 0.6; the flower configs' 0.3 is a choice to revisit
 (the strip on the pipe under F, run 4's env), not changed here.
+
+## 5. What the tri machine gives at f 4, over the year
+
+Rays through the collar at the working level (4.75, f 4.05), the mount-law pose, the kernel's fixed sun offset,
+sin(el)-weighted over the nine hours of the three days; net light = rays through x the reflectance chain 0.84
+(film 0.88, strip 0.95, M3 0.95, lip 0.96):
+
+| strip d (magnification) | film | year mean | net light | midwinter 9/12/15 h | equinox 9/12/15 | midsummer 9/12/15 |
+|---|---|---|---|---|---|---|
+| 0.6 (13), `hashemi.ini` | perfect | 86.4 % | 73 % | 90/90/90 | 90/81/90 | 90/82/90 |
+| | 4.3 mrad (today) | 85.0 % | 71 % | 88/90/90 | 89/79/89 | 89/79/88 |
+| | 8 mrad | 70.5 % | 59 % | 77/78/79 | 78/64/76 | 76/60/72 |
+| 0.7 (11), the box | 4.3 mrad | 85.3 % | 72 % | 81/90/87 | 89/80/90 | 90/80/89 |
+| 0.3 (27), the flower configs | perfect | 86.2 % | 72 % | 90/90/90 | 90/80/90 | 90/82/90 |
+| | 4.3 mrad | 62.2 % | 52 % | 79/71/75 | 72/54/66 | 66/50/60 |
+| | 8 mrad | 32.9 % | 28 % | 50/39/47 | 39/27/37 | 33/23/32 |
+
+The production geometry passes 85 % of the sun's rays with today's film, 71 % of the light after the mirrors, and its
+weak hours are the high-sun noons (79-82 %: the tube crossing the bowl and the open slot), which no film improves.
