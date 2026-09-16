@@ -15,10 +15,12 @@ numerically, on the machine the design tools use:
      dt * lambda_max(C^-1 G) <= 2, and then run the env in the dark and check the stored energy
      never rises.
   2. KIRCHHOFF AT THE POT (PhysicsLaws.TandoorLedger.into_add_lost).
-     Every ray's power lands exactly once: the megakernel's per-node buffer (the pot and the loaves)
-     plus its exterior-flux buffer (37 bins: collar, bore, deck, pot exterior, floor, escape, the
-     dish's own blocking, the slot, the strip shadow, the hole, the arm, the strip window, the
-     conic) must equal the power launched down the train.
+     Every ray's power lands exactly once: the megakernel's per-NODE columns plus its exterior-flux
+     buffer (37 bins: collar, bore, deck, pot exterior, floor, escape, the dish's own blocking, the
+     slot, the strip shadow, the hole, the arm, the strip window, the conic) equal the power launched
+     down the train. The n_belt LOAF COLUMNS that follow the nodes are a SUB-ACCOUNT of the nodes -
+     the same ray weight, labelled by which bread it fell on - so they must NOT be added again; both
+     twins then move that share out of the wall node before it heats the bread.
   3. LIOUVILLE (Physics.liouville, OpticsReal.RayMapAbs.volume_image).
      The paraxial elements of the train are unimodular, and a polygon of rays in (y, theta) keeps
      its area through every element and through the whole train.
@@ -138,34 +140,36 @@ def law_ledger():
     a[:, 1] = 6; a[:, 2] = 6
     e.step_torch(a)
     F = e._gpu
-    per = F.per.detach().cpu().numpy()                       # (B, n_nodes + 8 loaf columns)
-    pex = F.pex.detach().cpu().numpy().reshape(B, 37)        # (B, 37) exterior bins
+    N = e.n_nodes
+    per = F.per.detach().cpu().numpy()                       # (B, n_nodes + n_belt loaf columns)
+    nodes = per[:, :N].sum(1)                                # the pot's wall nodes: the conserved share
+    loaf = per[:, N:].sum(1)                                 # a SUB-ACCOUNT of the nodes (see the kernel's buffer 23 note)
+    pex = F.pex.detach().cpu().numpy().reshape(B, 37)        # the 37 exterior bins
     fct = e._fct.detach().cpu().numpy()
     soil = F.soil.detach().cpu().numpy() if hasattr(F, "soil") else np.ones(B)
     ray_pw = e._ray_pw.detach().cpu().numpy()
     blk = np.clip(fct[:, 60].astype(int), 0, max(0, ray_pw.size // F.P - 1))
     launched = np.array([ray_pw.reshape(-1, F.P)[blk[b]].sum() for b in range(B)]) * soil * fct[:, 41]
-    got = per.sum(1) + pex.sum(1)
+    got = nodes + pex.sum(1)
     rel = np.abs(got - launched) / np.maximum(launched, 1e-9)
-    print(f"   per agent: pot+loaves {per.sum(1).mean():.4g}, exterior bins {pex.sum(1).mean():.4g}, "
-          f"launched {launched.mean():.4g} (per unit DNI); escape bin 20 = {pex[:, 20].mean():.4g}")
-    # FINDING (2026-09-16): the two ledger buffers overcount. per_dni is written for a ray that gets
-    # through the inlet (weight ray_pw x soil x fct[41] x the ray's own share), pex for any ray with a
-    # labelled exterior bin (same weight x scb[4] x scb[5], both 1.0 here), and the sum exceeds the
-    # launched power by 1.5-13 % per agent - so some rays are deposited twice, most likely a ray that
-    # passes the inlet and is ALSO binned on a surface it crossed. The miss ledger is a diagnostic, not
-    # a conserved account, until that is fixed; the power the pot receives (per) is unaffected.
-    check("every ray's power lands exactly once: sum(per) + sum(pex) = launched",
-          rel.max() < 1e-3, f"worst relative residual {rel.max():.3e} over {B} agents "
-          f"(the ledger holds MORE than was launched: ratio {(got / launched).min():.3f}-{(got / launched).max():.3f} - "
-          f"rays deposited in both buffers; see the FINDING note in the source)")
+    fate = F.fate.detach().cpu().numpy().reshape(B, F.P, 6)
+    thr = F.thr.detach().cpu().numpy().reshape(B, F.P)
+    both = (thr > 0) & (fate[:, :, 0] > 0.5) & (fate[:, :, 5] >= 0)
+    print(f"   per agent: pot nodes {nodes.mean():.4g}, exterior bins {pex.sum(1).mean():.4g}, launched {launched.mean():.4g} (per unit DNI); "
+          f"loaf sub-account {loaf.mean():.4g} = {100 * (loaf / np.maximum(nodes, 1e-9)).mean():.0f} % of the nodes")
+    check("no ray is deposited in both the per-node and the exterior buffer",
+          both.sum() == 0, f"{int(both.sum())} of {B * F.P} rays in both")
+    check("every ray's power lands exactly once: sum(nodes) + sum(exterior) = launched (Lean into_add_lost)",
+          rel.max() < 1e-5, f"worst relative residual {rel.max():.3e} over {B} agents")
+    check("the loaf columns are a SUB-account of the nodes, never extra power (kernel buffer 23)",
+          (loaf <= nodes + 1e-6).all(), f"loaf/nodes = {(loaf / np.maximum(nodes, 1e-9)).min():.3f}-{(loaf / np.maximum(nodes, 1e-9)).max():.3f}")
     check("no fate takes negative power (Lean Ledger.power_nonneg / deposited_nonneg)",
           per.min() >= -1e-6 and pex.min() >= -1e-6, f"min per {per.min():.3e}, min pex {pex.min():.3e}")
-    pot = per.sum(1); lost = pex.sum(1)
+    lost = pex.sum(1)
     check("into + lost = total and into <= total (Lean into_add_lost, into_le)",
-          np.allclose(pot + lost, got, rtol=1e-9) and (pot <= got + 1e-9).all(),
-          f"into/total = {(pot / np.maximum(got, 1e-9)).mean():.3f} mean")
-    return dict(worst_residual=float(rel.max()), through_fraction=float((pot / np.maximum(got, 1e-9)).mean()))
+          np.allclose(nodes + lost, got, rtol=1e-9) and (nodes <= got + 1e-9).all(),
+          f"into/total = {(nodes / np.maximum(got, 1e-9)).mean():.3f} mean")
+    return dict(worst_residual=float(rel.max()), through_fraction=float((nodes / np.maximum(got, 1e-9)).mean()))
 
 
 # ---------------------------------------------------------------- 3. Liouville

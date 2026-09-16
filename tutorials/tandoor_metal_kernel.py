@@ -393,7 +393,15 @@ kernel void tandoor_trace(
     device const int*   dims   [[buffer(20)]],  // B, P, L, n_nodes
     device const float* ray_pw [[buffer(21)]],
     device const float* soil   [[buffer(22)]],
-    device float*       per_dni [[buffer(23)]],  // (B, n_nodes) zeroed
+    device float*       per_dni [[buffer(23)]],  // (B, n_nodes + NB): the pot's nodes, then the NB LOAF COLUMNS.
+                                                //   THE LOAF COLUMNS ARE A SUB-ACCOUNT OF THE NODES, NOT EXTRA POWER
+                                                //   (2026-09-16): a ray that lands on a loaf is added to its wall node
+                                                //   AND to that loaf's column, so col N+k <= the node's share always.
+                                                //   The conserved account is sum(nodes) + sum(pex) = the launched power
+                                                //   (checked to 2e-7 by tutorials/tandoor_laws_check.py, law 2);
+                                                //   summing the loaf columns on top double-counts. Both twins then MOVE
+                                                //   the loaf's share (q_solar -= lit*0.85*inc before bE += q), so the
+                                                //   physics spends it once.
     device const float* us     [[buffer(24)]],  // (B*P) sun-table u
     device const float* aim    [[buffer(25)]],  // (B,3) elbow aim dirs
     device const float* scb    [[buffer(26)]],  // (B,6) cosi,slot,kt,ks,rs,ok
@@ -1075,7 +1083,12 @@ kernel void tandoor_trace(
         // THE LOAF PATCH (2026-09-06, the footprint comes from the trace):
         // the bin's loaf is a square of half-size lfp[0] on the wall at
         // the bake row's mid-height; a ray that strikes it is the
-        // loaf's, accumulated in the NB loaf columns after the nodes
+        // loaf's, accumulated in the NB loaf columns after the nodes.
+        // A SUB-ACCOUNT, NOT A SECOND DEPOSIT: the same wgt already went to
+        // the node above, so sum(loaf columns) <= sum(nodes) and the power
+        // ledger is sum(nodes) + sum(pex) = launched. step_post moves the
+        // loaf's share out of the node (qv[k] -= lit*0.85*inc) before it
+        // heats the bread, so nothing is spent twice.
         const float ZB = -0.535f;
         const int Nn = dims[3] - NB;
         float rb = sqrt(max(RS*RS - (ZB - ZC)*(ZB - ZC), 1e-6f));
