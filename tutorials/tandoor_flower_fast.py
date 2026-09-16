@@ -553,6 +553,9 @@ class TandoorFlowerFastEnv(TandoorFlowerEnv):
                 lat_t = torch.as_tensor(lat, dtype=torch.float32, device=dev).reshape(-1)
                 el_m = S_.el_m if (S_ is not None and hasattr(S_, "el_m")) else self.el_m
                 az_m = S_.az_m if (S_ is not None and hasattr(S_, "az_m")) else self.az_m
+                # (no tow-wire sag here: the fast loop resolves the head pose through the screw chain when mech_kernel
+                # is on, so sagging only this path would break the chain-vs-law equivalence the mount tests check. The
+                # loop is the COOK's mount model - the numpy trace, the fused step and tandoor_gpu_step.)
                 pnt = torch.stack([torch.as_tensor(el_m, dtype=torch.float32, device=dev).reshape(-1),
                                    torch.as_tensor(az_m, dtype=torch.float32, device=dev).reshape(-1)], 1)
                 mnt = mount_batch(self, day_t, lat_t, float(self.t_solar[0]), dev, pnt=pnt)

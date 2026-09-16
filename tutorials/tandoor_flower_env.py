@@ -302,6 +302,12 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                  boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=1, wind_table=1,
                  base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, mount="hashemi", **k):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
+        # THE MOUNT TYPE MUST BE KNOWN BEFORE THE BASE ENV BUILDS ITS DESIGN TABLE: the base writes the tow-wire loop's
+        # sag columns (fct[82], fct[83]) during setup, and that loop belongs to Hashemi's trunnion at F. The flower's
+        # pedicel and fork are a different mount carrying their own compliance, so they must read zero there - and if
+        # this is set only after super().__init__ they read Hashemi's numbers instead, which showed up as the fast env's
+        # mech_kernel 1-vs-0 parity breaking on one ray at the collar's edge.
+        self.mount = str(mount)
         import inspect as _insp
         _base_has_film = "film_T" in _insp.signature(super().__init__).parameters
         if "film_t" in k: k["film_T"] = k.pop("film_t")                        # the ini loader lower-cases its keys

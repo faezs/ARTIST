@@ -122,15 +122,21 @@ twice as bad; `hashemi.ini` is at 0.6 already. Run 4's controller transfers to t
 Read from Hashemi's own paper (`fixed-focus-ir.pdf`, figs 6, 16, 17) after the user pointed at his channel. Three parts
 that the register had conflated into one:
 
+- ELEVATION IS A TRUNNION AT F: the two screws through the tops of the holder's vertical plates (p13, figs 15-16). The
+  dish hangs on straight arms one focal length out, so its vertex rides the focal circle and F never moves. Hashemi's
+  desk model shows this plainly - the dish pivots at the yellow focus marker and there is no curved rail in it at all -
+  and it is why the dish must be slotted: fig 8's near method puts the post directly under F, where the dish must pass.
 - the bent rail behind the dish (circle D, centred on F) is a WIND STIFFENER with bearings running inside it, p13's
-  "To make the dish more resistant to wind". It carries load; it does not drive and it is not commanded.
+  "To make the dish more resistant to wind". It carries load; it does not drive, it is not commanded, and it is not the
+  path the dish is positioned along. AZIMUTH is the separate ring rail below (fig 14).
 - the drive is a TOW-WIRE LOOP (fig 17): a DC gear motor turns a pulley at the bottom of the moving frame, the wire runs
   over an idler at each end of rail D, and both free ends tie to the back of the dish - so it pulls either way with no
   return spring and the working branch is always in tension.
 - the threaded rods of fig 16 are NOT the drive: two 73 cm screws on nuts through the straps, used once at assembly to
   set the dish tangential to the focal circle.
 
-So the network's elevation command drives the DRUM, and the dish hangs off it through the loop's elasticity. The kernel's
+So the network's elevation command drives the DRUM, and the dish hangs off it through the loop's elasticity about
+the trunnion, whose arm is the orbit radius. The kernel's
 design table is widened to FCTW 84 to carry the two sag coefficients ([82] radians per cos(el) from the dish's weight,
 [83] radians per (m/s)^2 from the wind's tangential moment - a force normal to the dish points at F and makes no moment
 about the arc's centre, so the rail takes it), the fused state gains `el_dish` at +38, and the trace is pointed with the
@@ -138,7 +144,12 @@ dish while the obs and the reward keep reading the drum, which is what a real en
 weight, as fig 17 says ("a thin tow wire (proportional to the weight of the dish)"), makes the sag the same angle for
 every design in the box: 34 millidegrees, against a 0.7 deg half-power width. A fixed 6 mm wire instead sags 0.28 deg on
 the box's largest dish, which is how the wire's sizing rule got found. Kernel and numpy twins agree to 5e-7 deg
-(`screws/test_env_mount.py` section 4). The renderer draws the loop and keeps the rail.
+(`screws/test_env_mount.py` section 4). Every path the cook points with carries it: the numpy trace, the fused step
+and `tandoor_gpu_step`, so all four receivers (fold, focus, cass, tri) get it, since they share this mount. The flower's
+fast loop does NOT: it resolves its head pose through the screw chain, and sagging only its pointing broke the
+chain-against-law equivalence the mount tests check; its pedicel and fork mounts carry their own compliance and read
+zero in those columns, which is why the mount type must be set before the base env builds the table. The renderer draws
+the focus post, the trunnion at its top and the dish's arms, keeps the loop, and dims the rail to what it is.
 
 Two other things the paper settles: the membrane's SLOT is not optional - he picks the near method in fig 8 precisely
 because the focus balances better, and its stated price is that the dish must be cut where the focal base passes through

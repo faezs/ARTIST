@@ -1851,10 +1851,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         assert len(self._fc_table) == 39
 
     def _el_loop(self):
-        """the tow-wire loop's sag coefficients: radians of dish-behind-drum per cos(el) (the dish's own weight about the
-        elevation axis, m g R cos el) and per (m/s)^2 (the wind's tangential moment, the only wind the loop carries -
-        a force normal to the dish points at F and makes no moment about the arc's centre). The rail carries the rest."""
-        R = float(self.g_orbit) + 0.35                       # rail D's radius, as the renderer draws it
+        """the tow-wire loop's sag coefficients for the TRUNNION at F. Hashemi's vertical movement is a rotation about a
+        horizontal pivot whose axis passes through the fixed focus - the two screws through the tops of the holder's
+        vertical plates (paper p13, figs 15-16), which his desk model shows plainly: the dish hangs on straight arms
+        from a pivot at the yellow focus marker and there is no curved rail in it at all. The ring rail below carries
+        AZIMUTH (fig 14), and the bent rail D behind the dish is a wind stiffener (p13), neither of them this.
+        Returns radians of dish-behind-drum per cos(el) - the dish's weight about the trunnion, m g R cos el - and per
+        (m/s)^2 - the wind's tangential moment, the only wind the loop sees, since a force normal to the dish points
+        straight at the trunnion and makes no moment about it."""
+        if str(getattr(self, "mount", "hashemi")) != "hashemi":
+            return 0.0, 0.0                                  # the flower's pedicel and fork are a different mount with their own compliance
+        R = float(self.g_orbit)                              # THE TRUNNION'S ARM: the dish's vertex rides the focal circle at g_orbit
         A = np.pi * float(self.a_mem) ** 2
         W = EL_HEAD_KG_M2 * A * 9.81                         # the dish's weight, which is the wire's own working load
         A_w = W / EL_WIRE_SIG                                # "proportional to the weight of the dish" (fig 17)
@@ -1890,6 +1897,21 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         else:
             g_, w_ = self._el_loop()
         return el_m - np.degrees(g_ * np.cos(np.radians(el_m)) + w_ * np.asarray(wind) ** 2)
+
+    def el_dish_t(self, el_m, wind):
+        """el_dish_deg for the on-device paths (tandoor_gpu_step, the flower's trace_setup): same columns, torch ops"""
+        import torch as _t
+        fct = getattr(self, "_fct", None)
+        if fct is not None and fct.shape[-1] > 83:
+            g_, w_ = fct[:, 82], fct[:, 83]
+        else:
+            gg, ww = self._el_loop()
+            g_ = _t.as_tensor(gg, dtype=el_m.dtype, device=el_m.device)
+            w_ = _t.as_tensor(ww, dtype=el_m.dtype, device=el_m.device)
+        g_ = g_.to(el_m.device, el_m.dtype) if _t.is_tensor(g_) else g_
+        w_ = w_.to(el_m.device, el_m.dtype) if _t.is_tensor(w_) else w_
+        wd = _t.as_tensor(wind, dtype=el_m.dtype, device=el_m.device) if not _t.is_tensor(wind) else wind.to(el_m.dtype)
+        return el_m - _t.rad2deg(g_ * _t.cos(_t.deg2rad(el_m)) + w_ * wd ** 2)
 
     def _build_optics(self):
         # coude's own _build_optics would build its lookup table; we want
@@ -4708,11 +4730,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if H is not None:
             u = H["u"]
             # ---- THE CARRIAGE, from Hashemi's construction photos
-            # (figs 9-18): a FIXED ring rail + the central post; the only
-            # moving part is one beam rotating about the post, carrying
-            # two A-frames and the focus-centred arc rail the dish slides
-            # on. Elevation = the dish's position along the arc; azimuth
-            # = the beam's rotation. Scaled from his 2 m yard unit.
+            # (figs 9-18) and the desk model in his video. AZIMUTH is the
+            # ring rail: a fixed ring, one beam rotating on a bearing at
+            # the focus base, a rubber roller on a gearbox motor and two
+            # slotted wheels riding the ring (fig 14). ELEVATION is a
+            # TRUNNION AT F: the two screws through the tops of the
+            # holder's vertical plates (p13, figs 15-16), with the dish
+            # hanging on straight arms one focal length out, so its vertex
+            # rides the focal circle and F never moves. The bent rail D
+            # behind the dish is the WIND STIFFENER of p13, not the path
+            # the dish is positioned along. Scaled from his 2 m yard unit.
             g, a = self.g_orbit, self.cfg.a
             R_rail, R_ring = g + 0.35, self.r_rail
             zh_ = np.array([0., 0., 1.])
@@ -4747,7 +4774,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                     foot = (Pf_*[1,1,0] + [0,0,z_beam]
                             + rA*hdir + sgn*0.55*e_s)
                     pr.draw_line_3d(v3(foot), v3(apex), colc)
-            # the arc rail (circle D, centred on the FOLD), two tubes
+            # rail D behind the dish: the WIND STIFFENER (p13), drawn dim
+            # because it neither carries the command nor sets the pose
             e_lo = np.radians(self.el_min_h - 2)
             e_hi = np.radians(self.el_max_h + 2)
             ee = np.linspace(e_lo, e_hi, 22)
@@ -4755,7 +4783,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 pts_ = [arc(x) + off*e_s for x in ee]
                 for k in range(21):
                     pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]),
-                                    (168, 150, 122, 255))
+                                    (120, 112, 98, 255))
             # strap bearings + threaded-rod ties: dish back to the rail
             el_r = np.radians(H.get("el_b", H["el"]))
             dstrap = np.arcsin(np.clip(0.8*a / R_rail, -1, 1))
@@ -4769,6 +4797,23 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # counterweight at the arc's upper end (fig 18)
             pr.draw_sphere(v3(arc(e_lo) - 0.15*zh_), 0.14,
                            (110, 110, 120, 255))
+            # THE FOCUS POST AND ITS TRUNNION: the mast from the rotating
+            # beam up to F, and the horizontal pivot at its top whose axis
+            # passes through the focus. The dish hangs on two arms from it,
+            # which is what makes the vertical movement a rotation about F
+            # rather than a slide along the rail.
+            mast0 = Pf_*[1, 1, 0] + [0, 0, z_beam]
+            trun = (190, 176, 150, 255)
+            for aa in (0.0, np.pi/2, np.pi, 1.5*np.pi):      # the focus post as four rails, so it hides nothing behind it
+                off_ = 0.10*(np.cos(aa)*hdir + np.sin(aa)*e_s)
+                pr.draw_line_3d(v3(mast0 + off_), v3(Pf_ + off_), colc)
+            for zz in np.linspace(z_beam, Pf_[2], 7): ring([Pf_[0], Pf_[1], zz], 0.10, colc, 10)
+            pr.draw_cylinder_ex(v3(Pf_ - 0.55*e_s), v3(Pf_ + 0.55*e_s), 0.10, 0.10, 10, trun)   # the trunnion
+            for sg_ in (1.0, -1.0):
+                pr.draw_line_3d(v3(Pf_ + sg_*0.55*e_s), v3(Cd_ + sg_*0.55*e_s), trun)           # the dish's arms
+                ring(Pf_ + sg_*0.55*e_s, 0.09, trun, 10)
+            self._pot_lbls.append((Pf_ + np.array([0, 0, 0.42]),
+                                   f"trunnion at F: the dish turns about this, arm {self.g_orbit:.1f} m", trun))
             # THE TOW-WIRE LOOP (fig 17), which is what the elevation
             # command actually drives. The rail above is a WIND STIFFENER
             # with bearings inside it (paper p13), not the drive: a DC
