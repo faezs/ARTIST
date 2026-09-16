@@ -101,8 +101,9 @@ for rand in (1, 0):
           float(np.abs(kern - e.el_dish_deg(drum, wind)).max()), 1e-5)
     sag = 1e3*(drum - kern)
     print(f"     sag {sag.mean():5.1f} millideg ({sag.min():.1f} to {sag.max():.1f}); the drum is what the encoder reads, the dish is what the trace gets")
-    # the wire is sized to the dish's weight, so the sag is the same angle whatever the design draws
-    check(f"the link's sag is design-invariant (design_rand {rand}, spread in deg)",
+    # the rods are sized to the weight moment, which alone would make the sag design-invariant; but the half-inch floor
+    # binds on the smaller dishes in the box and leaves them over-stiff, so the spread is real and only bounded
+    check(f"the link's sag spread stays small across the box (design_rand {rand}, deg)",
           float(np.abs(drum - kern).max() - np.abs(drum - kern).min()), 0.02)
     check(f"and it stays well inside the half-power width (design_rand {rand}, deg)",
           float(np.abs(drum - kern).max()), 0.07)
