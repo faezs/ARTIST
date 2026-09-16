@@ -84,7 +84,7 @@ check("rays through identical (one ray of 64 at the collar's edge)", float(np.ab
 check("obs identical (mean abs)", float(np.abs(o0 - o1).mean()), 2e-4)
 print(f"     obs max abs {float(np.abs(o0 - o1).max()):.2e} (pixel flips), mean {float(np.abs(o0 - o1).mean()):.2e}")
 print(f"     miss rms {100*np.sqrt((m0**2).sum(-1).mean()):.2f} cm both ways; step {1e3*dt0:.1f} ms host frame, {1e3*dt1:.1f} ms with the kernel mount (256 agents, numpy path)")
-print("\n4. the elevation drive is the tow-wire loop (Hashemi fig 17), and both twins solve the same loop")
+print("\n4. elevation is the TRUNNION at F driven by a rod, and both twins solve the same link")
 import io, contextlib
 from tandoor_hashemi_env import TandoorHashemiEnv
 from tandoor_design_readout import env_kwargs
@@ -102,10 +102,12 @@ for rand in (1, 0):
     sag = 1e3*(drum - kern)
     print(f"     sag {sag.mean():5.1f} millideg ({sag.min():.1f} to {sag.max():.1f}); the drum is what the encoder reads, the dish is what the trace gets")
     # the wire is sized to the dish's weight, so the sag is the same angle whatever the design draws
-    check(f"the loop's sag is design-invariant (design_rand {rand}, spread in deg)",
+    check(f"the link's sag is design-invariant (design_rand {rand}, spread in deg)",
           float(np.abs(drum - kern).max() - np.abs(drum - kern).min()), 0.02)
     check(f"and it stays well inside the half-power width (design_rand {rand}, deg)",
           float(np.abs(drum - kern).max()), 0.07)
+    d_, pcr_, P_ = e.el_link_mm()
+    print(f"     drive rod {d_:.1f} mm carrying {P_:.1f} kN; Euler {pcr_:.1f} kN pinned, so it must run in TENSION or be short and end-fixed")
 
 print("\nFAILED: " + ", ".join(fails) if fails else "\nall passed")
 sys.exit(1 if fails else 0)

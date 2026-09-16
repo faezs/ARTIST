@@ -129,15 +129,17 @@ that the register had conflated into one:
 - the bent rail behind the dish (circle D, centred on F) is a WIND STIFFENER with bearings running inside it, p13's
   "To make the dish more resistant to wind". It carries load; it does not drive, it is not commanded, and it is not the
   path the dish is positioned along. AZIMUTH is the separate ring rail below (fig 14).
-- the drive is a TOW-WIRE LOOP (fig 17): a DC gear motor turns a pulley at the bottom of the moving frame, the wire runs
-  over an idler at each end of rail D, and both free ends tie to the back of the dish - so it pulls either way with no
-  return spring and the working branch is always in tension.
+- the drive is a ROD on a crank off the trunnion. Fig 17 draws a tow-wire loop on two pulleys instead, and either works,
+  but the desk model and the production build use a rod, which is 3-4x stiffer and can push. Its price is buckling: at
+  the built scale the rod is 10.7 mm carrying 3.6 kN, against an Euler load of 0.3 kN pinned, so it must be biased into
+  tension by the dish's own weight or kept short and end-fixed. Sized to its load, the sag is sigma L / (E lever), which
+  is independent of the dish: 15 millidegrees, against the wire loop's 34 and a 0.7 deg half-power width.
 - the threaded rods of fig 16 are NOT the drive: two 73 cm screws on nuts through the straps, used once at assembly to
   set the dish tangential to the focal circle.
 
 So the network's elevation command drives the DRUM, and the dish hangs off it through the loop's elasticity about
 the trunnion, whose arm is the orbit radius. The kernel's
-design table is widened to FCTW 84 to carry the two sag coefficients ([82] radians per cos(el) from the dish's weight,
+design table is widened to FCTW 84 to carry the two sag coefficients ([82] radians per cos(el) from the dish's weight about the trunnion,
 [83] radians per (m/s)^2 from the wind's tangential moment - a force normal to the dish points at F and makes no moment
 about the arc's centre, so the rail takes it), the fused state gains `el_dish` at +38, and the trace is pointed with the
 dish while the obs and the reward keep reading the drum, which is what a real encoder sees. Sizing the wire to the dish's

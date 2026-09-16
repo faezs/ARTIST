@@ -82,12 +82,11 @@ from tandoor_rl_env import _sim, ROTI_ENERGY, T_COOK_LO
 # so it drives both ways with no return spring and the working branch is always in tension. The command therefore acts
 # on the drum, and the dish hangs off it through the loop's elasticity. The threaded rods in fig 16 are NOT this drive:
 # they are the two 73 cm adjusting screws that set the dish tangential to the focal circle, once, at assembly.
-EL_WIRE_SIG, EL_WIRE_E, EL_LOOP_K = 48e6, 110e9, 1.4  # the wire is sized to this working stress under the dish's own weight - fig 17's
-                                                       # "a thin tow wire (proportional to the weight of the dish)" - so 6 mm at the built
-                                                       # 4.2 m dish and thicker as the dish grows, which makes the loop's sag the SAME
-                                                       # angle for every design in the box (sag = sigma x loop_K / E, R and mass cancel);
-                                                       # a fixed 6 mm wire instead sags 0.28 deg on the box's largest dish. E is a 6x19
-                                                       # rope's effective modulus, ~55 % of solid steel; the loop's free length is K x R.
+EL_LINK_SIG, EL_LINK_E = 40e6, 200e9                   # the drive ROD's working stress under the dish's weight moment, and solid steel.
+EL_LINK_LR, EL_LINK_ARM = 0.50, 0.375                  # its length and its crank lever, as fractions of the orbit, from the model's proportions.
+                                                       # Sized to the load, the sag is sigma L / (E lever) - independent of the dish, ~0.015 deg.
+                                                       # Fig 17 draws a wire loop on two pulleys instead; his model and the production build use a
+                                                       # rod, which is 3-4x stiffer and can push, at the price of buckling (see el_link_mm).
 EL_HEAD_KG_M2, EL_CT, EL_CM = 10.0, 0.10, 0.15         # dish + frame + straps per m2 of aperture, and the tangential force and pitching moment coefficients
 R_POT, H_POT, Z_DUCT = CO.R_POT, CO.H_POT, CO.Z_DUCT
 X_TOWER = CO.X_CHASE
@@ -1863,17 +1862,24 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             return 0.0, 0.0                                  # the flower's pedicel and fork are a different mount with their own compliance
         R = float(self.g_orbit)                              # THE TRUNNION'S ARM: the dish's vertex rides the focal circle at g_orbit
         A = np.pi * float(self.a_mem) ** 2
-        W = EL_HEAD_KG_M2 * A * 9.81                         # the dish's weight, which is the wire's own working load
-        A_w = W / EL_WIRE_SIG                                # "proportional to the weight of the dish" (fig 17)
-        k = EL_WIRE_E * A_w * R / EL_LOOP_K                  # N m/rad: E A_w R^2 / (loop length = EL_LOOP_K R)
+        W = EL_HEAD_KG_M2 * A * 9.81                         # the dish's weight; its moment about the trunnion is W R cos(el)
+        lever, L = EL_LINK_ARM * R, EL_LINK_LR * R           # the crank the rod pulls on, and the rod's own length
+        A_r = W * R / (lever * EL_LINK_SIG)                  # the rod sized to that load, so the sag is design-invariant
+        k = EL_LINK_E * A_r * lever * lever / L              # N m/rad about the trunnion
         sag_g = W * R / k
         sag_w = (EL_CT * A * R + EL_CM * A * 2.0 * float(self.a_mem)) * 0.6 / k
         return float(sag_g), float(sag_w)
 
-    def el_wire_mm(self):
-        """the tow wire's diameter for this machine [mm], from the dish's weight at the working stress"""
-        W = EL_HEAD_KG_M2 * np.pi * float(self.a_mem) ** 2 * 9.81
-        return float(1e3 * np.sqrt(4.0 * (W / EL_WIRE_SIG) / np.pi))
+    def el_link_mm(self):
+        """the drive rod's diameter [mm] and its Euler load [kN] at that length, pinned. The rod carries the dish's weight
+        moment over its crank; in COMPRESSION a slender rod buckles far below that, so it wants to be biased into tension
+        by the dish's own weight, or kept short and end-fixed. This is the build constraint the wire never had."""
+        R = float(self.g_orbit); A = np.pi * float(self.a_mem) ** 2
+        W = EL_HEAD_KG_M2 * A * 9.81
+        lever, L = EL_LINK_ARM * R, EL_LINK_LR * R
+        A_r = W * R / (lever * EL_LINK_SIG); d = np.sqrt(4.0 * A_r / np.pi)
+        I = np.pi * d ** 4 / 64.0
+        return float(1e3 * d), float(np.pi ** 2 * EL_LINK_E * I / L ** 2 / 1e3), float(W * R / lever / 1e3)
 
     def el_sag_deg(self, H=None):
         """the loop's sag in degrees at this pose and wind - what the encoder on the drum cannot see"""
@@ -4833,7 +4839,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                         (P_drv, P_lo), (P_lo, strap_lo)):
                 pr.draw_line_3d(v3(seg[0]), v3(seg[1]), wire)
             self._pot_lbls.append((P_drv + np.array([0, 0, 0.30]),
-                                   f"el drive: tow-wire loop, sag {self.el_sag_deg(H):+.3f} deg",
+                                   f"el drive: rod on the trunnion, sag {self.el_sag_deg(H):+.3f} deg",
                                    wire))
 
             if self.receiver == "focus":
