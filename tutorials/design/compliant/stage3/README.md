@@ -116,3 +116,31 @@ each time - tri, section, high deck, post mount, d_strip 0.7, r_duct high - and 
 tri machine passes 80-90 % with today's film against 50-78 % at the flower configs' 0.3 (27), and 68-82 % with a film
 twice as bad; `hashemi.ini` is at 0.6 already. Run 4's controller transfers to the rim-fed env unchanged
 (`tri/README.md`).
+
+## The elevation drive is the tow-wire loop, not the rail (2026-09-16)
+
+Read from Hashemi's own paper (`fixed-focus-ir.pdf`, figs 6, 16, 17) after the user pointed at his channel. Three parts
+that the register had conflated into one:
+
+- the bent rail behind the dish (circle D, centred on F) is a WIND STIFFENER with bearings running inside it, p13's
+  "To make the dish more resistant to wind". It carries load; it does not drive and it is not commanded.
+- the drive is a TOW-WIRE LOOP (fig 17): a DC gear motor turns a pulley at the bottom of the moving frame, the wire runs
+  over an idler at each end of rail D, and both free ends tie to the back of the dish - so it pulls either way with no
+  return spring and the working branch is always in tension.
+- the threaded rods of fig 16 are NOT the drive: two 73 cm screws on nuts through the straps, used once at assembly to
+  set the dish tangential to the focal circle.
+
+So the network's elevation command drives the DRUM, and the dish hangs off it through the loop's elasticity. The kernel's
+design table is widened to FCTW 84 to carry the two sag coefficients ([82] radians per cos(el) from the dish's weight,
+[83] radians per (m/s)^2 from the wind's tangential moment - a force normal to the dish points at F and makes no moment
+about the arc's centre, so the rail takes it), the fused state gains `el_dish` at +38, and the trace is pointed with the
+dish while the obs and the reward keep reading the drum, which is what a real encoder sees. Sizing the wire to the dish's
+weight, as fig 17 says ("a thin tow wire (proportional to the weight of the dish)"), makes the sag the same angle for
+every design in the box: 34 millidegrees, against a 0.7 deg half-power width. A fixed 6 mm wire instead sags 0.28 deg on
+the box's largest dish, which is how the wire's sizing rule got found. Kernel and numpy twins agree to 5e-7 deg
+(`screws/test_env_mount.py` section 4). The renderer draws the loop and keeps the rail.
+
+Two other things the paper settles: the membrane's SLOT is not optional - he picks the near method in fig 8 precisely
+because the focus balances better, and its stated price is that the dish must be cut where the focal base passes through
+it (fig 12) - and his production reflector is a cut home satellite dish faceted with 2 mm mirror in 5 x 3 cm pieces, not
+a membrane at all.

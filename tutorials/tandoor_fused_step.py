@@ -36,7 +36,7 @@ _SCAL = ("p_act", "p_set", "p_dist", "shutter", "jammed", "f_locked",
          "e_az_prev", "e_el_prev", "spot_phi", "spot_z", "dni",
          "wind", "stowed", "el0s", "az0d", "pot_prev", "gate",
          "decl_now", "e_el", "e_az", "day_rotis",
-         "hold_p", "hold_s", "hold_j")
+         "hold_p", "hold_s", "hold_j", "el_dish")
 
 
 def _step_params(env):
@@ -135,7 +135,7 @@ class FusedState:
                   decl_formed=e.decl_formed, load_timer=e.load_timer,
                   ep_rotis=e.ep_rotis, ep_scorch=e.ep_scorch,
                   ep_spall=e.ep_spall, ep_return=e.ep_return,
-                  ep_len=e.ep_len, el_m=e.el_m, az_m=e.az_m,
+                  ep_len=e.ep_len, el_m=e.el_m, az_m=e.az_m, el_dish=e.el_m,
                   lost_ct=e._lost_ct, belt_prev=e._belt_prev,
                   cloud=e.cloud, wind_g=e.wind_g, e_az_prev=e._e_az,
                   e_el_prev=e._e_el, spot_phi=e.spot_phi,
@@ -251,7 +251,7 @@ def fused_full_step(env, actions):
     env._mnt_prm[0] = float(env.t_solar[0])
     F.ip[6] = int(env.tick)          # the cook's hash clock
     mnt = env._metal.mount(F.day_v, F.lat_v, env._mnt_prm, B,
-                           pnt=torch.stack([F.el_m, F.az_m], 1),
+                           pnt=torch.stack([F.el_dish, F.az_m], 1),   # the DISH, not the drum: the tow-wire loop's sag is in el_dish
                            fct=env._fct,
                            mech=getattr(env, "_mech_rows", None))    # the mount as screws, when a subclass set them (tandoor_screws)
     aux = mnt["aux"]

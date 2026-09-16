@@ -56,7 +56,7 @@ static inline bool hits_column(float px, float py, float pz,
 #define MECHW 136 // THE MOUNT AS DATA, per agent (tandoor_screws.py): [0] n screws [1] flags [8+8i] screw i (w, q, pitch, theta)
                   // [72] home vertex, axis [80] elastic twist (v; omega) [88] 6 x 6 compliance [124] wrench (f; m)
 #define NX 37     // EXTERIOR SURFACE BINS (the miss ledger as flux): 0-7 collar by azimuth, 8-13 bore wall by height, 14 deck, 15-18 pot exterior by latitude, 19 pit floor, 20 escaped, 21-24 dish blocks the return (by dish radius), 25-28 strip shadow (by radius), 29-32 slot (by radius), 33 hole, 34 F arm, 35 strip window, 36 missed the conic
-#define FCTW 82   // per-env design table width: [0..39] receiver chain, [40..59] system, [60] surface block, [70] sand depth, [71] sand conductivity, [72] receiver kind (0 cass / 1 tri), [73] elbow class, [74] aim half-travel [rad], [75] site azimuth offset [rad], [76..77] pit radius/depth scales, [78..81] the pit sphere: Z_CPOT, R_SPH, R_DUCT_WALL, H_DEPTH
+#define FCTW 84   // per-env design table width ([82] el sag per cos(el), [83] per (m/s)^2): [0..39] receiver chain, [40..59] system, [60] surface block, [70] sand depth, [71] sand conductivity, [72] receiver kind (0 cass / 1 tri), [73] elbow class, [74] aim half-travel [rad], [75] site azimuth offset [rad], [76..77] pit radius/depth scales, [78..81] the pit sphere: Z_CPOT, R_SPH, R_DUCT_WALL, H_DEPTH
 #define KSAND 8   // layers of the sand column under the hearth and the floor (>= 5 cm each)
 #define RU 20     // uniforms per agent per step: [0] cloud, [1..15] fresh-pot temps, [16..19] the demand process
 #define NDEM 3    // demand state per agent at the row's end: orders waiting, rotis on the shelf, sold today
@@ -1167,7 +1167,7 @@ kernel void tandoor_trace(
 //   +35 hold_p +36 hold_s +37 hold_j (sticky-engagement latches,
 //       raw action values; day-over resets them host-side, cuts
 //       leave them alone - cuts never reset engagement)
-//   +24 dni +25 wind +26 stowed
+//   +24 dni +25 wind +26 stowed +38 el_dish (the drum s[+14] less the tow-wire loop's sag)
 //   scratch (pre -> post): +27 el0s +28 az0d +29 pot_prev +30 gate
 //   +31 decl_now +32 e_el +33 e_az
 //
@@ -1299,6 +1299,17 @@ kernel void step_pre(
                && !(wind < 14.0f);
     s[S0+26] = stw ? 1.0f : 0.0f;
     s[S0+25] = wind;
+    // ---- THE ELEVATION DRIVE IS THE TOW-WIRE LOOP (Hashemi fig 17), not the rail.
+    // The bent rail behind the dish is a WIND STIFFENER with bearings inside it
+    // (paper p13); the drive is a DC-motor pulley with the wire's two ends tied to
+    // the dish's back over an idler at each end of rail D. So s[S0+14] is the DRUM -
+    // what the motor integrates and the encoder reads - and the dish hangs off it
+    // through the loop's elasticity: gravity as m g R cos(el) and the wind's
+    // tangential moment, each over the loop's angular stiffness. fct[82] and fct[83]
+    // carry those two as radians (per cos(el), per (m/s)^2), solved host-side.
+    float mk_sag = fct[b*FCTW + 82]*cos(s[S0+14]*PI_/180.0f)
+                 + fct[b*FCTW + 83]*wind*wind;
+    s[S0+38] = s[S0+14] - mk_sag*180.0f/PI_;
     float day_up = (el0 > 8.0f) ? 1.0f : 0.0f;
     float cosw = day_up * sp[16];   // (not 'cosf': CUDA math name)
     float dni = clearw * exp(cl) * day_up * (stw ? 0.0f : 1.0f);
@@ -1806,7 +1817,7 @@ class MetalGeo:
         out6 = torch.empty(B * P, 6, dtype=torch.float32, device=dev)
         fate = torch.zeros(B * P, 6, dtype=torch.float32, device=dev)   # the miss ledger: code, stop xyz, surface, bin
         pex = torch.zeros(B * 37, dtype=torch.float32, device=dev)       # exterior flux, NX = 37 bins (see the MSL define)
-        assert fct is None or fct.shape[-1] == 82, f"design table is {fct.shape[-1]} wide, the kernel indexes at FCTW 82"
+        assert fct is None or fct.shape[-1] == 84, f"design table is {fct.shape[-1]} wide, the kernel indexes at FCTW 84"
         NBL = 8                                   # loaf columns after the nodes
         per = torch.zeros(B, n_nodes + NBL, dtype=torch.float32, device=dev)
         key = (B, P, L, S, n_nodes, dev)
@@ -1824,7 +1835,7 @@ class MetalGeo:
         ellM, ellS, ellC, V0t = self._m4_rows(ellM, ellS, ellC, V0t, B, dev)   # M4 per agent: a shared M4 expanded to rows
         if fct is None:
             # no per-env table given: every row is the shared static block
-            row = torch.zeros(82, dtype=torch.float32, device=dev)   # FCTW - the kernel indexes b*FCTW, so this width is not optional
+            row = torch.zeros(84, dtype=torch.float32, device=dev)   # FCTW - the kernel indexes b*FCTW, so this width is not optional
             k = min(39, max(0, int(sc.shape[0]) - 106))
             row[:k] = sc[106:106 + k]
             row[39] = sc[13]

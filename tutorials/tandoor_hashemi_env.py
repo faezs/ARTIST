@@ -76,6 +76,19 @@ from tandoor_polar_env import (TandoorPolarEnv, R_MOUTH, H_DEPTH, Z_CPOT, R_SPH,
                                Z_CROWN, Z_HEARTH, R_DUCT_WALL)
 from tandoor_rl_env import _sim, ROTI_ENERGY, T_COOK_LO
 
+# THE ELEVATION DRIVE (Hashemi fig 17). The bent rail behind the dish is a wind stiffener with bearings inside it
+# (paper p13, "To make the dish more resistant to wind"); what MOVES the dish is a tow-wire loop - a DC-motor pulley at
+# the bottom of the moving frame, an idler at each end of rail D, and the wire's two free ends tied to the dish's back,
+# so it drives both ways with no return spring and the working branch is always in tension. The command therefore acts
+# on the drum, and the dish hangs off it through the loop's elasticity. The threaded rods in fig 16 are NOT this drive:
+# they are the two 73 cm adjusting screws that set the dish tangential to the focal circle, once, at assembly.
+EL_WIRE_SIG, EL_WIRE_E, EL_LOOP_K = 48e6, 110e9, 1.4  # the wire is sized to this working stress under the dish's own weight - fig 17's
+                                                       # "a thin tow wire (proportional to the weight of the dish)" - so 6 mm at the built
+                                                       # 4.2 m dish and thicker as the dish grows, which makes the loop's sag the SAME
+                                                       # angle for every design in the box (sag = sigma x loop_K / E, R and mass cancel);
+                                                       # a fixed 6 mm wire instead sags 0.28 deg on the box's largest dish. E is a 6x19
+                                                       # rope's effective modulus, ~55 % of solid steel; the loop's free length is K x R.
+EL_HEAD_KG_M2, EL_CT, EL_CM = 10.0, 0.10, 0.15         # dish + frame + straps per m2 of aperture, and the tangential force and pitching moment coefficients
 R_POT, H_POT, Z_DUCT = CO.R_POT, CO.H_POT, CO.Z_DUCT
 X_TOWER = CO.X_CHASE
 R_DUCT_H = CO.R_DUCT_C          # widened native inlet, 0.20 m
@@ -1837,6 +1850,47 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                              self.strip_wk, np.radians(self.slot_el)])
         assert len(self._fc_table) == 39
 
+    def _el_loop(self):
+        """the tow-wire loop's sag coefficients: radians of dish-behind-drum per cos(el) (the dish's own weight about the
+        elevation axis, m g R cos el) and per (m/s)^2 (the wind's tangential moment, the only wind the loop carries -
+        a force normal to the dish points at F and makes no moment about the arc's centre). The rail carries the rest."""
+        R = float(self.g_orbit) + 0.35                       # rail D's radius, as the renderer draws it
+        A = np.pi * float(self.a_mem) ** 2
+        W = EL_HEAD_KG_M2 * A * 9.81                         # the dish's weight, which is the wire's own working load
+        A_w = W / EL_WIRE_SIG                                # "proportional to the weight of the dish" (fig 17)
+        k = EL_WIRE_E * A_w * R / EL_LOOP_K                  # N m/rad: E A_w R^2 / (loop length = EL_LOOP_K R)
+        sag_g = W * R / k
+        sag_w = (EL_CT * A * R + EL_CM * A * 2.0 * float(self.a_mem)) * 0.6 / k
+        return float(sag_g), float(sag_w)
+
+    def el_wire_mm(self):
+        """the tow wire's diameter for this machine [mm], from the dish's weight at the working stress"""
+        W = EL_HEAD_KG_M2 * np.pi * float(self.a_mem) ** 2 * 9.81
+        return float(1e3 * np.sqrt(4.0 * (W / EL_WIRE_SIG) / np.pi))
+
+    def el_sag_deg(self, H=None):
+        """the loop's sag in degrees at this pose and wind - what the encoder on the drum cannot see"""
+        g_, w_ = self._el_loop()
+        el = float(np.mean(self.el_m)) if H is None else float(H.get("el", np.mean(self.el_m)))
+        wind = float(np.mean(getattr(self, "wind", 0.0)))
+        return float(np.degrees(g_ * np.cos(np.radians(el)) + w_ * wind * wind))
+
+    def el_dish_deg(self, el_m, wind):
+        """the DISH's elevation from the DRUM's: the numpy twin of the kernel's s[S0+38]. Reads the SAME per-agent
+        columns the kernel does (fct[82], fct[83]), because under design_rand every agent has its own orbit and dish
+        and so its own loop; falling back to this env's single machine only when there is no design table yet."""
+        fct = getattr(self, "_fct", None)
+        if fct is not None and fct.shape[-1] > 83:
+            key = int(fct.data_ptr())
+            cache = getattr(self, "_el_sag_cache", None)
+            if cache is None or cache[0] != key:
+                cols = fct[:, 82:84].detach().cpu().numpy().astype(np.float64)
+                cache = (key, cols[:, 0], cols[:, 1]); self._el_sag_cache = cache
+            g_, w_ = cache[1], cache[2]
+        else:
+            g_, w_ = self._el_loop()
+        return el_m - np.degrees(g_ * np.cos(np.radians(el_m)) + w_ * np.asarray(wind) ** 2)
+
     def _build_optics(self):
         # coude's own _build_optics would build its lookup table; we want
         # only the polar scaffolding underneath it (cfg, thermal hooks).
@@ -2247,7 +2301,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     SAND_RC = 1.28e6          # sand volumetric heat capacity [J/m3K]
     SAND_TOP = 0.08           # the sub layer's depth [m]
     N_DESIGN = 9 + 24
-    FCT_W = 82
+    FCT_W = 84
     # RESOLVED, 2026-09-11 (was OPEN since 2026-09-09 as "the receiver refactor moved the
     # traced power of a design_rand + section machine -17%"): every input to the trace
     # core was bit-identical across the two trees except the membrane LEVEL. The refactor
@@ -2264,6 +2318,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
               site=60,                  # the primary's SURFACE BLOCK: 0 the built circle, k >= 1 the k-th installed section
               film=61, rim=62, rise=63, ocap=64,  # info for the bill and the readouts: film area [m2], rim length [m], post rise [m], overhang cap [m]
               zones=65, m4sig=66, roofl=67, grid=68, m4c=69,   # plenum zones (1 or 5), M4 facet slope error [rad rms] (the kernels read it), light roof, grid power, facet chord [m]
+              elsg=82, elsw=83,         # the tow-wire loop's sag: rad per cos(el) from the dish's weight, rad per (m/s)^2 from the wind
               sand_d=70, sand_k=71,     # the sand column: depth [m], conductivity [W/mK]; [56] the shop's demand scale
               # THE RECEIVER IS A COLUMN (2026-09-08). It used to be an env mode
               # (self.tri / self.duct_nozzle / M3_TURN), which made a batch one
@@ -2320,7 +2375,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  zones=float(getattr(self, "n_zones", 5) or 5), m4sig=0.0, roofl=0.0, grid=0.0, m4c=0.0,
                  recv=float(self.tri), noz=float(getattr(self, "duct_nozzle", 0)),
                  phw=self.aim_halfspan(self.tri),
-                 azs=0.0, potr=1.0, poth=1.0, **self.pot_sphere(1.0, 1.0))
+                 azs=0.0, potr=1.0, poth=1.0,
+                 **dict(zip(("elsg", "elsw"), self._el_loop())), **self.pot_sphere(1.0, 1.0))
         if sys:
             d.update(sys)
         row = rec + [0.0] * (self.FCT_W - 40)
@@ -3789,9 +3845,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                 device=dev)
         lat_t = torch.as_tensor(self.lat_v, dtype=torch.float32,
                                 device=dev)
-        pnt_np = torch.as_tensor(np.stack([np.asarray(self.el_m, dtype=np.float32),
+        pnt_np = torch.as_tensor(np.stack([np.asarray(self.el_dish_deg(np.asarray(self.el_m, dtype=np.float64),
+                                                                        getattr(self, "wind", 0.0)), dtype=np.float32),
                                            np.asarray(self.az_m, dtype=np.float32)], 1),
-                                 device=dev)
+                                 device=dev)   # el_m is the DRUM; the trace gets the dish, sagging on the tow-wire loop
         mnt = mount_batch(self, day_t, lat_t,
                           float(self.t_solar[0]), dev, pnt=pnt_np)
         soil = self._shade(soil, mnt)                    # the neighbourhood's horizon, on the beam
@@ -4712,6 +4769,27 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # counterweight at the arc's upper end (fig 18)
             pr.draw_sphere(v3(arc(e_lo) - 0.15*zh_), 0.14,
                            (110, 110, 120, 255))
+            # THE TOW-WIRE LOOP (fig 17), which is what the elevation
+            # command actually drives. The rail above is a WIND STIFFENER
+            # with bearings inside it (paper p13), not the drive: a DC
+            # gear motor turns a pulley at the bottom of the moving
+            # frame, the wire runs over an idler at each end of rail D,
+            # and BOTH free ends tie to the back of the dish - so it
+            # pulls either way with no return spring and the working
+            # branch is always in tension.
+            P_up, P_lo = arc(e_lo), arc(e_hi)
+            P_drv = Pf_*[1, 1, 0] + [0, 0, z_beam] + 0.85*R_rail*hdir
+            wire = (176, 176, 186, 255); puly = (196, 170, 120, 255)
+            strap_hi = arc(el_r - dstrap); strap_lo = arc(el_r + dstrap)
+            for q_ in (P_up, P_lo, P_drv): ring(q_, 0.11, puly, 10)
+            pr.draw_cylinder_ex(v3(P_drv - 0.12*e_s), v3(P_drv + 0.12*e_s),
+                                0.09, 0.09, 8, (70, 70, 78, 255))          # the gear motor
+            for seg in ((strap_hi, P_up), (P_up, P_drv),
+                        (P_drv, P_lo), (P_lo, strap_lo)):
+                pr.draw_line_3d(v3(seg[0]), v3(seg[1]), wire)
+            self._pot_lbls.append((P_drv + np.array([0, 0, 0.30]),
+                                   f"el drive: tow-wire loop, sag {self.el_sag_deg(H):+.3f} deg",
+                                   wire))
 
             if self.receiver == "focus":
                 # RECEIVER AT THE FOCUS: M1 (steerable flat) at F, M2 the
