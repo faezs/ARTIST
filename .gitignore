@@ -158,3 +158,11 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# site weather caches (re-downloaded on demand by tutorials/tandoor_site_weather.py)
+tutorials/data/tandoor/sites/
+tutorials/data/tandoor/footprints/
+tutorials/data/tandoor/cities15000.txt
+tutorials/.build_stamp
+# scratch outputs of the design tools (readouts, frontiers, populations, plots)
+tutorials/puffer_tandoor/watch/

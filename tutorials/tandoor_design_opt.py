@@ -38,7 +38,7 @@ def strip_area(d):
 
 
 def build(seed=1, **over):
-    kw = dict(num_agents=3, seed=seed, wide_shutter=1, device="mps", gpu=1, n_rays=1100, warm_frac=0.0,
+    kw = dict(num_agents=3, seed=seed, wide_shutter=1, device="mps", gpu=1, n_rays=1100, warm_frac=0.0, site_weather="quetta", site_mean=1,
               day_random=0, lat_random=0, lat=30.2, wall_obs=1, n_zones=5, zone_c=0.4, g_orbit=4.0, deck_h=4.0,
               nurbs=1, silvered=1, duct_nozzle=2, spot_bread=1, loaves_per_load=8, load_ctrl=1, sticky_k=2,
               receiver="cass", r_m4=1.3, beta_dev=0.0, beta_cap_z=7.6)

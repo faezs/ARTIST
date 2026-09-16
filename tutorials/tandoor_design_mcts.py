@@ -70,37 +70,60 @@ class Node:
 class Sim:
     """The batched rollout: B machines, one pinned day (or the last of a
     seasoned run of days), the trained policy sampled; returns rotis (B,)."""
-    def __init__(self, ckpt, B, day, seasoned, shell="perlite"):
+    def __init__(self, ckpt, B, day, seasoned, shell="perlite", afternoon=False, seed=0, site_weather="quetta"):
         self.pol = Policy(torch.load(ckpt, map_location="cpu", weights_only=False))
+        from tandoor_design_readout import AFTERNOON, AFTERNOON_WARM_T
+        kw = env_kwargs(B, night_carry=int(seasoned > 1), shell=shell,
+                        window=AFTERNOON if afternoon else None, warm_frac=1.0 if afternoon else 0.0,
+                        warm_T=AFTERNOON_WARM_T if afternoon else None, site_weather=site_weather)
         with contextlib.redirect_stdout(io.StringIO()):
-            self.e = TandoorHashemiEnv(**env_kwargs(B, night_carry=int(seasoned > 1), shell=shell))
+            self.e = TandoorHashemiEnv(**kw)
         self.B, self.day, self.seasoned = B, day, seasoned
+        self.afternoon = afternoon; self.rng = np.random.default_rng(seed)     # day 0 = a fresh random day per call
         e = self.e
         self.names = [k for k, _, _ in tuple(e.DESIGN_BOX) + tuple(e.SYS_BOX)]
         self.nh, self.nv = e.N_HEADS, int(e.single_action_space.nvec[0])
         self.calls = 0
 
+    def ladder(self, u, day=172):
+        """traced kW at perfect tracking for all B machines on `day` (the designer's optics score)."""
+        from tandoor_design_readout import ladder_day
+        e = self.e; e.set_design_points(u); e.day = day; e.lat = 30.2
+        with contextlib.redirect_stdout(io.StringIO()):
+            e.reset(seed=7)
+        e.day_v[:] = day; e.lat_v[:] = 30.2; e._sw_refresh(mean=True)      # the site's average day (ladder_day refreshes too)
+        S = FusedState(e); e._gpu = S
+        return ladder_day(e, S, day, noise=True)
+
     def run(self, u):
+        """rotis per machine on the scored window: a whole day (`seasoned` days), or - afternoon
+        mode - the lunch rush 11:00-16:00 of one random day after the kit's own morning from the
+        carried dawn (tandoor_design_readout.AFTERNOON). No control: a dark kit reaches lunch cold."""
+        from tandoor_design_readout import AFTERNOON_SCORE_FROM
         e = self.e; B = self.B
         e.set_design_points(u)
-        e.day = self.day; e.lat = 30.2
+        day = int(self.rng.integers(1, 366)) if self.day <= 0 else self.day
+        seed = 1 + self.calls; self.calls += 1
+        e.day = day; e.lat = 30.2
         with contextlib.redirect_stdout(io.StringIO()):
-            e.reset(seed=1 + self.calls)
-        e.day_v[:] = self.day; e.lat_v[:] = 30.2
-        S = FusedState(e); e._gpu = S; self.pol.reset(B); torch.manual_seed(1 + self.calls)
+            e.reset(seed=seed)
+        e.day_v[:] = day; e.lat_v[:] = 30.2; e._sw_refresh(mean=False)     # a recorded day at the site: the lunch under real weather
+        S = FusedState(e); e._gpu = S; self.pol.reset(B); torch.manual_seed(seed)
         a = torch.full((B, self.nh), 3, dtype=torch.long, device=DEV)
-        o, *_ = e.step_torch(a); last = S.day_rotis.clone(); days = 0
+        o, *_ = e.step_torch(a); last = S.day_rotis.clone(); days = 0; mark = None
         with torch.no_grad():
             for t in range(4000 * self.seasoned):
                 act, _ = self.pol.step(o, self.nh, self.nv)
                 o, r, d, tr, _ = e.step_torch(act)
+                if self.afternoon and mark is None and float(e.t_solar[0]) >= AFTERNOON_SCORE_FROM:
+                    mark = S.day_rotis.clone()                      # sold before the lunch window: not the score
                 if d.reshape(-1).any():
                     days += 1
                     if days >= self.seasoned: break
                     continue
                 last = S.day_rotis.clone()
-        self.calls += 1
-        return last.cpu().numpy()
+        rot = last - (mark if (self.afternoon and mark is not None) else 0.0)
+        return rot.cpu().numpy()
 
 
 def completions(rng, sim, node, site, k):
@@ -157,6 +180,13 @@ def objective(sim, u, rot, args):
     ranking machines purely by cheapness (2026-09-08)."""
     D = designs_of(sim, u); sim.last_D = D
     cap = np.array([C.capital(d)["total"] for d in D]); area = np.array([d["bread_area"] for d in D])
+    if getattr(args, "payback", False):
+        # THE SUN'S INCOME IS THE GAS THE SHOP DOES NOT BURN (2026-09-11): bread-weighted solar
+        # rotis displace the fuel bill in proportion to the demand they cover (tandoor_payback),
+        # any rotis beyond the demand earn the margin; net PKR over the horizon, minus the kit.
+        import tandoor_payback as P
+        rot_day = rot * (area / 0.12) * (1.0 / 0.667 if getattr(args, "afternoon", False) else 1.0)   # the window holds the lunch band's 2/3 of the day
+        return P.net_value(cap, rot_day, args.years, fuel=args.fuel, gas=args.gas, rotis=args.demand, days=args.days)
     if args.value:
         return rot * (area / 0.12) * args.roti_pkr * args.days * args.years - cap
     score = rot * (area / 0.12) if args.priced else rot
@@ -166,7 +196,10 @@ def objective(sim, u, rot, args):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("ckpt"); ap.add_argument("--site", type=float, default=0.5)
     ap.add_argument("--sims", type=int, default=20); ap.add_argument("--k", type=int, default=256)
-    ap.add_argument("--day", type=int, default=172); ap.add_argument("--seasoned", type=int, default=1)
+    ap.add_argument("--day", type=int, default=172, help="day of year; 0 = a fresh random day for every batch scored")
+    ap.add_argument("--seasoned", type=int, default=1)
+    ap.add_argument("--afternoon", action="store_true", help="score each machine on ONE afternoon (11-16 h, the lunch rush) from a seasoned pit instead of a whole day; pair with --day 0 for random days")
+    ap.add_argument("--site-weather", default="quetta", help="the site's recorded ERA5 days ('quetta' or a pool JSON); '' for the clear-sky formula")
     ap.add_argument("--c", type=float, default=0.6); ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--shell", default="perlite", choices=("perlite", "glasswool", "aac"),
                     help="what the pit's insulating annulus is made of: ins_scale stays the knob, the material sets the thickness, mass and price it costs (tandoor_rl_env.SHELL_MATERIALS)")
@@ -177,19 +210,48 @@ if __name__ == "__main__":
                     help="rank by rotis with a hard price cap instead of net value (only meaningful for a REACHABLE --budget)")
     ap.add_argument("--budget", type=float, default=C.BUDGET, help="the kit's price cap [PKR]; over-budget designs are penalised")
     ap.add_argument("--roti-pkr", type=float, default=8.0); ap.add_argument("--days", type=float, default=300.0); ap.add_argument("--years", type=float, default=5.0)
+    ap.add_argument("--payback", action="store_true", help="rank by NET PKR on the FUEL basis (tandoor_payback: the gas the sun displaces, over --years) instead of --value's roti-price basis; payback months are reported either way")
+    ap.add_argument("--fuel", default="lpg", choices=("lpg", "gas"), help="what the shop burns today (payback basis)")
+    ap.add_argument("--gas", type=float, default=3_900.0, help="Sui gas PKR/MMBTU if --fuel gas (commercial 3,900; the tandoor category is subsidised)")
+    ap.add_argument("--demand", type=float, default=600.0, help="rotis/day the shop sells today (the fuel the sun can displace scales with the share of it the machine bakes)")
+    ap.add_argument("--frontier-days", default="172,355", help="days the frontier's light objectives are traced on (perfect tracking, the optics ladder)")
+    ap.add_argument("--goal-light", type=float, default=0.0, help="frontier admissibility: traced kW at or above this on every frontier day")
+    ap.add_argument("--goal-rotis", type=float, default=0.0, help="frontier admissibility: rotis at or above this")
+    ap.add_argument("--frontier-budget", type=float, default=700_000.0, help="frontier admissibility: kit at or below this [PKR]")
+    ap.add_argument("--no-ladder", action="store_true", help="skip the light objectives (rotis and cost only)")
+    ap.add_argument("--lean-check", action="store_true", help="cross-check the frontier against the proved program (`lake exe frontier`, ~/manifold-pareto/lean)")
+    ap.add_argument("--frontier-every", type=int, default=5, help="print the running frontier (top 5) every N simulations; 0 = only at the end")
     ap.add_argument("--out", default="/private/tmp/claude-501/-Users-faezs-ARTIST/40abdad5-aefb-4c8a-a67b-a45db67e0f41/scratchpad/design_mcts.json")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
     SITE_U["over_cap"] = float(args.over_cap)      # pin the neighbours' tolerance with the rest of the site
     for _nm in ORDER:
         assert (NBIN * args.k) % nbin_of(_nm) == 0, f"--k {args.k}: {NBIN*args.k} agents do not split {nbin_of(_nm)} ways for {_nm}"
-    sim = Sim(args.ckpt, NBIN * args.k, args.day, args.seasoned, shell=args.shell)
+    sim = Sim(args.ckpt, NBIN * args.k, args.day, args.seasoned, shell=args.shell, afternoon=args.afternoon, seed=args.seed, site_weather=args.site_weather)
     roof_m = float(sim.e._roof_quantile(args.site))
-    print(f"MCTS over the design: site p{args.site*100:.0f} (roof half-width {roof_m:.1f} m), day {args.day}{' seasoned %d' % args.seasoned if args.seasoned > 1 else ' cold'}, "
+    # THE FRONTIER (2026-09-11): every kit the tree evaluates is kept with its oriented valuations -
+    # traced kW on the frontier days, the scored rotis, minus the kit's price - and the report is the
+    # Pareto frontier (tandoor_frontier / Marcolli), not only the scalar the tree climbs.
+    from tandoor_frontier import Ledger
+    _fdays = [int(x) for x in args.frontier_days.split(",") if x.strip()] if not args.no_ladder else []
+    ledger = Ledger([f"kW_d{d}" for d in _fdays] + ["rotis_lunch" if args.afternoon else "rotis", "neg_PKR"])
+    _run0 = sim.run
+    def _run_logged(u):
+        rot = _run0(u)
+        lights = [sim.ladder(u, d) for d in _fdays]
+        D = designs_of(sim, u); caps = [C.capital(d)["total"] for d in D]
+        for i in range(len(rot)):
+            ledger.add(f"k{len(ledger.rows)}", [float(l[i]) for l in lights] + [float(rot[i]), -float(caps[i])],
+                       meta={k: (float(v) if isinstance(v, (int, float, np.floating)) else v) for k, v in D[i].items()})
+        return rot
+    sim.run = _run_logged
+    print(f"MCTS over the design: site p{args.site*100:.0f} (roof half-width {roof_m:.1f} m), {'the LUNCH RUSH 11-16 h after its own morning from a 400 K dawn, ' if args.afternoon else ''}day {args.day if args.day > 0 else 'random per batch'}{' seasoned %d' % args.seasoned if args.seasoned > 1 else (' cold' if not args.afternoon else '')}, "
           f"{args.sims} simulations x {NBIN} children x {args.k} completions", flush=True)
     root = Node(()); gbest = (-1e18, None, 0.0); t0 = time.time(); scale = 100.0
-    unit, lab = (1e3, "k PKR net") if args.value else (1.0, "bread-rotis" if args.priced else "rotis")
-    obj_s = (f"NET VALUE [PKR]: bread-weighted rotis x {args.roti_pkr:.0f} PKR x {args.days:.0f} days x {args.years:.0f} yr, minus the kit"
+    unit, lab = (1e3, "k PKR net (fuel)") if args.payback else (1e3, "k PKR net") if args.value else (1.0, "bread-rotis" if args.priced else "rotis")
+    obj_s = (f"NET VALUE on the FUEL basis [PKR]: the {args.fuel} bill the sun displaces x {args.days:.0f} days x {args.years:.0f} yr, minus upkeep and the kit (tandoor_payback)"
+             if args.payback else
+             f"NET VALUE [PKR]: bread-weighted rotis x {args.roti_pkr:.0f} PKR x {args.days:.0f} days x {args.years:.0f} yr, minus the kit"
              if args.value else
              f"{'bread-weighted rotis' if args.priced else 'rotis'} on the last day, kit within {args.budget/1e3:.0f}k PKR (1 roti per 50 PKR over)")
     print(f"  objective: {obj_s}; site: {', '.join(f'{k} u={v}' for k, v in SITE_U.items())}", flush=True)
@@ -226,6 +288,11 @@ if __name__ == "__main__":
         desc = " > ".join(f"{ORDER[pi]}:{blab(ORDER[pi], b)}" for pi, b in node.path) or "root"
         kid_s = ", ".join(f"{blab(ORDER[len(ch.path)-1], ch.path[-1][1])} {ch.W/unit:.0f}" for ch in kids) if kids else "leaf re-eval"
         print(f"  sim {s_:2d}: expand [{desc}] -> {ORDER[len(node.path)] if kids else ''} {kid_s}; batch mean {r.mean()/unit:.0f}, best so far {gbest[0]/unit:.0f} {lab}  [{time.time()-t0:.0f} s]", flush=True)
+        if args.frontier_every and s_ % args.frontier_every == 0:
+            _g = [args.goal_light] * len(_fdays) + [args.goal_rotis, -args.frontier_budget]
+            _fr = ledger.frontier(_g)
+            print(f"    running frontier: {len(_fr)} of {len(ledger.rows)} kits; top by light: " + " | ".join(
+                f"{n} " + ", ".join(f"{o}={x:,.0f}" for o, x in zip(ledger.objectives, v)) for n, v, _ in sorted(_fr, key=lambda r: -r[1][0])[:5]), flush=True)
     # report: the greedy path by mean value, and the best single design seen
     node = root; greedy = []
     while node.children:
@@ -240,6 +307,13 @@ if __name__ == "__main__":
           f"{int(d.get('zones',5) or 5)} plenum zone(s), {'tri' if d.get('tri',0) >= 0.5 else 'cass'})")
     print(f"\nbest single design: {gbest[2]:.0f} rotis (day {args.day}{', seasoned day %d' % args.seasoned if args.seasoned > 1 else ''}), kit {cap/1e3:.0f}k PKR"
           + f" ({'within' if cap <= args.budget else 'OVER'} the {args.budget/1e3:.0f}k budget): " + ", ".join((f"{k}={v}" if isinstance(v, str) else f"{k}={v:.2f}") for k, v in d.items()))
+    import tandoor_payback as P
+    _req = float(gbest[2]) * float(d.get("bread_area", 0.12)) / 0.12
+    _pb = {f: float(P.payback_months(cap, _req, fuel=f, gas=args.gas, rotis=args.demand, days=args.days)) for f in ("lpg", "gas")}
+    print(f"payback: {_pb['lpg']:.0f} months on LPG, {_pb['gas']:.0f} on Sui gas at Rs {args.gas:,.0f}/MMBTU  (sun saves {float(P.savings_per_day(_req, 'lpg', rotis=args.demand)):,.0f} / {float(P.savings_per_day(_req, 'gas', gas=args.gas, rotis=args.demand)):,.0f} PKR/day against a {args.demand:.0f}-roti demand)")
     print("bill of materials:\n" + C.bom_text(d, args.budget))
     print(f"evaluated {sim.calls * NBIN * args.k} machines in {time.time()-t0:.0f} s")
-    json.dump(dict(site=args.site, roof_m=roof_m, day=args.day, seasoned=args.seasoned, priced=args.priced, best_score=gbest[0], best_rotis=gbest[2], best_u=bu.tolist(), best_design=d, capital=cap, greedy=greedy, sims=args.sims, k=args.k), open(args.out, "w"), indent=1)
+    _goals = [args.goal_light] * len(_fdays) + [args.goal_rotis, -args.frontier_budget]
+    front = ledger.report(_goals, keys=("tri", "site", "film_m2", "r_duct", "d_strip", "r_bore", "ins_scale", "deck_h"), lean_check=args.lean_check)
+    _fp = ledger.write(args.out.replace(".json", ".frontier.json"), _goals); print(f"frontier written to {_fp} ({len(front)} kits; `lake exe frontier < {_fp}` reproduces it)")
+    json.dump(dict(site=args.site, roof_m=roof_m, day=args.day, seasoned=args.seasoned, priced=args.priced, best_score=gbest[0], best_rotis=gbest[2], best_u=bu.tolist(), best_design=d, capital=cap, payback_months=_pb, greedy=greedy, sims=args.sims, k=args.k), open(args.out, "w"), indent=1)

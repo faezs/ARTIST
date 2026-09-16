@@ -133,13 +133,19 @@ class TandoorEnv(pufferlib.PufferEnv):
                  z_gap=2.6, r_pit=0.42, pivot_drop=1.6, a_mem=2.45,
                  wall_obs=None, insulation=0, load_period=45.0,
                  loaves_per_load=1, roti_kj=45.0, bread_area=0.05,
-                 wall="clay", k_wall=None, rc_wall=None,
+                 wall="clay", k_wall=None, rc_wall=None, shell_t=None, warm_T=None,
                  buf=None):
         # design levers for the 900/day campaign (defaults = current).
         # Ground truth from the real oven: up to 9-10 loaves cook
         # SIMULTANEOUSLY, Afghani-naan sized (~120-140 kJ each, ~3x
         # the generic small roti this env grew up with).
         self.insulation = bool(insulation)
+        # the insulating shell's THICKNESS [m], if the built one is decided (see _build_thermal)
+        self.shell_t = None if shell_t is None else float(shell_t)
+        # the "warm" reset's face-temperature band [K]; None = the seasoned manifold (465-505 K, the
+        # morning face after weeks of daily use). (390, 410) is the carried dawn of an IFB + shell pit
+        # after one night - the scoring afternoons start there (tandoor_design_readout.AFTERNOON)
+        self.warm_T = None if warm_T is None else (float(warm_T[0]), float(warm_T[1]))
         # WALL MATERIAL (floor + walls are one spherical shell): the
         # liner (1.5 cm face), substrate (5 cm) and deep (10 cm) shells
         # take k and rho*cp from the preset; the soil halo is unchanged.
@@ -536,10 +542,24 @@ class TandoorEnv(pufferlib.PufferEnv):
         self.g_halo_out = 4 * np.pi * K_SOIL * r_halo
         self.c_halo = 1500 * 1200 * shell(rf3, r_halo)
         if self.insulation:
-            # 10 cm glass-wool annulus (k=0.05) between clay and soil:
-            # R_ins ~ 0.27 K/W in series with the 0.105 K/W spreading
-            # path -> deep->halo conductance drops to ~28%
-            self.g2s = self.g2s * 0.28
+            # THE SHELL (2026-09-11). The 0.28 that sat here was a PLANAR estimate - a
+            # 10 cm glass-wool annulus's t/(k A) taken on the pit's INNER wall area -
+            # but the annulus sits at r = rf3 .. rf3 + t on a sphere, where the area is
+            # 4 pi ra rb (27 m2, not 20), so the same 10 cm is worth a 0.35 factor in
+            # the spherical series shell_spec / the design table use, 0.39 in perlite.
+            # 0.28 is 17 cm of perlite (5 m3) or 14 cm of glass wool. shell_t (m) says
+            # which shell is built and the factor follows from the series, the same
+            # series that prices it; with no shell_t the legacy 0.28 stays, so a cook
+            # run's physics does not move until the built shell is decided.
+            t_sh = getattr(self, "shell_t", None)
+            if t_sh is None:
+                self.ins_factor = 0.28
+            else:
+                k_sh = SHELL_MATERIALS[getattr(self, "shell", "glasswool")][0]
+                R_no = 1 / gsph(K_CLAY, r0 + 0.115, rf3) + 1 / gsph(K_SOIL, rf3, r_halo)
+                R_sh = 1 / gsph(k_sh, rf3, rf3 + float(t_sh))
+                self.ins_factor = float(R_no / (R_no + R_sh))
+            self.g2s = self.g2s * self.ins_factor
 
         # 8 cm fiber backfill (honest-yield redesign): 0.06/0.08
         self.r_soil = 1.0 / (0.7 * self.node_area)
@@ -561,7 +581,8 @@ class TandoorEnv(pufferlib.PufferEnv):
         # temperature no overnight preserves - off-manifold - and the
         # interim 405-470 K draw was read off a sim the env's own
         # day-over reset was stomping (under-seasoned, band-unreachable).
-        base_T = np.where(warm, self.rng.uniform(465, 505, B),
+        _wlo, _whi = self.warm_T if getattr(self, "warm_T", None) is not None else (465.0, 505.0)
+        base_T = np.where(warm, self.rng.uniform(_wlo, _whi, B),
                           350.0 + self.rng.uniform(-15, 15, B))
         self.T = np.repeat(base_T[:, None], self.n_nodes, axis=1)
         self.T += self.rng.uniform(-15, 15, (B, self.n_nodes))

@@ -48,7 +48,7 @@ def _step_params(env):
     dt = float(env.dt)
     M = env._noz2["M"] if getattr(env, "_noz2", None) else (0.0,) * 3
     N = env.n_nodes
-    sp = np.zeros(72 + 7 * N, dtype=np.float32)
+    sp = np.zeros(84 + 7 * N, dtype=np.float32)
     # the three-mirror machine turns M3 with the head the elbow used to steer, so its
     # travel is the mirror's, not the elbow's
     # ...and the travel is PER AGENT now (a batch can hold both machines), so
@@ -87,11 +87,14 @@ def _step_params(env):
     sp[64] = float(getattr(env, "lost_deg", 3.0))       # guillotine threshold (deg)
     sp[65] = float(getattr(env, "enc_clamp", 3.0))      # pointing encoder clamp
     sp[71] = float(getattr(env, "inlet_esc", 1.0))       # the beam inlet's escape fraction
+    sp[81] = 1.0 if getattr(env, "_sw_tab", None) is not None else 0.0   # the site's recorded day (buffer 17 of step_pre) replaces the clear-sky x cloud beam
+    if sp[81] > 0.5: sp[12] = 1.0                                          # ...and its wind is already the wind AT THE DISH through the neighbourhood: no constant wall_shelter on top
     for i, v in enumerate((env.node_area, env.node_heat_cap,
                            env.cap_sub, env.cap_deep, env.g01,
                            env.g12, env.g2s)):
-        sp[72 + i * N:72 + (i + 1) * N] = v
-    # the demand process (kernel sp[66..70]); [71] the inlet; the node tables start at 72
+        sp[84 + i * N:84 + (i + 1) * N] = v
+    # the demand process (kernel sp[66..70]); [71] the inlet; [72..80] the demand bands; the node tables start at 84 (SPX)
+    sp[72:81] = np.asarray(getattr(env, "demand_bands", ((7.5, 0.75, 0.25), (13.0, 1.0, 0.35), (19.5, 1.0, 0.40))), dtype=np.float32).ravel()
     sp[66] = float(getattr(env, "demand", 0))            # on/off
     sp[67] = float(getattr(env, "demand_day", 500.0))    # base rotis/day (x the site's demand_scale, table col 56)
     sp[68] = float(getattr(env, "shelf_life", 45.0))     # minutes a baked roti keeps
@@ -165,6 +168,9 @@ class FusedState:
         self.day_v = f(e.day_v)
         self.lat_v = f(e.lat_v)
         self.soil = f(e.soil)
+        # the site's recorded day per agent (B, 3x24: DNI, wind, gust by local hour); zeros when off
+        _swt = getattr(e, "_sw_tab", None)
+        self.site = f(np.ascontiguousarray(_swt[:, :3]).reshape(B, -1)) if _swt is not None else torch.zeros(B, 72, dtype=torch.float32, device=dev)
         self.off = f(e.bore)                       # bore state
         self.bore = self.off
         # kernel outputs / trace inputs, persistent
@@ -277,7 +283,7 @@ def fused_full_step(env, actions):
     rn, ru = F.draw()
     lib.step_pre(F.lv, F.st, a32, rn, ru, F.sp, F.ip, aux, F.day_v,
                  F.lat_v, env._mnt_prm, F.sigb, F.dvec, F.off, F.aim,
-                 F.per, env._fct)
+                 F.per, env._fct, F.site)
     if getattr(env, "_det_trace", False):
         du = de = F._du0
         upick = us = F._up5
@@ -368,6 +374,9 @@ def _day_over(env, F, infos):
         if env.lat_random:
             env.lat_v[:] = env.rng.uniform(15.0, 35.0, B)
             env.lat = float(env.lat_v[0])
+    if getattr(env, "_sw", None) is not None:
+        # the site's recorded day for tomorrow (a new site on a control draw); writes F.site
+        env._sw_draw(new_sites=not (getattr(env, "night_carry", 0) and getattr(env, "consecutive_days", 1)))
     S.day_v.copy_(torch.as_tensor(env.day_v.astype(np.float32),
                                   device=dev))
     S.lat_v.copy_(torch.as_tensor(env.lat_v.astype(np.float32),

@@ -58,14 +58,15 @@ static inline bool hits_column(float px, float py, float pz,
 #define KSAND 8   // layers of the sand column under the hearth and the floor (>= 5 cm each)
 #define RU 20     // uniforms per agent per step: [0] cloud, [1..15] fresh-pot temps, [16..19] the demand process
 #define NDEM 3    // demand state per agent at the row's end: orders waiting, rotis on the shelf, sold today
-#define SPX 72    // the per-node thermal tables start here in sp; [66] demand on, [67] rotis/day, [68] shelf life min, [69] patience min, [70] stale penalty, [71] inlet escape
-inline float demand_rate(float t, float dem_day) {
+#define SPX 84    // the per-node thermal tables start here in sp; [66] demand on, [67] rotis/day, [68] shelf life min, [69] patience min, [70] stale penalty, [71] inlet escape, [72..80] the demand bands (c, sigma, share) x 3
+inline float demand_rate(float t, float dem_day, device const float* bd) {
     // customers per hour: three bands, breakfast / lunch / dinner, Gaussian
     // bumps in solar hours whose shares sum to one, scaled by the shop's
-    // daily demand (rotis/day)
-    const float c[3] = {7.5f, 13.0f, 19.5f}, w[3] = {0.75f, 1.0f, 1.0f}, sh[3] = {0.25f, 0.35f, 0.40f};
+    // daily demand (rotis/day). bd = sp[72..80]: (centre h, sigma h, share) x 3,
+    // the env's demand_bands (2026-09-11: the lunch rush is a setting, not a constant)
     float r = 0.0f;
-    for (int i = 0; i < 3; i++) { float z = (t - c[i])/w[i]; r += sh[i]/(w[i]*2.5066283f)*exp(-0.5f*z*z); }
+    for (int i = 0; i < 3; i++) { const float c = bd[3*i], w = max(bd[3*i+1], 1e-3f), sh = bd[3*i+2];
+                                  float z = (t - c)/w; r += sh/(w*2.5066283f)*exp(-0.5f*z*z); }
     return dem_day * r;
 }
 #define SAND_RC 1.28e6f
@@ -1126,7 +1127,7 @@ kernel void tandoor_trace(
 //   40 SPOT_PHI0 41 SPOT_Z0 42 dt_h 43 T_AMB 44 c_cloud 45 c_windg
 //   46 c_bore 47 p_collapse 48 dt/900 49 dt/600 50 dt/300
 //   51 ap_area 52 a_tot 53 bread_area 54..60 level_frac[7]
-//   61 loaves_per_load 62 load_ctrl 71 inlet_esc
+//   61 loaves_per_load 62 load_ctrl 71 inlet_esc 81 site_weather (step_pre buffer 17)
 //   63.. node_area[N] heat_cap[N] cap_sub[N] cap_deep[N]
 //        g01[N] g12[N] g2s[N]
 // ip: 0 B 1 N 2 NB 3 NH 4 NS 5 OD 6 tick (host-written per step)
@@ -1151,6 +1152,7 @@ kernel void step_pre(
     device float*       aim   [[buffer(14)]],  // (B,3)
     device float*       per   [[buffer(15)]],  // (B,N) zeroed here
     device const float* fct   [[buffer(16)]],  // (B,FCTW) per-env design: [44] rate scale [53] f_nom
+    device const float* site  [[buffer(17)]],  // (B,72) THE SITE'S RECORDED DAY: [0..24) DNI W/m2 by local hour (mean over the hour), [24..48) 10 m wind at the hour, [48..72) 3 s gust; read when sp[81] > 0.5
     uint b [[thread_position_in_grid]])
 {
     if ((int)b >= ip[0]) return;
@@ -1238,14 +1240,28 @@ kernel void step_pre(
         + 3.5f*sin(PI_*clamp((ts - 8.0f)/8.0f, 0.0f, 1.0f));
     float wg = s[S0+19] - s[S0+19]*sp[49] + sp[45]*rb[4];
     s[S0+19] = wg;
-    float wind = clamp((base_w + wg)*sp[12], 0.0f, 25.0f);
+    // THE SITE'S RECORDED DAY (sp[81]): the wind's mean is the record's at this hour and
+    // its gustiness scales the OU term; the beam is the record's, read at h - 0.5 because
+    // the record's hour h is the mean over [h, h+1). Same read as tandoor_site_weather.sw_interp24.
+    float sw_gsc = 1.0f, sw_dni = 0.0f;
+    const bool sw_on = sp[81] > 0.5f;
+    if (sw_on) {
+        device const float* sw = site + b*72;
+        float hw = clamp(ts, 0.0f, 23.0f); int iw = min((int)floor(hw), 22); float fw = hw - (float)iw;
+        float sw_u = sw[24+iw]*(1.0f-fw) + sw[24+iw+1]*fw;
+        float sw_g = sw[48+iw]*(1.0f-fw) + sw[48+iw+1]*fw;
+        base_w = sw_u; sw_gsc = clamp((sw_g - sw_u)/5.4f, 0.2f, 2.0f);
+        float hd = clamp(ts - 0.5f, 0.0f, 23.0f); int id = min((int)floor(hd), 22); float fd = hd - (float)id;
+        sw_dni = sw[id]*(1.0f-fd) + sw[id+1]*fd;
+    }
+    float wind = clamp((base_w + wg*sw_gsc)*sp[12], 0.0f, 25.0f);
     bool stw = ((s[S0+26] > 0.5f) || (wind > 16.0f))
                && !(wind < 14.0f);
     s[S0+26] = stw ? 1.0f : 0.0f;
     s[S0+25] = wind;
     float day_up = (el0 > 8.0f) ? 1.0f : 0.0f;
     float cosw = day_up * sp[16];   // (not 'cosf': CUDA math name)
-    float dni = clearw * exp(cl) * day_up * (stw ? 0.0f : 1.0f);
+    float dni = (sw_on ? sw_dni : clearw * exp(cl)) * day_up * (stw ? 0.0f : 1.0f);
     s[S0+24] = dni;
     // ---- wind -> figure, jam-gated
     float qw = 0.6f * wind * wind;
@@ -1480,7 +1496,7 @@ kernel void step_post(
         // the rest a family's ten, one in ten a lunch or dinner of thirty
         // (mean 8.5); customers/day = rotis/day / 8.5, at most one a step
         const float ts_ = mprm[0] + sp[42];
-        const float lam_c = demand_rate(ts_, sp[67]*ds[56]/8.5f) * dt/3600.0f;
+        const float lam_c = demand_rate(ts_, sp[67]*ds[56]/8.5f, sp + 72) * dt/3600.0f;
         const float u1 = ru[b*RU+16], u2 = ru[b*RU+17];
         const float size = (u2 < 0.5f) ? 3.0f : ((u2 < 0.9f) ? 10.0f : 30.0f);
         const float arr = (u1 < lam_c) ? size : 0.0f;

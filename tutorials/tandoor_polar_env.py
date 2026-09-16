@@ -97,6 +97,20 @@ def _rot_a_to_b(a, b):
 
 
 
+
+def parse_demand_bands(spec, default):
+    """"c:w:share, c:w:share, c:w:share" (hours, hours, fraction) or a (3,3) sequence -> tuple of 3 tuples,
+    shares renormalised to one."""
+    if spec is None:
+        return tuple(tuple(map(float, b)) for b in default)
+    if isinstance(spec, str):
+        bands = [tuple(float(x) for x in part.split(":")) for part in spec.split(",") if part.strip()]
+    else:
+        bands = [tuple(float(x) for x in b) for b in spec]
+    assert len(bands) == 3 and all(len(b) == 3 for b in bands), f"demand_bands wants three c:w:share triples, got {spec!r}"
+    tot = sum(b[2] for b in bands)
+    return tuple((c, w, sh / tot) for c, w, sh in bands)
+
 def level_of(x, level_frac):
     """The membrane LEVEL for pressure ratio x = p_eff / p0 (numpy or torch, any shape):
     piecewise-linear against the ladder level_frac the figure rows were solved at, exactly
@@ -338,11 +352,15 @@ class TandoorPolarEnv(TandoorEnv):
         return getattr(self, name, default)
 
     # ---- THE CUSTOMERS (numpy twin of the kernel's demand process)
-    @staticmethod
-    def demand_rate(t, dem_day):
-        """customers per hour: three bands (breakfast / lunch / dinner)."""
+    #: the day's customers as three Gaussian bands (centre h, sigma h, share): breakfast, lunch, dinner.
+    #: demand_bands="7.5:0.75:0.25, 13.0:1.0:0.35, 19.5:1.0:0.40" overrides (shares are renormalised);
+    #: the kernel reads the same nine numbers from sp[72..80].
+    DEMAND_BANDS = ((7.5, 0.75, 0.25), (13.0, 1.0, 0.35), (19.5, 1.0, 0.40))
+
+    def demand_rate(self, t, dem_day):
+        """customers per hour: the three bands of self.demand_bands."""
         t = np.asarray(t, dtype=np.float64); r = 0.0
-        for c, w, sh in ((7.5, 0.75, 0.25), (13.0, 1.0, 0.35), (19.5, 1.0, 0.40)):
+        for c, w, sh in (getattr(self, "demand_bands", None) or self.DEMAND_BANDS):
             z = (t - c) / w; r = r + sh / (w * 2.5066283) * np.exp(-0.5 * z * z)
         return dem_day * r
 
@@ -628,7 +646,7 @@ class TandoorPolarEnv(TandoorEnv):
         B = self.num_agents
         self.jammed = np.ones(B, dtype=bool)
         self.f_locked = np.full(B, self.p0)     # pressure frozen at jam
-        self.decl_formed = np.full(B, self._decl())
+        self.decl_formed = 23.44 * np.sin(2.0 * np.pi * (284.0 + np.asarray(self.day_v, dtype=np.float64)) / 365.0)   # per agent: the batch may span the year
         self.form_time = np.zeros(B)            # steps spent soft today
         # sticky-engagement latches, as raw action values: level 4 is
         # level_frac 1.00 (p_set = p0), 6 > thr on shutter and jam -
@@ -740,6 +758,17 @@ class TandoorPolarEnv(TandoorEnv):
         el0, az0, svec = _sim.solar_position(self.lat, self.day,
                                              float(self.t_solar[0]))
         clear = _sim.clear_sky_dni(el0)
+        # THE SITE'S OWN WEATHER (tandoor_site_weather): with a recorded day per agent on
+        # file (_sw_tab (B,3,24): DNI, 10 m wind, gust by local solar hour) the beam is the
+        # record's and the wind's mean is the record's, its gustiness scaling the OU term;
+        # the lognormal cloud below is then inert. Same read as the kernel (sw_interp24).
+        _swt = getattr(self, "_sw_tab", None)
+        if _swt is not None:
+            from tandoor_site_weather import sw_interp24 as _sw24
+            _ts = float(self.t_solar[0])
+            _sw_dni = _sw24(_swt[:, 0], _ts - 0.5)
+            _sw_u = _sw24(_swt[:, 1], _ts); _sw_g = _sw24(_swt[:, 2], _ts)
+            _sw_gsc = np.clip((_sw_g - _sw_u) / 5.4, 0.2, 2.0)     # 3 s gust ~ U + 3 sigma; the OU's own sigma is 1.8
         tau_c = 900.0
         self.cloud += (-self.cloud / tau_c * self.dt
                        + self.rng.normal(
@@ -752,14 +781,20 @@ class TandoorPolarEnv(TandoorEnv):
         self.wind_g += (-self.wind_g / 600.0 * self.dt
                         + self.rng.normal(
                             0, 1.8 * np.sqrt(2 * self.dt / 600.0), B))
-        self.wind = np.clip((base_w + self.wind_g) * self.wall_shelter,
-                            0, 25)
+        if _swt is not None:
+            self.wind = np.clip(_sw_u + self.wind_g * _sw_gsc, 0, 25)          # the table is the wind at the dish (neighbourhood): no wall_shelter
+        else:
+            self.wind = np.clip((base_w + self.wind_g) * self.wall_shelter,
+                                0, 25)
         # a jammed pouch is a shell: it can ride out far more wind before
         # stowing than a pressure-held membrane
         self.stowed = (self.stowed | (self.wind > 16.0)) & ~(self.wind < 14.0)
         cosf = self._cosine(self._decl()) if el0 > 8.0 else 0.0
         self._cos_now = cosf
-        self.dni = clear * np.exp(self.cloud) * (el0 > 8.0) * ~self.stowed
+        if _swt is not None:
+            self.dni = _sw_dni * (el0 > 8.0) * ~self.stowed
+        else:
+            self.dni = clear * np.exp(self.cloud) * (el0 > 8.0) * ~self.stowed
 
         # --- wind -> figure, gated by the jam state -------------------- #
         q_w = 0.6 * self.wind**2
@@ -1033,7 +1068,7 @@ class TandoorPolarEnv(TandoorEnv):
                 self._hold_j[i] = 6
                 self.form_time[i] = 0.0
                 if not getattr(self, "night_carry", 0):
-                    self.decl_formed[i] = self._decl()    # fresh machine; with the carry-over the figure persists
+                    self.decl_formed[i] = 23.44 * np.sin(2.0 * np.pi * (284.0 + float(self.day_v[i])) / 365.0)    # fresh machine, ITS day; with the carry-over the figure persists
                 self.p_dist[i] = 0.0
                 self.shutter[i] = 1.0
                 self.wind_g[i] = 0.0

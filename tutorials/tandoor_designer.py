@@ -54,9 +54,13 @@ def kits_to_u(site_u, z):
 
 
 class Sim:
-    def __init__(self, ckpt, B, seasoned, receiver="cass"):
+    def __init__(self, ckpt, B, seasoned, receiver="cass", afternoon=False, seed=0, site_weather="quetta"):
         self.pol = Policy(torch.load(ckpt, map_location="cpu", weights_only=False))
-        kw = env_kwargs(B, night_carry=int(seasoned > 1), receiver=receiver); kw.update(dict(design_rand=1))
+        from tandoor_design_readout import AFTERNOON, AFTERNOON_WARM_T
+        kw = env_kwargs(B, night_carry=int(seasoned > 1), receiver=receiver,
+                        window=AFTERNOON if afternoon else None, warm_frac=1.0 if afternoon else 0.0,
+                        warm_T=AFTERNOON_WARM_T if afternoon else None, site_weather=site_weather); kw.update(dict(design_rand=1))
+        self.afternoon = afternoon; self.rng = np.random.default_rng(seed)
         with contextlib.redirect_stdout(io.StringIO()):
             self.e = TandoorHashemiEnv(**kw)
         self.B, self.seasoned = B, seasoned; self.nh, self.nv = self.e.N_HEADS, int(self.e.single_action_space.nvec[0]); self.calls = 0
@@ -65,7 +69,7 @@ class Sim:
         e = self.e; e.set_design_points(u); e.day = 172; e.lat = 30.2
         with contextlib.redirect_stdout(io.StringIO()):
             e.reset(seed=7)
-        e.day_v[:] = 172; e.lat_v[:] = 30.2; S = FusedState(e); e._gpu = S; self.pol.reset(self.B)
+        e.day_v[:] = 172; e.lat_v[:] = 30.2; e._sw_refresh(mean=True); S = FusedState(e); e._gpu = S; self.pol.reset(self.B)
         a = torch.full((self.B, self.nh), 3, dtype=torch.long, device=DEV); o, *_ = e.step_torch(a)
         with torch.no_grad():
             _, v = self.pol.step(o, self.nh, self.nv)
@@ -85,31 +89,39 @@ class Sim:
         e = self.e; e.set_design_points(u); e.day = day; e.lat = 30.2
         with contextlib.redirect_stdout(io.StringIO()):
             e.reset(seed=7)
-        e.day_v[:] = day; e.lat_v[:] = 30.2
+        e.day_v[:] = day; e.lat_v[:] = 30.2; e._sw_refresh(mean=True)
         S = FusedState(e); e._gpu = S
         return ladder_day(e, S, day, noise=True)
 
     def rollout(self, u, day=172):
-        """sold rotis on the last of `seasoned` days for B machines."""
+        """sold rotis on the last of `seasoned` days for B machines - or, scoring afternoons, the
+        lunch rush 11:00-16:00 of one random day after the kit's own morning from the carried dawn
+        (tandoor_design_readout.AFTERNOON; the reasoning is there)."""
+        from tandoor_design_readout import AFTERNOON_SCORE_FROM
+        if self.afternoon: day = int(self.rng.integers(1, 366))
+        seed = 1 + self.calls; self.calls += 1
         e = self.e; e.set_design_points(u); e.day = day; e.lat = 30.2
         with contextlib.redirect_stdout(io.StringIO()):
-            e.reset(seed=1 + self.calls)
-        e.day_v[:] = day; e.lat_v[:] = 30.2; S = FusedState(e); e._gpu = S; self.pol.reset(self.B); torch.manual_seed(1 + self.calls)
-        a = torch.full((self.B, self.nh), 3, dtype=torch.long, device=DEV); o, *_ = e.step_torch(a); last = S.day_rotis.clone(); days = 0
+            e.reset(seed=seed)
+        e.day_v[:] = day; e.lat_v[:] = 30.2; e._sw_refresh(mean=False); S = FusedState(e); e._gpu = S; self.pol.reset(self.B); torch.manual_seed(seed)
+        a = torch.full((self.B, self.nh), 3, dtype=torch.long, device=DEV); o, *_ = e.step_torch(a); last = S.day_rotis.clone(); days = 0; mark = None
         with torch.no_grad():
             for t in range(4000 * self.seasoned):
                 act, _ = self.pol.step(o, self.nh, self.nv); o, r, d, tr, _ = e.step_torch(act)
+                if self.afternoon and mark is None and float(e.t_solar[0]) >= AFTERNOON_SCORE_FROM:
+                    mark = S.day_rotis.clone()
                 if d.reshape(-1).any():
                     days += 1
                     if days >= self.seasoned: break
                     continue
                 last = S.day_rotis.clone()
-        self.calls += 1
-        return last.cpu().numpy()
+        rot = last - (mark if (self.afternoon and mark is not None) else 0.0)
+        return rot.cpu().numpy()
 
 
-def priced(sim, u, sold, budget):
-    """the search's objective: sold rotis, one off per 50 PKR over the budget."""
+def priced(sim, u, sold, budget, payback=False, fuel="lpg", gas=3_900.0, demand=500.0):
+    """the search's objective: sold rotis, one off per 50 PKR over the budget - or, with payback=True,
+    minus the months the kit takes to earn itself back on the fuel it displaces (tandoor_payback)."""
     e = sim.e; cap = []
     rows = e._rows_from_u(np.asarray(u, dtype=np.float64))          # the design table's own derivation: scale, film, rim, rise, site
     for b in range(u.shape[0]):
@@ -127,7 +139,12 @@ def priced(sim, u, sold, budget):
         # the insulating shell in the env's material, at this design's ins_scale (the bill prices the annulus)
         _t, _v, _c = e.shell_spec(d["ins_scale"]); d["shell_name"] = e.shell; d["shell_t"] = float(_t); d["shell_m3"] = float(_v)
         cap.append(C.capital(d)["total"])
-    cap = np.array(cap); return sold - 0.02 * np.maximum(cap - budget, 0.0), cap
+    cap = np.array(cap)
+    if payback:
+        import tandoor_payback as P
+        pb = P.payback_months(cap, np.asarray(sold, dtype=np.float64), fuel=fuel, gas=gas, rotis=demand)
+        return -np.minimum(pb, 600.0), cap                       # months, capped: a kit that earns nothing is "50 years"
+    return sold - 0.02 * np.maximum(cap - budget, 0.0), cap
 
 
 if __name__ == "__main__":
@@ -137,6 +154,12 @@ if __name__ == "__main__":
     # nothing was ever affordable, the "within budget" shortlist always fell through to
     # "the cheapest over-budget ones", and the designer ranked kits by cheapness alone
     ap.add_argument("--budget", type=float, default=700000.0)
+    ap.add_argument("--goal-light", type=float, default=0.0); ap.add_argument("--goal-rotis", type=float, default=0.0)
+    ap.add_argument("--lean-check", action="store_true", help="cross-check the frontier against the proved program (`lake exe frontier`)")
+    ap.add_argument("--payback", action="store_true", help="rank the cook generations by payback months on the fuel the sun displaces (tandoor_payback) instead of sold rotis with a budget cliff")
+    ap.add_argument("--afternoon", action="store_true", help="score each cook generation on ONE randomly drawn afternoon (11-16 h, seasoned pit) instead of whole days")
+    ap.add_argument("--fuel", default="lpg", choices=("lpg", "gas")); ap.add_argument("--gas", type=float, default=3_900.0); ap.add_argument("--demand", type=float, default=600.0)
+    ap.add_argument("--site-weather", default="quetta", help="the site's recorded ERA5 days ('quetta' or a pool JSON); '' for the clear-sky formula")
     ap.add_argument("--bootstrap-gens", type=int, default=2, dest="boot_gens",
                     help="lead generations scored on TRACED kW instead of sold rotis: the cook's critic cannot "
                          "rank designs it has never seen, so the shortlist is random and the rollouts come back "
@@ -153,13 +176,15 @@ if __name__ == "__main__":
     des = Designer().to(DEV)
     if args.load: des.load_state_dict(torch.load(args.load, map_location=DEV))
     opt = torch.optim.Adam(des.parameters(), lr=3e-3)
-    sim = Sim(args.ckpt, B=args.cand, seasoned=args.seasoned, receiver=args.receiver)
+    sim = Sim(args.ckpt, B=args.cand, seasoned=args.seasoned, receiver=args.receiver, afternoon=args.afternoon, site_weather=args.site_weather)
     # the site's coordinates in SITE_KEYS order: roof percentile, pit wall, shop demand, the
     # neighbours' tolerance, the roof's construction, the mains
     _site = dict(roof_r=None, cap_scale=0.375, demand_scale=1 / 3, over_cap=args.over_cap,
                  roof_light=args.roof_light, grid=args.grid, **TandoorHashemiEnv.site_nominal_u())   # roof az, pit, horizon: the nominal site
     sites = [tuple((float(r) if k == "roof_r" else _site[k]) for k in SITE) for r in args.sites.split(",")]
     pop = {"names": NAMES, "site_keys": SITE, "kit_index": I_KIT, "sites": {}}
+    from tandoor_frontier import Ledger
+    ledger = Ledger(["kW_d172", "rotis_lunch" if args.afternoon else "rotis", "neg_PKR"])          # every cook-generation shortlist kit: light, sold, price
     t0 = time.time()
     for g in range(args.gens):
         for su in sites:
@@ -187,9 +212,13 @@ if __name__ == "__main__":
                 keep = np.argsort(-v0m)[:args.top]                     # the critic's shortlist, within the budget
                 # 3. the real rollout of the shortlist (batched: the shortlist tiled to B)
                 reps = int(np.ceil(args.cand / len(keep))); uu = np.tile(u[keep], (reps, 1))[:args.cand]
-                sold = sim.rollout(uu); score, cap = priced(sim, uu, sold, args.budget)
-                sc = np.zeros(len(keep)); cp = np.zeros(len(keep))
-                for j in range(len(keep)): sel = np.arange(j, args.cand, len(keep)); sc[j] = score[sel].mean(); cp[j] = cap[sel].mean()
+                sold = sim.rollout(uu); score, cap = priced(sim, uu, sold, args.budget, payback=args.payback, fuel=args.fuel, gas=args.gas, demand=args.demand)
+                sc = np.zeros(len(keep)); cp = np.zeros(len(keep)); sd = np.zeros(len(keep))
+                for j in range(len(keep)): sel = np.arange(j, args.cand, len(keep)); sc[j] = score[sel].mean(); cp[j] = cap[sel].mean(); sd[j] = sold[sel].mean()
+                lad_k = sim.ladder(np.tile(u[keep], (reps, 1))[:args.cand])[:len(keep)]      # the shortlist's optics, for the frontier
+                for j in range(len(keep)):
+                    kit_j = {NAMES[i]: float(lo + u[keep[j], i] * (hi - lo)) for i, (k, lo, hi) in enumerate(BOX)}
+                    ledger.add(f"g{g}_p{su[0]*100:.0f}_{j}", [float(lad_k[j]), float(sd[j]), -float(cp[j])], meta=kit_j)
             # 4. the designer moves toward the search's winners (weighted max-likelihood)
             w = np.exp((sc - sc.max()) / max(sc.std(), 1.0)); w /= w.sum()
             zk = z[keep]; wt = torch.tensor(w, dtype=torch.float32, device=DEV)
@@ -200,9 +229,13 @@ if __name__ == "__main__":
             kit = {NAMES[i]: float(lo + u[keep[best], i] * (hi - lo)) for i, (k, lo, hi) in enumerate(BOX)}
             pop["sites"][f"{su[0]:.2f}"] = dict(site_u=[float(x) for x in su], mu=mu[0].detach().cpu().numpy().tolist(), log_std=ls[0].detach().cpu().numpy().tolist(),
                                               elite_u=u[keep[np.argsort(-sc)[:8]]].tolist(), best_score=float(sc[best]), best_capital=float(cp[best]))
-            _u = ("traced kW", f"{sc[best]:.2f}", f"{sc.mean():.2f}") if boot else ("sold-rotis", f"{sc[best]:.0f}", f"{sc.mean():.0f}")
+            _u = ("traced kW", f"{sc[best]:.2f}", f"{sc.mean():.2f}") if boot else ("months-to-payback", f"{-sc[best]:.0f}", f"{-sc.mean():.0f}") if args.payback else ("sold-rotis", f"{sc[best]:.0f}", f"{sc.mean():.0f}")
             print(f"gen {g} site p{su[0]*100:.0f} [{'OPTICS' if boot else 'cook'}]: {int((cap0 <= args.budget).sum())}/{args.cand} proposals within budget, "
                   f"shortlist {len(keep)}, best {_u[1]} {_u[0]} at {cp[best]/1e3:.0f}k (mean of shortlist {_u[2]}); "
                   f"prior std now {float(ls.exp().mean()):.2f}; best kit: " + ", ".join(f"{k}={kit[k]:.2f}" for k in ("deck_h", "mount_post", "rate_scale", "ins_scale", "sand_depth", "r_bore", "r_m4", "section", "post_rise", "zones", "m4_facet")) + f"  [{time.time()-t0:.0f} s]", flush=True)
         json.dump(pop, open(args.out, "w"), indent=1); torch.save(des.state_dict(), args.out.replace(".json", ".pt"))
     print("designer population written to", args.out)
+    if ledger.rows:
+        _goals = [args.goal_light, args.goal_rotis, -args.budget]
+        front = ledger.report(_goals, keys=("receiver", "section", "deck_h", "r_duct", "d_strip", "r_bore", "ins_scale"), lean_check=args.lean_check)
+        _fp = ledger.write(args.out.replace(".json", ".frontier.json"), _goals); print(f"frontier written to {_fp} ({len(front)} kits)")

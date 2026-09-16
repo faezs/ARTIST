@@ -15,7 +15,8 @@ for k, v in cp["env"].items():
     except ValueError:
         try: KW[k] = float(v)
         except ValueError: KW[k] = v
-KW.update(num_agents=N, n_rays=128, day_random=0, lat_random=0, design_pop=None)
+KW.update(num_agents=N, n_rays=128, day_random=0, lat_random=0, design_pop=None,
+          site_weather="quetta", site_mean=1, site_days=0)     # the light is per unit DNI (ranking is sky-independent); one site, its average day, deterministic
 with contextlib.redirect_stdout(_io.StringIO()):
     e = TandoorHashemiEnv(**KW); e.reset(seed=11)
 names = [k for k, _, _ in tuple(e.DESIGN_BOX) + tuple(e.SYS_BOX)]
@@ -23,7 +24,7 @@ SITE = list(e.SITE_KEYS); I_SITE = [names.index(k) for k in SITE]; I_KIT = [i fo
 site_fixed = dict(cap_scale=0.375, demand_scale=1 / 3, over_cap=0.5, roof_light=0.0, grid=1.0, **TandoorHashemiEnv.site_nominal_u())
 def logit(u): u = np.clip(u, 1e-4, 1 - 1e-4); return np.log(u / (1 - u))
 def noon_pot(day):
-    e.day = day; e.t_solar[:] = 12.0; e.day_v[:] = float(day); e.lat_v[:] = 30.2
+    e.day = day; e.t_solar[:] = 12.0; e.day_v[:] = float(day); e.lat_v[:] = 30.2; e._sw_refresh()
     el, az, _ = _sim.solar_position(30.2, day, 12.0)
     e.el_m[:] = el; e.az_m[:] = np.degrees(az - e._ds_azs); e._e_el[:] = 0.0; e._e_az[:] = 0.0
     e._det_trace = True

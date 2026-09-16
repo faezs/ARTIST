@@ -37,6 +37,8 @@ class GpuState:
         self.spot_phi = f(e.spot_phi); self.spot_z = f(e.spot_z)
         self.bread_C = f(e.bread_C)
         self.day_v = f(e.day_v); self.lat_v = f(e.lat_v)
+        _swt = getattr(e, "_sw_tab", None)          # the site's recorded day (B,3,24), or None
+        self.site = f(np.ascontiguousarray(_swt[:, :3]).reshape(_swt.shape[0], -1)) if _swt is not None else None
         self.p_dist = f(e.p_dist); self.shutter = f(e.shutter)
         self.cloud = f(e.cloud); self.wind_g = f(e.wind_g)
         self.bore = f(e.bore); self.stowed = bl(e.stowed)
@@ -191,13 +193,26 @@ def gpu_step(env, actions):
     base_w = 2.5 + 3.5*np.sin(np.pi*np.clip((ts - 8.0)/8.0, 0, 1))
     S.wind_g = S.wind_g - S.wind_g/600.0*dt \
         + 1.8*np.sqrt(2*dt/600.0) * S.n(B)
-    wind = ((base_w + S.wind_g) * env.wall_shelter).clamp(0, 25)
+    if getattr(S, "site", None) is not None:
+        # the site's recorded day (numpy twin: sw_interp24; kernel: step_pre)
+        def _sw24(tab, x):
+            x = min(max(x, 0.0), 23.0); i = min(int(np.floor(x)), 22); f = x - i
+            return tab[:, i] * (1.0 - f) + tab[:, i + 1] * f
+        _sw = S.site.view(B, 3, 24)
+        sw_dni = _sw24(_sw[:, 0], ts - 0.5)
+        sw_u = _sw24(_sw[:, 1], ts); sw_g = _sw24(_sw[:, 2], ts)
+        wind = (sw_u + S.wind_g * ((sw_g - sw_u) / 5.4).clamp(0.2, 2.0)).clamp(0, 25)      # the table is the wind at the dish: no wall_shelter
+    else:
+        wind = ((base_w + S.wind_g) * env.wall_shelter).clamp(0, 25)
     S.stowed = (S.stowed | (wind > 16.0)) & ~(wind < 14.0)
     S.wind = wind
     el0 = el0s
     day_up = (el0 > 8.0).float()
     cosf = day_up * float(env._cosine(0.0))
-    dni = clear * torch.exp(S.cloud) * day_up * (~S.stowed).float()
+    if getattr(S, "site", None) is not None:
+        dni = sw_dni * day_up * (~S.stowed).float()
+    else:
+        dni = clear * torch.exp(S.cloud) * day_up * (~S.stowed).float()
     S.dni = dni
 
     # ---- wind -> figure, jam-gated

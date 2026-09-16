@@ -56,6 +56,8 @@ from math import isinf
 from tandoor_hashemi_env import TandoorHashemiEnv
 from tandoor_screw_render import realise, STEEL
 import tandoor_wind_table as WT
+import tandoor_site_wind as SW
+import tandoor_screws as SC
 
 # ---------------------------------------------------------------- the machine, from the design folder
 G_ORB, A_M, RHO_AIR = 4.0, 2.1, 1.03; A_DISH = np.pi*A_M**2; D_DISH = 2*A_M
@@ -128,11 +130,12 @@ SIG_MEM_K = 2.63e-5                                           # rad rms of film 
 # own softening of the film: a tensioned membrane in a stream loses stiffness as q D / T (Tiomkin & Raveh 2017, divergence
 # at T* = T/(q D) ~ 1). At the working area-mean tension 4922 N/m that is 6 % at 12 m/s, 10 % at 15, divergence at 48 m/s.
 T_WORK, D_AERO = 4922.0, 4.2
+FILM_SIG_WORK, FILM_SIG_YIELD = 98.4, 90.0                    # MPa: T_WORK over 50 um of PET at the design pressure, and PET's yield - the film at f 4 is AT yield
 
 
-def film_soften(V):
+def film_soften(V, T=T_WORK):
     """the film's compliance under wind over its still-air compliance, 1/(1 - q D/T), capped short of divergence"""
-    return 1.0/(1.0 - torch.clamp(0.5*RHO_AIR*V*V*D_AERO/T_WORK, max=0.6))
+    return 1.0/(1.0 - torch.clamp(0.5*RHO_AIR*V*V*D_AERO/float(T), max=0.6))
 
 
 def hexapod_jacobian():
@@ -295,11 +298,43 @@ def frac_above(U, f):
 
 
 class TandoorFlowerEnv(TandoorHashemiEnv):
-    def __init__(self, *a, wind_from="S", wind_scale=1.0, stow_wind=15.0, fine_stage=1, mech=1, two_tier_beta=0,
+    def __init__(self, *a, wind_from="S", wind_scale=1.0, stow_wind=15.0, fine_stage=1, mech=1, two_tier_beta=0, wind_site=0,
                  boom_kind=BOOM_KIND, boom_ratio=BOOM_RATIO, boom_root=BOOM_ROOT, flexures=1, wind_table=1,
-                 base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, **k):
+                 base=BASE_KIND, ring_r=RING_R, stem_x=STEM_X, stem_z=None, boom_min=None, boom_max=None, mount="hashemi", **k):
         # two_tier_beta defaults OFF: the kernel owns the beta schedule, and letting the mount write it too makes the two fight.
+        import inspect as _insp
+        _base_has_film = "film_T" in _insp.signature(super().__init__).parameters
+        if "film_t" in k: k["film_T"] = k.pop("film_t")                        # the ini loader lower-cases its keys
+        _film_T = k.pop("film_T", T_WORK) if not _base_has_film else None
+        if not _base_has_film: k.pop("film_slope", None)
         super().__init__(*a, **k)
+        # THE FILM'S TENSION (2026-09-13). T_WORK 4922 N/m is the flat disc pumped to f 4: at PET's yield by geometry (98 MPa,
+        # 196 at the hole). A RIM-FED film - the rim a spool that dispenses the meridional length the dome asks for - carries
+        # only the hoop strain Gauss demands, a^2/6R^2 = 1.1 % at f 4: 2100 N/m, 42 MPa, 83 at the hole, no wrinkle
+        # (stage3/wind/README.md 'The rim-fed film'). The same sphere at a lower pressure (p = 2T/R), so the FvK ladder's
+        # shapes stand and every pressure on it scales with T; the wind figure goes as 1/T (2.3x the LES table), the film's
+        # stress readout starts from 42 MPa, and the n = 0 load's defocus, dp/p, is 2.3x for the same wind - which is why the
+        # valve stays sealed in wind. The base env owns the knob (p0 scaled there before the ladder is read, the cook's wind
+        # blur through sp[7]); on a checkout whose base lacks it, it is taken here and p0 scaled here.
+        if not _base_has_film:
+            self.film_T = float(_film_T); self.film_k_scale = T_WORK/self.film_T
+            if self.film_k_scale != 1.0:
+                self.p0 = float(self.p0)/self.film_k_scale
+                if hasattr(self, "p_set"): self.p_set[:] = self.p0
+                if hasattr(self, "p_act"): self.p_act[:] = self.p0
+        self.film_T = float(getattr(self, "film_T", T_WORK)); self.film_k_scale = T_WORK/self.film_T; self.film_sig_work = FILM_SIG_WORK/self.film_k_scale
+        # THE FRAME TYPE the kernel traces (tandoor_screws). 'hashemi': the pedicel's pose becomes an equivalent el/az error
+        # injected into the motors and the kernel applies Hashemi's law (the old path). 'pedicel': the achieved joints go to
+        # the kernel as a screw chain and the residual walk as an elastic twist, so it traces the head where the pedicel put it.
+        # 'fork': the FACT fork - Hashemi's optics on the ring and the trunnions through F, rigid in reach, the gust through
+        # the blocks' 6 x 6. Stowed agents park through the old path whichever is set.
+        self.mount = str(mount); self._mech_rows = None; self._fork_C0 = None
+        assert self.mount in ("hashemi", "pedicel", "fork"), self.mount
+        self._mount_mech = "mech" in inspect.signature(self._mount).parameters          # this checkout's kernel takes the chain
+        if self.mount != "hashemi" and not self._mount_mech:
+            print(f"  [flower] mount = {self.mount} needs the screw-chain mount solve (tandoor_hashemi_env._mount(mech=...), "
+                  f"tandoor_metal_kernel mount_solve buffer 12); this checkout's kernel has none - falling back to mount = hashemi")
+            self.mount = "hashemi"
         self.base = str(base); self.ring_r = float(ring_r)
         self.stem_x = float(stem_x)
         self.boom_kind, self.boom_ratio, self.boom_root = str(boom_kind), float(boom_ratio), float(boom_root)
@@ -310,7 +345,15 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         self.wind_from, self.wind_scale = str(wind_from), float(wind_scale)
         self.stow_wind = float(stow_wind); self.fine_stage = int(fine_stage)
         self.mech = int(mech); self.two_tier_beta = int(two_tier_beta)
-        self._fl_what_x = 1.0 if self.wind_from.upper().startswith("S") else -1.0     # the wind blows toward +x (north) when from the south
+        # THE WIND'S DIRECTION is a compass bearing it comes from ('S', 'W', 'NW' or degrees), and with wind_site the whole wind -
+        # speed, direction, gustiness by the hour - is a real recorded day at the site (tandoor_site_wind: ERA5 at Quetta) drawn
+        # within 15 days of the episode's day of the year. Quetta's working-day wind is calm (mean 1.9 m/s), gusty (factor 3.7)
+        # and from the W/NW; the old default was 9-12 m/s from the south.
+        self.wind_site = int(wind_site)
+        self._fl_from = SW.parse_from(self.wind_from)
+        self._fl_wdir0 = SW.bearing_vec(self._fl_from)                                # where it blows TO, env frame (x north, y east)
+        self._fl_what_x = float(self._fl_wdir0[0])                                    # legacy scalar: +1 when from the south
+        self._site = SW.SiteWind(device=self.device) if self.wind_site else None
         self._fl = None                                                               # device tensors, made on the first step
         self._fl_act = None                                                           # this step's actions, for the plenum
         self.flexures = int(flexures)                                                  # 0 none, 1 the strip's and M3's (default), 2 every joint - the pedicel's are 9 m blades, drawn only on request
@@ -365,6 +408,21 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         q = T0 + t[:, None]*d - C
         return ((t >= 0.0) & (t <= 1.0) & (torch.linalg.norm(q, dim=1) < a_m)).float()
 
+    def _fork_twist(self, C, n, w, f_gust, m_gust, az_cmd, Pf):
+        """the gust through the fork's blocks: the wrench at the vertex carried to F, the blocks' 6 x 6 at F (synthesised
+        once at az 0 by tandoor_screws.fork_compliance and turned with the ring), the twist carried back to the vertex"""
+        B, dev = C.shape[0], C.device
+        if self._fork_C0 is None:
+            self._fork_C0 = SC.fork_compliance(Pf[:1].detach().cpu().double(), torch.zeros(1, dtype=torch.float64)).float().to(dev)
+        ca, sa = torch.cos(torch.deg2rad(az_cmd)), torch.sin(torch.deg2rad(az_cmd))
+        R = torch.zeros(B, 3, 3, device=dev); R[:, 0, 0] = ca; R[:, 0, 1] = -sa; R[:, 1, 0] = sa; R[:, 1, 1] = ca; R[:, 2, 2] = 1.0
+        A = torch.zeros(B, 6, 6, device=dev); A[:, :3, :3] = R; A[:, 3:, 3:] = R
+        CF = torch.bmm(torch.bmm(A, self._fork_C0.expand(B, 6, 6)), A.transpose(1, 2))
+        Wv = torch.cat([f_gust[:, None]*w, m_gust[:, None]*torch.cross(w, n, dim=1)], 1)
+        WF = torch.bmm(SC.ad_wrench(SC.frame_at(C - Pf)), Wv[:, :, None])[:, :, 0]
+        xiF = torch.bmm(CF, WF[:, :, None])[:, :, 0]
+        return torch.bmm(SC.ad_twist(SC.frame_at(Pf - C)), xiF[:, :, None])[:, :, 0]
+
     def _fl_head_pose(self):
         """the head's vertex and axis, per agent, from the kernel's own mount solve"""
         dev = self.device; S = getattr(self, "_gpu", None)
@@ -383,7 +441,12 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             el_t = torch.as_tensor(el_m, dtype=torch.float32, device=dev).reshape(-1)
             az_t = torch.as_tensor(az_m, dtype=torch.float32, device=dev).reshape(-1)
         pnt = torch.stack([el_t, az_t], 1)
-        mnt = self._mount(day_t, lat_t, float(self.t_solar[0]), pnt=pnt)
+        mnt = self._mount(day_t, lat_t, float(self.t_solar[0]), pnt=pnt,
+                          **({"mech": False} if getattr(self, "_mount_mech", False) else {}))   # the TARGET: Hashemi's law from the command, never the chain
+        if self._fl is not None:
+            self._fl["el_cmd"], self._fl["az_cmd"] = el_t, az_t
+            bk = mnt.get("beta_t", None)
+            if bk is not None: self._fl["beta_k"] = bk.float().clone()                   # the kernel's schedule beta, for the fork's chain
         # the Metal mount returns the frame, not the axis: Mt is M^T with M taking zhat onto naim, so naim is Mt's third ROW
         n = mnt["naim"] if "naim" in mnt else mnt["Mt"][:, 2, :]
         n = n.float(); n = n/torch.linalg.norm(n, dim=1).clamp(min=1e-9)[:, None]
@@ -398,6 +461,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                         q_slew=z(), q_luff=z(), q_ext=torch.full((B,), 3.0, device=dev), q_pitch=z(), q_yaw=z(),
                         lim_hit=z(), rate_hit=z(), pose_err=z(), fine_use=z(), fine_sat=z(),
                         ball_sig=z(), ball_defl=z(), ball_ang=z(), stow=z(), beta=torch.full((B,), float(getattr(self, 'beta_dev', BETA_OPT)), device=dev), ext_ask=z(), acq=z(), beta_hold=z(), q_rail=z(), thru=z(),
+                        site_day=torch.zeros(B, dtype=torch.long, device=dev), wdir=self._fl_wdir0.to(dev).expand(B, 3).clone(), iu=torch.full((B,), IU, device=dev),
                         plenum=torch.ones(B, device=dev), walk_open=z(), q_init=z())
 
     def _fl_before_step(self):
@@ -427,12 +491,25 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         U = torch.clamp(S.wind*self.wind_scale, min=0.0)
         gen = getattr(self, "_gen", None)                                              # the env's OWN seeded stream, like every other
         rn = lambda: torch.randn(B, generator=gen, device=dev) if gen is not None else torch.randn(B, device=dev)
-        gust = rn()*IU*U; V = torch.clamp(U + gust, min=0.0)                           # stochastic term here (tandoor_hashemi_env.py:2956):
+        iu = torch.full((B,), IU, device=dev); wdir = self._fl_wdir0.to(dev).expand(B, 3).clone()
+        if self._site is not None:
+            # THE SITE'S WIND: at the start of an episode draw a recorded day near this day of the year; then follow it by the hour
+            fresh = F["q_init"] < 0.5
+            if bool(fresh.any()):
+                doy = torch.as_tensor(getattr(S, "day_v", torch.full((B,), 172.0)), device=dev).reshape(-1).expand(B)
+                drawn = self._site.sample_days(doy.round().long().clamp(1, 366), gen)
+                F["site_day"] = torch.where(fresh, drawn, F["site_day"])
+            hour = torch.as_tensor(np.asarray(self.t_solar, dtype=np.float32), device=dev).reshape(-1).expand(B)
+            U_s, dir_s, iu = self._site.at(F["site_day"], hour)
+            U = torch.clamp(U_s*self.wind_scale, min=0.0); wdir = SW.bearing_vec(dir_s.cpu()).to(dev)
+        F["wdir"], F["iu"] = wdir, iu
+        gust = rn()*iu*U; V = torch.clamp(U + gust, min=0.0)                           # stochastic term here (tandoor_hashemi_env.py:2956):
         # drawing from the global generator instead would put the flower's gust outside the seed, and two runs of the same
         # seed would then differ - which breaks both reproducibility and the parity discipline.
         el = torch.deg2rad(S.el0s) if hasattr(S, "el0s") else torch.full((B,), 0.8, device=dev)
         az = torch.deg2rad(S.az0d) if hasattr(S, "az0d") else torch.zeros(B, device=dev)
-        ca = torch.cos(el)*torch.cos(az)*self._fl_what_x                              # the head's axis is near the sun's: its cosine to the wind
+        n_h = torch.stack([torch.cos(el)*torch.cos(az), torch.cos(el)*torch.sin(az), torch.sin(el)], 1)   # the head's axis, near the sun's
+        ca = (n_h*wdir).sum(1)                                                          # its cosine to the wind
         into = ca < 0
         cd_n = torch.where(into, torch.full_like(ca, CD_BOWL), torch.full_like(ca, CD_BACK))
         cd = 0.25 + (cd_n - 0.25)*ca*ca
@@ -440,17 +517,17 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F["drag"] = q*A_DISH*cd
         F["lift"] = q*A_DISH*0.9*ca.abs()*torch.sqrt(torch.clamp(1 - ca*ca, min=0.0))
         F["pitch"] = q*A_DISH*D_DISH*torch.where(into, torch.full_like(ca, C_M), torch.full_like(ca, 0.10))*2*ca.abs()*torch.sqrt(torch.clamp(1 - ca*ca, min=0.0))
-        F["k_film"] = torch.full_like(V, SIG_MEM_K)
+        F["k_film"] = torch.full_like(V, SIG_MEM_K*self.film_k_scale)
         if self.wind_table:
             # THE LES TABLE (stage3/wind): on the bowl's face the load is a normal force Cn q A along the axis (Cn ~ -1.6 from
             # 37 to 59 deg of incidence, gone by 83), the vertical part downward and 2-3x the heuristic above with the opposite
-            # sign, and the film's figure constant runs with the incidence. The back of the dish keeps the heuristics.
-            n_h = torch.stack([torch.cos(el)*torch.cos(az), torch.cos(el)*torch.sin(az), torch.sin(el)], 1)
-            w_h = torch.zeros(B, 3, device=dev); w_h[:, 0] = self._fl_what_x
+            # sign, and the film's figure constant runs with the incidence. The table runs to 154 deg (the W/NW runs) and is
+            # held flat beyond: the back of the dish is the table's too.
+            w_h = wdir
             F_tab, theta_w, k_tab, covered = WT.head_force(n_h, w_h, q, A_DISH)
             F["drag"] = torch.where(covered, (F_tab*w_h).sum(1), F["drag"])
             F["lift"] = torch.where(covered, F_tab[:, 2], F["lift"])
-            F["k_film"] = torch.where(covered, k_tab, F["k_film"]); F["theta_w"] = theta_w
+            F["k_film"] = torch.where(covered, k_tab*self.film_k_scale, F["k_film"]); F["theta_w"] = theta_w   # the table is at T_WORK; the figure goes as 1/T
 
         # ---- 2. stow: the design tracks to stow_wind mean and parks face-up for the gust (tree/out/wind_size.txt)
         stow = torch.where(U > self.stow_wind, torch.ones_like(U),
@@ -458,13 +535,13 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F["stow"] = stow
 
         if not self.mech:
-            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V)
+            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V, self.film_T)
             F["d_el"] = torch.zeros(B, device=dev); F["d_az"] = torch.zeros(B, device=dev); return
 
         # ---- 3. the pedicel: invert the five joints, hold them to their travel and their drives' rates
         C, n = self._fl_head_pose()
         if C is None:
-            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V); return
+            F["V"], F["gust"], F["sig_mem"] = U, gust, F["k_film"]*V*V*film_soften(V, self.film_T); return
         dt0 = float(getattr(self, "dt", 15.0))
         Cb_want = C - D_REC*n
         T0, phi, rail_hit = self._fl_base(Cb_want, F["q_rail"], dt0)
@@ -506,13 +583,21 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         walk_pose = G_TR*torch.linalg.norm(dC, dim=1)                                 # the vertex error slides the image; the axis error turns it
 
         # ---- 4. the structure: compliance and first mode at THIS extension, not a constant
-        cmp_ = compliance(F["Lb"], self.boom_kind, self.boom_ratio, self.boom_root,
-                          m_tip=D_REC*(n_got*qc["bu"]).sum(1))                      # the drag acts at the dish, D_REC past the tip
+        # THE 6 x 6, not the planar pair (tandoor_screws.pedicel_scalars): the stem and boom as a rod in 3-D, a unit force
+        # at the vertex across the boom and horizontal (the wind's), the vertex's own deflection and the head's rotation.
+        # The planar scalar bent the stem with the boom's root moment; in 3-D that moment is the stem's TORSION under a
+        # crosswind, and the vertex rides D_REC ahead of the tip, which the scalar's tip figures never saw.
+        T0b = (T0 if T0.dim() == 2 else T0[None, :].expand(B, 3)).contiguous()
+        bu_ = qc["bu"]; w_dir = F["wdir"]
+        t_b = w_dir - (w_dir*bu_).sum(1, keepdim=True)*bu_
+        t_b = t_b/torch.linalg.norm(t_b, dim=1, keepdim=True).clamp(min=1e-9)
+        cmp_ = SC.pedicel_scalars(T0b, C_got - D_REC*n_got, n_got, t_b, D_REC, EI_STEM, EI_BOOM, G_ROT, G_TR, M_HEAD + M_CROWN,
+                                  kind=self.boom_kind, ratio=self.boom_ratio, root=self.boom_root, Ls=float(self.stem_z))
         F["f_n"], F["k_img"] = cmp_["f_n"], cmp_["k_img"]
 
         # ---- 5. the crown: the wind wrench through the 6 x 6 Jacobian into six axial forces
         xl, yl = head_frame(n)
-        w = torch.zeros(B, 3, device=dev); w[:, 0] = self._fl_what_x                  # the wind's direction, horizontal
+        w = F["wdir"]                                                                  # the wind's direction, horizontal, per agent
         gvec = torch.zeros(B, 3, device=dev); gvec[:, 2] = -1.0
         Fw = F["drag"][:, None]*w + F["lift"][:, None]*(-gvec) + (M_HEAD*9.81)*gvec
         Mw = F["pitch"][:, None]*torch.cross(w, n, dim=1)
@@ -562,6 +647,34 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         park = (90.0 - torch.rad2deg(el))
         F["d_el"] = torch.where(stow > 0.5, park, d_el); F["d_az"] = torch.where(stow > 0.5, torch.zeros_like(d_az), d_az)
 
+        # ---- 8b. THE MOUNT AS SCREWS (tandoor_screws), handed to the kernel per agent instead of the injection above.
+        # 'pedicel': the achieved joints as the five-screw chain from the stem top, the residual walk as an elastic twist
+        # about the boom's tip (a rotation there carries the vertex D_REC ahead of it). The kernel then traces the head where
+        # the pedicel put it, exactly, where the injection applied Hashemi's law to an equivalent pointing error. 'fork':
+        # Hashemi's optics on the ring and the trunnions through F, rigid in reach, the gust through the blocks' 6 x 6 at F.
+        # Stowed agents keep the injection: a row of zeros is the old path, and the park still works.
+        if self.mount in ("pedicel", "fork"):
+            rows = SC.mech_rows(B, device=dev)
+            T0b = (T0 if T0.dim() == 2 else T0[None, :].expand(B, 3)).contiguous()
+            zhat_b = torch.zeros(B, 3, device=dev); zhat_b[:, 2] = 1.0
+            if self.mount == "pedicel":
+                ch = SC.pedicel_chain(T0b, D_REC, device=dev)
+                SC.set_chain(rows, ch["screws"], SC.pedicel_theta(q), ch["C0"], ch["n0"], strip=1)   # the strip on the pipe faces the head
+                om = (F["walk_a"]/(2*gorb))[:, None]*qc["a2"] + (F["walk_x"]/(2*gorb))[:, None]*zhat_b
+                xi = torch.cat([torch.cross(om, D_REC*n_got, dim=1), om], 1)
+            else:
+                Pf_t = torch.as_tensor(self._fl_F(), dtype=torch.float32, device=dev)[None, :].expand(B, 3).contiguous()
+                ch = SC.hashemi_chain(Pf_t, float(gorb), device=dev)
+                bk = F["beta_k"] if "beta_k" in F else F["beta"]
+                SC.set_chain(rows, ch["screws"], SC.hashemi_theta(F["el_cmd"], F["az_cmd"], bk), ch["C0"], ch["n0"])
+                xi = self._fork_twist(C_got, n_got, F["wdir"], sig_force*rn(), F["pitch"]*rn(), F["az_cmd"], Pf_t)
+            SC.set_elastic(rows, xi)
+            rows[:, 0] = torch.where(stow > 0.5, torch.zeros_like(stow), rows[:, 0])
+            self._mech_rows = rows
+            F["d_el"] = torch.where(stow > 0.5, F["d_el"], torch.zeros_like(d_el)); F["d_az"] = torch.where(stow > 0.5, F["d_az"], torch.zeros_like(d_az))
+        else:
+            self._mech_rows = None
+
         # ---- 9. the plenum: sealed it is a constant-volume regulator, open to the blower it passes the wind one to one
         act = self._fl_act
         open_ = torch.zeros(B, device=dev)
@@ -569,7 +682,21 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             a0 = torch.as_tensor(act, device=dev).reshape(B, -1)[:, 0].float()
             open_ = (a0 != 3.0).float()                                                 # the level action is off neutral: the valve is open this step
         F["plenum"] = 1.0 - open_
-        F["sig_mem"] = F["k_film"]*V*V*film_soften(V)*torch.where(open_ > 0.5, torch.full_like(V, 1.0/PLENUM_SEALED), torch.ones_like(V))
+        # THE FILM UNDER THE WIND, in two parts (mem_theory.py, wind/README.md 'The film itself'). The n >= 1 harmonics change no
+        # volume, so the valve does nothing to them: k_film V^2 softened by the flow, sealed or not (it was 33x LARGER here with
+        # the valve open, the inverse of the fast env's error - both wrong). The n = 0 load, Cp_net q, does change the volume:
+        # sealed it is resisted 33x, open it reaches the focal length one to one, and that defocus is a blur of
+        # A_M |dp| / p_shape / g_orbit. Both are a READOUT in this env: the cook's fused step traces with its own wind blur.
+        pass_w = torch.where(open_ > 0.5, torch.ones_like(V), torch.full_like(V, PLENUM_SEALED))
+        q_w = 0.5*RHO_AIR*V*V                                                        # (q is the joints' dict by now)
+        if self.wind_table and "theta_w" in F:
+            dp_w = WT.film_load(n_h, wdir)*q_w*pass_w
+        else:
+            dp_w = 1.4*q_w*pass_w
+        p_sh = float(getattr(self, "p0", 1200.0))
+        F["defocus_w"] = A_M*dp_w.abs()/p_sh/float(getattr(self, "g_orbit", G_ORB))
+        F["sig_mem"] = torch.sqrt((F["k_film"]*V*V*film_soften(V, self.film_T))**2 + F["defocus_w"]**2)
+        F["film_sig"] = self.film_sig_work*torch.clamp(1.0 + dp_w/p_sh, min=0.05)**(2.0/3.0)   # MPa: the tension follows p^(2/3) from 98 at the design pressure (42 rim-fed)
 
         # ---- 10. beta, two-tier at the traced optimum (tree/beta_flux.py)
         if self.two_tier_beta:
@@ -600,19 +727,26 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F = self._fl
         if F is None:
             return dict(V=0.0, gust=0.0, drag=0.0, lift=0.0, pitch=0.0, strut=0.0, leg=np.zeros(6), walk=np.zeros(2),
-                        d_el=0.0, d_az=0.0, sig_mem=0.0, Lb=0.0, f_n=0.0, k_img=0.0, q=dict(slew=0.0, luff=0.0, ext=0.0, pitch=0.0, yaw=0.0),
+                        d_el=0.0, d_az=0.0, sig_mem=0.0, film_sig=0.0, Lb=0.0, f_n=0.0, k_img=0.0, q=dict(slew=0.0, luff=0.0, ext=0.0, pitch=0.0, yaw=0.0),
                         lim_hit=0.0, rate_hit=0.0, pose_err=0.0, fine_use=0.0, fine_sat=0.0, ball_sig=0.0, ball_defl=0.0,
-                        ball_ang=0.0, stow=0.0, beta=float(getattr(self, 'beta_dev', BETA_OPT)), plenum=1.0, walk_open=0.0, ext_ask=0.0, acq=0.0, rail=0.0, thru=0.0)
+                        ball_ang=0.0, stow=0.0, beta=float(getattr(self, 'beta_dev', BETA_OPT)), plenum=1.0, walk_open=0.0, ext_ask=0.0, acq=0.0, rail=0.0, thru=0.0,
+                        iu=IU, from_deg=float(self._fl_from))
         g = lambda k: float(F[k][0])
         return dict(V=g("V"), gust=g("gust"), drag=g("drag"), lift=g("lift"), pitch=g("pitch"), strut=g("strut"),
                     leg=F["leg"][0].detach().cpu().numpy(), walk=np.array([g("walk_a"), g("walk_x")]),
-                    d_el=g("d_el"), d_az=g("d_az"), sig_mem=g("sig_mem"), Lb=g("Lb"), f_n=g("f_n"), k_img=g("k_img"),
+                    d_el=g("d_el"), d_az=g("d_az"), sig_mem=g("sig_mem"), film_sig=g("film_sig"), Lb=g("Lb"), f_n=g("f_n"), k_img=g("k_img"),
                     q=dict(slew=g("q_slew"), luff=g("q_luff"), ext=g("q_ext"), pitch=g("q_pitch"), yaw=g("q_yaw")),
                     lim_hit=g("lim_hit"), rate_hit=g("rate_hit"), pose_err=g("pose_err"), fine_use=g("fine_use"),
                     fine_sat=g("fine_sat"), ball_sig=g("ball_sig"), ball_defl=g("ball_defl"), ball_ang=g("ball_ang"),
                     stow=g("stow"), beta=g("beta"), plenum=g("plenum"), walk_open=g("walk_open"), ext_ask=g("ext_ask"), acq=g("acq"),
-                    rail=g("q_rail"), thru=g("thru"))
+                    rail=g("q_rail"), thru=g("thru"), iu=g("iu"),
+                    from_deg=float((np.degrees(np.arctan2(float(F["wdir"][0, 1]), float(F["wdir"][0, 0]))) + 180.0) % 360.0))
 
+
+    def _fl_wind_np(self):
+        """the wind's direction for agent 0 as a numpy unit vector (where it blows to)"""
+        F = self._fl
+        return (F["wdir"][0].detach().cpu().numpy().astype(float) if F is not None and "wdir" in F else self._fl_wdir0.numpy().astype(float))
 
     # ------------------------------------------------------------ the mechanism as SCREWS, realised as flexures
     def _fl_year_travel(self):
@@ -749,7 +883,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         F = self._fl
         if F is None or "g_tr" not in F: return
         T0, Cb, foot = g["T0"], g["Cb"], g["foot"]; bu = Cb - T0; Lb = max(float(np.linalg.norm(bu)), 1e-9); bu = bu/Lb
-        w = np.array([self._fl_what_x, 0.0, 0.0]); t = w - (w@bu)*bu; tn = float(np.linalg.norm(t))
+        w = self._fl_wind_np(); t = w - (w@bu)*bu; tn = float(np.linalg.norm(t))
         if tn < 1e-6: return
         t = t/tn; P = float(F["drag"][0])*tn; m = D_REC*float(g["n"]@bu); Ls = max(float(np.linalg.norm(T0 - foot)), 1e-6)
         zs = np.linspace(0.0, Ls, 8); ys = P*(zs**2*(3*Ls - zs)/(6*EI_STEM) + (Lb + m)*zs**2/(2*EI_STEM))
@@ -869,7 +1003,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
         self._draw_bent(pr, v3, g)                            # the stem and boom as the compliant members they are
         self._draw_flexures(pr, v3, g)                        # and every joint realised from its screw
         # the wind, its gust, and the stow flag
-        C = g["C"]; w = np.array([self._fl_what_x, 0.0, 0.0]); base = C - 4.5*w + np.array([0, 0, 0.8])
+        C = g["C"]; w = self._fl_wind_np(); base = C - 4.5*w + np.array([0, 0, 0.8])
         L = 0.25*fl["V"]; Lg = 0.25*max(fl["V"] + fl["gust"], 0.0)
         pr.draw_line_3d(v3(base), v3(base + L*w), (120, 200, 240, 220))
         pr.draw_line_3d(v3(base + L*w), v3(base + Lg*w), (250, 120, 60, 240) if fl["gust"] > 0 else (80, 140, 200, 200))
@@ -975,7 +1109,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
                                f"a {self.stem_z:.0f} m stem on the deck {self.stem_x:.0f} m north of the pipe . pedicel 5 joints")
             + " . crown 6 struts on flexure balls, the fine stage"
             + ("   [STOWED: wind over " + f"{self.stow_wind:.0f} m/s, head parked face-up]" if fl["stow"] > 0.5 else ""),
-            f"wind {fl['V']:.1f} m/s mean, gust {fl['gust']:+.1f} (von Karman, Iu {IU}, from the {self.wind_from})"
+            f"wind {fl['V']:.1f} m/s mean, gust {fl['gust']:+.1f} (von Karman, Iu {fl['iu']:.2f}, from {fl['from_deg']:.0f} deg{' - a recorded day at the site' if self._site is not None else ''})"
             + (f"  [x{self.wind_scale:.1f}]" if self.wind_scale != 1.0 else "")
             + f"   drag {fl['drag']/1e3:.2f} kN  lift {fl['lift']/1e3:.2f} kN  pitching {fl['pitch']/1e3:.2f} kN m",
             (f"pedicel  $0 carriage {np.degrees(fl['rail']):+7.1f} deg on the r {self.ring_r:.0f} m ring rail   " if self.base == "ring" else "pedicel  ")
@@ -993,7 +1127,7 @@ class TandoorFlowerEnv(TandoorHashemiEnv):
             + (f"  SATURATED by {1e3*fl['fine_sat']:.1f} mm" if fl["fine_sat"] > 0 else "")
             + f"   open loop {100*fl['walk_open']:.1f} cm -> held to {100*np.linalg.norm(fl['walk']):.2f} cm at F",
             f"pointing handed to the kernel  el {60*fl['d_el']:.2f}'  az {60*fl['d_az']:.2f}'"
-            f"   blur: kernel sig_wind {1e3*sig_env:.2f} mrad . film {1e3*fl['sig_mem']:.2f} mrad rms ({'sealed plenum' if fl['plenum'] > 0.5 else 'PLENUM OPEN to the blower'})",
+            f"   blur: kernel sig_wind {1e3*sig_env:.2f} mrad . film {1e3*fl['sig_mem']:.2f} mrad rms, {fl['film_sig']:.0f} MPa{' AT YIELD' if fl['film_sig'] > 90.0 else ''} ({'sealed plenum' if fl['plenum'] > 0.5 else 'PLENUM OPEN to the blower'})",
         ]
         if sc is not None:
             lines.append(f"the pedicel's screw system: rank {sc['rank']}/5, condition {sc['cond']:.1f}, smallest singular value {sc['sv'][-1]:.2f}"

@@ -45,8 +45,22 @@ class Policy:
         return (lg - torch.log(-torch.log(u.clamp_min(1e-20)))).argmax(-1), v
 
 
+#: THE SCORING AFTERNOON (user, 2026-09-11): a machine is scored on the lunch rush of ONE randomly
+#: drawn day - the rotis sold 11:00-16:00 (demand_bands: ~400 at 13:30 +- 1.25 h) - after its OWN
+#: morning from the carried dawn: the pit starts at 06:00 at 390-410 K (an IFB + shell pit after one
+#: night, warm_T), the kit's light charges it through the morning, the lunch is scored. Two thirds
+#: of a day's steps. Two things this is NOT: an afternoon from the 465-505 K seasoned manifold (a
+#: 1.7 m2 film sold 314 rotis of stored heat and sat on the frontier), and rotis over a "dark"
+#: control (the cook policy stops loading when it sees no light, so the control measures the cook,
+#: not the pit - 0 kW kits still scored +90).
+AFTERNOON = (6.0, 16.0)
+AFTERNOON_SCORE_FROM = 11.0
+AFTERNOON_WARM_T = (390.0, 410.0)
+
+
 def env_kwargs(B, seed=1234, night_carry=0, roof_table="/Users/faezs/ARTIST/tutorials/data/tandoor/quetta_tandoor_roof_quantiles.json",
-               sections="/Users/faezs/ARTIST/tutorials/data/tandoor/section_library.pt", receiver="cass", shell="perlite"):
+               sections="/Users/faezs/ARTIST/tutorials/data/tandoor/section_library.pt", receiver="cass", shell="perlite",
+               window=None, warm_frac=0.0, warm_T=None, site_weather="quetta", site_mean=0, site_days=0):
     """receiver: the env's NOMINAL machine - 'cass' (dish, strip, M3, elbow) or 'tri'
     (dish, strip, an actuated M3 on the bread).  Since 2026-09-08 this no longer
     decides the batch: 'receiver' is a design-box column, so under design_rand every
@@ -58,38 +72,65 @@ def env_kwargs(B, seed=1234, night_carry=0, roof_table="/Users/faezs/ARTIST/tuto
     one and turns M3 on the other - which is exactly why the receiver reaches the
     net as a design obs column: a checkpoint that cannot see which one it is
     driving will read the same obs column as two different actuators."""
-    return dict(receiver=receiver, shell=shell, night_carry=night_carry, roof_table=roof_table, sections=sections, num_agents=B, seed=1, wide_shutter=1, device=DEV, gpu=1, n_rays=512, warm_frac=0.0,
-                demand=1, demand_day=500.0, day_start=6.0, day_end=21.5, form_drift=2.0,      # the evaluation env is the design run's (hashemi_design.ini)
+    h0, h1 = window if window is not None else (6.0, 21.5)
+    return dict(receiver=receiver, shell=shell, night_carry=night_carry, roof_table=roof_table, sections=sections, num_agents=B, seed=1, wide_shutter=1, device=DEV, gpu=1, n_rays=512, warm_frac=float(warm_frac), warm_T=warm_T,
+                demand=1, demand_day=600.0, demand_bands="7.5:0.75:0.15, 13.5:1.25:0.667, 19.5:1.0:0.183",   # the shop's day (hashemi_design.ini)
+                day_start=h0, day_end=h1, form_drift=2.0,      # the evaluation env is the design run's (hashemi_design.ini), or one scoring afternoon
                 lat=30.2,                                                                     # Quetta: the site the roof table and the section library were solved for
                 day_random=0, lat_random=0, wall_obs=1, n_zones=5, nurbs=1, flare_ratio=1.4, flare_reflect=0.6,
                 silvered=1, duct_nozzle=2, spot_bread=1, roti_kj=130.0, bread_area=0.12, loaves_per_load=8,
                 elbow_aim=1, load_ctrl=1, reward_div=75.0, r_m4=1.3, g_orbit=4.0, zone_c=0.4,
                 deck_h=4.0, beta_dev=0.0, beta_cap_z=7.6, cut_penalty=75.0, lost_deg=5.0, enc_clamp=6.0,
-                sticky_k=2, wall="firebrick", insulation=0, design_rand=1, design_seed=seed)
+                sticky_k=2, wall="firebrick", insulation=0, design_rand=1, design_seed=seed,
+                # THE SITE'S OWN WEATHER (tandoor_site_weather): the kit is scored under Quetta's recorded days -
+                # rollouts on a random recorded day, the ladder on the site's average day (ladder_day); "" = the
+                # old clear-sky x lognormal-cloud sky
+                site_weather=(site_weather or None), site_mean=site_mean, site_days=site_days)
 
 
-def ladder_day(e, S, day, hours=(9.0, 10.5, 12.0, 13.5, 15.0), draws=2, noise=False):
+def ladder_day(e, S, day, hours=None, draws=2, noise=False, levels=(4, 5)):
     """Per-agent traced kW at perfect tracking for one day (all B designs at once).
     noise=False draws every ray at the sun cone's median, tilted the same way -
     exact enough for a circle, a 25% morning/afternoon bias for a large SECTION
-    whose outer rays are marginal at the receiver; noise=True draws the cone."""
+    whose outer rays are marginal at the receiver; noise=True draws the cone.
+    levels: the pump setpoints tried, the best kept per hour - the ladder is not
+    labelled evenly (level_of) and the built machine's best focus sits at index 5
+    (1.04 p0, +25% at low sun), so a kit is scored at the pressure IT would run at.
+    The mount is aimed in each SITE's frame (az_off): a design row carries site_az."""
     B = e.num_agents
+    if hours is None:                                   # five hours across the env's own day (or its scoring window)
+        h0, h1 = float(getattr(e, "day_start", 6.0)), float(getattr(e, "day_end", 21.5))
+        hours = tuple(np.linspace(h0 + 0.1 * (h1 - h0), h1 - 0.1 * (h1 - h0), 5)) if h1 - h0 < 12 else (9.0, 10.5, 12.0, 13.5, 15.0)
     S.zero_noise = not noise
-    S.day_v.fill_(float(day)); S.lat_v.fill_(30.2)
+    S.day_v.fill_(float(day))
+    if getattr(e, "_sw", None) is not None: S.lat_v.copy_(torch.as_tensor(e.lat_v, dtype=torch.float32, device=S.lat_v.device))   # each agent's SITE (a pool run); Quetta when the pool is Quetta
+    else: S.lat_v.fill_(30.2)
+    if getattr(e, "_sw", None) is not None:
+        # the site's AVERAGE day near this date: the expected beam, cloud losses included, deterministic
+        e.day_v[:] = float(day); e._sw_refresh(mean=True)
+        if getattr(S, "site", None) is not None: S.site.copy_(e._sw_tab_t[:, :3].reshape(B, -1))
     decl = 23.44 * np.sin(2.0 * np.pi * (284.0 + day) / 365.0)
     S.decl_formed.fill_(decl); S.decl_now.fill_(decl)
-    a = torch.full((B, e.N_HEADS), 3, dtype=torch.long, device=DEV); a[:, 0] = 4; a[:, 1] = 6; a[:, 2] = 6
+    a = torch.full((B, e.N_HEADS), 3, dtype=torch.long, device=DEV); a[:, 1] = 6; a[:, 2] = 6
+    az_off = getattr(e, "_ds_azs_t", None)
     acc = torch.zeros(B, device=DEV)
     for h in hours:
-        el, az, _ = solar_batch(torch.full((B,), 30.2), torch.full((B,), float(day)), float(h))
-        for k in range(draws):
-            S.el_m.copy_(el.to(DEV)); S.az_m.copy_(torch.rad2deg(az).to(DEV))
-            S.e_el_prev.zero_(); S.e_az_prev.zero_(); S.lost_ct.zero_()
-            e.t_solar[:] = h; e._gen.manual_seed(100003 * int(h * 10) + 7919 * k)
-            with torch.no_grad():
-                e.step_torch(a)
-            acc += S.diag[:, 0]
-    return (acc / (len(hours) * draws) / 1e3).cpu().numpy()
+        el, az, _ = solar_batch(torch.full((B,), 30.2), torch.full((B,), float(day)), float(h),
+                                az_off=None if az_off is None else az_off.detach().cpu())
+        best = torch.full((B,), -1.0, device=DEV)
+        for lv in levels:
+            a[:, 0] = int(lv); got = torch.zeros(B, device=DEV)
+            for k in range(draws):
+                S.el_m.copy_(el.to(DEV)); S.az_m.copy_(torch.rad2deg(az).to(DEV))
+                S.e_el_prev.zero_(); S.e_az_prev.zero_(); S.lost_ct.zero_()
+                S.p_act.fill_(float(e.p0 * e.level_frac[int(lv)])); S.p_set.copy_(S.p_act)      # the pump already there
+                e.t_solar[:] = h; e._gen.manual_seed(100003 * int(h * 10) + 7919 * k)
+                with torch.no_grad():
+                    e.step_torch(a)
+                got += S.diag[:, 0]
+            best = torch.maximum(best, got / draws)
+        acc += best
+    return (acc / len(hours) / 1e3).cpu().numpy()
 
 
 def run_day(e, pol, day, nh, nv, ndays=1):
@@ -99,7 +140,7 @@ def run_day(e, pol, day, nh, nv, ndays=1):
     e.day = day; e.lat = 30.2
     with contextlib.redirect_stdout(io.StringIO()):
         e.reset(seed=1)
-    e.day_v[:] = day; e.lat_v[:] = 30.2
+    e.day_v[:] = day; e.lat_v[:] = 30.2; e._sw_refresh()
     S = FusedState(e); e._gpu = S
     pol.reset(B); torch.manual_seed(1)
     a = torch.full((B, nh), 3, dtype=torch.long, device=DEV)
@@ -138,18 +179,20 @@ if __name__ == "__main__":
     ap.add_argument("--receiver", default="cass", choices=("cass", "tri"),   # the NOMINAL machine only: the design box's 'receiver' column decides per agent
                     help="'cass' (dish, strip, M3, elbow) or 'tri' (dish, strip, an actuated M3 on the bread) - a checkpoint drives only the machine it was trained on")
     ap.add_argument("--out", default="/private/tmp/claude-501/-Users-faezs-ARTIST/40abdad5-aefb-4c8a-a67b-a45db67e0f41/scratchpad/design_readout.json")
+    ap.add_argument("--site-weather", default="quetta", help="the site's recorded ERA5 days ('quetta' or a pool JSON); '' for the clear-sky formula")
     args = ap.parse_args()
     B = args.agents
     sd = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     pol = Policy(sd)
     with contextlib.redirect_stdout(io.StringIO()):
-        e = TandoorHashemiEnv(**env_kwargs(B, night_carry=int(args.seasoned > 1), receiver=args.receiver))
+        e = TandoorHashemiEnv(**env_kwargs(B, night_carry=int(args.seasoned > 1), receiver=args.receiver, site_weather=args.site_weather))
     nh, nv = e.N_HEADS, int(e.single_action_space.nvec[0])
     assert sd["policy.encoder.0.weight"].shape[1] == e.single_observation_space.shape[0], "obs dim mismatch: pad the checkpoint"
     BOX = tuple(e.DESIGN_BOX) + tuple(getattr(e, "SYS_BOX", ()))
     U = e._design_u.copy(); names = [k for k, _, _ in BOX]; lo = np.array([b[1] for b in BOX]); hi = np.array([b[2] for b in BOX])
     out = dict(ckpt=args.ckpt, label=args.label, names=names, U=U.tolist(), days={},
-               derived={k: np.asarray(v, dtype=np.float64).tolist() for k, v in e.design_points().items()})
+               derived={k: np.asarray(v, dtype=np.float64).tolist() for k, v in e.design_points().items()
+                        if np.issubdtype(np.asarray(v).dtype, np.number) or np.asarray(v).dtype == bool})   # the shell column is a string
     t0 = time.time()
     for day in [int(x) for x in args.days.split(",")]:
         rot, cuts, v0, ret, S = run_day(e, pol, day, nh, nv, ndays=args.seasoned)

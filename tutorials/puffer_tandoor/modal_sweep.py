@@ -430,7 +430,7 @@ def bench_batch():
         with contextlib.redirect_stdout(io.StringIO()):
             e = TandoorHashemiEnv(num_agents=B, seed=1,
                                   wide_shutter=1, device="cuda",
-                                  gpu=1, n_rays=64, warm_frac=0.8)
+                                  gpu=1, n_rays=64, warm_frac=0.8, site_weather="quetta")
             e.reset(seed=1)
         pol = mod.Policy(e, hidden_size=256)
         rnn = mod.Recurrent(e, pol, input_size=256,
@@ -534,7 +534,7 @@ def bench_l4():
             with contextlib.redirect_stdout(io.StringIO()):
                 e = TandoorHashemiEnv(num_agents=B, seed=1,
                                       wide_shutter=1, device="cuda",
-                                      gpu=1, n_rays=64, warm_frac=0.8)
+                                      gpu=1, n_rays=64, warm_frac=0.8, site_weather="quetta")
                 e.reset(seed=1)
             pol = mod.Policy(e, hidden_size=256)
             rnn = mod.Recurrent(e, pol, input_size=256,
@@ -729,7 +729,7 @@ def cuda_check(B: int = 32768):
     with contextlib.redirect_stdout(io.StringIO()):
         e = TandoorHashemiEnv(num_agents=B, seed=1, wide_shutter=1,
                               device="cuda", gpu=1, n_rays=64,
-                              warm_frac=0.8)
+                              warm_frac=0.8, site_weather="quetta")
         e.reset(seed=1)
     assert e._metal is not None, "CudaGeo did not mount"
     pol = mod.Policy(e, hidden_size=256)

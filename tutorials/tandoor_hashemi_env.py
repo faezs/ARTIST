@@ -1259,6 +1259,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._redesign_ct = 0
         self.demand = int(kwargs.pop("demand", 0))
         self.demand_day = float(kwargs.pop("demand_day", 500.0))
+        from tandoor_polar_env import parse_demand_bands as _pdb
+        self.demand_bands = _pdb(kwargs.pop("demand_bands", None), self.DEMAND_BANDS)   # (c h, sigma h, share) x 3
         self.shelf_life = float(kwargs.pop("shelf_life", 45.0))
         self.patience = float(kwargs.pop("patience", 15.0))
         self.stale_pen = float(kwargs.pop("stale_pen", 1.0))
@@ -1274,6 +1276,20 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # design obs columns are present (zero for the kit, 2u-1 for the site) so a policy can
         # read its site, and the design-table plumbing is shared with design_rand.
         self.site_rand = int(kwargs.pop("site_rand", 0))
+        # site_weather: THE SITE'S OWN SUN AND WIND (2026-09-12). "quetta" or a pool JSON
+        # (tandoor_site_weather.build_pool): each agent is put at a site of the pool, its
+        # latitude is the site's (lat_random is then off), and every day it cooks under a
+        # recorded ERA5 day of that site near its day of the year - beam irradiance by the
+        # hour, the wind's mean and gustiness - instead of the clear-sky formula with the
+        # lognormal cloud. Both twins read the same (B,3,24) table.
+        # TANDOOR_SITE_WEATHER in the environment is the default for every script that builds an
+        # env without naming a site (the verify harnesses keep their own opt-in via TANDOOR_EXTRA_KW)
+        self._sw_spec = kwargs.pop("site_weather", os.environ.get("TANDOOR_SITE_WEATHER") or None)
+        self._sw_mean = int(kwargs.pop("site_mean", 0))              # 1: the site's AVERAGE day near the date (design tools), 0: a random recorded day
+        self._sw_years = kwargs.pop("site_years", None)
+        self._sw_window = int(kwargs.pop("site_window", 7))
+        self._sw_days = float(kwargs.pop("site_days", 30.0))     # mean days an agent stays at its site on consecutive-day runs (0 = for ever)
+        self._sw = None; self._sw_tab = None
         self.design_seed = int(kwargs.pop("design_seed", 1234))
         # roof_table: a JSON list of roof half-width quantiles [m] (0..1 in
         # equal steps) from building footprints; None = the placeholder
@@ -1314,6 +1330,24 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.el_min_h = float(el_min)
         self.r_mast = float(r_mast)
         super().__init__(*args, a_mem=a_mem, **kwargs)
+        if self.day_random and int(kwargs.get("night_carry", 0) or getattr(self, "night_carry", 0)) and int(getattr(self, "consecutive_days", 1)):
+            # THE BATCH SPANS THE YEAR (2026-09-13): on a consecutive-day run every agent used to start on
+            # day_of_year and the whole batch marched through the calendar in lockstep, so the metric was
+            # seasonal and the gradient saw one season at a time. Each agent now starts on its own day.
+            self.day_v[:] = self.rng.integers(1, 366, self.num_agents); self.day = int(self.day_v[0])
+            self.decl_formed = 23.44 * np.sin(2.0 * np.pi * (284.0 + self.day_v) / 365.0)
+        if self._sw_spec:
+            from tandoor_site_weather import SiteWeather
+            yrs = None
+            if self._sw_years:
+                yrs = [int(v) for v in str(self._sw_years).replace(",", " ").split()]
+            self._sw = SiteWeather(self._sw_spec, years=yrs, window=self._sw_window)
+            if self.lat_random:
+                print("site_weather: the latitude is the site's; lat_random is off")
+            self.lat_random = False
+            self.site_idx = np.zeros(self.num_agents, dtype=np.int64)
+            self._sw_draw(new_sites=True)
+            print(f"site_weather: {self._sw.describe()}")
         self._apply_system_design()
 
     def _reset_state(self):
@@ -1599,6 +1633,9 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                     self.lat_v[:] = self.rng.uniform(
                         15.0, 35.0, self.num_agents)
                     self.lat = float(self.lat_v[0])
+            if self._sw is not None:
+                # tomorrow's recorded day at the site (a new site when the day is a control draw)
+                self._sw_draw(new_sites=not (getattr(self, "night_carry", 0) and getattr(self, "consecutive_days", 1)))
             # the episode wrapped to the next morning: the crew reparks
             # the carriage overnight (hours of slack at full slew)
             el1, az1, _ = _sim.solar_position(self.lat, self.day,
@@ -3376,6 +3413,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 if self.lat_random:
                     self.lat_v[:] = self.rng.uniform(15.0, 35.0, B)
                     self.lat = float(self.lat_v[0])
+            if self._sw is not None:
+                self._sw_draw(new_sites=not (getattr(self, "night_carry", 0) and getattr(self, "consecutive_days", 1)))
             S.day_v = torch.as_tensor(self.day_v.astype(np.float32),
                                       device=dev)
             S.lat_v = torch.as_tensor(self.lat_v.astype(np.float32),
@@ -3531,6 +3570,35 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                           rt * torch.sin(ph) - M[1],
                           zt - M[2]], 1)
         return (a1 / a1.norm(dim=1, keepdim=True)).contiguous()
+
+    def _sw_refresh(self, mean=None):
+        """the tables for the CURRENT day_v at the current sites (scripts call this after setting
+        day_v): mean=True the site's average day, False a random recorded day, None the env's setting"""
+        if getattr(self, "_sw", None) is not None:
+            self._sw_draw(new_sites=False, move=False, mean=mean)
+
+    def _sw_draw(self, new_sites, move=True, mean=None):
+        """The site's weather for the day ahead: with new_sites every agent is put at a site
+        of the pool (its latitude follows); then each agent draws a recorded day at its site
+        near its day of the year (or, with site_mean / mean=True, the site's average day near
+        it). Rows [dni, U10, gust] of the (B,4,24) table go to the device twin when it exists;
+        row 3 (wind direction) is the flower envs'."""
+        B = self.num_agents
+        if new_sites:
+            self.site_idx = self._sw.sample(B, self.rng)
+        elif move and self._sw_days > 0:
+            # consecutive days at a site, but not for ever: each dawn a 1/site_days share of the
+            # agents is moved to a new site of the pool (the seasoned pit comes with them - the
+            # design run's premise is an existing tandoor anywhere)
+            move = self.rng.random(B) < 1.0 / self._sw_days
+            if move.any(): self.site_idx[move] = self._sw.sample(int(move.sum()), self.rng)
+        self.lat_v[:] = self._sw.lat[self.site_idx]; self.lat = float(self.lat_v[0])
+        use_mean = bool(self._sw_mean) if mean is None else bool(mean)
+        self._sw_tab = self._sw.mean_day(self.site_idx, self.day_v) if use_mean else self._sw.draw(self.site_idx, self.day_v, self.rng)
+        self._sw_tab_t = torch.as_tensor(self._sw_tab, dtype=torch.float32, device=self.device)
+        G = getattr(self, "_gpu", None)
+        if G is not None and getattr(G, "site", None) is not None:
+            G.site.copy_(self._sw_tab_t[:, :3].reshape(B, -1))
 
     def _metal_trace(self, p_eff, sigma_b, off, soil, e_el, e_az, mnt):
         """Megakernel call, per-env geometry (the gpu_step path).

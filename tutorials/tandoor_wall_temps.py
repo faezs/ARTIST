@@ -9,7 +9,7 @@ from tandoor_design_readout import Policy, DEV
 CK = sys.argv[1]; B = 64; DAY = int(sys.argv[2]) if len(sys.argv) > 2 else 172
 NDAYS = int(sys.argv[4]) if len(sys.argv) > 4 else 1       # consecutive days with the night carry-over; the last is recorded
 pol = Policy(torch.load(CK, map_location="cpu", weights_only=False))
-kw = dict(num_agents=B, seed=1, wide_shutter=1, device="mps", gpu=1, n_rays=512, warm_frac=0.0, day_random=0, lat_random=0, lat=30.2,
+kw = dict(num_agents=B, seed=1, wide_shutter=1, device="mps", gpu=1, n_rays=512, warm_frac=0.0, day_random=0, lat_random=0, lat=30.2, site_weather="quetta", site_mean=1,
           day_of_year=DAY, wall_obs=1, n_zones=5, zone_c=0.4, g_orbit=4.0, deck_h=4.0, nurbs=1, silvered=1, duct_nozzle=2, spot_bread=1,
           loaves_per_load=8, load_ctrl=1, sticky_k=2, receiver="cass", r_m4=1.3, beta_dev=0.0, beta_cap_z=7.6, cut_penalty=75.0,
           lost_deg=5.0, enc_clamp=6.0, wall="ifb", insulation=1, night_carry=int(NDAYS > 1), roti_kj=130.0, bread_area=0.12, elbow_aim=1, flare_ratio=1.4, flare_reflect=0.6, reward_div=75.0)

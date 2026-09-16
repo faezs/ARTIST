@@ -40,7 +40,7 @@ def make_env(seed, **kw):
     with contextlib.redirect_stdout(io.StringIO()):
         e = TandoorHashemiEnv(num_agents=kw.pop("agents", 16), seed=seed,
                               wide_shutter=1, device="cpu",
-                              **{**ENV_KW, **kw})
+                              **{**dict(site_weather="quetta"), **ENV_KW, **kw})     # Quetta's recorded days unless the caller says otherwise
         e.reset(seed=seed)
     # eval from the honest SEASONED operating state (season_sim.py,
     # 45-day carried cycle, spherical wall): morning face ~487 K
