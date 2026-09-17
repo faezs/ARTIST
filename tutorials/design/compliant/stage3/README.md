@@ -198,8 +198,12 @@ wheels are grooved (the paper's "slotted wheels"; the frames do not resolve it) 
 (`grooved_relation_x`, `grooved_relation_y`, `grooved_not_linearIndependent`) - the grooves and the bearing fix the axis
 twice, which is what the construction order and the shims are for. 8:00-10:00, the two legs: identical ("neither left
 nor right"), a 130 cm upright, a 62 cm foot, a 96 cm knee brace, four holes; one at each END of the chord bar, upright
-vertical by the roller, the foot ALONG the bar screwed into the rail with its long side cantilevered outboard, the brace
-triangle in the bar's own vertical plane - "the chord of the triangle on the base prevents bending of the vertical base".
+vertical by the roller, the foot ALONG the bar with its long side cantilevered outboard, the brace triangle in the
+bar's own vertical plane - "the chord of the triangle on the base prevents bending of the vertical base" - and at 10:00
+the foot is seen to sit ON THE GROOVED WHEEL'S AXLE ROD (the user: "the foot is on the grooved tire rod. look how it
+spins" - four frames, four azimuths, the leg on): `postTop_on_rail`, the post stands over the wheel at the roller
+radius, 1.22 m from the tube, its load straight down through the wheel onto the rail, the bar carrying none of it in
+bending. That also settles the wheels as grooved, so the seven-constraint over-constraint is no longer conditional.
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
