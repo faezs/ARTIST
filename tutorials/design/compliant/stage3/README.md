@@ -244,8 +244,21 @@ RESOLVED: "one of the threaded rod for one side of the dish and the other for th
 stand for vertical movement should be installed here ... before installing the dish, because the dish will interfere
 ... the part that should perform the vertical movement of the dish is" (cut) - a third, taller stand near the
 carriage's centre with a long threaded rod diagonally beside it, and a ladder frame in hand: the elevation drive,
-on the moving part, before the dish; mechanism not shown, nothing recorded beyond that. 87 declarations, no sorry.
-The user's video frames are in ~/Downloads/hashemi_frames (91 at 14:00).
+on the moving part, before the dish. 14:00-15:20 resolves its hardware: "the part that should perform the vertical
+movement of the dish is fixed, due to the size of the dish, outside the circular axis of the base. Therefore, we use a
+structure to connect it with the horizontal axis. This is where our motor with gearbox fits ... very strong, can easily
+support even my weight ... I made this vertical stand ... placed a metal pulley on top of it ... the two bent legs on its
+side are vertical due to the strength of the leg, and you can see its dimensions in the figure ... now I bolt and
+install it on the system." The OUTRIGGER: two rails with cross members, splayed to a narrow end, bolted to the
+carriage's bar and reaching out past the ring, a grooved pulley on an axle at its end where the motor with gearbox
+fits. The STAND, from its figure: 159 cm post, 184 cm foot bar, two bent legs curving up 41 cm, a metal pulley at the
+top; bolted on the outrigger, vertical, outside the ring beside the second leg. So the elevation drive is a motor with
+gearbox on an outrigger and a pulley 1.59 m up a mast outside the ring - the paper's fig 17 tow-wire drive in its
+parts. `DriveStand`/`hashemiStand` (159/184/41), `Outrigger` (joins stand to carriage, motor at its end; no
+dimensions given, none recorded), `pulley_above_pivot` = 1.59 - (1.30 - 0.05) = 0.34 m over the bolt line. The
+wire's path from the pulley to the dish, and how "one threaded rod for one side and the other for the other side" is
+rigged, is NOT in the frames and nothing is recorded about it. 91 declarations, no sorry. The user's video frames
+are in ~/Downloads/hashemi_frames (112 at 15:20).
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
