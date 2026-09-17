@@ -210,9 +210,15 @@ drawn from the dish's lowest point up to about F at both ends of the travel, the
 edge B a = 1 m below F at low sun, his 130 cm being that metre and 30 over. `edgeDepth` is that figure as a function of
 elevation, `(f - sag) sin el + a cos el`; `edgeDepth_horizon`/`edgeDepth_noon` are his two ends, and `edgeDepth_le`
 bounds the reach by sqrt((f - sag)^2 + a^2), attained at tan el = (f - sag)/a: on his sphere 1.24 m at 36 deg
-(`hashemi_reach_eq`, `hashemi_reach_bounds`), not the 1.0 his figure checks, so IF the pivot sits at the post top as
-the figure draws it, the 130 cm upright leaves 6 cm over the bar there (`hashemi_clearance`) - conditional, for the
-next frames to confirm or refute.
+- and his own geometry figure at 10:40 then computes exactly that length for HIS dish and labels it "Base": "a
+circle with a radius of two meters and a segment of a circle with a length of 1.6 meters as a solar dish", A the
+centre, D the vertex, F midway (AF = FD = 1 m), B-C the 1.6 m dish, H its midpoint, AH = sqrt 3.36, HD = 0.167 m (the
+sag), FH = 0.833 m (F over the rim plane - the screw length for this dish, where the paper's 2 m dish gives 0.732),
+FC = 1.155 m. `dishR/dishF/dishHalf`, `HD_eq/_bounds` (= `TandoorSphere.sag 2 0.8`), `FH_eq/_bounds`
+(= `screwLength 2 0.8`), `FC_eq/_bounds` (= the bound of `edgeDepth_le`, the deepest the rim reaches below F, at
+tan el = FH/HC = 46 deg), `hashemi_clearance`: the 130 cm upright against FC 1.155 leaves 14.5 cm - IF the pivot is at
+the post top as his first figure draws it. The 2 m dish and its 6 cm of the previous revision were mine; the figure
+fixes the dish at 1.6 m and the number with it. "Base" names a length; the file takes it as no more than that.
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
