@@ -236,8 +236,16 @@ hangers is a rigid pendulum about the bolts with F AT the bolts. `swingVertex`/`
 `clearance l holeDown FC = upright - holeDown - FC`, `clearance_hashemi` (14.5 cm less the hole's drop: ~9.5 cm at
 5 cm). Stated and left open: the bolt line is the chord line 0.80 m from the tube's axis, so F is there and a
 roof-fixed receiver would see it circle 0.8 m through the day (`focus_on_axis`) - either the receiver rides the
-carriage or something not yet shown moves F. 85 declarations, no sorry. The user's video frames are in
-~/Downloads/hashemi_frames (71 at 12:40).
+carriage or something not yet shown moves F. 12:40-13:00, where the eyes sit on the bolt: "at the beginning of the
+main screw ... more pressure to the vertical legs ... direct them to the end of the screw as much as possible" - a
+spacer nut between post face and eyes, so the hangers, swinging in a plane parallel to the post's face, clear it:
+`HangerClearsPost` (eye offset beyond the rod's half-thickness), `hashemi_eyes_clear`. 13:20-14:00, OPENED NOT
+RESOLVED: "one of the threaded rod for one side of the dish and the other for the other side ... another vertical
+stand for vertical movement should be installed here ... before installing the dish, because the dish will interfere
+... the part that should perform the vertical movement of the dish is" (cut) - a third, taller stand near the
+carriage's centre with a long threaded rod diagonally beside it, and a ladder frame in hand: the elevation drive,
+on the moving part, before the dish; mechanism not shown, nothing recorded beyond that. 87 declarations, no sorry.
+The user's video frames are in ~/Downloads/hashemi_frames (91 at 14:00).
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
