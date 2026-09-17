@@ -318,6 +318,43 @@ and foot are one triangle and the foot only rests on the wheel's axle, so the wh
 the strut ties it to a second body. 126 declarations, no sorry. NOT here: the wire's path (drum -> presumably the mast
 pulley -> dish, "later"), hence rw, the winch's rate and the mast slack's effect; the bronze pulley's role; the slot; the
 receiver. Frames folder: 160 at 20:50 (the 17:00-19:20 batch's transcript entry holds only 8 of its 27 frames).
+20:50-23:20, THE LEVEL, THE SECOND STRUT, THE PANEL AND THE BOX. "To know that we have done the work correctly, we use a
+level ... the base should be vertical. Now I will install the other diagonal support ... the support bases of the solar
+dish will not be inclined anymore. Now we go to the installation of the solar panel. By installing a small 5 watt panel,
+we can supply the system's motion energy because the electric motors of this system have very little consumption. In
+fact, this panel charges the battery, and the battery transfers electrical energy to the motors ... you can also use a
+10-watt panel ... the communication wire of its charge control is directly connected to the battery ... So here I
+install a box called system control box." The frames: a spirit level against a post; the second strut from the far post
+at mid-height to the SAME outrigger end, so the two struts meet at the winch and close a pyramid with the posts and the
+outrigger; a framed 5 W module on a bracket on the carriage bar at one post's foot, tilted face up; a steel "DC.P" box on
+the bar at the other post's foot. Everything electrical rides the carriage. `pointVel`, `yaw_lifts_nothing` (THE AZIMUTH
+DOES NO WORK AGAINST GRAVITY: the yaw twist lifts no point), `swing_lift` (the swing lifts a point at y at rate y),
+`elPower` = W rcm sin t w, `elPower_eq_wire` (= tension x wire speed), `elPower_le`, `tracking_power_tiny` (any dish under
+100 kg, centre within f of the bolts, at the Earth's 15 deg/h: UNDER 0.073 W = 1.5 % of the 5 W panel - "very little
+consumption" is a theorem on the mechanical side; motor/gearbox losses not given), `Panel`/`hashemiPanel` 5 W,
+`focusShift` = h sin eps (F sits on the bolts, so a post's lean moves F), `lean_one_degree` (1 deg at 1.25 m = OVER 2 CM),
+`plumbed_shift` (a post plumbed to 0.5 mm/m - a typical level, not a caption - under 0.7 mm): "the base should be
+vertical" is a requirement on F.
+23:03-24:10, THE BOX, THE CABLES, AND THE TOW WIRE TO THE BACK OF THE DISH - the path open since 15:20 is shown. "This box
+is where the control circuit and battery and connections are located. I use a 1.5 single pair cable for the electrical
+connection between the solar panel and the electric motor with a horizontal gearbox and the winch related to the
+vertical movement with the system control box ... resistant to sunlight and rain ... First, I have to raise the dish on
+the reverse side to free up the work space ... now we are going to pull the towing wire between the winch and the solar
+dish. The tow wire needs to be tied under the solar dish so I bring the dish up. I connect it to the back of the solar
+dish with a fastener suitable for the towing diameter." The frames: three runs of 2 x 1.5 mm2 cable along the bar (panel,
+azimuth motor, winch) to the box, which holds circuit + battery; the wire from the drum up over the mast's pulley and
+down to the BACK of the dish, swung up with its back toward the mast, clipped with a wire-rope clip (which point of the
+back: not fixed by the frames; wire diameter not stated). Winching in pulls the back toward the mast and turns the face
+AWAY from it - the mast is the shadow side, the one-sided range of `wire_taut_iff`. `wireLever` (P x B / |B - P|),
+`pulleyAt` (ym beyond the bolt line, hp = 0.34 above), `clipAt` (zb below, swung toward the mast), `wireLever_rest` =
+ym zb / sqrt(ym^2 + (hp + zb)^2), `wireLever_pos` (NO DEAD POINT: positive over the whole quarter swing) - this rw is the
+rw of `elRate`/`wireTension`/`HoldsDish`; ym, zb about a metre each, read off frames, not given. `slackSpot` = 2 f delta / rw
+(the mast's play now has its path to the receiver: a pulley displaced delta changes the wire by at most 2 delta),
+`slackHarmless_of_lever`. `cableArea` 1.5e-6, `rhoCu`, `cableDrop`, `cable_drop_small` (run <= 4 m, I <= 1 A: under 0.1 V;
+current not given). 149 declarations, no sorry. NOT here: where on the back the wire is clipped and the mast's distance
+from the bar (ym, zb); the wire's diameter; the bronze pulley's role; the battery's size and what the control circuit
+does; the slot; the receiver. Frames folder: 180 at 23:20 (the 23:03-24:10 batch arrived mid-turn; its transcript
+entry was not yet written when the extractor ran).
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
