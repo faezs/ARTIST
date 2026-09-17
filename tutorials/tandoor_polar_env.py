@@ -858,6 +858,8 @@ class TandoorPolarEnv(TandoorEnv):
             self._spot_flux = q_direct / np.maximum(self._ds("_ds_bread", np.full((B, 1), self.bread_area))[:, 0], 1e-6)
             self._spot_kb = kb
         self.p_in = per_dni.sum(1) * gate
+        # the day's light per machine [kWh], the summing functor's sun column (tandoor_resources)
+        self._ep_kwh = getattr(self, "_ep_kwh", np.zeros(B)) + self.p_in * self.dt / 3.6e6
 
         # --- thermal / bread / reward: identical to the parent --------- #
         T = self.T

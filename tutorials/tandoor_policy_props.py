@@ -23,9 +23,10 @@ import numpy as np, torch
 sys.path.insert(0, "/Users/faezs/ARTIST"); sys.path.insert(0, "/Users/faezs/ARTIST/tutorials")
 sys.path.insert(0, "/Users/faezs/ARTIST/tutorials/puffer_tandoor")
 
-CKPT = sys.argv[1] if len(sys.argv) > 1 else \
-    "/Users/faezs/ARTIST/tutorials/puffer_tandoor/experiments/178926893901/model_000573.pt"
-DAY = int(sys.argv[2]) if len(sys.argv) > 2 else 173          # the solstice: the worst day for a keyhole
+# the defaults; `main()` reads the command line. NOT at import: tandoor_resources and the Pareto
+# readout import solpos/dcirc from here, and their own arguments were being parsed as ours
+CKPT = "/Users/faezs/ARTIST/tutorials/puffer_tandoor/experiments/178926893901/model_000573.pt"
+DAY = 173                                                      # the solstice: the worst day for a keyhole
 FAILURES = []
 
 
@@ -106,6 +107,9 @@ def rollout(B=64, steps_max=4000):
 
 
 def main():
+    global CKPT, DAY
+    if len(sys.argv) > 1: CKPT = sys.argv[1]
+    if len(sys.argv) > 2: DAY = int(sys.argv[2])
     print(f"THE POLICY AGAINST THE PROVED THEOREMS\n   checkpoint {os.path.basename(CKPT)}")
     e, S, R, wrapped = rollout()
     B = e.num_agents; dt = float(e.dt); n = R["az"].shape[0]

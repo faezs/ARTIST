@@ -1253,6 +1253,16 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # quartile of the day's sales) keep theirs, and a redesign_explore
         # share draws uniformly so the box is never abandoned.
         self.design_pop = kwargs.pop("design_pop", None)
+        # THE DESIGN RUN AS A PARETO OPTIMIZATION (tandoor_resources, 2026-09-17): design_pareto=1
+        # replaces the elite rule below - the top quartile of ONE scalar, yesterday's sales - with
+        # Marcolli's frontier over the day's RESOURCES (rotis, light, capital, payback, the mount's
+        # tracking margin); the frontier stays, the dominated designs step toward it (swarm_step)
+        self.design_pareto = int(kwargs.pop("design_pareto", 0))
+        self.pareto_budget = float(kwargs.pop("pareto_budget", 700_000.0))       # PKR, the goal on capital
+        self.pareto_goal_rotis = float(kwargs.pop("pareto_goal_rotis", 0.0))     # sold rotis a design must reach
+        self.pareto_goal_track = float(kwargs.pop("pareto_goal_track", 1.0))     # motor over the sun's peak rate: 1 = no keyhole
+        self.pareto_eps = float(kwargs.pop("pareto_eps", 0.05))                  # the swarm's step in the unit box
+        self._last_frontier = []
         self.redesign_days = int(kwargs.pop("redesign_days", 3))
         self.redesign_share = float(kwargs.pop("redesign_share", 0.5))
         self.redesign_explore = float(kwargs.pop("redesign_explore", 0.2))
@@ -1636,6 +1646,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             if self._sw is not None:
                 # tomorrow's recorded day at the site (a new site when the day is a control draw)
                 self._sw_draw(new_sites=not (getattr(self, "night_carry", 0) and getattr(self, "consecutive_days", 1)))
+        if wrapped:
+            # the day's light, for the Pareto dawn (design_valuations): snapshot, then reset
+            self._last_day_kwh = np.asarray(getattr(self, "_ep_kwh", np.zeros(B)), dtype=np.float64).copy()
+            self._ep_kwh = np.zeros(B)
             # the episode wrapped to the next morning: the crew reparks
             # the carriage overnight (hours of slack at full slew)
             el1, az1, _ = _sim.solar_position(self.lat, self.day,
@@ -2609,6 +2623,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         B = self.num_agents; u = self._design_u.copy(); rng = self.rng
         assert list(pop["names"]) == [k_ for k_, _, _ in tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX)] and list(pop["site_keys"]) == list(self.SITE_KEYS), "design population was written for a different design box - regenerate it with tandoor_designer.py"
         kit_idx = np.array(pop["kit_index"]); names = pop["names"]; i_roof = names.index("roof_r")
+        if self.design_pareto:
+            return self._redesign_pareto(np.asarray(day_sales, dtype=np.float64), kit_idx, rng)
         sites = sorted(pop["sites"].values(), key=lambda s: s["site_u"][0]); roofs = np.array([s["site_u"][0] for s in sites])
         # AN AGENT THAT SOLD NOTHING IS NOT AN ELITE.  A bare quantile makes every
         # agent one as soon as a quarter of them sell nothing: the 75th percentile of
@@ -2626,6 +2642,59 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             z = np.array(s["mu"]) + np.exp(np.array(s["log_std"])) * rng.standard_normal(len(kit_idx))
             u[b, kit_idx] = 1.0 / (1.0 + np.exp(-z))
         self.set_design_points(u)
+        return True
+
+    def design_valuations(self, day_sales, day_kwh=None):
+        """Every agent's day as a bundle in the resource category, valued by (F, X)
+        (tandoor_resources): [(name, vals)] in Valuation.names order, plus the bundles and the
+        valuation. rotis sold and the light collected are the day's summing functor; capital is
+        the bill of this design; the tracking margin is the site's peak solar azimuth rate against
+        this machine's motor - the follower theorems' hypothesis, as a goal."""
+        import tandoor_resources as R
+        B = self.num_agents
+        kwh = np.zeros(B) if day_kwh is None else np.asarray(day_kwh, dtype=np.float64)
+        cap = self.design_capital()
+        d = self.design_points()
+        rate = np.asarray(self._ds_rate, dtype=np.float64) * self.RATE_AZ * 60.0       # deg/min per machine
+        V = R.Valuation(budget_pkr=self.pareto_budget, goal_rotis=self.pareto_goal_rotis,
+                        goal_track=self.pareto_goal_track, demand=self.demand_day)
+        cache, named, bundles = {}, [], []
+        for b in range(B):
+            key = (round(float(self.lat_v[b]), 2), int(self.day_v[b]), round(float(rate[b]), 3))
+            if key not in cache:
+                cache[key] = R.track_margin(key[0], key[1], key[2], dt=float(self.dt))[0]
+            r = R.Resource.of(sun_kwh=float(kwh[b]), rotis=float(day_sales[b]), capital_pkr=float(cap[b]),
+                              film_m2=float(d["film_m2"][b]), motor_degpm=float(rate[b]))
+            bundles.append(r); named.append((str(b), V.value(r, cache[key])))
+        return named, bundles, V
+
+    def design_capital(self):
+        """the bill of every agent's design, PKR (the designer's own path: tandoor_cost.capital on
+        the design table's row, in the env's shell material)"""
+        import tandoor_system_cost as C           # the designer's own bill (tandoor_designer.priced)
+        B = self.num_agents; u = self._design_u; rows = self._rows_from_u(u)
+        box = tuple(self.DESIGN_BOX) + tuple(self.SYS_BOX); cap = np.zeros(B)
+        for b in range(B):
+            d = {k: float(lo + u[b, i] * (hi - lo)) for i, (k, lo, hi) in enumerate(box)}
+            d["roof_r"] = float(self._roof_quantile(d["roof_r"]))
+            d["dish_scale"] = float(rows[b, self.DS["s"]]); d["site"] = float(rows[b, self.DS["site"]])
+            d["film_m2"] = float(rows[b, self.DS["film"]]); d["rim_m"] = float(rows[b, self.DS["rim"]]); d["rise"] = float(rows[b, self.DS["rise"]])
+            for _k in ("zones", "roofl", "grid"):
+                d[_k] = float(rows[b, self.DS[_k]])
+            d["m4chord"] = float(rows[b, self.DS["m4c"]]); d["m4flat"] = float(rows[b, 27] <= 1e-6)
+            d["tri"] = float(rows[b, self.DS["recv"]])
+            _t, _v, _c = self.shell_spec(d["ins_scale"]); d["shell_name"] = self.shell; d["shell_t"] = float(_t); d["shell_m3"] = float(_v)
+            cap[b] = C.capital(d)["total"]
+        return cap
+
+    def _redesign_pareto(self, day_sales, kit_idx, rng):
+        """the dawn move as a Pareto swarm step (tandoor_resources.swarm_step)"""
+        import tandoor_resources as R
+        named, _, V = self.design_valuations(day_sales, getattr(self, "_last_day_kwh", None))
+        u2, keep, redo = R.swarm_step(self._design_u, named, V, rng, kit_idx,
+                                      eps=self.pareto_eps, explore=self.redesign_explore)
+        self._last_frontier = keep
+        self.set_design_points(u2)
         return True
 
     def set_design_points(self, u):

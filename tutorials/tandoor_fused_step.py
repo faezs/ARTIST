@@ -317,6 +317,11 @@ def fused_full_step(env, actions):
     lib.step_post(F.rew, F.st, F.per, F.sp, F.ip, rn, ru, F.day_v,
                   F.lat_v, env._mnt_prm, F.off, F.obs, F.trunc,
                   F.diag, a32, dsn, env._fct)
+    # the day's light per machine [kWh] - the summing functor's sun column for the Pareto dawn
+    # (tandoor_resources); a device add, no sync
+    if not hasattr(env, "_ep_kwh_t"):
+        env._ep_kwh_t = torch.zeros(B, device=dev)
+    env._ep_kwh_t += F.diag[:, 0] * (env.dt / 3.6e6)
     env.tick += 1
     infos = []
     ts0 = float(env.t_solar[0])
@@ -349,6 +354,8 @@ def _day_over(env, F, infos):
     rew = F.rew - inflight
     S.ep_return.sub_(inflight)
     sales_np = S.day_rotis.detach().cpu().numpy().copy()
+    if hasattr(env, "_ep_kwh_t"):                       # the day's light, for the Pareto dawn; then reset
+        env._last_day_kwh = env._ep_kwh_t.detach().cpu().numpy().copy(); env._ep_kwh_t.zero_()
     infos.append({
         "rotis_per_day": float(S.day_rotis.mean()),
         "scorched": float(S.ep_scorch.mean()),

@@ -1433,6 +1433,159 @@ def _(seed, lead, label):
                      f"day_end {t_end:.2f}h, crossed={crossed}")
 
 
+# =====================================================================================
+# tandoor_resources - the design run as a Pareto optimization in a category of resources
+# =====================================================================================
+PAR = suite("tandoor_resources - the design run as a Pareto optimization in a category of resources")
+
+
+def ledger_gen():
+    """a random machine-day: p_in, a non-decreasing sales counter, cuts, stows, keyhole flags, a kit"""
+    def _s(r):
+        import tandoor_resources as R
+        n = r.randint(2, 40)
+        p_in = np.array([r.uniform(0.0, 4000.0) for _ in range(n)])
+        sold = np.cumsum([r.choice([0, 0, 0, 1, 1, 2]) for _ in range(n)]).astype(float)
+        cut = np.array([r.random() < 0.05 for _ in range(n)])
+        stow = np.array([r.random() < 0.1 for _ in range(n)])
+        key = np.array([r.random() < 0.2 for _ in range(n)])
+        kit = R.Resource.of(capital_pkr=r.uniform(3e5, 9e5), film_m2=r.uniform(4, 30), motor_degpm=r.uniform(1, 5))
+        return R.DayLedger(15.0, p_in, sold, cut, stow, key, kit)
+
+    def _sh(L):
+        import tandoor_resources as R
+        n = len(L.S) - 1
+        if n > 2:
+            yield R.DayLedger(15.0, [L.events[i]["sun_kwh"] * 3.6e6 / 15.0 for i in range(n // 2)],
+                              np.cumsum([L.events[i]["rotis"] for i in range(n // 2)]),
+                              [L.events[i]["cuts"] > 0 for i in range(n // 2)],
+                              [L.events[i]["stow_min"] > 0 for i in range(n // 2)],
+                              [L.events[i]["keyhole_min"] > 0 for i in range(n // 2)], L.events["kit"])
+    return Gen(_s, _sh, "day ledger")
+
+
+@PAR.prop("the day's ledger is a summing functor: the bundle of a union of disjoint event sets is the sum of the bundles",
+          lean="Physics.SummingFunctor.sumOn_union, resource-valued (tandoor_resources.DayLedger)",
+          gens=dict(L=ledger_gen(), seedp=ints(0, 1 << 20), k=ints(2, 6)), n=300)
+def _(L, seedp, k, label):
+    import tandoor_resources as R
+    rng = np.random.default_rng(seedp)
+    part = rng.integers(0, k, size=len(L.S))
+    blocks = [[e for e, g in zip(L.S, part) if g == j] for j in range(k)]
+    label("blocks used", str(len([b for b in blocks if b])))
+    tot = L.total(); acc = R.UNIT
+    for b in blocks: acc = acc + L.of(b)
+    worst = max(abs(x - y) for x, y in zip(acc.v, tot.v))
+    return worst <= 1e-9 * max(1.0, max(abs(x) for x in tot.v)) and L.of([]) == R.UNIT, \
+        f"sum over {k} blocks differs from the total by {worst:.3e}; Phi(empty) = {L.of([])}"
+
+
+@PAR.prop("a conversion never creates energy: whatever a bundle converts to took no more than it held",
+          lean="tandoor_resources.converts (the measuring semigroup, rho M(B) <= M(A))",
+          gens=dict(sun=floats(0.0, 60.0), rotis=floats(0.0, 800.0), cap=floats(1e5, 1e6),
+                    film=floats(1.0, 40.0), r2=floats(0.0, 800.0), s2=floats(0.0, 60.0)), n=400)
+def _(sun, rotis, cap, film, r2, s2, label):
+    import tandoor_resources as R
+    a = R.Resource.of(sun_kwh=sun, rotis=rotis, capital_pkr=cap, film_m2=film)
+    b = R.Resource.of(sun_kwh=s2, rotis=r2, capital_pkr=cap, film_m2=film)
+    ok = R.converts(a, b)
+    label("converts", "yes" if ok else "no")
+    if ok:
+        return R.measure_mj(b)[1] <= R.measure_mj(a)[0] + 1e-9, "a conversion made more MJ than it was given"
+    return (R.measure_mj(b)[1] > R.measure_mj(a)[0] - 1e-9) or s2 > sun or any(b[t] > a[t] for t in ("capital_pkr", "film_m2", "motor_degpm")), \
+        "a conversion was refused although nothing in b exceeds a"
+
+
+def pool_gen(B=12, n=5):
+    """a pool of valuations in Valuation.names order, most designs admissible"""
+    def _s(r):
+        return [(str(i), [r.uniform(0, 400), r.uniform(0, 60), -r.uniform(2e5, 9e5), -r.uniform(6, 600), r.uniform(0.2, 3.0)])
+                for i in range(r.randint(2, B))]
+    def _sh(v):
+        if len(v) > 2: yield v[: len(v) // 2]
+    return Gen(_s, _sh, "pool")
+
+
+@PAR.prop("the swarm keeps exactly the frontier and moves only the dominated, inside the box",
+          lean="Pareto.ThinValuation.compute (mem_compute_iff) + Marcolli's swarm step",
+          gens=dict(pool=pool_gen(), seedp=ints(0, 1 << 20), eps=floats(0.0, 0.3), explore=floats(0.0, 0.5)), n=300)
+def _(pool, seedp, eps, explore, label):
+    import tandoor_resources as R
+    V = R.Valuation(budget_pkr=8e5, goal_rotis=20.0, goal_track=0.5)
+    B = len(pool); rng = np.random.default_rng(seedp)
+    kit_idx = np.arange(3, 9); u = rng.uniform(size=(B, 12))
+    front = set(V.frontier(pool))
+    u2, keep, redo = R.swarm_step(u, pool, V, rng, kit_idx, eps=eps, explore=explore)
+    label("frontier", "empty (fallback)" if not front else ("all" if len(front) == B else "some"))
+    if front and set(str(i) for i in keep) != front:
+        return False, f"kept {keep} but the frontier is {sorted(front)}"
+    if set(keep) | set(redo) != set(range(B)) or set(keep) & set(redo):
+        return False, "kept and redrawn do not partition the population"
+    if not np.array_equal(u2[keep], u[keep]):
+        return False, "a kept design was moved"
+    still = [i for i in range(12) if i not in set(kit_idx)]
+    if not np.array_equal(u2[:, still], u[:, still]):
+        return False, "a site column was touched"
+    return bool((u2 >= 0).all() and (u2 <= 1).all()), "a redrawn design left the unit box"
+
+
+@PAR.prop("with no step and no exploring, every redrawn design lands ON a frontier design",
+          lean="Marcolli Prop. 4.4: the epsilon-reversible move, at epsilon = 0",
+          gens=dict(pool=pool_gen(), seedp=ints(0, 1 << 20)), n=200)
+def _(pool, seedp, label):
+    import tandoor_resources as R
+    V = R.Valuation(budget_pkr=8e5, goal_rotis=20.0, goal_track=0.5)
+    B = len(pool); rng = np.random.default_rng(seedp); kit_idx = np.arange(3, 9)
+    u = rng.uniform(size=(B, 12))
+    u2, keep, redo = R.swarm_step(u, pool, V, rng, kit_idx, eps=0.0, explore=0.0)
+    label("redrawn", "some" if redo else "none")
+    for b in redo:
+        if not any(np.allclose(u2[b, kit_idx], u[j, kit_idx]) for j in keep):
+            return False, f"design {b} was redrawn onto nothing on the frontier"
+    return True
+
+
+@PAR.prop("both scalarizations the project uses pick a point of the frontier",
+          lean="Pareto.scalarization_mem_frontier, for SCALAR_PAYBACK and SCALAR_RL",
+          gens=dict(pool=pool_gen(), which=choice(["payback", "rl"])), n=300)
+def _(pool, which, label):
+    import tandoor_resources as R
+    V = R.Valuation(budget_pkr=8e5, goal_rotis=20.0, goal_track=0.5)
+    front = set(V.frontier(pool)); adm = [(n_, v_) for n_, v_ in pool if all(g <= x for x, g in zip(v_, V.goals))]
+    if not adm: return True
+    w = R.SCALAR_PAYBACK if which == "payback" else R.SCALAR_RL
+    sc = [R.scalarize(v_, w) for _, v_ in adm]; best = int(np.argmax(sc))
+    if sum(1 for x in sc if x >= sc[best] - 1e-12) > 1: label("tie", "yes"); return True
+    label("tie", "no")
+    return adm[best][0] in front, f"{which} picked {adm[best][0]}, not on the frontier {sorted(front)}"
+
+
+@PAR.prop("the proved program agrees with the python frontier on the design run's own pools",
+          lean="Pareto.ThinValuation.compute via `lake exe frontier`", gens=dict(pool=pool_gen()), n=6)
+def _(pool, label):
+    import tandoor_resources as R, shutil, os
+    if not os.path.exists(os.path.expanduser("~/.elan/bin/lake")): label("lake", "absent"); return True
+    label("lake", "present")
+    V = R.Valuation(budget_pkr=8e5, goal_rotis=20.0, goal_track=0.5)
+    py, ln = V.frontier(pool), V.lean_frontier(pool)
+    return py == ln, f"python {py} but Lean {ln}"
+
+
+@PAR.prop("the tracking-margin goal is the keyhole: below one within a few degrees of the declination, above one far from it",
+          lean="Mount.follow_exact's hypothesis as a design goal (tandoor_resources.track_margin)",
+          gens=dict(doy=ints(1, 365), off=choice([0.0, 1.0, 2.0, 3.0, 8.0, 12.0, 20.0, 35.0])), n=120)
+def _(doy, off, label):
+    import tandoor_resources as R
+    decl = 23.44 * math.sin(2 * math.pi * (284 + doy) / 365)
+    lat = decl + off
+    if abs(lat) > 60: return True
+    m, need = R.track_margin(lat, doy, 2.5)
+    label("zone", "keyhole" if off <= 3.0 else ("clear" if off >= 8.0 else "edge"))
+    if off <= 3.0: return m < 1.0, f"{off:.0f} deg from the declination the margin is {m:.2f} (demand {need:.1f} deg/min)"
+    if off >= 8.0: return m >= 1.0, f"{off:.0f} deg from the declination the margin is {m:.2f} (demand {need:.1f} deg/min)"
+    return True
+
+
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
