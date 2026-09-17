@@ -111,10 +111,6 @@ def gpu_step(env, actions):
     dt = env.dt
 
     # ---- Hashemi motors (BEFORE the optics see the sun this step)
-    mnt = env._mount(S.day_v, S.lat_v, float(env.t_solar[0]),
-                     pnt=torch.stack([S.el_m, S.az_m], 1))
-    el0s = mnt["el"]                     # (B,) deg - per-env sun
-    az0d = torch.rad2deg(mnt["az"])
     # potential BEFORE this step's motor action (see the numpy path)
     pot_prev = (S.e_az_prev.abs() + S.e_el_prev.abs()).clamp(max=4.0)
     r_az = (a[:, 3].clamp(0, 6).float() - 3) / 3.0 * env.RATE_AZ * S.ds_rate
@@ -136,6 +132,17 @@ def gpu_step(env, actions):
     S.az_m = S.az_m + r_az * dt + 0.02 * S.n(B)
     S.el_m = (S.el_m + r_el * dt + 0.02 * S.n(B)).clamp(
         env.el_min_h - 2.0, env.el_max_h + 1.0)
+    # THE MOUNT SOLVE MUST SEE THE MOUNT THIS STEP'S COMMAND LEFT. It used to run above, before the
+    # motors moved, and its geometry was then handed to the megakernel trace (:234) together with a
+    # pointing error taken AFTER the move - stale optics, fresh error, in one step. The numpy twin
+    # solves the mount inside _trace_power, i.e. after the motors, which is what both files'
+    # comments say should happen and what made the two traces disagree by up to 40 percent per
+    # agent on identical inputs. Moved rather than repeated: the sun does not depend on the
+    # pointing, so nothing above needed el0s, and this costs no extra solve.
+    mnt = env._mount(S.day_v, S.lat_v, float(env.t_solar[0]),
+                     pnt=torch.stack([S.el_m, S.az_m], 1))
+    el0s = mnt["el"]                     # (B,) deg - per-env sun
+    az0d = torch.rad2deg(mnt["az"])
     e_el = S.el_m - el0s
     _daz = S.az_m - az0d; _daz = _daz - 360.0 * torch.round(_daz / 360.0)     # on the circle (site frame, wrapped sun)
     e_az = _daz * torch.cos(torch.deg2rad(el0s))

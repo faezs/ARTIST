@@ -754,9 +754,18 @@ class TandoorPolarEnv(TandoorEnv):
                                     self._decl(), self.decl_formed)
 
         # --- sun, cloud, wind (courtyard-sheltered) -------------------- #
+        # THE SUN THIS STEP IS THE SUN THE MOUNT SAW. The clock advance used to come first, so the
+        # beam was traced against the sun at t + dt while the pointing error, solved before the
+        # motor block (tandoor_hashemi_env.py, _mount), used the sun at t - two different suns in
+        # one step, and the only twin to do it: both GPU paths compute their sun before advancing
+        # (tandoor_gpu_step.py:114 against :179). One 15 s step is ~0.05 deg of elevation, 0.08 %
+        # of the clear-sky beam and ~1 kW of traced power at step zero, which is what made the
+        # zero-noise trajectory harness red. The weather read below stays on the advanced clock,
+        # as the GPU twins also do.
+        _ts_sun = float(self.t_solar[0])
+        self._ts_sun = _ts_sun          # the trace must use THIS sun too, not the advanced clock
         self.t_solar += self.dt / 3600.0
-        el0, az0, svec = _sim.solar_position(self.lat, self.day,
-                                             float(self.t_solar[0]))
+        el0, az0, svec = _sim.solar_position(self.lat, self.day, _ts_sun)
         clear = _sim.clear_sky_dni(el0)
         # THE SITE'S OWN WEATHER (tandoor_site_weather): with a recorded day per agent on
         # file (_sw_tab (B,3,24): DNI, 10 m wind, gust by local solar hour) the beam is the

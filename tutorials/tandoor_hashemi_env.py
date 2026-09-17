@@ -3806,8 +3806,14 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         dev = self.device
         self._apply_m3_turn()                 # M3 where the actuator has put it
         B, P = np.asarray(p_eff).shape[0], len(self._hx)
-        el, az, u_np = _sim.solar_position(self.lat, self.day,
-                                           float(self.t_solar[0]))
+        # THE SUN OF THE STEP THAT CALLED US. self.t_solar has already been advanced by the time
+        # the trace runs, so reading it here traced the beam against a sun one step ahead of the
+        # mount that was aimed at it - while the GPU twin is handed the mount solve from before
+        # the advance (tandoor_gpu_step.py:114, :234). At 15 s that is ~0.05 deg of elevation and
+        # about a kilowatt of traced power, the divergence that made the zero-noise trajectory
+        # harness red. Callers outside a step (the renderer, the verifiers) fall back to the clock.
+        _ts = float(getattr(self, "_ts_sun", self.t_solar[0]))
+        el, az, u_np = _sim.solar_position(self.lat, self.day, _ts)
         if not (self.el_min_h <= el <= self.el_max_h):
             return torch.zeros(B, self.n_nodes + self.n_belt)
         # level_frac is NOT uniformly spaced (0.70, 0.82, 0.90, 0.96, 1.00, 1.04, 1.10 - the steps tighten around
@@ -3840,8 +3846,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         pnt_np = torch.as_tensor(np.stack([np.asarray(self.el_m, dtype=np.float32),
                                            np.asarray(self.az_m, dtype=np.float32)], 1),
                                  device=dev)
-        mnt = mount_batch(self, day_t, lat_t,
-                          float(self.t_solar[0]), dev, pnt=pnt_np)
+        mnt = mount_batch(self, day_t, lat_t, _ts, dev, pnt=pnt_np)   # the step's sun, as above
         soil = self._shade(soil, mnt)                    # the neighbourhood's horizon, on the beam
         Mt = mnt["Mt"].contiguous()
         Cd = mnt["Cd"].contiguous()
