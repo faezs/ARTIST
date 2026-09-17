@@ -187,3 +187,25 @@ on his 2 m sphere with a 2 m dish, the paper's 73 cm, `screwLength_hashemi_bound
 slot and receiver arrive with their stretches of the video. `fact_mount/hashemi_dims.py` is the to-scale drawing of
 the same machine (R 2 m, f 1 m, dish 2 m) with the three-focal-ratio strip that answers why the env's f 4 mount is
 tall: a_mem, f_nom and g_orbit scale together in the env, so g_orbit cannot drop alone.
+
+Same day, two more stretches, and a correction of method. 4:42-6:30, fitting the carriage: bearings on the tube first,
+frame welded around them ("it causes precision in its construction"), the bearing's looseness shimmed with iron sheet,
+the semicircular clamps locked, 360 deg with no stop. `play_budget` is what a play delta costs - it comes straight off
+the receiver's half-size in Mount.lean's pointing budget, `spot f eps + delta <= h`; `shim_negligible` his half
+millimetre against a 6 cm loaf; `tracks_exactly_circ` the 360 deg as `followCirc_exact` at the roller's rate. IF the
+wheels are grooved (the paper's "slotted wheels"; the frames do not resolve it) the stage is over-constrained by two:
+`constraintsGrooved` is the seven-strong set, all reciprocal to the yaw, with the two dependencies written out
+(`grooved_relation_x`, `grooved_relation_y`, `grooved_not_linearIndependent`) - the grooves and the bearing fix the axis
+twice, which is what the construction order and the shims are for. 8:00-10:00, the two legs: identical ("neither left
+nor right"), a 130 cm upright, a 62 cm foot, a 96 cm knee brace, four holes; one at each END of the chord bar, upright
+vertical by the roller, the foot ALONG the bar screwed into the rail with its long side cantilevered outboard, the brace
+triangle in the bar's own vertical plane - "the chord of the triangle on the base prevents bending of the vertical base".
+`Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
+`brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
+level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
+movement is encoded as he states it and no further: `AlwaysTangent` ("always perpendicular to the supposed circle of
+focus") and `alwaysTangent_focusCircle`, his diagram proved from that sentence - a dish always tangent has its vertex on
+the circle of radius f about F. HOW the dish swings from the post tops is not in the frames and the file says so; the
+earlier inference that F must sit over the tube is now stated conditionally (if the receiver stands on the roof). The
+method, after the user's "forget what you know, look at the pictures": each section records the frames and captions,
+the theorems follow from the figures' numbers, and nothing is asserted about a stage the video has not shown.
