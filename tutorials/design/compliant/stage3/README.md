@@ -122,13 +122,14 @@ twice as bad; `hashemi.ini` is at 0.6 already. Run 4's controller transfers to t
 Read from Hashemi's own paper (`fixed-focus-ir.pdf`, figs 6, 16, 17) after the user pointed at his channel. Three parts
 that the register had conflated into one:
 
-- ELEVATION IS A TRUNNION AT F: the two screws through the tops of the holder's vertical plates (p13, figs 15-16). The
-  dish hangs on straight arms one focal length out, so its vertex rides the focal circle and F never moves. Hashemi's
-  desk model shows this plainly - the dish pivots at the yellow focus marker and there is no curved rail in it at all -
-  and it is why the dish must be slotted: fig 8's near method puts the post directly under F, where the dish must pass.
-- the bent rail behind the dish (circle D, centred on F) is a WIND STIFFENER with bearings running inside it, p13's
-  "To make the dish more resistant to wind". It carries load; it does not drive, it is not commanded, and it is not the
-  path the dish is positioned along. AZIMUTH is the separate ring rail below (fig 14).
+- ELEVATION IS A CRADLE ON FOUR RODS, ABOUT A REMOTE CENTRE AT F. "I closed all four threaded rods and you can see that
+  it can move like a cradle" (17:32 in the build video). The rods are SHORT and each is radial to F, so the dish they
+  suspend rocks about a virtual centre at the focus: no axle at F, no mast reaching up to it, and the bearings on arc D
+  hold it to that exact circle over the full travel. Compose that with the frame spinning on the ring about the vertical
+  through F and the dish has two degrees of freedom over the focal sphere, which is why F never moves. Two revolutes can
+  only fix a point if both axes pass through it, and that is the constraint that makes a physical trunnion at F need a
+  4 m arm; the remote centre is how the machine avoids paying it. The rods are also the alignment: nutted above and
+  below the rim, they set the dish tangential to the focal circle (fig 16, p13).
 - the drive is a ROD on a crank off the trunnion. Fig 17 draws a tow-wire loop on two pulleys instead, and either works,
   but the desk model and the production build use a rod, which is 3-4x stiffer and can push. Its price is buckling: at
   the built scale the rod is 10.7 mm carrying 3.6 kN, against an Euler load of 0.3 kN pinned, so it must be biased into

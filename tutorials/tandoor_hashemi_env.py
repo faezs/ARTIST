@@ -4825,33 +4825,37 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # counterweight at the arc's upper end (fig 18)
             pr.draw_sphere(v3(arc(e_lo) - 0.15*zh_), 0.14,
                            (110, 110, 120, 255))
-            # THE TRUNNION, CARRIED TO THE SIDES. The posts stand either
-            # side of the dish on the rotating frame - four of them, braced,
-            # in the roof photos - and the pivot axis runs between their
-            # tops THROUGH F. The dish hangs from those two side bearings on
-            # rods along its own normal, one focal length long, so the
-            # vertical movement is a rotation about F and the focus never
-            # moves. The posts are NOT behind the dish and the rods do not
-            # spring from a point at F: they hang from the sides.
+            # THE CRADLE ON FOUR CONVERGING RODS - A REMOTE CENTRE AT F.
+            # "I closed all four threaded rods and you can see that it can
+            # move like a cradle". The rods are short and each one is RADIAL
+            # TO F, so the dish they suspend rocks about a virtual centre at
+            # the focus with no axle there and no mast reaching up to it;
+            # the bearings on arc D hold it to that exact circle over the
+            # full travel. Compose that with the frame spinning on the ring
+            # about the vertical through F and the dish has two degrees of
+            # freedom over the focal sphere, which is why F never moves.
             trun = (190, 176, 150, 255)
-            s_off = 0.85*float(self.a_mem)                         # the posts stand at the dish's own edge, as the photos show
             n_d = np.asarray(H["naim"] if "naim" in H else H["n"], float)
-            p_side = e_s - float(np.dot(e_s, n_d))*n_d             # the dish's in-plane direction on the posts' side
-            p_side = p_side/max(np.linalg.norm(p_side), 1e-9)
-            for sg_ in (1.0, -1.0):
-                top_ = Pf_ + sg_*s_off*e_s                         # the post's head, a bearing on the trunnion axis
-                base_ = np.array([top_[0], top_[1], z_beam])
-                pr.draw_cylinder_ex(v3(base_), v3(top_), 0.045, 0.045, 8, colc)
-                brace = base_ + 0.7*s_off*hdir                     # the diagonal brace, as the photos show
-                pr.draw_line_3d(v3(top_), v3(brace), colc)
-                pr.draw_line_3d(v3(base_), v3(brace), colc)
-                ring(top_, 0.08, trun, 10)                         # the bearing
-                rim_ = Cd_ + sg_*float(self.a_mem)*p_side          # THE THREADED ROD, post head down to the dish's rim beam
-                pr.draw_cylinder_ex(v3(top_), v3(rim_), 0.032, 0.032, 8, trun)
-                pr.draw_sphere(v3(rim_), 0.06, trun)               # nutted above and below the rim, as the close-ups show
-            pr.draw_cylinder_ex(v3(Pf_ - s_off*e_s), v3(Pf_ + s_off*e_s), 0.035, 0.035, 10, trun)   # the axis, through F
-            self._pot_lbls.append((Pf_ + np.array([0, 0, 0.42]),
-                                   f"trunnion axis through F, borne on the side posts; arm {self.g_orbit:.1f} m", trun))
+            p_side = e_s - float(np.dot(e_s, n_d))*n_d; p_side = p_side/max(np.linalg.norm(p_side), 1e-9)
+            p_up = np.cross(n_d, p_side); p_up = p_up/max(np.linalg.norm(p_up), 1e-9)
+            L_rod = 0.45                                            # the rods are short: they only have to aim, not reach
+            r_att = 0.72*float(self.a_mem)                          # where they take the dish, inboard of the rim
+            corners = []
+            for sx, sy in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+                q_ = Cd_ + r_att*(sx*p_side + sy*p_up)/np.sqrt(2.0)  # the dish end
+                ray = q_ - Pf_; ray = ray/max(np.linalg.norm(ray), 1e-9)
+                f_ = q_ + L_rod*ray                                  # the frame end, further out along the SAME ray through F
+                corners.append(f_)
+                pr.draw_cylinder_ex(v3(f_), v3(q_), 0.028, 0.028, 8, trun)   # a threaded rod, radial to F
+                pr.draw_sphere(v3(q_), 0.055, trun)
+            for k in range(4):                                       # the cradle frame joining their feet
+                pr.draw_line_3d(v3(corners[k]), v3(corners[(k + 1) % 4]), colc)
+            for sg_ in (1.0, -1.0):                                  # and its bearings, down onto arc D
+                b0 = 0.5*(corners[0] + corners[1]) if sg_ > 0 else 0.5*(corners[2] + corners[3])
+                pr.draw_line_3d(v3(b0), v3(arc(el_r + sg_*dstrap)), colc)
+                ring(arc(el_r + sg_*dstrap), 0.07, colc, 8)
+            self._pot_lbls.append((Cd_ - 0.75*n_d,
+                                   "cradle on 4 rods radial to F: a REMOTE centre, no axle at the focus", trun))
             # THE DRIVE: a crank on the trunnion and TWO RODS, one each
             # side, down to ONE motor on the rotating beam. The sides
             # always move together, so the machine has a single elevation
