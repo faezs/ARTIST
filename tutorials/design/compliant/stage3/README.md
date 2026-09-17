@@ -540,3 +540,47 @@ JSON; (3) the Float twin + parity test; (4) the MECHW row from the JSON - the sm
 (5) the wire elevation drive + sensor loop in mount_solve/step_pre; (6) slot/post aperture + facet box in tandoor_trace;
 (7) the generated property suite. Each step verifiable under the three-implementations discipline.
 
+THE COMPILE PLAN, REVISED AFTER CONAL ELLIOTT'S concat (2026-09-17; the user: "take the 200 definitions already here,
+convert them automatically - that is the point"; checkout at ~/Library/concat). THE PATTERN THERE: `toCcc :: (a -> b) ->
+(a `k` b)` is a pseudo-function; a GHC Core plugin (plugin/src/ConCat/Plugin.hs + RULES in AltCat/Rebox) rewrites
+ordinary Haskell functions into the categorical vocabulary of classes/src/ConCat/Category.hs - Category, ProductCat
+(exl/exr/dup), ClosedCat (curry/apply), ConstCat, BoolCat/EqCat/OrdCat/IfCat/MinMaxCat, NumCat (negateC addC mulC powIC),
+FractionalCat, FloatingCat, RepCat (structure <-> representation), CoerceCat, ArrayCat, UnknownCat (foreign nodes). The
+program is written ONCE, monomorphically; every target is an INSTANCE: (->) the meaning; Syn (Syntactic.hs) the printed
+categorical expression; (:>) (Circuit.hs) the hash-consed, optimised dataflow graph (buses + components, mkGraph ->
+[CompS]); and PRINTERS off that one graph - writeDot/displayDot (RunCircuit.hs), GLSL (graphics/src/ConCat/Graphics/GLSL.hs:
+`glsl = compsShader widgets . fmap simpleComp . mkGraph . uncurry` -> a Shader [UVar] funDef; genHtml writes an HTML page
+with `var uniforms = <json>; var effect = <GLSL>` and `<body onload='go(uniforms,effect)'>`, the runner
+graphics/out/shaders/script.js compiling the fragment shader on a full-screen WebGL quad with uniforms from Widgets:
+timeW, sliderW, pairW), and Verilog (hardware/src/ConCat/Hardware/Verilog.hs: mkGraph -> Language.Netlist AST ->
+GenVerilog -> ppModule). `EC a b = Syn :**: (:>)` is a product of categories - two backends in one pass. Other
+instances: GAD/RAD/Dual (automatic differentiation), Interval, Incremental, SMT (satisfy -> z3), Choice, Regress,
+Synchronous (Mealy (a x s -> b x s) s: stream transformers as circuits), StackVM. Gold tests check semantic preservation.
+THE LEAN ANALOG, OVER THE 202 DEFINITIONS AS THEY ARE: Lean has natively what GHC needs a plugin for - reflection.
+`toCcc` becomes a MetaM function reading `ConstantInfo.value!` and translating the Expr by Conal's rules (abstraction
+elimination to combinators; the fragment is first-order like his circuits, so straight to a hash-consed DAG). The
+vocabulary is enforced by the translator: NumCat/FractionalCat/FloatingCat (+ - * / neg, ℕ-literal pow, sqrt sin cos
+tan arctan pi), ProductCat (Prod, `![..]`/Fin n -> ℝ as n-ary buses), ConstCat (OfScientific/OfNat numerals), RepCat
+(structures <-> tuples; instance projections `hashemi.chord` unfold to literals, or stay as named inputs = tunables),
+OrdCat/BoolCat/IfCat (classical `ite` on ℝ is fine syntactically; Props -> Bool nodes), UnknownCat (tandoor_trace as a
+foreign node), Synchronous/Mealy for ℕ-recursion (`follow` IS a Mealy machine). Anything else -> a compile error naming
+the def (his "Oops: toCcc' called"). Lean's Core-cast/dictionary noise: instance arguments in HAdd.hAdd, Nat.cast,
+Matrix.vecCons, Real.decidableLT. `noncomputable` is irrelevant: nothing is evaluated, only read. WHAT LEAN ADDS THAT
+HASKELL CANNOT: the translator also emits, per definition, `theorem f_ccc : eval (ccc f) = f` (rfl / simp), so his gold
+tests become theorems and the file's 200 theorems transfer to the graph; the printers stay the only trusted part.
+TARGETS, WRITTEN ONCE: Graph -> C99 (MSL/CUDA device functions; the megakernel = `ccc hashemiStep`, a new Lean def
+composing the existing ones with the trace as an unknown node); Graph -> GLSL + HTML/JS (the concat-graphics style
+applied to the machine: an image R2 -> Color of the y-z plane - bolt line, dish arc via swungPt, wire via pulleyAt/
+edgeClipAt, mast, post through the slot - widgets timeW for the swing/day, sliders for ym/hp/W; the shader IS the
+compiled spec and the dead point shows as the wire refusing to shorten; his script.js reused as is); Graph -> Verilog
+(the control - deadband tracker, dead-point limit, homing - as a Mealy machine: the DC.P box from the spec; needs a
+number representation, fixed point); Graph -> dot (every definition as a dataflow diagram); Graph -> JSON (the param
+table). Free once ccc exists: AD (d(dead point)/d(ym,hp) for the design tool), Interval (rigorous float bounds - the
+ℝ-vs-float gap closed), SMT (the Props to z3: "∃ mast with ReachesVertical ∧ MastClears"), Choice. The Syn :**: Graph
+product trick = all backends in one pass. WHAT CHANGED FROM THE FIRST PLAN: not Expr -> C directly, but Expr -> Graph
+once (CSE, constant folding, the preservation theorem once) -> many printers. Still automatic over the definitions as
+they stand - no rewriting of Hashemi.lean. SEQUENCE IF DONE: Ccc.lean (translator + eval + generated theorems, ~600
+lines); printers C/dot/JSON (~300), GLSL+HTML (~200, runner copied), Verilog (~200 + a netlist AST); `hashemiStep`; then
+the env integration as before (MECHW row from the graph, the wire drive, the sensor loop). Sources: ~/Library/concat
+(files above); http://conal.net/papers/compiling-to-categories/ (ICFP 2017); https://github.com/conal/concat.
+
