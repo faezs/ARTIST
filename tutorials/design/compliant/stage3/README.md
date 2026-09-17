@@ -463,6 +463,9 @@ this mast. The video is complete: fifteen sections, 201 declarations, no sorry; 
 https://www.youtube.com/watch?v=5rIKy5frygw. What the video did not give, listed at the end of the file's header: the
 receiver's base and the coil (temporary), the winch's drum and ratios, the wire's diameter, the bolts' grade, the bronze
 pulley, the sensor's precision and the circuit's logic, the battery. Frames folder: 221.
+THE USER, on the closing shots: the receiver's post stands at the DEAD CENTRE OF THE FRAME - the bar's midpoint between
+the two legs - so it is the vertical through F from the carriage, height to F = the legs' upright - holeDown = 1.25 m
+(`receiverPost_height`); the receiver's base is no longer open. 202 declarations, no sorry.
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
