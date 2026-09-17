@@ -1,0 +1,10 @@
+digraph "TandoorHashemi.hashemiStand" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="1.59", shape=plaintext];
+  n1 [label="1.84", shape=plaintext];
+  n2 [label="0.41", shape=plaintext];
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n0 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n1 -> out1;
+  out2 [label="out 2", shape=box, style=filled, fillcolor=lightgrey]; n2 -> out2;
+}

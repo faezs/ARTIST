@@ -1,0 +1,29 @@
+digraph "TandoorHashemi.wireLever" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="P_1", shape=box];
+  n1 [label="P_2", shape=box];
+  n2 [label="B_1", shape=box];
+  n3 [label="B_2", shape=box];
+  n4 [label="*", shape=ellipse];
+  n0 -> n4; n3 -> n4;
+  n5 [label="*", shape=ellipse];
+  n1 -> n5; n2 -> n5;
+  n6 [label="-", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  n7 [label="-", shape=ellipse];
+  n2 -> n7; n0 -> n7;
+  n8 [label="^2", shape=ellipse];
+  n7 -> n8;
+  n9 [label="-", shape=ellipse];
+  n3 -> n9; n1 -> n9;
+  n10 [label="^2", shape=ellipse];
+  n9 -> n10;
+  n11 [label="+", shape=ellipse];
+  n8 -> n11; n10 -> n11;
+  n12 [label="sqrt", shape=ellipse];
+  n11 -> n12;
+  n13 [label="/", shape=ellipse];
+  n6 -> n13; n12 -> n13;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n13 -> out0;
+}

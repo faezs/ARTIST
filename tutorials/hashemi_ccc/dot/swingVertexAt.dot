@@ -1,0 +1,22 @@
+digraph "TandoorHashemi.swingVertexAt" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="P_1", shape=box];
+  n1 [label="P_2", shape=box];
+  n2 [label="d", shape=box];
+  n3 [label="t", shape=box];
+  n4 [label="sin", shape=ellipse];
+  n3 -> n4;
+  n5 [label="*", shape=ellipse];
+  n2 -> n5; n4 -> n5;
+  n6 [label="+", shape=ellipse];
+  n0 -> n6; n5 -> n6;
+  n7 [label="cos", shape=ellipse];
+  n3 -> n7;
+  n8 [label="*", shape=ellipse];
+  n2 -> n8; n7 -> n8;
+  n9 [label="-", shape=ellipse];
+  n1 -> n9; n8 -> n9;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n6 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out1;
+}

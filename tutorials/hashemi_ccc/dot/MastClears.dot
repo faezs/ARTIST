@@ -1,0 +1,18 @@
+digraph "TandoorHashemi.MastClears" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="ym", shape=box];
+  n1 [label="a", shape=box];
+  n2 [label="ze", shape=box];
+  n3 [label="^2", shape=ellipse];
+  n1 -> n3;
+  n4 [label="^2", shape=ellipse];
+  n2 -> n4;
+  n5 [label="+", shape=ellipse];
+  n3 -> n5; n4 -> n5;
+  n6 [label="sqrt", shape=ellipse];
+  n5 -> n6;
+  n7 [label="<", shape=ellipse];
+  n6 -> n7; n0 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}

@@ -1,0 +1,11 @@
+digraph "TandoorHashemi.slotExit" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="a", shape=box];
+  n1 [label="ze", shape=box];
+  n2 [label="/", shape=ellipse];
+  n0 -> n2; n1 -> n2;
+  n3 [label="arctan", shape=ellipse];
+  n2 -> n3;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out0;
+}

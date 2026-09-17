@@ -1,0 +1,19 @@
+digraph "TandoorHashemi.sideGap" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="1.84", shape=plaintext];
+  n1 [label="0.80", shape=plaintext];
+  n2 [label="0.98", shape=plaintext];
+  n3 [label="0.39", shape=plaintext];
+  n4 [label="0.135", shape=plaintext];
+  n5 [label="0.05", shape=plaintext];
+  n6 [label="2", shape=plaintext];
+  n7 [label="0.8", shape=plaintext];
+  n8 [label="*", shape=ellipse];
+  n6 -> n8; n7 -> n8;
+  n9 [label="-", shape=ellipse];
+  n0 -> n9; n8 -> n9;
+  n10 [label="/", shape=ellipse];
+  n9 -> n10; n6 -> n10;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n10 -> out0;
+}

@@ -1,0 +1,18 @@
+digraph "TandoorHashemi.cableDrop" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="L", shape=box];
+  n1 [label="I", shape=box];
+  n2 [label="0.0000000172", shape=plaintext];
+  n3 [label="2", shape=plaintext];
+  n4 [label="*", shape=ellipse];
+  n3 -> n4; n0 -> n4;
+  n5 [label="*", shape=ellipse];
+  n2 -> n5; n4 -> n5;
+  n6 [label="*", shape=ellipse];
+  n5 -> n6; n1 -> n6;
+  n7 [label="0.0000015", shape=plaintext];
+  n8 [label="/", shape=ellipse];
+  n6 -> n8; n7 -> n8;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n8 -> out0;
+}

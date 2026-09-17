@@ -1,0 +1,14 @@
+digraph "TandoorHashemi.TrackerBudget" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="f", shape=box];
+  n1 [label="eps", shape=box];
+  n2 [label="h", shape=box];
+  n3 [label="tan", shape=ellipse];
+  n1 -> n3;
+  n4 [label="*", shape=ellipse];
+  n0 -> n4; n3 -> n4;
+  n5 [label="<=", shape=ellipse];
+  n4 -> n5; n2 -> n5;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n5 -> out0;
+}

@@ -1,0 +1,13 @@
+digraph "TandoorHashemi.swingNormal" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="t", shape=box];
+  n1 [label="sin", shape=ellipse];
+  n0 -> n1;
+  n2 [label="neg", shape=ellipse];
+  n1 -> n2;
+  n3 [label="cos", shape=ellipse];
+  n0 -> n3;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n2 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out1;
+}

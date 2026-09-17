@@ -1,0 +1,10 @@
+digraph "TandoorHashemi.pulleyAt" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="ym", shape=box];
+  n1 [label="hp", shape=box];
+  n2 [label="neg", shape=ellipse];
+  n0 -> n2;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n2 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n1 -> out1;
+}
