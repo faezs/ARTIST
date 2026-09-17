@@ -1,0 +1,30 @@
+== timing: sims 2, k 64, film 4922 06:03:16
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+MCTS over the design: site p50 (roof half-width 2.0 m), day 172 cold, 2 simulations x 3 children x 64 completions
+  objective: NET VALUE [PKR]: bread-weighted rotis x 8 PKR x 300 days x 5 yr, minus the kit; site: cap_scale u=0.375, demand_scale u=0.3333333333333333, site_az u=0.0, pot_r u=0.45454545454545453, pot_h u=0.5, site_hz u=0.5, over_cap u=0.5
+  sim 0 (uniform, 192 designs): mean -570, best-quartile mean -459, best -358 k PKR net  [17 s]
+  sim  1: expand [root] -> receiver cass -485, tri -474; batch mean -584, best so far -358 k PKR net  [31 s]
+  sim  2: expand [receiver:tri] -> section circle -484, section -477; batch mean -577, best so far -358 k PKR net  [45 s]
+
+greedy path (parameter: bin, estimated best-quartile value, visits):
+  receiver         tri         -476 k PKR net  n=2
+  section          section     -477 k PKR net  n=1
+
+  (as built: SECTION, film 1.7 m2, dish_scale 0.35, rise 0.0 m, 1 plenum zone(s), tri)
+
+best single design: 0 rotis (day 172), kit 358k PKR (OVER the 100k budget): d_strip=0.41, u_f2=3.53, r_m4=0.91, r_bore=0.56, w_slot=0.87, r_hole=0.59, strip_th_hi=74.25, strip_wk=1.78, r_duct=0.23, roof_r=2.00, deck_h=3.15, rate_scale=1.11, ins_scale=0.64, cap_scale=1.00, lid_leak=0.29, bread_area=0.11, loaves_per_load=4.74, mount_post=0.05, sand_depth=0.13, sand_k=0.47, demand_scale=1.00, section=0.65, post_rise=0.60, over_cap=0.50, zones=1.00, m4_facet=0.91, roof_light=0.84, grid=0.00, receiver=0.68, site_az=0.00, pot_r=1.00, pot_h=1.00, site_hz=0.50, dish_scale=0.35, site=1.00, film=1.70, rim=4.62, rise=0.00, ocap=0.00, film_m2=1.70, rim_m=4.62, r_out_max=0.74, m4sig=0.00, roofl=1.00, m4c=0.25, m4chord=0.25, m4flat=1.00, tri=1.00, shell=0.00, shell_name=perlite, shell_t=0.03, shell_m3=0.74, shell_MJK=0.07
+bill of materials:
+  dish           14.0k
+  tower          42.5k
+  mount          38.9k
+  motors         27.2k
+  strip           9.6k
+  m4             15.7k
+  bore           43.7k
+  insulation     18.3k
+  sand           11.4k
+  lid             5.6k
+  fixed         117.6k
+  TOTAL         358.2k PKR  (OVER the 100k budget)
+evaluated 576 machines in 45 s
+== done 06:04:42

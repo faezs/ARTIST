@@ -18,6 +18,7 @@ from tandoor_hashemi_env import TandoorHashemiEnv
 from tandoor_fused_step import FusedState
 from tandoor_design_readout import Policy, env_kwargs, DEV
 import tandoor_system_cost as C
+FILM = {}                                   # the film's tension and slope for the env, from the command line (2026-09-13)
 
 #: THE ORDER IS THE SEARCH.  The tree assigns one parameter per level, so
 #: whatever sits at the front gets the visits and whatever sits at the back is
@@ -73,7 +74,7 @@ class Sim:
     def __init__(self, ckpt, B, day, seasoned, shell="perlite"):
         self.pol = Policy(torch.load(ckpt, map_location="cpu", weights_only=False))
         with contextlib.redirect_stdout(io.StringIO()):
-            self.e = TandoorHashemiEnv(**env_kwargs(B, night_carry=int(seasoned > 1), shell=shell))
+            self.e = TandoorHashemiEnv(**env_kwargs(B, night_carry=int(seasoned > 1), shell=shell), **FILM)
         self.B, self.day, self.seasoned = B, day, seasoned
         e = self.e
         self.names = [k for k, _, _ in tuple(e.DESIGN_BOX) + tuple(e.SYS_BOX)]
@@ -173,12 +174,15 @@ if __name__ == "__main__":
     ap.add_argument("--over-cap", type=float, default=0.5, dest="over_cap",
                     help="how far past the parapet the neighbours accept the rim, as a unit-box coordinate (thirds: 1.0 / 2.0 / 3.5 m); pinned for the run")
     ap.add_argument("--priced", action="store_true", help="bread-weighted rotis (roti area / 0.12)")
+    ap.add_argument("--film-T", type=float, default=4922.0, dest="film_T", help="the film's tension N/m: 4922 the flat disc at yield, 2100 the rim-fed film (2026-09-13)")
+    ap.add_argument("--film-slope", type=float, default=2.0e-3, dest="film_slope", help="the film's own rms slope error, rad (2 mrad as assumed; 1 mrad the lever)")
     ap.add_argument("--budget-cliff", action="store_false", dest="value",
                     help="rank by rotis with a hard price cap instead of net value (only meaningful for a REACHABLE --budget)")
     ap.add_argument("--budget", type=float, default=C.BUDGET, help="the kit's price cap [PKR]; over-budget designs are penalised")
     ap.add_argument("--roti-pkr", type=float, default=8.0); ap.add_argument("--days", type=float, default=300.0); ap.add_argument("--years", type=float, default=5.0)
     ap.add_argument("--out", default="/private/tmp/claude-501/-Users-faezs-ARTIST/40abdad5-aefb-4c8a-a67b-a45db67e0f41/scratchpad/design_mcts.json")
     args = ap.parse_args()
+    FILM.update(film_T=args.film_T, film_slope=args.film_slope)
     rng = np.random.default_rng(args.seed)
     SITE_U["over_cap"] = float(args.over_cap)      # pin the neighbours' tolerance with the rest of the site
     for _nm in ORDER:

@@ -1,0 +1,13 @@
+fold: constraint space dimension 5 (all lines meeting the axis)
+[fold: 5 wires through the face-plane axis] desired DOF 1; constraints given 5, independent 5; DOF left 1; desired freedoms preserved: True
+   left: ['rotation about axis through [ 0. -0. -0.] along [-1.  0. -0.]']
+[fold: only the two bipods (4 wires)] desired DOF 1; constraints given 4, independent 4; DOF left 2; desired freedoms preserved: True
+   -> NOT exact: under-constrained by 1
+[dish: one cross-axis blade pair (rank 5 of 6 lines)] desired DOF 1; constraints given 6, independent 5; DOF left 1; desired freedoms preserved: True
+dish: series of two 1R stages about the same axis -> freedom space = the union of two identical twists = 1R; range doubles (18 deg per stage at half the stress)
+facet: constraint space dimension 3 (all lines in the facet plane)
+[facet: 3 tangential in-plane wires] desired DOF 3; constraints given 3, independent 3; DOF left 3; desired freedoms preserved: True
+   left: ['rotation about axis through [-0.  0.  0.] along [ 0.506 -0.863  0.   ]', 'rotation about axis through [ 0.  0. -0.] along [0.863 0.506 0.   ]', 'translation along [0. 0. 1.]']
+[facet: wires + 3 screw contacts (intended: the screws take the 3 freedoms -> 0 DOF, adjustable)] desired DOF 3; constraints given 6, independent 6; DOF left 0; desired freedoms preserved: False
+   -> NOT exact: over-constrained (desired motion resisted)
+figures written to figures

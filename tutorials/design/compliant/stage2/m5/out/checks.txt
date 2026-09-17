@@ -1,0 +1,9 @@
+pad: 6 tangential in-plane wires -> rank 3, DOF 3: ['rotation about axis through [-0. -0.  0.] along [0. 1. 0.]', 'translation along [0. 0. 1.]', 'rotation about axis through [0. 0. 0.] along [1. 0. 0.]']
+pad + 3 screw contacts -> rank 6, DOF 0: exact-constraint adjustable mount
+redundancy: one wire lost -> rank 3, DOF 3 (unchanged)
+FE (wires only, 45-deg model): normalised eigen-stiffnesses [4.0000e-01 4.0000e-01 7.0000e-01 1.8780e+03 1.8780e+03 3.6528e+03]; three soft directions vs three stiff: ratio 3.94e-04
+wire stress at +-15 mrad tilt: 121 MPa = 0.14 sigma_y, 0.17 sigma_y(200 C) (held: R3 <= 0.25); piston +-2 mm: 162 MPa = 0.22 sigma_y(200 C)
+buckling of a wire under the 49 N wind case shared by 6: 8.2 N vs P_cr 27 N -> SF 3.3 (R10 >= 3)
+in-plane: each wire axial EA/L 1377 N/mm, three effective in any in-plane direction: a 49 N in-plane gust moves the facet 11.9 um
+preload: central Inconel X-750 coil, 120 N at 12 mm (k 10 N/mm) holds the facet on its three contacts against the 49 N suction case (SF 2.4); +-2 mm piston changes it by +-20 N
+athermal: Al facet vs Ti frame, +40 K on a 100 mm radius: differential 0.058 mm radial, taken by wire bending (4.7 MPa); symmetric -> no tilt

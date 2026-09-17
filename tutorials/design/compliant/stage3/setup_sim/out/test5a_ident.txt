@@ -1,0 +1,4 @@
+fifth pass, test5a: wind 0.0 m/s mean (gust 0.73), sun 9.0-15.0 h in 40.0 s; setup 10.0 s, calibration 12.0 s
+setup: the head rises from the stow (hub 2.80 m up, face up) to the first pose by pumping the legs [1.45 1.45 1.45 1.45 1.45 1.45] -> [1.45 1.45 1.45 1.45 1.45 1.45] m; miss at F at the end of setup 0.0 cm
+calibration (dither +-2 mm per leg, smoothed): miss at F mean 1.4 cm, max 2.6; DMDc one-step test RMS dP [0.   0.   0.01] mm, dtheta [0. 0. 0.] mrad vs persistence [0.16 0.17 0.12] mm, [0.09 0.09 0.06] mrad
+the day (integral loop through the IDENTIFIED gain (skill 0.97, 39 % from the analytic Jacobian)): miss at F mean 3.9 cm, max 21.1 cm (half power 4.9); beta 25-36 deg; leg force max 2.3 kN; leg lengths 1.41-1.54 m; pedicel boom 0.00-3.22 m, elevation -2-18 deg, azimuth -68-65 deg; wind peak 0.0 m/s, dish force max 0.00 kN

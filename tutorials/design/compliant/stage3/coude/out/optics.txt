@@ -1,0 +1,27 @@
+CASSEGRAIN ON THE MEMBRANE, EVERYTHING BEHIND THE DISH
+  primary a 2.1 m, f1 4.0 m; secondary hyperboloid 3.35 m from the vertex: s1 0.65, s2 4.35, magnification 6.7, f_eff 26.8 m, eccentricity 1.35 (a 1.85, c 2.50 m)
+  secondary radius 0.34 m -> its own obscuration 2.6 % of the aperture (any Cassegrain pays this)
+  return beam radius at the vertex plane 0.078 m -> hole r 0.12 m, 0.32 % of the aperture (was r 0.50, 5.7 %, plus a 0.7 m slot when open)
+  the style: a cone from the hole rim (r 0.12) to the secondary rim (r 0.34); its projection along the sun line lies inside the secondary's disc, so it shades nothing more;
+    its inner surface stays outside the return cone (radius 0.078 -> 0.34 over the same span), so it obstructs nothing; it carries the secondary and shields the beam
+  image behind the vertex: radius 0.138 m (sun 0.124 + slope 0.013); cone half-angle 4.5 deg
+  neck 1.8 m behind the vertex: M3 on the head, 0.8 m past the image, beam radius there 0.20 m, mirror r 0.33 m, turns the beam 90 deg along the neck axis and relays the image 1:1 to 0.8 m along it
+  the beam runs along the neck axis through the hollow trunnion pivot to M4 at the stalk, 1.4 m from the dish axis: beam radius there 0.29 m, mirror r 0.47 m; M4 turns it 90 deg down the stalk and relays the image to F3 at the cass machine's F2 (env z 6.14), the bore below unchanged
+  both folds are at 45 deg for every elevation: M3 sits on the head between the dish axis and the neck axis, which are always perpendicular; M4 sits on the stalk between the neck axis and the vertical. No el/2 drive, no strip ring to slave
+  etendue 9.4 cm2 sr: through a conduit of r 0.3 m a 1:1 relay may throw 4.2 m per stage; the stalk (r 0.6 inflated, or a 0.6 m rigid tube) carries the converging beam from M3 to F3
+  reflections above ground: primary, secondary, M3, M4 = 4 (the cass machine: primary, strip = 2); the underground ellipsoid and the pot are the other fork's, unchanged; two more reflections = x0.88 at 0.94
+
+SHADING BUDGET (fraction of the pi a^2 aperture, tracking, sun along the axis)
+  cass machine above the deck (from shading.py at el 59): tube 9.8 %, strip ring 1.5 %, hole 5.7 %, slot when open (el > 54) 8.1 %: 25.1 % with the slot, 17.0 % without; the strip's own area is the secondary's and is not counted
+  fourth pass: secondary 2.6 %, hole 0.32 %, style 0 (inside the secondary's disc), mount 0 (behind the membrane), M3 0 (behind): 3.0 %
+  gain in light on the primary: 1.29 x with the slot open, 1.17 x without; after the two extra reflections 1.14 x and 1.03 x
+
+THE MOUNT (FACT, unchanged in kind, moved behind the dish)
+  neck = elevation axis, horizontal, 1.8 m behind the vertex, meeting the stalk's (azimuth) axis 1.4 m to one side of the dish axis: a side-mounted head on a single stalk, the sunflower's neck.
+  trunnion: a two-stage HOLLOW cartwheel pivot on the neck axis between the head and the stalk: radial 17-7PH blades 250 x 1.0 x 120 mm in planes through the axis around a 0.6 m bore, six per stage;
+    the constraint space of a rotation is every line meeting its axis and a plane through the axis need not reach it, so the beam passes through the pivot. Range +-25.8 deg per stage, 71 deg in series at 0.17 sigma_y as before.
+  head: dish + style + secondary + M3 as one optical unit on the fine stage (3 tangential blades + 3 water columns, 3 DOF Type 1, unchanged) on a short frame from the neck bar; counterweights behind the neck and beyond the stalk, in the dish's shadow.
+  azimuth: a slew ring at the stalk top under M4's yoke (or the stalk itself on the deck ring); the beam down the stalk's axis is the azimuth axis, so the fixed bore below sees the same F2 at every hour.
+  stalk: neck at env z 6.94 so that F3 is the cass machine's F2 (z 6.14); at el 12 the lowest rim point is 0.20 m over the deck
+  roof: the head's sweep, 7.9 m across about the neck, plus the stalk 1.4 m to the side: about 9 x 4 m against 9.2 x 7.8 m; and no F to keep, so f/D and size scale freely
+  reflections: 4 above ground; the strip, its ring, the slew at the tube top, the flapped slot and the tube are gone

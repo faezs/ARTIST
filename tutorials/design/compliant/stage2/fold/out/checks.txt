@@ -1,0 +1,11 @@
+range per interface 7.64 deg at 190 MPa (wire d 1.0 mm, gap 40.0 mm) -> 4 interfaces, 5 layers, block height 220 mm
+lattice: 4x2 cells of 100.0 mm per interface, 160 wires total (40 per interface)
+(dcm_core check above)
+FE: compliant/stiff eigen-ratio 5.03e-05; softest direction [-0.565 -0.    -0.     0.    -0.825 -0.   ] (expect theta_y)
+FE: rotational stiffness about the face-plane axis K_theta = 86.9 N m/rad (along the softest mode: 86.9); torque to hold 27.0 deg from park = 41.0 N m; stored energy 9.7 J
+FE at F: k_x 2404 N/mm, k_y 2445, k_z 7351; K_thx 87686 N m/rad, K_thz 64641 N m/rad
+first mode (tilt) with the 7.5 kg mirror: 4.1 Hz (I 0.128 kg m2)
+redundancy: interface 0 has 40 wires; with one removed rank 5 (still 1 DOF); stiffness change ~ 2.50 %
+wire axial load 1.85 N -> 2.36 MPa (tension while hanging); buckling P_cr 70.4 N -> SF 141 against a 20 N gust on the sheltered mirror reversing the load (0.50 N per wire)
+thermal: uniform +40 K moves the virtual axis by 0.058 mm (no tilt: symmetric); Al mirror 0.44 m grows 0.40 mm, taken by the relief pads
+mass: lattice 7.5 kg (wires 0.02 kg), mirror 7.5 kg
