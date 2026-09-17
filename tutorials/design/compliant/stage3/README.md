@@ -296,6 +296,28 @@ as the play budget with a parameter for the spot shift the wire will carry - wai
 no sorry. NOT here: the motor with gearbox (19:20 on), the wire's path and the one-rod-per-side rigging, the slot,
 the receiver; read off frames, not stated: the 10 mm rod and its pitch, the holes at the corners, the flange in the
 panel's surface. Frames folder: 140 at 19:20.
+19:20-20:50, THE WINCH, AND THE STRUTS AGAINST THE LEGS' LEAN. "This engine with a gearbox, along with an additional
+gearbox and a wire collecting roller, all work like a winch. Also, I installed the towing wire on its grooved roller and
+it easily supports the weight of the dish. And here is the place to install it. The installation of the vertical dish
+lift has been completed. And later I will connect the towing wire to the dish. One problem is that when the dish is
+directed upwards in one direction, the vertical legs tilt towards the dish. In order to prevent this from happening, we
+must use foundations in the opposite direction of the deviation of the vertical foundations. I prepared two bases with
+suitable length and install each on one side." The frames: a motor on a gearbox, a second gearbox, a flanged grooved
+drum with the wire wound on, one unit bolted at the outrigger's narrow end under the mast (drum along the rail, motor
+up); the bronze V-pulley stays on the outrigger's centreline between ring and winch; the wire hangs loose - not yet
+connected. With the dish swung far he rocks a post by its top: the legs lean toward the dish; two struts, one per leg,
+from the post at about the brace's height diagonally down to the outrigger's end by the mast, bolted at both ends, no
+length given. `Winch` (drum radius a parameter - no figure), `elRate` = wd rDrum / rw (`azRate`'s law),
+`el_tracks_exactly` (`follow_exact` again), `wire_recip_swing` (the wire's wrench at any rim point against the swing
+twist = its moment about the bolt line, q_y f_z - (q_z - zBolt) f_y), `wireTension` = W rcm sin t / rw, `wire_taut_iff`
+(A WIRE ONLY PULLS: tension >= 0 iff sin t >= 0 - the return stroke is gravity's, the range one-sided),
+`HoldsDish`/`tension_le_of_holds` ("easily supports the weight of the dish" = the holding tension covers the dish on its
+side, and then every angle), `strutStrain`/`strut_resists_lean` (the lean toward the dish shortens the strut iff the
+outrigger end is inboard of the post - where he runs it). The cause of the lean is a reading, not a theorem: leg, brace
+and foot are one triangle and the foot only rests on the wheel's axle, so the whole leg turns about its bolts to the bar;
+the strut ties it to a second body. 126 declarations, no sorry. NOT here: the wire's path (drum -> presumably the mast
+pulley -> dish, "later"), hence rw, the winch's rate and the mast slack's effect; the bronze pulley's role; the slot; the
+receiver. Frames folder: 160 at 20:50 (the 17:00-19:20 batch's transcript entry holds only 8 of its 27 frames).
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
