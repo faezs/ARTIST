@@ -583,4 +583,22 @@ they stand - no rewriting of Hashemi.lean. SEQUENCE IF DONE: Ccc.lean (translato
 lines); printers C/dot/JSON (~300), GLSL+HTML (~200, runner copied), Verilog (~200 + a netlist AST); `hashemiStep`; then
 the env integration as before (MECHW row from the graph, the wire drive, the sensor loop). Sources: ~/Library/concat
 (files above); http://conal.net/papers/compiling-to-categories/ (ICFP 2017); https://github.com/conal/concat.
+CORE <-> EXPR, LINE FOR LINE (the user: "concat also gets Expr directly from the haskell source code"). His
+plugin/src/ConCat/Plugin.hs (2299 lines) is one function `ccc :: CccEnv -> Ops -> Type -> ReExpr` over GHC Core with
+cases Lam x body -> goLam (eta-reduce; a pair body -> mkFork = triangle; data constructors; Let inside a lambda ->
+subst / float / beta-redex / compose), top Let (subst / float / beta), `reCat` (a categorical op already in (->) moved
+to k - the "known" table, known/src/ConCat/Known.hs, and the Op0(addC..sqrtC) list in AltCat with RULES reboxing
+Prelude methods), Case of bottom / Case of product (exl, exr) / Case unfold (of a DICTIONARY - class evidence), Cast
+(coercions -> coerceC via reCatCo), App u v -> apply . (f triangle a), Tick. Lean's Expr has the same constructors
+with the noise removed: lam (de Bruijn bvar, so abstraction elimination is index arithmetic), app (getAppFnArgs),
+letE, proj / Prod.fst (his Case-of-product), lit + OfScientific/OfNat (his Lit), mdata (his Tick); NO casts (Lean
+coercions are explicit terms like Nat.cast, matched by name); class evidence is an explicit instance ARGUMENT, so his
+"Case unfold of dictionary" becomes: match the METHOD NAME (HAdd.hAdd ℝ ℝ ℝ _ a b -> addC) and never unfold past it
+- Real.add is a Cauchy-sequence quotient and whnf into it is the one thing the translator must refuse. Two structural
+differences in our favour: (1) his conversion runs INSIDE the compiler pipeline interleaved with the simplifier, so
+inlining order matters (RunCircuit.go's NOINLINE + RULES "go'" trick; the run-time "Oops: toCcc' called"; output that
+shifts with GHC versions, which the gold tests must tolerate) - ours reads the final elaborated closed term, is
+deterministic, and can emit `eval (ccc f) = f` as a theorem; (2) Lean's source carries the theorem STATEMENTS, so the
+same translator reads Props into Bool nodes - nothing in Core corresponds. The Lean translator for the first-order
+fragment is a few hundred lines, not 2300: the 2300 are casts, dictionaries and simplifier interleaving.
 
