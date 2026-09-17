@@ -372,6 +372,21 @@ clip reaches the pulley's ray, t* = arctan(ze/a) + arctan(hp/ym) = 46 deg + arct
 shortens the range toward 46 deg, a taller mast lengthens it - the 159 cm mast sets the range. `wireLever_rest` at C:
 (ym ze + hp a)/sqrt((ym - a)^2 + (hp + ze)^2), 1.03 m at ym 1.2. The earlier `wireLever_pos` ("no dead point", centre
 clip) is WITHDRAWN with the centre-clip model. 162 declarations, no sorry. Open: ym (the mast's distance from the bar).
+THE HANGERS AS JOINTS - "figure out the motion via the physical connection" (the user, with the 17:50-19:06 frames
+re-sent). The eye is a nut on the bolt's shank, turning about it ("you can use bearings instead of nuts") - a REVOLUTE
+about the bolt line; both eyes of a side on one bolt, the bolts pointing at each other, so all four rods hinge on ONE
+line. The rim end is a rigid clamp (nut above, nut below, the x-degree tube seating it on the curved flange), so each
+rod is one body with the dish. Dish + four rods = one rigid body on one hinge line: ONE freedom, the turn about the bolt
+line. A pin at the rim instead of a clamp would have left a second freedom (the dish sliding along the bar on its rods
+as a four-bar); the clamps remove it. The frames: the camera is across the ring from the bar, so the swing reads as the
+curved panel's near edge dropping (17:50, mirror face lit) and rising (17:52, back toward the camera) - not a
+left-right tilt. `hingeWrench` (the eye's five constraint wrenches: three forces at the eye, two moments across the
+bolt), `hinge_reciprocal_swing`, `hinge_freedom`/`hinge_freedom_smul` (THE MOTION THROUGH THE CONNECTION: a twist the
+eye passes is (w, 0, 0, 0, zBolt w, 0) = w * swingTwist - the turn about the bolt line and nothing else),
+`second_hinge_redundant` (the second eye on the same line adds no constraint: two coaxial hinges = one hinge with five
+redundant constraints, a door on two hinges - "bolted at the proper distance" and the shims carry it),
+`helixAdvance`/`helixAdvance_small` (an eye threaded on the bolt is a helical joint: under 0.31 mm of travel over 62 deg
+on an M12 - bolt size not given). 169 declarations, no sorry. Frames folder: 194 (the re-sent batch recovered).
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
