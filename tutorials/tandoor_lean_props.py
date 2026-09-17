@@ -1100,6 +1100,64 @@ def _(seed, k, label):
     return True, f"the best agent reached {ever:.0f} rotis over {k} steps, through {cuts} resets"
 
 
+_TRACE = {}
+def _traced(B, receiver, seed):
+    """a machine parked on the sun at noon, the way tandoor_receiver_verify builds one.  Its own
+    comment is the warning this property encodes: without aiming the mount, every parity check
+    passes on a batch of zeros."""
+    import contextlib, io
+    from tandoor_hashemi_env import TandoorHashemiEnv
+    from tandoor_design_readout import env_kwargs
+    e = _TRACE.get((B, receiver))
+    if e is None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            kw = env_kwargs(B, receiver=receiver); kw["design_rand"] = 0
+            e = TandoorHashemiEnv(**kw)
+        _TRACE[(B, receiver)] = e
+    with contextlib.redirect_stdout(io.StringIO()):
+        e.reset(seed=seed)
+    e._det_trace = True
+    return e
+
+
+def _park(e, lat, doy, hour):
+    from tandoor_rl_env import _sim
+    e.day = doy; e.t_solar[:] = hour; e.day_v[:] = float(doy); e.lat_v[:] = lat
+    el, az, _v = _sim.solar_position(lat, doy, hour)
+    e.el_m[:] = el; e.az_m[:] = np.degrees(az - e._ds_azs)
+    e._e_el[:] = 0.0; e._e_az[:] = 0.0
+    return el
+
+
+@ENV.prop("the Metal megakernel and the torch reference trace the same watts",
+          lean="OpticsReal (one machine, two implementations)",
+          cover={"beam": {"lit": 0.35, "dark": 0.1}, "receiver": {"cass": 0.2, "tri": 0.2}},
+          gens=dict(seed=ints(0, 10000), receiver=choice(["cass", "tri"]),
+                    lat=floats(24.0, 36.0), doy=ints(1, 365), hour=floats(9.0, 15.0),
+                    pres=floats(700.0, 1150.0), blur=floats(3e-3, 2e-2), off=arrays(2, -0.01, 0.01)),
+          n=24)
+def _(seed, receiver, lat, doy, hour, pres, blur, off, label):
+    B = 8
+    e = _traced(B, receiver, seed)
+    el = _park(e, lat, doy, hour)
+    if el < 10.0: return True                       # the sun is not up enough to say anything
+    args = (np.full(B, pres), np.full(B, blur), np.tile(off, (B, 1)), np.ones(B))
+    g = e._gen.get_state()
+    pm = e._trace_power(*args).sum(1).detach().cpu().numpy()
+    m0, e._metal = e._metal, None; e._gen.set_state(g)
+    pt = e._trace_power(*args).sum(1).detach().cpu().numpy()
+    e._metal = m0
+    label("receiver", receiver)
+    # the traced power is a few watts by construction (tandoor_receiver_verify says so in its own
+    # comment); "lit" only has to mean the beam got through at all
+    label("beam", "lit" if float(pt.max()) > 1.0 else "dark")
+    scale = max(float(pt.max()), 1e-9)
+    d = float(np.abs(pm - pt).max())
+    return d <= 1e-3 * scale, \
+        (f"the twins differ by {d:.4g} W on a beam of {scale:.1f} W ({100 * d / scale:.4f}%) - "
+         f"{receiver} at latitude {lat:.1f}, day {doy}, {hour:.2f} h, {pres:.0f} Pa")
+
+
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
