@@ -259,6 +259,43 @@ dimensions given, none recorded), `pulley_above_pivot` = 1.59 - (1.30 - 0.05) = 
 wire's path from the pulley to the dish, and how "one threaded rod for one side and the other for the other side" is
 rigged, is NOT in the frames and nothing is recorded about it. 91 declarations, no sorry. The user's video frames
 are in ~/Downloads/hashemi_frames (112 at 15:20).
+15:20-19:20, THE STAND ON THE OUTRIGGER, THE DISH IN, THE RODS CLOSED - and a CORRECTION to the swing entry above.
+"There is some slack that won't be a problem in practice. The engine and gearbox will be placed here, which I will
+install later. Now I place the dish on the system. Well, now we close the threaded rods to the solar dish. I closed
+all four threaded rods and you can see that it can move like a cradle. The length of the screw passed from the edge
+of the dish should be such that the focus distance from the centre of the dish is the same in all cases. In fact,
+the dish should be tangent to the focus circle. Here, because our dish is a circle with a radius of two meters, so
+the focus distance of the dish is one meter. Because the edges of the dish have a special curve, you can cut two
+pieces of pipe diagonally to the right size and place them under the beads [nuts]. You can see that the dish can
+easily move in the vertical axis. And horizontal movement is also done in this way. Well, let's go to the
+installation of the engine and gearbox for vertical movement." The frames: the stand's 184 cm foot bar bolted across
+the outrigger's rails, the post braced to them by its bent legs, a V-groove pulley on a bolt axle at the outrigger's
+narrow end where the motor goes (later); he rocks the mast by its top - the slack. The dish: a square tile-mosaic
+panel on a fibreglass backing with a flat flange round it, one man carries it, in face up between the posts; along
+its centre line from one rim to the middle a straight feature (a loose flat strip on the face, a bright line from the
+back) - slot or seam, not said. The rods: each passes through a hole in the flange near a CORNER - each post's V
+reaches the near and the far corner of its edge - a nut above, a nut below, two wrenches; then the swing by hand,
+the 10:40 figure again, the "Tube with x degree cut" figure (a wedge pipe seats the nut where the rod meets the
+flange at an angle), elevation by hand, azimuth by hand. CORRECTION: the swing entry above took the figure's "Base"
+F-C = 1.155 m for the hanger; the rods reach the corners, so the hanger that puts F on the bolts is eye to corner,
+`hangerLength 2 0.8 0.8 0` = sqrt(4.36 - 2 sqrt 2.72) = 1.030 m (`hangerLength_corner/_bounds`; an eye 9 cm outboard
+of the edge line adds 4 mm in quadrature). `hashemiHanger` is corrected in place; F-C stays the deepest reach of the
+fore and aft edges below the bolt line (`edgeDepth_le`), which sizes the post, so `clearance_hashemi` stands. New:
+`dish_between_posts`/`sideGap` (the 1.6 m panel on the 1.84 m bar: 12 cm a side); HIS RULE FOR THE NUTS AS A
+THEOREM, `swingVertexAt`/`swingFocus`/`swingFocus_circle`/`swingFocus_fixed_iff` - with the vertex d from the bolts
+(what the nuts set) and the focus f from the vertex, the focus rides a circle of radius |d - f| about the bolts
+through the swing, and stays put at every swing angle iff d = f ("the same in all cases"); `setLength`/
+`setLength_surj` (the clamp fixes the rim point on its rod - what the rigid pendulum assumed - and the nuts set any
+length continuously); `tiltOfMismatch`, `tilt_not_driven` (a side-to-side length difference e tilts the dish e/1.6
+about the axis across the bar, a roll outside the span of the yaw and swing twists - the one pointing freedom no
+drive reaches; `swing_yaw_independent` are the two he shows by hand); `one_turn_tilt` (IF the rod is M10, coarse
+pitch 1.5 mm: one turn = 0.94 mrad, under a quarter of the sun's half-angle, 0.94 mm at F - a one-time alignment
+set to a fraction of a turn); `cosTubeCut/_bounds` (the x of his tube: the corner hanger against the sphere's normal
+at the corner, cos 0.830, x = 34 deg, IF the flange continues the panel's surface); `SlackHarmless` (his mast claim
+as the play budget with a parameter for the spot shift the wire will carry - waits for the wire). 116 declarations,
+no sorry. NOT here: the motor with gearbox (19:20 on), the wire's path and the one-rod-per-side rigging, the slot,
+the receiver; read off frames, not stated: the 10 mm rod and its pitch, the holes at the corners, the flange in the
+panel's surface. Frames folder: 140 at 19:20.
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
