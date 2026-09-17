@@ -1226,8 +1226,8 @@ def _(ini, label):
 
 
 @ENV.prop("the figure blur follows the measured law the film was fitted to, not the quadratic load",
-          lean="Wind.dynPressure is quadratic - the BLUR is not, so no critical-speed theorem "
-               "quoting c*V^2 describes this machine's optics",
+          lean="StatedLaws TandoorBlur.sigWind_homog, sigWind_lt_quadratic: the blur is V^1.2, "
+               "not the c*V^2 of the wind block, so no critical-speed theorem describes the optics",
           cover={"windy": {"yes": 0.6}}, gens=dict(seed=ints(0, 10000)), n=4)
 def _(seed, label):
     import numpy as _np
@@ -1584,6 +1584,275 @@ def _(doy, off, label):
     if off <= 3.0: return m < 1.0, f"{off:.0f} deg from the declination the margin is {m:.2f} (demand {need:.1f} deg/min)"
     if off >= 8.0: return m >= 1.0, f"{off:.0f} deg from the declination the margin is {m:.2f} (demand {need:.1f} deg/min)"
     return True
+
+
+# =====================================================================================
+# StatedLaws.lean - the laws the simulator samples over, proved, then measured
+# =====================================================================================
+LAW = suite("StatedLaws.lean - the stated laws, proved and measured: clear sky, soiling, blur, losses, demand, load")
+
+
+def _meinel(el_deg):
+    """the proved formula (TandoorClearSky.meinel / dni), as the simulator states it"""
+    if el_deg <= 2.0: return 0.0
+    return 1353.0 * 0.7 ** ((1.0 / math.sin(math.radians(el_deg))) ** 0.678)
+
+
+@LAW.prop("the simulator's clear sky is Meinel's, non-negative, at most the solar constant, zero at or below two degrees",
+          lean="StatedLaws TandoorClearSky.dni_nonneg, dni_le_solar_constant, dni_zero_of_le",
+          cover={"sun": {"below two degrees": 0.05}},
+          gens=dict(el=floats(-10.0, 90.0, target=45.0)), n=500)
+def _(el, label):
+    from tandoor_rl_env import _sim
+    v = float(_sim.clear_sky_dni(el)); w = _meinel(el)
+    label("sun", "below two degrees" if el <= 2.0 else "up")
+    return abs(v - w) <= 1e-9 * max(1.0, w) and 0.0 <= v <= 1353.0, f"sim {v:.6f} vs proved {w:.6f} at {el:.3f} deg"
+
+
+@LAW.prop("the clear sky grows with the elevation, and is 947.1 W/m2 at the zenith",
+          lean="StatedLaws TandoorClearSky.meinel_mono, dni_mono, meinel_zenith",
+          gens=dict(a=floats(2.001, 90.0), b=floats(2.001, 90.0)), n=400)
+def _(a, b, label):
+    from tandoor_rl_env import _sim
+    lo, hi = min(a, b), max(a, b)
+    z = float(_sim.clear_sky_dni(90.0))
+    label("gap", "wide" if hi - lo > 20 else "narrow")
+    return _sim.clear_sky_dni(lo) <= _sim.clear_sky_dni(hi) + 1e-12 and abs(z - 1353.0 * 0.7) < 1e-9, \
+        f"dni({lo:.2f}) = {_sim.clear_sky_dni(lo):.4f} > dni({hi:.2f}) = {_sim.clear_sky_dni(hi):.4f}; zenith {z:.4f}"
+
+
+@LAW.prop("the simulator's beam is the proved clear sky at the sun the mount saw, gated at eight degrees",
+          lean="StatedLaws TandoorClearSky.dni (the pipeline: clock, elevation, Meinel, the gate)",
+          gens=dict(k=ints(1, 60), seed=ints(0, 10000)), n=6)
+def _(k, seed, label):
+    import numpy as _np
+    from tandoor_rl_env import _sim
+    A, Bv = _pair()                                   # A: the numpy reference, no site table, zero noise
+    r = _np.random.default_rng(seed)
+    for _ in range(k):
+        A.step(r.integers(0, 7, (A.num_agents, 5)))
+    el, _az, _v = _sim.solar_position(A.lat, A.day, float(A._ts_sun))
+    want = _meinel(el) * (1.0 if el > 8.0 else 0.0)
+    got = float(_np.asarray(A.dni)[0])
+    label("sun", "gated" if el <= 8.0 else "up")
+    return abs(got - want) <= 1e-6 * max(1.0, want), f"dni {got:.6f} vs Meinel {want:.6f} at el {el:.4f} after {k} steps"
+
+
+@LAW.prop("the light the film collects is exactly linear in the day's soiling factor",
+          lean="StatedLaws TandoorSoiling.soiled_ratio (the metamorphic test)",
+          gens=dict(seed=ints(0, 10000), receiver=choice(["cass", "tri"]), lat=floats(24.0, 36.0), doy=ints(1, 365),
+                    hour=floats(9.0, 15.0), s1=floats(0.5, 1.0), s2=floats(0.5, 1.0)), n=16)
+def _(seed, receiver, lat, doy, hour, s1, s2, label):
+    B = 8
+    e = _traced(B, receiver, seed)
+    if _park(e, lat, doy, hour) < 10.0: return True
+    args = (np.full(B, e.p0), np.full(B, 7e-3), np.zeros((B, 2)))
+    p1 = e._trace_power(*args, np.full(B, s1)).sum(1).detach().cpu().numpy()
+    p2 = e._trace_power(*args, np.full(B, s2)).sum(1).detach().cpu().numpy()
+    m = p2 > 1e-6
+    label("beam", "lit" if m.any() else "dark")
+    if not m.any(): return True
+    ratio = p1[m] / p2[m]
+    return bool(np.abs(ratio - s1 / s2).max() < 1e-5), f"power ratio {ratio.max():.6f} vs soil ratio {s1 / s2:.6f}"
+
+
+@LAW.prop("the day's soiling draw lies in [0.85, 1] on the training path, and spans it",
+          lean="StatedLaws TandoorSoiling.soiled_ge, soiled_le", cover={"spread": {"yes": 0.5}},
+          gens=dict(seed=ints(0, 10000), lead=ints(3, 20)), n=6)
+def _(seed, lead, label):
+    import numpy as _np
+    e, S = _fresh(8, seed)
+    t_end = float(getattr(e, "day_end", 16.0))
+    e.t_solar[:] = t_end - lead * float(e.dt) / 3600.0
+    r = _np.random.default_rng(seed)
+    for _i, _o, _rw, _t in _drive(e, S, lead + 2, r): pass
+    soil = _np.asarray(S.soil.detach().cpu(), float)
+    label("spread", "yes" if soil.min() < 0.92 and soil.max() > 0.93 else "no")
+    return bool((soil >= 0.85 - 1e-6).all() and (soil <= 1.0 + 1e-6).all()), f"soil in [{soil.min():.4f}, {soil.max():.4f}]"
+
+
+@LAW.prop("the figure's blur is never below the static figure, on the training path",
+          lean="StatedLaws TandoorBlur.sigmaB_ge_static",
+          gens=dict(seed=ints(0, 10000), gust=floats(0.0, 4.0), k=ints(5, 40)), n=6)
+def _(seed, gust, k, label):
+    import numpy as _np
+    e, S = _fresh(8, seed)
+    if gust > 0: _windy(e, S, gust)
+    r = _np.random.default_rng(seed)
+    for _i, _o, _rw, _t in _drive(e, S, k, r): pass
+    sb = _np.asarray(S.sigb.detach().cpu(), float); st = float(_np.asarray(S.sp.detach().cpu())[13])
+    label("wind", "calm" if gust < 1.0 else "gusty")
+    return bool((sb >= st - 1e-9).all()), f"blur {sb.min():.3e} below the static {st:.3e}"
+
+
+@LAW.prop("more blur on the figure, less power into the pot (measured; the optics have no theorem for this yet)",
+          lean="StatedLaws TandoorBlur.sigmaB_mono_wind - and then the duct catches less; MEASURED, not proved",
+          cover={"changed": {"yes": 0.6}},
+          gens=dict(seed=ints(0, 10000), receiver=choice(["cass", "tri"]), lat=floats(24.0, 36.0), doy=ints(1, 365),
+                    hour=floats(9.0, 15.0), b1=floats(2e-3, 8e-3), mult=floats(1.5, 4.0)), n=16)
+def _(seed, receiver, lat, doy, hour, b1, mult, label):
+    import torch
+    B = 8
+    e = _traced(B, receiver, seed)
+    if _park(e, lat, doy, hour) < 10.0: return True
+    e._det_trace = False                              # the blur only acts through the sun-disc draws
+    try:
+        g = e._gen.get_state()
+        p1 = e._trace_power(np.full(B, e.p0), np.full(B, b1), np.zeros((B, 2)), np.ones(B)).sum(1).detach().cpu().numpy()
+        e._gen.set_state(g)
+        p2 = e._trace_power(np.full(B, e.p0), np.full(B, b1 * mult), np.zeros((B, 2)), np.ones(B)).sum(1).detach().cpu().numpy()
+    finally:
+        e._det_trace = True
+    if p1.max() < 1e-6: return True
+    label("changed", "yes" if abs(p2.mean() - p1.mean()) > 1e-6 * max(p1.mean(), 1e-9) else "no")
+    return p2.mean() <= p1.mean() * (1 + 1e-6), f"blur x{mult:.2f}: batch power {p1.mean():.4f} -> {p2.mean():.4f} W"
+
+
+@LAW.prop("the machine's throughput is the stated product of its mirrors, in range, and the rays carry it",
+          lean="StatedLaws TandoorLossChain.throughput, chains_in_range, twoMirrorSilver/Aluminium",
+          gens=dict(receiver=choice(["cass", "tri"]), seed=ints(0, 3)), n=6)
+def _(receiver, seed, label):
+    e = _traced(8, receiver, seed)
+    chain = [0.94, 0.96, 0.96, 0.97] if e.silvered else [0.88, 0.95, 0.95, 0.96]
+    want = float(np.prod(chain)); got = float(e._loss_chain)
+    label("finish", "silver" if e.silvered else "aluminium")
+    # the ray set carries exactly that chain: block 0's weights over the clean cells
+    a = float(e.a_mem); rr = np.sqrt(np.asarray(e._hx) ** 2 + np.asarray(e._hy) ** 2)
+    cell = np.pi * a * a * (1 - 0.05 ** 2) / len(rr); clean = (cell * (1 - 0.10 * (rr / a) ** 4)).sum()
+    S = int(getattr(e, "N_SURF", 1)); P = len(e._hx)
+    carried = float(e._ray_pw.view(S, P)[0].sum()) / clean
+    return abs(got - want) < 1e-9 and 0.6 <= got <= 0.9 and abs(carried - want) < 1e-5, \
+        f"env chain {got:.6f} vs stated {want:.6f}; the rays carry {carried:.6f}"
+
+
+@LAW.prop("the demand schedule integrates to the day's demand: each band delivers its share",
+          lean="StatedLaws TandoorDemand.band_integral",
+          gens=dict(c=arrays(3, 6.0, 20.0), w=arrays(3, 0.3, 4.0), sh=arrays(3, 0.05, 5.0), dem=floats(50.0, 2000.0)), n=200)
+def _(c, w, sh, dem, label):
+    from tandoor_polar_env import parse_demand_bands
+    A, _Bv = _pair()
+    keep = A.demand_bands
+    try:
+        A.demand_bands = parse_demand_bands(",".join(f"{c[i]:.4f}:{w[i]:.4f}:{sh[i]:.5f}" for i in range(3)), None)
+        t = np.linspace(-80.0, 100.0, 200001)
+        got = float(np.trapezoid(A.demand_rate(t, dem), t))
+    finally:
+        A.demand_bands = keep
+    label("bands", "narrow" if w.min() < 0.6 else "broad")
+    return abs(got - dem) <= 1e-6 * dem, f"the day integrates to {got:.6f} customers against {dem:.6f} demanded"
+
+
+@LAW.prop("one step of the sales process sells no more than the shelf holds, the stock balances, and an integer stock never goes negative",
+          lean="StatedLaws TandoorDemand.sale_le_shelf, sale_nonneg, stock_balance, stale_le_stock",
+          cover={"stock": {"low": 0.1}},
+          gens=dict(orders=arrays(16, 0.0, 40.0), shelf=arrays(16, 0.0, 40.0), cooked=arrays(16, 0.0, 6.0),
+                    u=arrays(64, 0.0, 1.0), hour=floats(6.0, 20.0)), n=200)
+def _(orders, shelf, cooked, u, hour, label):
+    # THE DOMAIN IS COUNTS. Fed fractional stock the rounding floor overshoots and the shelf goes
+    # negative - the first run of this property did exactly that. The simulator only ever holds
+    # whole rotis (sales of 3/10/30, whole loaves cooked), and stale_le_stock says that is enough.
+    A, _Bv = _pair()
+    B = A.num_agents
+    fit = lambda v: np.resize(np.round(np.asarray(v, float)), B)        # whole rotis, B of them
+    orders, shelf, cooked = fit(orders), fit(shelf), fit(cooked)
+    u = np.resize(np.asarray(u, float), 4 * B).reshape(4, B)
+    o0, s0, sd0 = A.orders.copy(), A.shelf.copy(), A.sold.copy(); t0 = A.t_solar.copy()
+    try:
+        A.orders[:] = orders; A.shelf[:] = shelf; A.sold[:] = 0.0; A.t_solar[:] = hour
+        sale, stale = A._demand_step(cooked.copy(), u)
+        o1, s1, sd1 = A.orders.copy(), A.shelf.copy(), A.sold.copy()
+    finally:
+        A.orders[:] = o0; A.shelf[:] = s0; A.sold[:] = sd0; A.t_solar[:] = t0
+    label("stock", "low" if (shelf + cooked).min() <= 2 else "high")   # SOME agent near empty: where the floor could overshoot
+    ok = ((sale >= -1e-9).all() and (sale <= shelf + cooked + 1e-9).all() and (stale >= -1e-9).all()
+          and np.allclose(s1, shelf + cooked - sale - stale, atol=1e-9) and np.allclose(sd1, sale, atol=1e-9)
+          and (o1 >= -1e-9).all() and (s1 >= -1e-9).all())
+    return bool(ok), (f"sale max {sale.max():.0f} vs shelf+cooked {(shelf + cooked).max():.0f}; shelf after min {s1.min():.2f}, "
+                      f"orders after min {o1.min():.2f}; balance residual {np.abs(s1 - (shelf + cooked - sale - stale)).max():.3e}")
+
+
+def _pot_energy(e, S):
+    """the pot's stored heat above 300 K per machine [J]: the wall network's capacities at the
+    design's cap column (the kernel divides by HC*ds[46]) plus the live layers of the sand column"""
+    import numpy as _np
+    fct = _np.asarray(e._fct.detach().cpu(), float); cap = fct[:, e.DS["cap"]]
+    T = _np.asarray(S.T.detach().cpu(), float); Ts = _np.asarray(S.T_sub.detach().cpu(), float)
+    Td = _np.asarray(S.T_deep.detach().cpu(), float); Th = _np.asarray(S.T_halo.detach().cpu(), float)
+    hc = _np.asarray(e.node_heat_cap, float); cs = _np.asarray(e.cap_sub, float); cd = _np.asarray(e.cap_deep, float)
+    E = cap * ((hc * (T - 300.0)).sum(1) + (cs * (Ts - 300.0)).sum(1) + (cd * (Td - 300.0)).sum(1)) \
+        + float(_np.asarray(e.c_halo).reshape(-1)[0]) * (Th - 300.0)
+    Tsand = _np.asarray(S.T_sand.detach().cpu(), float)          # (B, 2, KSAND)
+    depth = fct[:, 70]; NB = e.n_belt; area = _np.asarray(e.node_area, float)[NB:NB + 2]
+    for b in range(T.shape[0]):
+        nl = int(_np.clip(round(depth[b] / 0.05), 1, Tsand.shape[2])) if depth[b] > 0 else 0
+        if nl:
+            dz = depth[b] / nl
+            E[b] += (area[:, None] * dz * 1.28e6 * (Tsand[b, :, :nl] - 300.0)).sum()
+    return E
+
+
+@LAW.prop("the policy never sells more rotis than the sun's deposit and the pot's drawdown could have baked",
+          lean="StatedLaws TandoorLoad.rotis_le_energy (the summing functor's energy column, under the policy)",
+          cover={"baked": {"some": 0.5}}, gens=dict(seed=ints(0, 10000), k=ints(900, 2200)), n=4)
+def _(seed, k, label):
+    import numpy as _np, torch
+    e, S = _fresh(8, seed)
+    E0 = _pot_energy(e, S); r = _np.random.default_rng(seed)
+    sun = _np.zeros(8); sold = _np.zeros(8); prev = _np.asarray(S.day_rotis.detach().cpu(), float).copy()
+    for _i, _o, _rw, tr in _drive(e, S, k, r, mode="policy"):
+        sun += _np.asarray(S.diag[:, 0].detach().cpu(), float) * float(e.dt)
+        now = _np.asarray(S.day_rotis.detach().cpu(), float)
+        cut = _np.asarray(tr.detach().cpu() if torch.is_tensor(tr) else tr).reshape(-1) > 0
+        sold += _np.where(cut, 0.0, _np.maximum(now - prev, 0.0)); prev = now.copy()
+    E1 = _pot_energy(e, S)
+    e_roti = _np.asarray(e._ds("_ds_roti", e.roti_energy), float).reshape(-1) * _np.ones(8)
+    budget = sun + _np.maximum(E0 - E1, 0.0)
+    label("baked", "some" if sold.max() > 0 else "none")
+    over = e_roti * sold - budget
+    return bool((over <= 1e-6 * _np.maximum(budget, 1.0)).all()), \
+        (f"a machine sold {sold[int(over.argmax())]:.0f} rotis worth {(e_roti * sold)[int(over.argmax())] / 1e6:.2f} MJ "
+         f"against {budget[int(over.argmax())] / 1e6:.2f} MJ of sun and drawdown")
+
+
+@LAW.prop("the policy never sells a roti it did not load",
+          lean="StatedLaws TandoorDemand.sale_le_shelf, over the day (the summing functor: sold <= loaded)",
+          cover={"baked": {"some": 0.5}}, gens=dict(seed=ints(0, 10000), k=ints(900, 2200)), n=4)
+def _(seed, k, label):
+    import numpy as _np, torch
+    e, S = _fresh(8, seed)
+    r = _np.random.default_rng(seed)
+    had = _np.asarray(S.has_bread.detach().cpu(), float) > 0.5
+    bt_prev = _np.asarray(S.bread_t.detach().cpu(), float)
+    prev = _np.asarray(S.day_rotis.detach().cpu(), float).copy()
+    loads = _np.zeros(8); sold = _np.zeros(8)
+    for _i, _o, _rw, tr in _drive(e, S, k, r, mode="policy"):
+        cut = _np.asarray(tr.detach().cpu() if torch.is_tensor(tr) else tr).reshape(-1) > 0
+        has = _np.asarray(S.has_bread.detach().cpu(), float) > 0.5
+        bt = _np.asarray(S.bread_t.detach().cpu(), float)
+        # a load is a slot going empty -> full, OR a full slot whose bake clock restarted: a loaf
+        # pulled and a fresh one laid in the same step never shows an edge (the first count missed 2)
+        loaded = (has & ~had) | (has & had & (bt < bt_prev))
+        loads += _np.where(cut, 0.0, loaded.sum(1)); had = has; bt_prev = bt
+        now = _np.asarray(S.day_rotis.detach().cpu(), float)
+        sold += _np.where(cut, 0.0, _np.maximum(now - prev, 0.0)); prev = now.copy()
+    label("baked", "some" if sold.max() > 0 else "none")
+    return bool((sold <= loads + 1e-9).all()), f"a machine sold {sold.max():.0f} having loaded {loads[int(sold.argmax())]:.0f}"
+
+
+@LAW.prop("under a cleaner film the policy bakes no less (the batch mean, one morning)",
+          lean="StatedLaws TandoorSoiling.soiled_mono - the policy under the sampled draw; STATISTICAL",
+          gens=dict(seed=ints(0, 10000)), n=3)
+def _(seed, label):
+    import numpy as _np
+    out = []
+    for soil in (0.85, 1.0):
+        e, S = _fresh(8, seed)
+        S.soil.fill_(soil)
+        r = _np.random.default_rng(seed)
+        for _i, _o, _rw, _t in _drive(e, S, 1500, r, mode="policy"): pass
+        out.append(float(_np.asarray(S.day_rotis.detach().cpu(), float).mean()))
+    label("baked", "some" if max(out) > 0 else "none")
+    return out[1] >= out[0] - 3.0, f"mean rotis by 12:15h: soiled {out[0]:.1f}, clean {out[1]:.1f}"
 
 
 if __name__ == "__main__":
