@@ -204,6 +204,15 @@ the foot is seen to sit ON THE GROOVED WHEEL'S AXLE ROD (the user: "the foot is 
 spins" - four frames, four azimuths, the leg on): `postTop_on_rail`, the post stands over the wheel at the roller
 radius, 1.22 m from the tube, its load straight down through the wheel onto the rail, the bar carrying none of it in
 bending. That also settles the wheels as grooved, so the seven-constraint over-constraint is no longer conditional.
+10:00-10:40: the second leg "in the same way", both braces outboard, "now both the main bases of the dish are ready",
+and the rule for the upright - "the length of the vertical base ... is calculated according to the figure": the post
+drawn from the dish's lowest point up to about F at both ends of the travel, the vertex f = 1 m below F at noon, the
+edge B a = 1 m below F at low sun, his 130 cm being that metre and 30 over. `edgeDepth` is that figure as a function of
+elevation, `(f - sag) sin el + a cos el`; `edgeDepth_horizon`/`edgeDepth_noon` are his two ends, and `edgeDepth_le`
+bounds the reach by sqrt((f - sag)^2 + a^2), attained at tan el = (f - sag)/a: on his sphere 1.24 m at 36 deg
+(`hashemi_reach_eq`, `hashemi_reach_bounds`), not the 1.0 his figure checks, so IF the pivot sits at the post top as
+the figure draws it, the 130 cm upright leaves 6 cm over the bar there (`hashemi_clearance`) - conditional, for the
+next frames to confirm or refute.
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
