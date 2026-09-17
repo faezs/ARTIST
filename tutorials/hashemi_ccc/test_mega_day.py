@@ -52,23 +52,23 @@ def run_day(day, agents, dt):
             n_sun += 1
             n_budget += int(r[:, COL["TrackerBudget"]].mean() > 0.5)
             n_stall += int(r[:, COL["stalled"]].mean() > 0.5)
-        energy += float(r[:, COL["power_W"]].mean()) * dt / 1e6
+        energy += float(env.rewards.mean() * 1e3) * dt / 1e6
         for c in thm:
             if (r[:, c] < 0.5).any():
                 ever_false[COLUMNS[c]] = ever_false.get(COLUMNS[c], 0) + 1
         if k % every == 0 and el > -5:
             rows.append((env.hour, el, float(np.mean(90 - np.degrees(env.state[:, 1]))), float(env._e_el.mean()),
                          float(env._e_az.mean()), float(r[:, COL["arm"]].mean()), float(r[:, COL["wireTension"]].mean()),
-                         float(r[:, COL["capture"]].mean()), float(r[:, COL["power_W"]].mean()),
+                         float(r[:, COL["capture"]].mean()), float(env.rewards.mean() * 1e3),
                          float(r[:, COL["stalled"]].mean()), float(r[:, COL["taut"]].mean()),
                          float(r[:, COL["TrackerBudget"]].mean()), float(r[:, COL["HoldsDish"]].mean()),
-                         float(r[:, COL["elPower"]].mean())))
+                         float(r[:, COL["elPower"]].mean()), float(env.cap_traced.mean())))
         k += 1
         if k > 20000:
             break
-    print("   hour  sun el  dish el   e_el    e_az    arm   T [N]  capt  P [W]  stall taut budget holds  Pw [W]")
-    for h, el, eld, ee, ea, arm, T, cap, P, st, ta, bu, ho, pw in rows:
-        print(f"  {h:5.2f}  {el:6.2f}  {eld:6.2f}  {ee:+6.2f}  {ea:+6.2f}  {arm:5.3f}  {T:6.1f}  {cap:4.2f}  {P:6.0f}  "
+    print("   hour  sun el  dish el   e_el    e_az    arm   T [N]  capM  capT  P [W]  stall taut budget holds  Pw [W]")
+    for h, el, eld, ee, ea, arm, T, cap, P, st, ta, bu, ho, pw, capT in rows:
+        print(f"  {h:5.2f}  {el:6.2f}  {eld:6.2f}  {ee:+6.2f}  {ea:+6.2f}  {arm:5.3f}  {T:6.1f}  {cap:4.2f}  {capT:4.2f}  {P:6.0f}  "
               f"{st:4.2f} {ta:4.2f}  {bu:4.2f}  {ho:4.2f}  {pw:6.3f}")
     print(f"  steps {k}, sun up {n_sun}: in the tracker budget {n_budget} ({100.0 * n_budget / max(n_sun, 1):.1f} %), "
           f"stalled at the dead point {n_stall}; energy on the coil {energy:.1f} MJ/day")

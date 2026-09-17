@@ -14,6 +14,8 @@ import RequestProject.Hashemi
 import RequestProject.HashemiStep
 import RequestProject.HashemiProps
 import RequestProject.HashemiMega
+import RequestProject.HashemiTrace
+import RequestProject.HashemiTraceProps
 import RequestProject.Ccc
 
 open Lean Meta Ccc
@@ -117,7 +119,8 @@ def run : MetaM Unit := do
   let mut fl : Array String := #["import Std", "namespace HashemiCccFloat", "set_option maxRecDepth 4000",
     "/-- `=` on ℝ, in floating point -/",
     "def feq (a b : Float) : Bool := Float.abs (a - b) <= 1e-9 * max 1.0 (max (Float.abs a) (Float.abs b))", ""]
-  let mut rt : Array String := #["import RequestProject.HashemiMega", "namespace TandoorHashemi",
+  -- the round trip names every compiled definition, so it imports the top module of the chain
+  let mut rt : Array String := #["import RequestProject.HashemiTraceProps", "namespace TandoorHashemi",
     "open Classical", "set_option maxHeartbeats 4000000", "set_option maxRecDepth 8000", ""]
   let mut seed := 7
   for f in funs do

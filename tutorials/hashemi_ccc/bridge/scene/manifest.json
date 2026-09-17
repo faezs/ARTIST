@@ -1,0 +1,460 @@
+{
+ "agents": 16,
+ "rays": 512,
+ "hour": 10.0,
+ "day": 172,
+ "lat": 30.2,
+ "sun_el_deg": 62.47531741922455,
+ "sun_az_rad": 1.6920195281288366,
+ "site_az_rad": 0.0,
+ "n_nodes": 15,
+ "n_belt": 8,
+ "f_design": 4.049999713897705,
+ "power_W": 6.007627487182617,
+ "ds_azs_col": 75,
+ "calls": [
+  {
+   "kernel": "mount_solve",
+   "buffers": [
+    {
+     "index": 0,
+     "file": "mount_solve_0_0.f64",
+     "n": 336,
+     "kind": 0,
+     "shape": [
+      16,
+      21
+     ]
+    },
+    {
+     "index": 1,
+     "file": "mount_solve_0_1.f64",
+     "n": 144,
+     "kind": 0,
+     "shape": [
+      16,
+      9
+     ]
+    },
+    {
+     "index": 2,
+     "file": "mount_solve_0_2.f64",
+     "n": 48,
+     "kind": 0,
+     "shape": [
+      16,
+      3
+     ]
+    },
+    {
+     "index": 3,
+     "file": "mount_solve_0_3.f64",
+     "n": 144,
+     "kind": 0,
+     "shape": [
+      16,
+      9
+     ]
+    },
+    {
+     "index": 4,
+     "file": "mount_solve_0_4.f64",
+     "n": 112,
+     "kind": 0,
+     "shape": [
+      16,
+      7
+     ]
+    },
+    {
+     "index": 5,
+     "file": "mount_solve_0_5.f64",
+     "n": 128,
+     "kind": 0,
+     "shape": [
+      16,
+      8
+     ]
+    },
+    {
+     "index": 6,
+     "file": "mount_solve_0_6.f64",
+     "n": 16,
+     "kind": 0,
+     "shape": [
+      16
+     ]
+    },
+    {
+     "index": 7,
+     "file": "mount_solve_0_7.f64",
+     "n": 16,
+     "kind": 0,
+     "shape": [
+      16
+     ]
+    },
+    {
+     "index": 8,
+     "file": "mount_solve_0_8.f64",
+     "n": 49,
+     "kind": 0,
+     "shape": [
+      49
+     ]
+    },
+    {
+     "index": 9,
+     "file": "mount_solve_0_9.f64",
+     "n": 1,
+     "kind": 1,
+     "shape": [
+      1
+     ]
+    },
+    {
+     "index": 10,
+     "file": "mount_solve_0_10.f64",
+     "n": 32,
+     "kind": 0,
+     "shape": [
+      16,
+      2
+     ]
+    },
+    {
+     "index": 11,
+     "file": "mount_solve_0_11.f64",
+     "n": 1344,
+     "kind": 0,
+     "shape": [
+      16,
+      84
+     ]
+    },
+    {
+     "index": 12,
+     "file": "mount_solve_0_12.f64",
+     "n": 2176,
+     "kind": 0,
+     "shape": [
+      16,
+      136
+     ]
+    }
+   ],
+   "grid": 336
+  },
+  {
+   "kernel": "tandoor_trace",
+   "buffers": [
+    {
+     "index": 0,
+     "file": "tandoor_trace_1_0.f64",
+     "n": 8192,
+     "kind": 0,
+     "shape": [
+      8192
+     ]
+    },
+    {
+     "index": 1,
+     "file": "tandoor_trace_1_1.f64",
+     "n": 49152,
+     "kind": 0,
+     "shape": [
+      8192,
+      6
+     ]
+    },
+    {
+     "index": 2,
+     "file": "tandoor_trace_1_2.f64",
+     "n": 10752,
+     "kind": 0,
+     "shape": [
+      7,
+      512,
+      3
+     ]
+    },
+    {
+     "index": 3,
+     "file": "tandoor_trace_1_3.f64",
+     "n": 10752,
+     "kind": 0,
+     "shape": [
+      7,
+      512,
+      3
+     ]
+    },
+    {
+     "index": 4,
+     "file": "tandoor_trace_1_4.f64",
+     "n": 16,
+     "kind": 0,
+     "shape": [
+      16
+     ]
+    },
+    {
+     "index": 5,
+     "file": "tandoor_trace_1_5.f64",
+     "n": 8192,
+     "kind": 0,
+     "shape": [
+      16,
+      512
+     ]
+    },
+    {
+     "index": 6,
+     "file": "tandoor_trace_1_6.f64",
+     "n": 8192,
+     "kind": 0,
+     "shape": [
+      16,
+      512
+     ]
+    },
+    {
+     "index": 7,
+     "file": "tandoor_trace_1_7.f64",
+     "n": 8192,
+     "kind": 0,
+     "shape": [
+      16,
+      512
+     ]
+    },
+    {
+     "index": 8,
+     "file": "tandoor_trace_1_8.f64",
+     "n": 16,
+     "kind": 0,
+     "shape": [
+      16
+     ]
+    },
+    {
+     "index": 9,
+     "file": "tandoor_trace_1_9.f64",
+     "n": 32,
+     "kind": 0,
+     "shape": [
+      16,
+      2
+     ]
+    },
+    {
+     "index": 10,
+     "file": "tandoor_trace_1_10.f64",
+     "n": 32,
+     "kind": 0,
+     "shape": [
+      16,
+      2
+     ]
+    },
+    {
+     "index": 11,
+     "file": "tandoor_trace_1_11.f64",
+     "n": 336,
+     "kind": 0,
+     "shape": [
+      16,
+      21
+     ]
+    },
+    {
+     "index": 12,
+     "file": "tandoor_trace_1_12.f64",
+     "n": 145,
+     "kind": 0,
+     "shape": [
+      145
+     ]
+    },
+    {
+     "index": 13,
+     "file": "tandoor_trace_1_13.f64",
+     "n": 144,
+     "kind": 0,
+     "shape": [
+      16,
+      3,
+      3
+     ]
+    },
+    {
+     "index": 14,
+     "file": "tandoor_trace_1_14.f64",
+     "n": 144,
+     "kind": 0,
+     "shape": [
+      16,
+      3,
+      3
+     ]
+    },
+    {
+     "index": 15,
+     "file": "tandoor_trace_1_15.f64",
+     "n": 48,
+     "kind": 0,
+     "shape": [
+      16,
+      3
+     ]
+    },
+    {
+     "index": 16,
+     "file": "tandoor_trace_1_16.f64",
+     "n": 144,
+     "kind": 0,
+     "shape": [
+      16,
+      9
+     ]
+    },
+    {
+     "index": 17,
+     "file": "tandoor_trace_1_17.f64",
+     "n": 48,
+     "kind": 0,
+     "shape": [
+      16,
+      3
+     ]
+    },
+    {
+     "index": 18,
+     "file": "tandoor_trace_1_18.f64",
+     "n": 48,
+     "kind": 0,
+     "shape": [
+      16,
+      3
+     ]
+    },
+    {
+     "index": 19,
+     "file": "tandoor_trace_1_19.f64",
+     "n": 48,
+     "kind": 0,
+     "shape": [
+      16,
+      3
+     ]
+    },
+    {
+     "index": 20,
+     "file": "tandoor_trace_1_20.f64",
+     "n": 5,
+     "kind": 1,
+     "shape": [
+      5
+     ]
+    },
+    {
+     "index": 21,
+     "file": "tandoor_trace_1_21.f64",
+     "n": 512,
+     "kind": 0,
+     "shape": [
+      512
+     ]
+    },
+    {
+     "index": 22,
+     "file": "tandoor_trace_1_22.f64",
+     "n": 16,
+     "kind": 0,
+     "shape": [
+      16
+     ]
+    },
+    {
+     "index": 23,
+     "file": "tandoor_trace_1_23.f64",
+     "n": 368,
+     "kind": 0,
+     "shape": [
+      16,
+      23
+     ]
+    },
+    {
+     "index": 24,
+     "file": "tandoor_trace_1_24.f64",
+     "n": 8192,
+     "kind": 0,
+     "shape": [
+      16,
+      512
+     ]
+    },
+    {
+     "index": 25,
+     "file": "tandoor_trace_1_25.f64",
+     "n": 48,
+     "kind": 0,
+     "shape": [
+      16,
+      3
+     ]
+    },
+    {
+     "index": 26,
+     "file": "tandoor_trace_1_26.f64",
+     "n": 112,
+     "kind": 0,
+     "shape": [
+      16,
+      7
+     ]
+    },
+    {
+     "index": 27,
+     "file": "tandoor_trace_1_27.f64",
+     "n": 1,
+     "kind": 0,
+     "shape": [
+      1
+     ]
+    },
+    {
+     "index": 28,
+     "file": "tandoor_trace_1_28.f64",
+     "n": 1344,
+     "kind": 0,
+     "shape": [
+      16,
+      84
+     ]
+    },
+    {
+     "index": 29,
+     "file": "tandoor_trace_1_29.f64",
+     "n": 49152,
+     "kind": 0,
+     "shape": [
+      8192,
+      6
+     ]
+    },
+    {
+     "index": 30,
+     "file": "tandoor_trace_1_30.f64",
+     "n": 592,
+     "kind": 0,
+     "shape": [
+      592
+     ]
+    }
+   ],
+   "grid": 8192
+  }
+ ]
+}

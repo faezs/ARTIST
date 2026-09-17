@@ -20,7 +20,12 @@ trip proved by `rfl`.
 | `lean/HashemiMega.lean` | the megakernel: six functions applying every definition and every `prop_X` at the machine's state; `megaNames` names the 226 columns; `megaParams` holds the eight values the video did not give |
 | `lean/HashemiCcc.lean` | the driver: enumerates the namespace, compiles, writes everything below |
 | `lean/HashemiCccRound.lean` | generated: the `rfl` round trip (the Float twin `HashemiCccFloat.lean` is regenerated, not mirrored) |
-| `hashemi_ccc.h` | 315 device functions: 90 definitions, 116 predicates (the file's 7 Props and the 109 theorem statements), 109 theorem checks |
+| `lean/MetalBridge.lean`, `bridge/` | Lean calls Metal: the shim, its build, the recorded tandoor scene, the emitted kernel sources |
+| `lean/HashemiTrace.lean`, `hashemi_trace_kernel.py` | his dish's trace and the conic homotopy from the file; the Metal kernels around them |
+| `lean/Feedback.lean` | bounded feedback attains its fixed point |
+| `lean/TraceCheck.lean` | `lake exe trace_check`: the optics theorems measured on the GPU |
+| `lean/PropsGenCore.lean`, `HashemiPropsGen.lean`, `HashemiTracePropsGen.lean` | the theorem-to-predicate generator and its two drivers |
+| `hashemi_ccc.h` | 347 device functions: 110 definitions, 122 predicates (the Props and the theorem statements), 115 theorem checks |
 | `hashemi_ccc.py` | the same graphs for NumPy (the reference twin) |
 | `hashemi_ccc.json`, `hashemi_mega.json` | the table of what compiled (inputs, shapes, samples), and the megakernel's manifest (columns, input order, offsets) |
 | `dot/` | the dataflow graph of each function |
@@ -45,15 +50,15 @@ cd ~/ARTIST-compliant/tutorials/hashemi_ccc
 
 ## The verification layers
 
-1. **Theorem round trip, in Lean.** `prop_X_ok : ∀ data, prop_X data := X` for all 109 compiled
-   theorems: the printed statement is the theorem's, up to unfolding (`simpa` with the file's
+1. **Theorem round trip, in Lean.** `prop_X_ok : ∀ data, prop_X data := X` for all 115 compiled
+   theorems (109 of the design, 6 of the trace): the printed statement is the theorem's, up to unfolding (`simpa` with the file's
    definitions, `funext_iff`, `Prod.ext_iff`, `Fin.forall_fin_succ`, `Matrix.cons_val`).
 2. **Definition round trip, in Lean.** `f_ccc : f = fun … => printed := rfl` for 196 definitions and
    predicates (the seven structure instances have no `ℝ` printing);
    the 24-fold bisection (`swingOfLength`, `step`, `megaStep`) is beyond `rfl`'s budget - a term
    that doubles at every level - so its one step `bisectStep` round-trips, the iterate rule is
    checked on a 3-fold instance, and the twins cover the three.
-3. **C against Float.** 945 samples over 315 functions agree to 1e-12; the 109 theorem checks are
+3. **C against Float.** 1041 samples over 347 functions agree to 1e-12; the 115 theorem checks are
    true in double.
 4. **Metal against NumPy.** The whole 226-column row over 4096 random states in the tracker's range
    agrees to 1e-3 (single precision; a boolean column may flip at an exact boundary in a handful of
@@ -80,6 +85,67 @@ times dearer per agent because it traces 512 rays per agent through three mirror
 pot; the Lean gives the mount, the loads and the optics as closed forms, which is why the row is cheap.
 The env around the generated kernel is fourteen times its kernel: the observation, the sun and the
 host-to-GPU copies are still NumPy, the next thing to move into the kernel.
+
+## Lean calls the GPU: the bridge, his dish's trace, the measured theorems
+
+`bridge/metal_bridge.m` is one C function, `lean_mtl_run`, in Objective-C: it JIT-compiles an MSL
+source, binds Lean `FloatArray`s as float32 or int32 buffers, dispatches, waits and returns them.
+`lean/MetalBridge.lean` binds it with `@[extern]`; `bridge/build.sh` builds the dylib against the
+project's toolchain and the lakefile links it. Any kernel of the project runs from Lean through
+it: `lake exe bridge_smoke` is a two-line kernel, `lake exe trace_check` the measured theorems.
+
+`lean/HashemiTrace.lean` is his dish's ray trace composed from the file: the exact sphere
+(`sphereHit`, the law of `TandoorSphere.reflect` in three components), the flat 5 cm facet
+tangent to the sphere at its centre (`traceFacet`, `traceRay`), the coil's plane at F, the dish's
+frame from the swing and azimuth (`dishAxes`, `sunInDish`) and its equivariance theorem
+`sunInDish_equivariant`, PROVED: the machine and the sun turned together leave every ray in the
+dish's frame unchanged - the fixed focus at the level of the trace. The same file holds the
+conic homotopy (below). `lean/Feedback.lean` is the fixed-point lemma: a bounded feedback whose
+`done` states are fixed attains its least fixed point at stage N (`iterate_stationary`), the
+theorem a bounce cap silently assumes; every ray here terminates after one bounce
+(`single_bounce`). `hashemi_trace_kernel.py` wraps `hk_traceRay` and friends as Metal kernels and
+samples rays (a facet, a point in it, the sun's disc); the env's reward now comes from the
+traced capture (`trace_rays` per agent per step) with the added model kept beside it.
+
+`bridge/export_scene.py` records one real dispatch of the handwritten tandoor kernels (the mount
+solve and the 31-buffer trace, hashemi.ini at 16 agents, deterministic) so `trace_check` can
+replay them with edited inputs. `lean/TraceCheck.lean` then measures, on the GPU, from Lean:
+
+| measured theorem | result |
+|---|---|
+| the sphere trace misses the plane by `dev R h c` and crosses the axis at `focal R h` (OpticsSphere) | 0 m difference over 8 heights, 2 planes |
+| the caustic: the paraxial spot is `blur R H`; the best plane is within half (`paraxial_focus_not_best_witness`) | 0.0982 m = blur; 0.0491 m at z 0.954, exactly half |
+| every ray of the panel has one fate (`Feedback.single_bounce`) | 25 600 rays, 14 452 captured on axis |
+| the facet spot at F against `facetSpot` | traced 1.13 m across vs 0.059 m: the panel's corners are 1.13 m out on the R 2 m sphere; 56 % of the on-axis rays on the coil, 76 % at the best plane |
+| capture is antitone in the pointing error (`power_antitone_duct`) | 0.60, 0.59, 0.46, 0.11, 0.03, 0, 0 at 0, 0.5, 1, 1.5, 2, 3, 4 deg; the added model said 1.0 to 1.7 deg |
+| the fixed focus at the trace (`sunInDish_equivariant`, proved; here in float32) | 0 |
+| the conic at k = 0 is the sphere (`conicZ_sphere`, proved), at k = -1 the paraboloid (`conicZ_paraboloid`) | 0 m; 0 m |
+| a cap that does not turn toward the sun: the best conic along the homotopy is interior | best k -0.75, -0.5, -0.5, -0.5 at 5, 10, 20, 30 deg of tilt |
+| the sphere is indifferent to the sun's direction when the cap faces it (the fixed focus by translation alone) | J = 0.034835 m at every tilt |
+| the paraboloid is not: coma | J(-1, alpha) 0, 0.031, 0.114, 0.457, 0.955 m |
+| the replay reproduces the recorded mount and trace | 1e-6 |
+| totality and conservation on the tandoor trace | 8 192 rays, one fate each; absorbed 96.1 of 104.0 m² per unit DNI delivered |
+| blur is antitone for the rays focused inside the entry (`power_antitone`, same draws); the total first rises (`exists_blur_captures`) | 102.6, 100.9, 98.3, 89.5, 60.7 vs all rays 95.9, 95.8, 96.1, 92.2, 67.0 at sigma x 0.25..4 |
+| pointing is antitone (`power_antitone_duct`); the half-power angle | 96.1 to 0.17 over 0..2 deg; half power at 0.73 deg |
+| the site turned 20 deg with the machine | 1.06 % change: the beam is the same, the fold, slot and horizon do not turn |
+
+The two days with the traced capture in the reward (64 agents, 15 s, the sensor loop): 38.6 MJ on
+the coil in June and 16.1 in December, against 67 and 31 under the added model; the 106 theorem
+columns still never false.
+
+## The homotopy: from the paraboloid to the sphere, without a film model
+
+The user's problem (2026-09-18): the sphere is the fixed-point set of the rotations about its
+centre, any cap of it has the fixed-focus property, and a pumped film is a continuous distension
+of one; the learning problem lives on the homotopy of shapes and the pressure is a chart onto it.
+`HashemiTrace.lean` gives the path the trace theorems need: the conic of revolution
+`z = c r² / (1 + sqrt(1 - (1 + k) c² r²))`, `k` from -1 (the paraboloid) to 0 (the sphere), a
+closed-form ray hit, `conicZ_continuous` in `k` (proved), the endpoints proved. No FvK: the film
+model would only supply the chart from pressure to `k`, which the sensor measures; what FvK still
+holds that topology cannot is the reachable set and the knob's monotonicity. The table above is
+the first use: for a cap that cannot turn, the admissible `k` at each tilt is an interval around an
+interior optimum, one homotopy class, and the sphere's advantage appears only when the cap faces
+the sun - which is what the orbit does for the tandoor and the swing does for his dish.
 
 ## What the kernel does NOT take from Hashemi.lean
 

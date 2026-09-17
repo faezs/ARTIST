@@ -32,6 +32,8 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 from hashemi_kernel import (COL, COLUMNS, N_COLS, PRM_W, HashemiMetal, mega_numpy,   # noqa: E402
                             mega_params_numpy)
+from hashemi_trace_kernel import (HashemiTraceMetal, sample_rays, sun_in_dish, trace_numpy,   # noqa: E402
+                                  trace_params_numpy)
 
 _spec = importlib.util.spec_from_file_location("tandoor_sim03", pathlib.Path(TUT) / "03_membrane_beamdown_tandoor.py")
 _sim = importlib.util.module_from_spec(_spec)
@@ -62,7 +64,7 @@ WIRE_SPEED = 0.01
 
 class HashemiMachineEnv(_Base):
     def __init__(self, num_agents=1024, lat=30.2, day_of_year=172, day_random=0, dt=15.0, day_start=5.5,
-                 day_end=19.5, device="mps", full_obs=0, seed=0, params=None, buf=None, **kwargs):
+                 day_end=19.5, device="mps", full_obs=0, seed=0, params=None, trace_rays=64, buf=None, **kwargs):
         self.num_agents = int(num_agents)
         self.lat = float(lat)
         self.day = int(day_of_year)
@@ -89,6 +91,15 @@ class HashemiMachineEnv(_Base):
                     self._metal = HashemiMetal()
             except Exception as e:
                 print(f"[hashemi_env] Metal unavailable ({e}); NumPy twin")
+        # THE TRACED CAPTURE: `trace_rays` rays per agent per step through his dish's trace
+        # (HashemiTrace.lean, generated) replace the added model `coilCapture` in the reward; the
+        # model stays in the row for comparison. 0 keeps the model.
+        self.trace_rays = int(trace_rays)
+        self._tracer = None
+        self._trace_prm = trace_params_numpy()
+        if self.trace_rays > 0 and self._metal is not None:
+            self._tracer = HashemiTraceMetal()
+        self.cap_traced = np.zeros(B, dtype=np.float64)
         self.state = np.zeros((B, 3), dtype=np.float64)          # az, t, slack
         self.row = np.zeros((B, N_COLS), dtype=np.float64)
         self.hour = self.day_start
@@ -136,6 +147,17 @@ class HashemiMachineEnv(_Base):
                                torch.as_tensor(np.asarray(sun, dtype=np.float32), device="mps"), self._prm_t)
         return out.cpu().numpy().astype(np.float64)
 
+    def _traced_capture(self):
+        """the capture fraction per agent from the generated trace at the current pose and sun"""
+        B = self.num_agents
+        el, az, _ = self._sun
+        sd = sun_in_dish(self.state[:, 0], self.state[:, 1], np.full(B, np.radians(el)), np.full(B, az))
+        rays = sample_rays(B, self.trace_rays, sd, self.rng)
+        if self._tracer is not None:
+            return self._tracer.capture(rays, self._trace_prm, B, self.trace_rays)
+        out = trace_numpy(rays, self._trace_prm)
+        return out[:, 3].reshape(B, self.trace_rays).mean(1)
+
     def sun_now(self):
         el, az, _ = solar_position(self.lat, self.day, self.hour)
         return float(el), float(az), float(clear_sky_dni(float(el)))
@@ -178,7 +200,8 @@ class HashemiMachineEnv(_Base):
                       np.full(B, el / 90.0), np.full(B, np.sin(az)), np.full(B, np.cos(az)),
                       self.state[:, 1] / self.t_dead, np.sin(self.state[:, 0]), np.cos(self.state[:, 0]),
                       self.state[:, 2] * 10.0, r[:, COL["arm"]], r[:, COL["stalled"]], r[:, COL["taut"]],
-                      r[:, COL["capture"]], r[:, COL["power_W"]] / 1000.0], 1)
+                      (self.cap_traced if self.trace_rays > 0 else r[:, COL["capture"]]),
+                      (self.rewards if self.trace_rays > 0 else r[:, COL["power_W"]] / 1000.0)], 1)
         if self.full_obs:
             o = np.concatenate([o, r], 1)
         return np.clip(o, -4.0, 4.0).astype(np.float32)
@@ -201,13 +224,21 @@ class HashemiMachineEnv(_Base):
         self.state[:, 2] = self.row[:, COL["slack_next"]]
         self.hour += self.dt / 3600.0
         self._errors()
-        self.rewards[:] = (self.row[:, COL["power_W"]] * 1e-3).astype(np.float32)
+        if self.trace_rays > 0:
+            # the power from the traced capture: the same DNI, area and reflectance as the row's model column
+            el, az, dni = self._sun
+            self.cap_traced = self._traced_capture() if el > 0 else np.zeros(B)
+            power = dni * self.row[:, COL["dishSide"]] ** 2 * self.params[4] * self.cap_traced
+            self.rewards[:] = (power * 1e-3).astype(np.float32)
+        else:
+            self.rewards[:] = (self.row[:, COL["power_W"]] * 1e-3).astype(np.float32)
         self.terminals[:] = False
         done = self.hour >= self.day_end
         self.truncations[:] = done
         infos = []
         if done:
-            infos = [dict(power_mean_W=float(self.row[:, COL["power_W"]].mean()),
+            infos = [dict(power_mean_W=float(self.rewards.mean() * 1e3),
+                          capture_model=float(self.row[:, COL["capture"]].mean()), capture_traced=float(self.cap_traced.mean()),
                           in_budget=float(self.row[:, COL["TrackerBudget"]].mean()),
                           stalled=float(self.row[:, COL["stalled"]].mean()))]
             self.reset()

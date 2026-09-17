@@ -659,3 +659,38 @@ on the coil while the sun is in reach; June 67 MJ/day with 70 % of the sun-up st
 45 % - the video's closing shot, the dish pulled up and the sun on the horizon, is the winter afternoon. NEXT: the
 12 uncompiled statements as tactic-checked properties; a ray trace of his faceted sphere onto the coil to test
 `facetSpot` and the capture law; the mega row's eight parameters as a design box.
+
+LEAN CALLS THE RAYTRACER (2026-09-18, "why aren't you writing optics theorems via our raytracing kernel ffi in lean?",
+"what about that C99 calls MSL", "think about the semantics of raytracing in our optics and the fixed point theorems",
+"do it all"). There was no FFI; now there is: bridge/metal_bridge.m, one C function in Objective-C that JIT-compiles any
+MSL source and runs it on the buffers Lean hands over, bound by `@[extern]` in MetalBridge.lean, linked by the lakefile,
+so `lake exe trace_check` measures theorems on the GPU from Lean and fails the build when one is false. The semantics: a
+trace is a measure-preserving partial map on phase space (Optics.lean's Liouville), the power the pushforward measure
+restricted to the capture set; the fixed points sit at four levels - F as the fixed point of the tracking group (the
+machine), the focus of the ray map (absent for the sphere: the caustic), the bounce loop as a least fixed point (the
+kernel's bounce cap = Feedback.lean's `iterate_stationary`, Hasegawa's trace/fixed-point correspondence being why Ccc
+unrolls), and the loops around the optics (small gain, the thermal contraction, Bellman). HIS DISH TRACED FROM THE FILE
+(HashemiTrace.lean, compiled, five verifications green: 347 functions, 115 theorem round trips, 223 rfl, 1041 samples,
+Metal == NumPy): the sphere trace equals OpticsSphere's `dev`/`focal` exactly, the caustic theorem's half-spot bound is
+attained at bestFocus, and THE FACET SPOT IS 1.13 m ACROSS, NOT 5.9 cm - the 1.6 m square panel's corners sit 1.13 m out
+on the R 2 m sphere (beyond R/2, outside `blur_upper_cubic`'s domain), so 56 % of the on-axis rays reach the 12 cm coil
+(76 % at the best plane 4.5 cm nearer the dish), the capture is 0.46 at 1 deg and 0 at 3 deg, and the tracker budget's
+1.7 deg was the added model's, not the trace's; the env's reward is now the traced capture (38.6 MJ/day June, 16.1
+December, against 67/31 under the model). `sunInDish_equivariant` PROVED: the fixed focus at the level of the trace.
+THE HOMOTOPY (the user: the sphere is the fixed-point set of the rotations, the pumped film a continuous distension of it,
+the learning problem lives on the homotopy of shapes; "can't we use homotopy enough to not need FvK?" - yes; "this needs
+to work with the raytrace theorems"): the conic of revolution with constant k from -1 (paraboloid) to 0 (sphere), closed-
+form hit, `conicZ_continuous`, `conicZ_sphere`, `conicZ_paraboloid` proved; measured: the sphere's J is the same for every
+tilt when the cap faces the sun (0.034835 m), the paraboloid's coma grows (0 to 0.96 m at 30 deg), and a cap that cannot
+turn is best at an INTERIOR k (-0.75 at 5 deg, -0.5 from 10 to 30) - one homotopy class, an interval of admissible k per
+tilt. FvK dropped from the optics (its three theorems worth keeping: the knob's monotonicity, the reachable set, the gust
+response). THE TANDOOR TRACE REPLAYED FROM LEAN (bridge/export_scene.py records a real dispatch): the replay reproduces the
+record to 1e-6; one fate per ray, absorbed 96.1 of 104.0 m2/(W/m2) delivered; blur antitone on the rays the theorem is
+about (102.6 -> 60.7) while the total first RISES (95.9 -> 96.1, `exists_blur_captures`: blur brings mis-aimed rays in);
+pointing antitone with half power at 0.73 deg (the memory's 0.7, now measured from Lean); the site turned with the machine
+changes the power 1.06 % because the fold, slot and horizon do not turn. Bugs met: the props generator importing its own
+output (split into a core and two drivers at the right points of the import order); the round-trip file importing the
+wrong top module (auto-bound names, `rfl` "fails"); `Prod.fst` applied to a pair with further arguments; Nat literals in
+Float arithmetic in the check program. NEXT: the mega row's theorem columns fed by the traced capture; the FvK chart
+measured (pressure -> k) on the env's seven fitted levels; the admissible-k intervals across a day as the policy's
+target; the CPC lip's bounce bound (the first multi-bounce train, the fixed-point lemma's real case).

@@ -486,6 +486,146 @@ def hk_coilCapture(rs, rc, d):
     t45 = np.where(t4, t5, t44)
     return t45
 
+def hk_conicHitS(c, k, O_0, O_1, O_2, d_0, d_1, d_2):
+    t0 = c
+    t1 = k
+    t2 = O_0
+    t3 = O_1
+    t4 = O_2
+    t5 = d_0
+    t6 = d_1
+    t7 = d_2
+    t8 = 1
+    t9 = (t8 + t1)
+    t10 = (t5 ** 2)
+    t11 = (t6 ** 2)
+    t12 = (t10 + t11)
+    t13 = (t7 ** 2)
+    t14 = (t9 * t13)
+    t15 = (t12 + t14)
+    t16 = (t0 * t15)
+    t17 = 2
+    t18 = (t17 * t0)
+    t19 = (t2 * t5)
+    t20 = (t3 * t6)
+    t21 = (t19 + t20)
+    t22 = (t9 * t4)
+    t23 = (t22 * t7)
+    t24 = (t21 + t23)
+    t25 = (t18 * t24)
+    t26 = (t17 * t7)
+    t27 = (t25 - t26)
+    t28 = (t2 ** 2)
+    t29 = (t3 ** 2)
+    t30 = (t28 + t29)
+    t31 = (t4 ** 2)
+    t32 = (t9 * t31)
+    t33 = (t30 + t32)
+    t34 = (t0 * t33)
+    t35 = (t17 * t4)
+    t36 = (t34 - t35)
+    t37 = (t17 * t36)
+    t38 = (-t27)
+    t39 = (t27 ** 2)
+    t40 = 4
+    t41 = (t40 * t16)
+    t42 = (t41 * t36)
+    t43 = (t39 - t42)
+    t44 = 0
+    t45 = np.maximum(t43, t44)
+    t46 = np.sqrt(t45)
+    t47 = (t38 - t46)
+    t48 = (t37 / t47)
+    return t48
+
+def hk_conicSlope(c, k, r):
+    t0 = c
+    t1 = k
+    t2 = r
+    t3 = (t0 * t2)
+    t4 = 1
+    t5 = (t4 + t1)
+    t6 = (t0 ** 2)
+    t7 = (t5 * t6)
+    t8 = (t2 ** 2)
+    t9 = (t7 * t8)
+    t10 = (t4 - t9)
+    t11 = 0.000000000000000001
+    t12 = np.maximum(t10, t11)
+    t13 = np.sqrt(t12)
+    t14 = (t3 / t13)
+    return t14
+
+def hk_conicZ(c, k, r):
+    t0 = c
+    t1 = k
+    t2 = r
+    t3 = (t2 ** 2)
+    t4 = (t0 * t3)
+    t5 = 1
+    t6 = (t5 + t1)
+    t7 = (t0 ** 2)
+    t8 = (t6 * t7)
+    t9 = (t8 * t3)
+    t10 = (t5 - t9)
+    t11 = 0
+    t12 = np.maximum(t10, t11)
+    t13 = np.sqrt(t12)
+    t14 = (t5 + t13)
+    t15 = (t4 / t14)
+    return t15
+
+def hk_check_conicZ_paraboloid(c, r):
+    t0 = c
+    t1 = r
+    t2 = (t1 ** 2)
+    t3 = (t0 * t2)
+    t4 = 1
+    t5 = (-t4)
+    t6 = (t4 + t5)
+    t7 = (t0 ** 2)
+    t8 = (t6 * t7)
+    t9 = (t8 * t2)
+    t10 = (t4 - t9)
+    t11 = 0
+    t12 = np.maximum(t10, t11)
+    t13 = np.sqrt(t12)
+    t14 = (t4 + t13)
+    t15 = (t3 / t14)
+    t16 = 2
+    t17 = (t3 / t16)
+    t18 = hk_eq(t15, t17)
+    return t18
+
+def hk_check_conicZ_sphere(c, r):
+    t0 = c
+    t1 = r
+    t2 = 0
+    t3 = (t2 < t0)
+    t4 = (t0 ** 2)
+    t5 = (t1 ** 2)
+    t6 = (t4 * t5)
+    t7 = 1
+    t8 = (t6 <= t7)
+    t9 = (t0 * t5)
+    t10 = (t7 + t2)
+    t11 = (t10 * t4)
+    t12 = (t11 * t5)
+    t13 = (t7 - t12)
+    t14 = np.maximum(t13, t2)
+    t15 = np.sqrt(t14)
+    t16 = (t7 + t15)
+    t17 = (t9 / t16)
+    t18 = (t7 / t0)
+    t19 = (t18 ** 2)
+    t20 = (t19 - t5)
+    t21 = np.sqrt(t20)
+    t22 = (t18 - t21)
+    t23 = hk_eq(t17, t22)
+    t24 = np.logical_or(np.logical_not(t8), t23)
+    t25 = np.logical_or(np.logical_not(t3), t24)
+    return t25
+
 def hk_constraints(c_chord, c_apexH, c_aBase, c_cross, c_barW, c_rDrive, b_rRail, b_zRail, b_zTube, b_zBearing, b_dPipe, b_nSpokes):
     t0 = c_chord
     t1 = c_apexH
@@ -778,6 +918,106 @@ def hk_check_deadTan_hashemi():
     t18 = np.logical_and(t15, t17)
     return t18
 
+def hk_dishAxes(az, t):
+    t0 = az
+    t1 = t
+    t2 = np.sin(t1)
+    t3 = np.cos(t0)
+    t4 = (t2 * t3)
+    t5 = np.sin(t0)
+    t6 = (t2 * t5)
+    t7 = np.cos(t1)
+    t8 = (t7 * t3)
+    t9 = (t7 * t5)
+    t10 = (-t2)
+    t11 = (t9 * t7)
+    t12 = (t10 * t6)
+    t13 = (t11 - t12)
+    t14 = (t10 * t4)
+    t15 = (t8 * t7)
+    t16 = (t14 - t15)
+    t17 = (t8 * t6)
+    t18 = (t9 * t4)
+    t19 = (t17 - t18)
+    return np.stack([np.broadcast_to(np.asarray(t13, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t]]).shape) if len([az, t]) else np.asarray(t13, dtype=float), np.broadcast_to(np.asarray(t16, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t]]).shape) if len([az, t]) else np.asarray(t16, dtype=float), np.broadcast_to(np.asarray(t19, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t]]).shape) if len([az, t]) else np.asarray(t19, dtype=float), np.broadcast_to(np.asarray(t8, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t]]).shape) if len([az, t]) else np.asarray(t8, dtype=float), np.broadcast_to(np.asarray(t9, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t]]).shape) if len([az, t]) else np.asarray(t9, dtype=float), np.broadcast_to(np.asarray(t10, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t]]).shape) if len([az, t]) else np.asarray(t10, dtype=float), np.broadcast_to(np.asarray(t4, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t]]).shape) if len([az, t]) else np.asarray(t4, dtype=float), np.broadcast_to(np.asarray(t6, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t]]).shape) if len([az, t]) else np.asarray(t6, dtype=float), np.broadcast_to(np.asarray(t7, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t]]).shape) if len([az, t]) else np.asarray(t7, dtype=float)], axis=-1)
+
+def hk_check_dishAxes_rot(az, t, delta):
+    t0 = az
+    t1 = t
+    t2 = delta
+    t3 = np.sin(t1)
+    t4 = (t0 + t2)
+    t5 = np.cos(t4)
+    t6 = (t3 * t5)
+    t7 = np.sin(t4)
+    t8 = (t3 * t7)
+    t9 = np.cos(t1)
+    t10 = (t9 * t5)
+    t11 = (t9 * t7)
+    t12 = (-t3)
+    t13 = (t11 * t9)
+    t14 = (t12 * t8)
+    t15 = (t13 - t14)
+    t16 = (t12 * t6)
+    t17 = (t10 * t9)
+    t18 = (t16 - t17)
+    t19 = (t10 * t8)
+    t20 = (t11 * t6)
+    t21 = (t19 - t20)
+    t22 = np.cos(t2)
+    t23 = np.cos(t0)
+    t24 = (t3 * t23)
+    t25 = np.sin(t0)
+    t26 = (t3 * t25)
+    t27 = (t9 * t23)
+    t28 = (t9 * t25)
+    t29 = (t28 * t9)
+    t30 = (t12 * t26)
+    t31 = (t29 - t30)
+    t32 = (t12 * t24)
+    t33 = (t27 * t9)
+    t34 = (t32 - t33)
+    t35 = (t27 * t26)
+    t36 = (t28 * t24)
+    t37 = (t35 - t36)
+    t38 = (t22 * t31)
+    t39 = np.sin(t2)
+    t40 = (t39 * t34)
+    t41 = (t38 - t40)
+    t42 = (t39 * t31)
+    t43 = (t22 * t34)
+    t44 = (t42 + t43)
+    t45 = hk_eq(t15, t41)
+    t46 = hk_eq(t18, t44)
+    t47 = hk_eq(t21, t37)
+    t48 = np.logical_and(t46, t47)
+    t49 = np.logical_and(t45, t48)
+    t50 = (t22 * t27)
+    t51 = (t39 * t28)
+    t52 = (t50 - t51)
+    t53 = (t39 * t27)
+    t54 = (t22 * t28)
+    t55 = (t53 + t54)
+    t56 = hk_eq(t10, t52)
+    t57 = hk_eq(t11, t55)
+    t58 = hk_eq(t12, t12)
+    t59 = np.logical_and(t57, t58)
+    t60 = np.logical_and(t56, t59)
+    t61 = (t22 * t24)
+    t62 = (t39 * t26)
+    t63 = (t61 - t62)
+    t64 = (t39 * t24)
+    t65 = (t22 * t26)
+    t66 = (t64 + t65)
+    t67 = hk_eq(t6, t63)
+    t68 = hk_eq(t8, t66)
+    t69 = hk_eq(t9, t9)
+    t70 = np.logical_and(t68, t69)
+    t71 = np.logical_and(t67, t70)
+    t72 = np.logical_and(t60, t71)
+    t73 = np.logical_and(t49, t72)
+    return t73
+
 def hk_dishF():
     t0 = 1
     return t0
@@ -820,6 +1060,20 @@ def hk_check_dish_swings_to_vertical():
     t7 = (t1 - t6)
     t8 = (t0 < t7)
     return t8
+
+def hk_dot3(u_0, u_1, u_2, v_0, v_1, v_2):
+    t0 = u_0
+    t1 = u_1
+    t2 = u_2
+    t3 = v_0
+    t4 = v_1
+    t5 = v_2
+    t6 = (t0 * t3)
+    t7 = (t1 * t4)
+    t8 = (t6 + t7)
+    t9 = (t2 * t5)
+    t10 = (t8 + t9)
+    return t10
 
 def hk_check_drive_recip_yaw(c_chord, c_apexH, c_aBase, c_cross, c_barW, c_rDrive, b_rRail, b_zRail, b_zTube, b_zBearing, b_dPipe, b_nSpokes, F):
     t0 = c_chord
@@ -2181,6 +2435,22 @@ def hk_check_hinge_reciprocal_swing(xh, zBolt, apexH):
 def hk_hpHashemi():
     t0 = 0.34
     return t0
+
+def hk_landAt(H_0, H_1, H_2, r_0, r_1, r_2, p):
+    t0 = H_0
+    t1 = H_1
+    t2 = H_2
+    t3 = r_0
+    t4 = r_1
+    t5 = r_2
+    t6 = p
+    t7 = (t6 - t2)
+    t8 = (t7 / t5)
+    t9 = (t8 * t3)
+    t10 = (t0 + t9)
+    t11 = (t8 * t4)
+    t12 = (t1 + t11)
+    return np.stack([np.broadcast_to(np.asarray(t10, dtype=float), np.broadcast(*[np.asarray(x) for x in [H_0, H_1, H_2, r_0, r_1, r_2, p]]).shape) if len([H_0, H_1, H_2, r_0, r_1, r_2, p]) else np.asarray(t10, dtype=float), np.broadcast_to(np.asarray(t12, dtype=float), np.broadcast(*[np.asarray(x) for x in [H_0, H_1, H_2, r_0, r_1, r_2, p]]).shape) if len([H_0, H_1, H_2, r_0, r_1, r_2, p]) else np.asarray(t12, dtype=float)], axis=-1)
 
 def hk_check_lean_one_degree():
     t0 = 0.02
@@ -5809,6 +6079,57 @@ def hk_prop_clearance_hashemi(holeDown):
     t17 = np.logical_and(t13, t16)
     return t17
 
+def hk_prop_conicZ_paraboloid(c, r):
+    t0 = c
+    t1 = r
+    t2 = (t1 ** 2)
+    t3 = (t0 * t2)
+    t4 = 1
+    t5 = (-t4)
+    t6 = (t4 + t5)
+    t7 = (t0 ** 2)
+    t8 = (t6 * t7)
+    t9 = (t8 * t2)
+    t10 = (t4 - t9)
+    t11 = 0
+    t12 = np.maximum(t10, t11)
+    t13 = np.sqrt(t12)
+    t14 = (t4 + t13)
+    t15 = (t3 / t14)
+    t16 = 2
+    t17 = (t3 / t16)
+    t18 = hk_eq(t15, t17)
+    return t18
+
+def hk_prop_conicZ_sphere(c, r):
+    t0 = c
+    t1 = r
+    t2 = (t0 ** 2)
+    t3 = (t1 ** 2)
+    t4 = 1
+    t5 = (t4 / t0)
+    t6 = 0
+    t7 = (t6 < t0)
+    t8 = (t2 * t3)
+    t9 = (t8 <= t4)
+    t10 = (t0 * t3)
+    t11 = (t4 + t6)
+    t12 = (t11 * t2)
+    t13 = (t12 * t3)
+    t14 = (t4 - t13)
+    t15 = np.maximum(t14, t6)
+    t16 = np.sqrt(t15)
+    t17 = (t4 + t16)
+    t18 = (t10 / t17)
+    t19 = (t5 ** 2)
+    t20 = (t19 - t3)
+    t21 = np.sqrt(t20)
+    t22 = (t5 - t21)
+    t23 = hk_eq(t18, t22)
+    t24 = np.logical_or(np.logical_not(t9), t23)
+    t25 = np.logical_or(np.logical_not(t7), t24)
+    return t25
+
 def hk_prop_constraints_reciprocal_yaw(c_chord, c_apexH, c_aBase, c_cross, c_barW, c_rDrive, b_rRail, b_zRail, b_zTube, b_zBearing, b_dPipe, b_nSpokes):
     t0 = c_chord
     t1 = c_apexH
@@ -5964,6 +6285,83 @@ def hk_prop_deadTan_hashemi():
     t17 = (t13 < t16)
     t18 = np.logical_and(t15, t17)
     return t18
+
+def hk_prop_dishAxes_rot(az, t, delta):
+    t0 = az
+    t1 = t
+    t2 = delta
+    t3 = np.sin(t1)
+    t4 = (t0 + t2)
+    t5 = np.cos(t4)
+    t6 = (t3 * t5)
+    t7 = np.sin(t4)
+    t8 = (t3 * t7)
+    t9 = np.cos(t1)
+    t10 = (t9 * t5)
+    t11 = (t9 * t7)
+    t12 = (-t3)
+    t13 = np.cos(t2)
+    t14 = np.cos(t0)
+    t15 = (t3 * t14)
+    t16 = np.sin(t0)
+    t17 = (t3 * t16)
+    t18 = (t9 * t14)
+    t19 = (t9 * t16)
+    t20 = (t19 * t9)
+    t21 = (t12 * t17)
+    t22 = (t20 - t21)
+    t23 = (t12 * t15)
+    t24 = (t18 * t9)
+    t25 = (t23 - t24)
+    t26 = np.sin(t2)
+    t27 = (t11 * t9)
+    t28 = (t12 * t8)
+    t29 = (t27 - t28)
+    t30 = (t13 * t22)
+    t31 = (t26 * t25)
+    t32 = (t30 - t31)
+    t33 = hk_eq(t29, t32)
+    t34 = (t12 * t6)
+    t35 = (t10 * t9)
+    t36 = (t34 - t35)
+    t37 = (t26 * t22)
+    t38 = (t13 * t25)
+    t39 = (t37 + t38)
+    t40 = hk_eq(t36, t39)
+    t41 = (t10 * t8)
+    t42 = (t11 * t6)
+    t43 = (t41 - t42)
+    t44 = (t18 * t17)
+    t45 = (t19 * t15)
+    t46 = (t44 - t45)
+    t47 = hk_eq(t43, t46)
+    t48 = np.logical_and(t40, t47)
+    t49 = np.logical_and(t33, t48)
+    t50 = (t13 * t18)
+    t51 = (t26 * t19)
+    t52 = (t50 - t51)
+    t53 = hk_eq(t10, t52)
+    t54 = (t26 * t18)
+    t55 = (t13 * t19)
+    t56 = (t54 + t55)
+    t57 = hk_eq(t11, t56)
+    t58 = hk_eq(t12, t12)
+    t59 = np.logical_and(t57, t58)
+    t60 = np.logical_and(t53, t59)
+    t61 = (t13 * t15)
+    t62 = (t26 * t17)
+    t63 = (t61 - t62)
+    t64 = hk_eq(t6, t63)
+    t65 = (t26 * t15)
+    t66 = (t13 * t17)
+    t67 = (t65 + t66)
+    t68 = hk_eq(t8, t67)
+    t69 = hk_eq(t9, t9)
+    t70 = np.logical_and(t68, t69)
+    t71 = np.logical_and(t64, t70)
+    t72 = np.logical_and(t60, t71)
+    t73 = np.logical_and(t49, t72)
+    return t73
 
 def hk_prop_dish_between_posts():
     t0 = 2
@@ -7584,6 +7982,40 @@ def hk_prop_roller_rpm_hashemi():
     t11 = np.logical_and(t8, t10)
     return t11
 
+def hk_prop_rotz_dot(delta, u_0, u_1, u_2, v_0, v_1, v_2):
+    t0 = delta
+    t1 = u_0
+    t2 = u_1
+    t3 = u_2
+    t4 = v_0
+    t5 = v_1
+    t6 = v_2
+    t7 = np.cos(t0)
+    t8 = np.sin(t0)
+    t9 = (t3 * t6)
+    t10 = (t7 * t1)
+    t11 = (t8 * t2)
+    t12 = (t10 - t11)
+    t13 = (t7 * t4)
+    t14 = (t8 * t5)
+    t15 = (t13 - t14)
+    t16 = (t12 * t15)
+    t17 = (t8 * t1)
+    t18 = (t7 * t2)
+    t19 = (t17 + t18)
+    t20 = (t8 * t4)
+    t21 = (t7 * t5)
+    t22 = (t20 + t21)
+    t23 = (t19 * t22)
+    t24 = (t16 + t23)
+    t25 = (t24 + t9)
+    t26 = (t1 * t4)
+    t27 = (t2 * t5)
+    t28 = (t26 + t27)
+    t29 = (t28 + t9)
+    t30 = hk_eq(t25, t29)
+    return t30
+
 def hk_prop_screwLength_eq_focal(R, a):
     t0 = R
     t1 = a
@@ -7974,6 +8406,122 @@ def hk_prop_strut_resists_lean(P_0, P_1, P_2, Q_0, Q_1, Q_2, delta_0, delta_1, d
     t29 = np.logical_or(np.logical_not(t12), t28)
     t30 = np.logical_or(np.logical_not(t11), t29)
     return t30
+
+def hk_prop_sunDir_rot(elSun, azSun, delta):
+    t0 = elSun
+    t1 = azSun
+    t2 = delta
+    t3 = np.cos(t0)
+    t4 = (t1 + t2)
+    t5 = np.sin(t0)
+    t6 = np.cos(t2)
+    t7 = np.cos(t1)
+    t8 = (t3 * t7)
+    t9 = np.sin(t1)
+    t10 = (t3 * t9)
+    t11 = np.sin(t2)
+    t12 = np.cos(t4)
+    t13 = (t3 * t12)
+    t14 = (t6 * t8)
+    t15 = (t11 * t10)
+    t16 = (t14 - t15)
+    t17 = hk_eq(t13, t16)
+    t18 = np.sin(t4)
+    t19 = (t3 * t18)
+    t20 = (t11 * t8)
+    t21 = (t6 * t10)
+    t22 = (t20 + t21)
+    t23 = hk_eq(t19, t22)
+    t24 = hk_eq(t5, t5)
+    t25 = np.logical_and(t23, t24)
+    t26 = np.logical_and(t17, t25)
+    return t26
+
+def hk_prop_sunInDish_equivariant(az, t, elSun, azSun, delta):
+    t0 = az
+    t1 = t
+    t2 = elSun
+    t3 = azSun
+    t4 = delta
+    t5 = np.sin(t1)
+    t6 = (t0 + t4)
+    t7 = np.cos(t6)
+    t8 = (t5 * t7)
+    t9 = np.sin(t6)
+    t10 = (t5 * t9)
+    t11 = np.cos(t1)
+    t12 = (t11 * t7)
+    t13 = (t11 * t9)
+    t14 = (-t5)
+    t15 = np.cos(t2)
+    t16 = (t3 + t4)
+    t17 = np.cos(t16)
+    t18 = (t15 * t17)
+    t19 = np.sin(t16)
+    t20 = (t15 * t19)
+    t21 = np.sin(t2)
+    t22 = (t14 * t21)
+    t23 = (t11 * t21)
+    t24 = np.cos(t0)
+    t25 = (t5 * t24)
+    t26 = np.sin(t0)
+    t27 = (t5 * t26)
+    t28 = (t11 * t24)
+    t29 = (t11 * t26)
+    t30 = np.cos(t3)
+    t31 = (t15 * t30)
+    t32 = np.sin(t3)
+    t33 = (t15 * t32)
+    t34 = (t13 * t11)
+    t35 = (t14 * t10)
+    t36 = (t34 - t35)
+    t37 = (t36 * t18)
+    t38 = (t14 * t8)
+    t39 = (t12 * t11)
+    t40 = (t38 - t39)
+    t41 = (t40 * t20)
+    t42 = (t37 + t41)
+    t43 = (t12 * t10)
+    t44 = (t13 * t8)
+    t45 = (t43 - t44)
+    t46 = (t45 * t21)
+    t47 = (t42 + t46)
+    t48 = (t29 * t11)
+    t49 = (t14 * t27)
+    t50 = (t48 - t49)
+    t51 = (t50 * t31)
+    t52 = (t14 * t25)
+    t53 = (t28 * t11)
+    t54 = (t52 - t53)
+    t55 = (t54 * t33)
+    t56 = (t51 + t55)
+    t57 = (t28 * t27)
+    t58 = (t29 * t25)
+    t59 = (t57 - t58)
+    t60 = (t59 * t21)
+    t61 = (t56 + t60)
+    t62 = hk_eq(t47, t61)
+    t63 = (t12 * t18)
+    t64 = (t13 * t20)
+    t65 = (t63 + t64)
+    t66 = (t65 + t22)
+    t67 = (t28 * t31)
+    t68 = (t29 * t33)
+    t69 = (t67 + t68)
+    t70 = (t69 + t22)
+    t71 = hk_eq(t66, t70)
+    t72 = (t8 * t18)
+    t73 = (t10 * t20)
+    t74 = (t72 + t73)
+    t75 = (t74 + t23)
+    t76 = (t25 * t31)
+    t77 = (t27 * t33)
+    t78 = (t76 + t77)
+    t79 = (t78 + t23)
+    t80 = hk_eq(t75, t79)
+    t81 = np.logical_and(t71, t80)
+    t82 = np.logical_and(t62, t81)
+    return t82
 
 def hk_prop_swingFocus_circle(P_1, P_2, d, f, t):
     t0 = P_1
@@ -8513,6 +9061,28 @@ def hk_recip(t_0, t_1, t_2, t_3, t_4, t_5, w_0, w_1, w_2, w_3, w_4, w_5):
     t22 = (t20 + t21)
     return t22
 
+def hk_reflect3(n_0, n_1, n_2, d_0, d_1, d_2):
+    t0 = n_0
+    t1 = n_1
+    t2 = n_2
+    t3 = d_0
+    t4 = d_1
+    t5 = d_2
+    t6 = 2
+    t7 = (t3 * t0)
+    t8 = (t4 * t1)
+    t9 = (t7 + t8)
+    t10 = (t5 * t2)
+    t11 = (t9 + t10)
+    t12 = (t6 * t11)
+    t13 = (t12 * t0)
+    t14 = (t3 - t13)
+    t15 = (t12 * t1)
+    t16 = (t4 - t15)
+    t17 = (t12 * t2)
+    t18 = (t5 - t17)
+    return np.stack([np.broadcast_to(np.asarray(t14, dtype=float), np.broadcast(*[np.asarray(x) for x in [n_0, n_1, n_2, d_0, d_1, d_2]]).shape) if len([n_0, n_1, n_2, d_0, d_1, d_2]) else np.asarray(t14, dtype=float), np.broadcast_to(np.asarray(t16, dtype=float), np.broadcast(*[np.asarray(x) for x in [n_0, n_1, n_2, d_0, d_1, d_2]]).shape) if len([n_0, n_1, n_2, d_0, d_1, d_2]) else np.asarray(t16, dtype=float), np.broadcast_to(np.asarray(t18, dtype=float), np.broadcast(*[np.asarray(x) for x in [n_0, n_1, n_2, d_0, d_1, d_2]]).shape) if len([n_0, n_1, n_2, d_0, d_1, d_2]) else np.asarray(t18, dtype=float)], axis=-1)
+
 def hk_rhoCu():
     t0 = 0.0000000172
     return t0
@@ -8697,6 +9267,55 @@ def hk_rot(psi, p_1, p_2):
     t9 = (t3 * t2)
     t10 = (t8 + t9)
     return np.stack([np.broadcast_to(np.asarray(t7, dtype=float), np.broadcast(*[np.asarray(x) for x in [psi, p_1, p_2]]).shape) if len([psi, p_1, p_2]) else np.asarray(t7, dtype=float), np.broadcast_to(np.asarray(t10, dtype=float), np.broadcast(*[np.asarray(x) for x in [psi, p_1, p_2]]).shape) if len([psi, p_1, p_2]) else np.asarray(t10, dtype=float)], axis=-1)
+
+def hk_rotz(delta, v_0, v_1, v_2):
+    t0 = delta
+    t1 = v_0
+    t2 = v_1
+    t3 = v_2
+    t4 = np.cos(t0)
+    t5 = (t4 * t1)
+    t6 = np.sin(t0)
+    t7 = (t6 * t2)
+    t8 = (t5 - t7)
+    t9 = (t6 * t1)
+    t10 = (t4 * t2)
+    t11 = (t9 + t10)
+    return np.stack([np.broadcast_to(np.asarray(t8, dtype=float), np.broadcast(*[np.asarray(x) for x in [delta, v_0, v_1, v_2]]).shape) if len([delta, v_0, v_1, v_2]) else np.asarray(t8, dtype=float), np.broadcast_to(np.asarray(t11, dtype=float), np.broadcast(*[np.asarray(x) for x in [delta, v_0, v_1, v_2]]).shape) if len([delta, v_0, v_1, v_2]) else np.asarray(t11, dtype=float), np.broadcast_to(np.asarray(t3, dtype=float), np.broadcast(*[np.asarray(x) for x in [delta, v_0, v_1, v_2]]).shape) if len([delta, v_0, v_1, v_2]) else np.asarray(t3, dtype=float)], axis=-1)
+
+def hk_check_rotz_dot(delta, u_0, u_1, u_2, v_0, v_1, v_2):
+    t0 = delta
+    t1 = u_0
+    t2 = u_1
+    t3 = u_2
+    t4 = v_0
+    t5 = v_1
+    t6 = v_2
+    t7 = np.cos(t0)
+    t8 = (t7 * t1)
+    t9 = np.sin(t0)
+    t10 = (t9 * t2)
+    t11 = (t8 - t10)
+    t12 = (t9 * t1)
+    t13 = (t7 * t2)
+    t14 = (t12 + t13)
+    t15 = (t7 * t4)
+    t16 = (t9 * t5)
+    t17 = (t15 - t16)
+    t18 = (t9 * t4)
+    t19 = (t7 * t5)
+    t20 = (t18 + t19)
+    t21 = (t11 * t17)
+    t22 = (t14 * t20)
+    t23 = (t21 + t22)
+    t24 = (t3 * t6)
+    t25 = (t23 + t24)
+    t26 = (t1 * t4)
+    t27 = (t2 * t5)
+    t28 = (t26 + t27)
+    t29 = (t28 + t24)
+    t30 = hk_eq(t25, t29)
+    return t30
 
 def hk_screwLength(R, a):
     t0 = R
@@ -9108,6 +9727,119 @@ def hk_check_slot_exit_hashemi():
     t9 = (t6 < t8)
     t10 = np.logical_and(t7, t9)
     return t10
+
+def hk_sphereBestFocus(R, H):
+    t0 = R
+    t1 = H
+    t2 = 2
+    t3 = (t0 / t2)
+    t4 = 1
+    t5 = (t1 / t0)
+    t6 = (t5 ** 2)
+    t7 = (t4 - t6)
+    t8 = np.sqrt(t7)
+    t9 = (t2 * t8)
+    t10 = (t0 / t9)
+    t11 = (t3 + t10)
+    t12 = (t11 / t2)
+    return t12
+
+def hk_sphereBlur(R, H):
+    t0 = R
+    t1 = H
+    t2 = 2
+    t3 = (t0 / t2)
+    t4 = (t1 / t0)
+    t5 = np.arcsin(t4)
+    t6 = np.cos(t5)
+    t7 = (t2 * t6)
+    t8 = (t0 / t7)
+    t9 = (t0 - t8)
+    t10 = (t3 - t9)
+    t11 = (t2 * t4)
+    t12 = 1
+    t13 = (t4 ** 2)
+    t14 = (t12 - t13)
+    t15 = np.sqrt(t14)
+    t16 = (t11 * t15)
+    t17 = (t2 * t13)
+    t18 = (t12 - t17)
+    t19 = (t16 / t18)
+    t20 = (t10 * t19)
+    return t20
+
+def hk_sphereDev(R, h, p):
+    t0 = R
+    t1 = h
+    t2 = p
+    t3 = 2
+    t4 = 1
+    t5 = (t1 / t0)
+    t6 = (t5 ** 2)
+    t7 = (t4 - t6)
+    t8 = np.sqrt(t7)
+    t9 = (t3 * t8)
+    t10 = (t0 / t9)
+    t11 = (t10 - t2)
+    t12 = (t3 * t5)
+    t13 = (t12 * t8)
+    t14 = (t3 * t6)
+    t15 = (t4 - t14)
+    t16 = (t13 / t15)
+    t17 = (t11 * t16)
+    return t17
+
+def hk_sphereFocal(R, h):
+    t0 = R
+    t1 = h
+    t2 = 2
+    t3 = (t1 / t0)
+    t4 = np.arcsin(t3)
+    t5 = np.cos(t4)
+    t6 = (t2 * t5)
+    t7 = (t0 / t6)
+    t8 = (t0 - t7)
+    return t8
+
+def hk_sphereHit(R, O_0, O_1, O_2, d_0, d_1, d_2):
+    t0 = R
+    t1 = O_0
+    t2 = O_1
+    t3 = O_2
+    t4 = d_0
+    t5 = d_1
+    t6 = d_2
+    t7 = (t3 - t0)
+    t8 = (t4 * t1)
+    t9 = (t5 * t2)
+    t10 = (t8 + t9)
+    t11 = (t6 * t7)
+    t12 = (t10 + t11)
+    t13 = (t1 ** 2)
+    t14 = (t2 ** 2)
+    t15 = (t13 + t14)
+    t16 = (t7 ** 2)
+    t17 = (t15 + t16)
+    t18 = (t0 ** 2)
+    t19 = (t17 - t18)
+    t20 = (-t12)
+    t21 = (t12 ** 2)
+    t22 = (t21 - t19)
+    t23 = np.sqrt(t22)
+    t24 = (t20 + t23)
+    t25 = (t24 * t4)
+    t26 = (t1 + t25)
+    t27 = (t24 * t5)
+    t28 = (t2 + t27)
+    t29 = (t24 * t6)
+    t30 = (t3 + t29)
+    t31 = (-t26)
+    t32 = (t31 / t0)
+    t33 = (-t28)
+    t34 = (t33 / t0)
+    t35 = (t0 - t30)
+    t36 = (t35 / t0)
+    return np.stack([np.broadcast_to(np.asarray(t26, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t26, dtype=float), np.broadcast_to(np.asarray(t28, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t28, dtype=float), np.broadcast_to(np.asarray(t30, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t30, dtype=float), np.broadcast_to(np.asarray(t32, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t32, dtype=float), np.broadcast_to(np.asarray(t34, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t34, dtype=float), np.broadcast_to(np.asarray(t36, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t36, dtype=float)], axis=-1)
 
 def hk_check_sq_bounds_neg(x, lo, hi):
     t0 = x
@@ -9820,6 +10552,179 @@ def hk_check_strut_resists_lean(P_0, P_1, P_2, Q_0, Q_1, Q_2, delta_0, delta_1, 
     t30 = np.logical_or(np.logical_not(t11), t29)
     return t30
 
+def hk_sunDir(elSun, azSun):
+    t0 = elSun
+    t1 = azSun
+    t2 = np.cos(t0)
+    t3 = np.cos(t1)
+    t4 = (t2 * t3)
+    t5 = np.sin(t1)
+    t6 = (t2 * t5)
+    t7 = np.sin(t0)
+    return np.stack([np.broadcast_to(np.asarray(t4, dtype=float), np.broadcast(*[np.asarray(x) for x in [elSun, azSun]]).shape) if len([elSun, azSun]) else np.asarray(t4, dtype=float), np.broadcast_to(np.asarray(t6, dtype=float), np.broadcast(*[np.asarray(x) for x in [elSun, azSun]]).shape) if len([elSun, azSun]) else np.asarray(t6, dtype=float), np.broadcast_to(np.asarray(t7, dtype=float), np.broadcast(*[np.asarray(x) for x in [elSun, azSun]]).shape) if len([elSun, azSun]) else np.asarray(t7, dtype=float)], axis=-1)
+
+def hk_check_sunDir_rot(elSun, azSun, delta):
+    t0 = elSun
+    t1 = azSun
+    t2 = delta
+    t3 = np.cos(t0)
+    t4 = (t1 + t2)
+    t5 = np.cos(t4)
+    t6 = (t3 * t5)
+    t7 = np.sin(t4)
+    t8 = (t3 * t7)
+    t9 = np.sin(t0)
+    t10 = np.cos(t2)
+    t11 = np.cos(t1)
+    t12 = (t3 * t11)
+    t13 = np.sin(t1)
+    t14 = (t3 * t13)
+    t15 = (t10 * t12)
+    t16 = np.sin(t2)
+    t17 = (t16 * t14)
+    t18 = (t15 - t17)
+    t19 = (t16 * t12)
+    t20 = (t10 * t14)
+    t21 = (t19 + t20)
+    t22 = hk_eq(t6, t18)
+    t23 = hk_eq(t8, t21)
+    t24 = hk_eq(t9, t9)
+    t25 = np.logical_and(t23, t24)
+    t26 = np.logical_and(t22, t25)
+    return t26
+
+def hk_sunInDish(az, t, elSun, azSun):
+    t0 = az
+    t1 = t
+    t2 = elSun
+    t3 = azSun
+    t4 = np.sin(t1)
+    t5 = np.cos(t0)
+    t6 = (t4 * t5)
+    t7 = np.sin(t0)
+    t8 = (t4 * t7)
+    t9 = np.cos(t1)
+    t10 = (t9 * t5)
+    t11 = (t9 * t7)
+    t12 = (-t4)
+    t13 = (t11 * t9)
+    t14 = (t12 * t8)
+    t15 = (t13 - t14)
+    t16 = (t12 * t6)
+    t17 = (t10 * t9)
+    t18 = (t16 - t17)
+    t19 = (t10 * t8)
+    t20 = (t11 * t6)
+    t21 = (t19 - t20)
+    t22 = np.cos(t2)
+    t23 = np.cos(t3)
+    t24 = (t22 * t23)
+    t25 = np.sin(t3)
+    t26 = (t22 * t25)
+    t27 = np.sin(t2)
+    t28 = (t15 * t24)
+    t29 = (t18 * t26)
+    t30 = (t28 + t29)
+    t31 = (t21 * t27)
+    t32 = (t30 + t31)
+    t33 = (t10 * t24)
+    t34 = (t11 * t26)
+    t35 = (t33 + t34)
+    t36 = (t12 * t27)
+    t37 = (t35 + t36)
+    t38 = (t6 * t24)
+    t39 = (t8 * t26)
+    t40 = (t38 + t39)
+    t41 = (t9 * t27)
+    t42 = (t40 + t41)
+    return np.stack([np.broadcast_to(np.asarray(t32, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, elSun, azSun]]).shape) if len([az, t, elSun, azSun]) else np.asarray(t32, dtype=float), np.broadcast_to(np.asarray(t37, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, elSun, azSun]]).shape) if len([az, t, elSun, azSun]) else np.asarray(t37, dtype=float), np.broadcast_to(np.asarray(t42, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, elSun, azSun]]).shape) if len([az, t, elSun, azSun]) else np.asarray(t42, dtype=float)], axis=-1)
+
+def hk_check_sunInDish_equivariant(az, t, elSun, azSun, delta):
+    t0 = az
+    t1 = t
+    t2 = elSun
+    t3 = azSun
+    t4 = delta
+    t5 = np.sin(t1)
+    t6 = (t0 + t4)
+    t7 = np.cos(t6)
+    t8 = (t5 * t7)
+    t9 = np.sin(t6)
+    t10 = (t5 * t9)
+    t11 = np.cos(t1)
+    t12 = (t11 * t7)
+    t13 = (t11 * t9)
+    t14 = (-t5)
+    t15 = (t13 * t11)
+    t16 = (t14 * t10)
+    t17 = (t15 - t16)
+    t18 = (t14 * t8)
+    t19 = (t12 * t11)
+    t20 = (t18 - t19)
+    t21 = (t12 * t10)
+    t22 = (t13 * t8)
+    t23 = (t21 - t22)
+    t24 = np.cos(t2)
+    t25 = (t3 + t4)
+    t26 = np.cos(t25)
+    t27 = (t24 * t26)
+    t28 = np.sin(t25)
+    t29 = (t24 * t28)
+    t30 = np.sin(t2)
+    t31 = (t17 * t27)
+    t32 = (t20 * t29)
+    t33 = (t31 + t32)
+    t34 = (t23 * t30)
+    t35 = (t33 + t34)
+    t36 = (t12 * t27)
+    t37 = (t13 * t29)
+    t38 = (t36 + t37)
+    t39 = (t14 * t30)
+    t40 = (t38 + t39)
+    t41 = (t8 * t27)
+    t42 = (t10 * t29)
+    t43 = (t41 + t42)
+    t44 = (t11 * t30)
+    t45 = (t43 + t44)
+    t46 = np.cos(t0)
+    t47 = (t5 * t46)
+    t48 = np.sin(t0)
+    t49 = (t5 * t48)
+    t50 = (t11 * t46)
+    t51 = (t11 * t48)
+    t52 = (t51 * t11)
+    t53 = (t14 * t49)
+    t54 = (t52 - t53)
+    t55 = (t14 * t47)
+    t56 = (t50 * t11)
+    t57 = (t55 - t56)
+    t58 = (t50 * t49)
+    t59 = (t51 * t47)
+    t60 = (t58 - t59)
+    t61 = np.cos(t3)
+    t62 = (t24 * t61)
+    t63 = np.sin(t3)
+    t64 = (t24 * t63)
+    t65 = (t54 * t62)
+    t66 = (t57 * t64)
+    t67 = (t65 + t66)
+    t68 = (t60 * t30)
+    t69 = (t67 + t68)
+    t70 = (t50 * t62)
+    t71 = (t51 * t64)
+    t72 = (t70 + t71)
+    t73 = (t72 + t39)
+    t74 = (t47 * t62)
+    t75 = (t49 * t64)
+    t76 = (t74 + t75)
+    t77 = (t76 + t44)
+    t78 = hk_eq(t35, t69)
+    t79 = hk_eq(t40, t73)
+    t80 = hk_eq(t45, t77)
+    t81 = np.logical_and(t79, t80)
+    t82 = np.logical_and(t78, t81)
+    return t82
+
 def hk_swingFocus(P_1, P_2, d, f, t):
     t0 = P_1
     t1 = P_2
@@ -10498,6 +11403,356 @@ def hk_tiltOfMismatch(e):
     t3 = (t1 * t2)
     t4 = (t0 / t3)
     return t4
+
+def hk_traceConic(c, k, p, O_0, O_1, O_2, d_0, d_1, d_2):
+    t0 = c
+    t1 = k
+    t2 = p
+    t3 = O_0
+    t4 = O_1
+    t5 = O_2
+    t6 = d_0
+    t7 = d_1
+    t8 = d_2
+    t9 = 1
+    t10 = (t9 + t1)
+    t11 = (t6 ** 2)
+    t12 = (t7 ** 2)
+    t13 = (t11 + t12)
+    t14 = (t8 ** 2)
+    t15 = (t10 * t14)
+    t16 = (t13 + t15)
+    t17 = (t0 * t16)
+    t18 = 2
+    t19 = (t18 * t0)
+    t20 = (t3 * t6)
+    t21 = (t4 * t7)
+    t22 = (t20 + t21)
+    t23 = (t10 * t5)
+    t24 = (t23 * t8)
+    t25 = (t22 + t24)
+    t26 = (t19 * t25)
+    t27 = (t18 * t8)
+    t28 = (t26 - t27)
+    t29 = (t3 ** 2)
+    t30 = (t4 ** 2)
+    t31 = (t29 + t30)
+    t32 = (t5 ** 2)
+    t33 = (t10 * t32)
+    t34 = (t31 + t33)
+    t35 = (t0 * t34)
+    t36 = (t18 * t5)
+    t37 = (t35 - t36)
+    t38 = (t18 * t37)
+    t39 = (-t28)
+    t40 = (t28 ** 2)
+    t41 = 4
+    t42 = (t41 * t17)
+    t43 = (t42 * t37)
+    t44 = (t40 - t43)
+    t45 = 0
+    t46 = np.maximum(t44, t45)
+    t47 = np.sqrt(t46)
+    t48 = (t39 - t47)
+    t49 = (t38 / t48)
+    t50 = (t49 * t6)
+    t51 = (t3 + t50)
+    t52 = (t49 * t7)
+    t53 = (t4 + t52)
+    t54 = (t49 * t8)
+    t55 = (t5 + t54)
+    t56 = (t51 ** 2)
+    t57 = (t53 ** 2)
+    t58 = (t56 + t57)
+    t59 = 0.000000000000000001
+    t60 = np.maximum(t58, t59)
+    t61 = np.sqrt(t60)
+    t62 = (t0 * t61)
+    t63 = (t0 ** 2)
+    t64 = (t10 * t63)
+    t65 = (t61 ** 2)
+    t66 = (t64 * t65)
+    t67 = (t9 - t66)
+    t68 = np.maximum(t67, t59)
+    t69 = np.sqrt(t68)
+    t70 = (t62 / t69)
+    t71 = (t70 ** 2)
+    t72 = (t9 + t71)
+    t73 = np.sqrt(t72)
+    t74 = (-t70)
+    t75 = (t74 * t51)
+    t76 = (t75 / t61)
+    t77 = (t76 / t73)
+    t78 = (t74 * t53)
+    t79 = (t78 / t61)
+    t80 = (t79 / t73)
+    t81 = (t9 / t73)
+    t82 = (t6 * t77)
+    t83 = (t7 * t80)
+    t84 = (t82 + t83)
+    t85 = (t8 * t81)
+    t86 = (t84 + t85)
+    t87 = (t18 * t86)
+    t88 = (t87 * t77)
+    t89 = (t6 - t88)
+    t90 = (t87 * t80)
+    t91 = (t7 - t90)
+    t92 = (t87 * t81)
+    t93 = (t8 - t92)
+    t94 = (t2 - t55)
+    t95 = (t94 / t93)
+    t96 = (t95 * t89)
+    t97 = (t51 + t96)
+    t98 = (t95 * t91)
+    t99 = (t53 + t98)
+    t100 = (t0 * t65)
+    t101 = np.maximum(t67, t45)
+    t102 = np.sqrt(t101)
+    t103 = (t9 + t102)
+    t104 = (t100 / t103)
+    t105 = (t104 - t55)
+    return np.stack([np.broadcast_to(np.asarray(t51, dtype=float), np.broadcast(*[np.asarray(x) for x in [c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t51, dtype=float), np.broadcast_to(np.asarray(t53, dtype=float), np.broadcast(*[np.asarray(x) for x in [c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t53, dtype=float), np.broadcast_to(np.asarray(t55, dtype=float), np.broadcast(*[np.asarray(x) for x in [c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t55, dtype=float), np.broadcast_to(np.asarray(t89, dtype=float), np.broadcast(*[np.asarray(x) for x in [c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t89, dtype=float), np.broadcast_to(np.asarray(t91, dtype=float), np.broadcast(*[np.asarray(x) for x in [c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t91, dtype=float), np.broadcast_to(np.asarray(t93, dtype=float), np.broadcast(*[np.asarray(x) for x in [c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t93, dtype=float), np.broadcast_to(np.asarray(t97, dtype=float), np.broadcast(*[np.asarray(x) for x in [c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t97, dtype=float), np.broadcast_to(np.asarray(t99, dtype=float), np.broadcast(*[np.asarray(x) for x in [c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t99, dtype=float), np.broadcast_to(np.asarray(t105, dtype=float), np.broadcast(*[np.asarray(x) for x in [c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([c, k, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t105, dtype=float)], axis=-1)
+
+def hk_traceFacet(R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2):
+    t0 = R
+    t1 = p
+    t2 = cx
+    t3 = cy
+    t4 = O_0
+    t5 = O_1
+    t6 = O_2
+    t7 = d_0
+    t8 = d_1
+    t9 = d_2
+    t10 = (t0 ** 2)
+    t11 = (t2 ** 2)
+    t12 = (t3 ** 2)
+    t13 = (t11 + t12)
+    t14 = np.sqrt(t13)
+    t15 = (t14 ** 2)
+    t16 = (t10 - t15)
+    t17 = np.sqrt(t16)
+    t18 = (t0 - t17)
+    t19 = (-t2)
+    t20 = (t19 / t0)
+    t21 = (-t3)
+    t22 = (t21 / t0)
+    t23 = (t0 - t18)
+    t24 = (t23 / t0)
+    t25 = (t2 - t4)
+    t26 = (t25 * t20)
+    t27 = (t3 - t5)
+    t28 = (t27 * t22)
+    t29 = (t26 + t28)
+    t30 = (t18 - t6)
+    t31 = (t30 * t24)
+    t32 = (t29 + t31)
+    t33 = (t7 * t20)
+    t34 = (t8 * t22)
+    t35 = (t33 + t34)
+    t36 = (t9 * t24)
+    t37 = (t35 + t36)
+    t38 = (t32 / t37)
+    t39 = (t38 * t7)
+    t40 = (t4 + t39)
+    t41 = (t38 * t8)
+    t42 = (t5 + t41)
+    t43 = (t38 * t9)
+    t44 = (t6 + t43)
+    t45 = 2
+    t46 = (t45 * t37)
+    t47 = (t46 * t20)
+    t48 = (t7 - t47)
+    t49 = (t46 * t22)
+    t50 = (t8 - t49)
+    t51 = (t46 * t24)
+    t52 = (t9 - t51)
+    t53 = (t1 - t44)
+    t54 = (t53 / t52)
+    t55 = (t54 * t48)
+    t56 = (t40 + t55)
+    t57 = (t54 * t50)
+    t58 = (t42 + t57)
+    t59 = (t56 ** 2)
+    t60 = (t58 ** 2)
+    t61 = (t59 + t60)
+    t62 = np.sqrt(t61)
+    t63 = 0
+    t64 = (t63 < t52)
+    t65 = 1
+    t66 = np.where(t64, t65, t63)
+    return np.stack([np.broadcast_to(np.asarray(t56, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t56, dtype=float), np.broadcast_to(np.asarray(t58, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t58, dtype=float), np.broadcast_to(np.asarray(t62, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t62, dtype=float), np.broadcast_to(np.asarray(t44, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t44, dtype=float), np.broadcast_to(np.asarray(t66, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, cx, cy, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t66, dtype=float)], axis=-1)
+
+def hk_traceParams():
+    t0 = 2
+    t1 = 1
+    t2 = 0.8
+    t3 = 0.05
+    t4 = 0.06
+    return np.stack([np.broadcast_to(np.asarray(t0, dtype=float), np.broadcast(*[np.asarray(x) for x in []]).shape) if len([]) else np.asarray(t0, dtype=float), np.broadcast_to(np.asarray(t1, dtype=float), np.broadcast(*[np.asarray(x) for x in []]).shape) if len([]) else np.asarray(t1, dtype=float), np.broadcast_to(np.asarray(t2, dtype=float), np.broadcast(*[np.asarray(x) for x in []]).shape) if len([]) else np.asarray(t2, dtype=float), np.broadcast_to(np.asarray(t3, dtype=float), np.broadcast(*[np.asarray(x) for x in []]).shape) if len([]) else np.asarray(t3, dtype=float), np.broadcast_to(np.asarray(t4, dtype=float), np.broadcast(*[np.asarray(x) for x in []]).shape) if len([]) else np.asarray(t4, dtype=float)], axis=-1)
+
+def hk_traceRay(R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz):
+    t0 = R
+    t1 = f
+    t2 = a
+    t3 = w
+    t4 = rc
+    t5 = cx
+    t6 = cy
+    t7 = ux
+    t8 = uy
+    t9 = dx
+    t10 = dy
+    t11 = dz
+    t12 = np.abs(t5)
+    t13 = (t12 <= t2)
+    t14 = np.abs(t6)
+    t15 = (t14 <= t2)
+    t16 = np.abs(t7)
+    t17 = 2
+    t18 = (t3 / t17)
+    t19 = (t16 <= t18)
+    t20 = np.abs(t8)
+    t21 = (t20 <= t18)
+    t22 = np.logical_and(t19, t21)
+    t23 = np.logical_and(t15, t22)
+    t24 = np.logical_and(t13, t23)
+    t25 = (t5 + t7)
+    t26 = (t6 + t8)
+    t27 = (t17 * t1)
+    t28 = (t0 ** 2)
+    t29 = (t5 ** 2)
+    t30 = (t6 ** 2)
+    t31 = (t29 + t30)
+    t32 = np.sqrt(t31)
+    t33 = (t32 ** 2)
+    t34 = (t28 - t33)
+    t35 = np.sqrt(t34)
+    t36 = (t0 - t35)
+    t37 = (-t5)
+    t38 = (t37 / t0)
+    t39 = (-t6)
+    t40 = (t39 / t0)
+    t41 = (t0 - t36)
+    t42 = (t41 / t0)
+    t43 = (t5 - t25)
+    t44 = (t43 * t38)
+    t45 = (t6 - t26)
+    t46 = (t45 * t40)
+    t47 = (t44 + t46)
+    t48 = (t36 - t27)
+    t49 = (t48 * t42)
+    t50 = (t47 + t49)
+    t51 = (t9 * t38)
+    t52 = (t10 * t40)
+    t53 = (t51 + t52)
+    t54 = (t11 * t42)
+    t55 = (t53 + t54)
+    t56 = (t50 / t55)
+    t57 = (t56 * t9)
+    t58 = (t25 + t57)
+    t59 = (t56 * t10)
+    t60 = (t26 + t59)
+    t61 = (t56 * t11)
+    t62 = (t27 + t61)
+    t63 = (t17 * t55)
+    t64 = (t63 * t38)
+    t65 = (t9 - t64)
+    t66 = (t63 * t40)
+    t67 = (t10 - t66)
+    t68 = (t63 * t42)
+    t69 = (t11 - t68)
+    t70 = (t1 - t62)
+    t71 = (t70 / t69)
+    t72 = (t71 * t65)
+    t73 = (t58 + t72)
+    t74 = (t71 * t67)
+    t75 = (t60 + t74)
+    t76 = (t73 ** 2)
+    t77 = (t75 ** 2)
+    t78 = (t76 + t77)
+    t79 = np.sqrt(t78)
+    t80 = 0
+    t81 = (t80 < t69)
+    t82 = 1
+    t83 = np.where(t81, t82, t80)
+    t84 = (t79 <= t4)
+    t85 = (t80 < t83)
+    t86 = np.logical_and(t84, t85)
+    t87 = np.logical_and(t24, t86)
+    t88 = np.where(t87, t82, t80)
+    t89 = np.logical_not(t24)
+    t90 = np.where(t86, t17, t82)
+    t91 = np.where(t89, t80, t90)
+    return np.stack([np.broadcast_to(np.asarray(t73, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t73, dtype=float), np.broadcast_to(np.asarray(t75, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t75, dtype=float), np.broadcast_to(np.asarray(t79, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t79, dtype=float), np.broadcast_to(np.asarray(t88, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t88, dtype=float), np.broadcast_to(np.asarray(t91, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t91, dtype=float), np.broadcast_to(np.asarray(t62, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t62, dtype=float), np.broadcast_to(np.asarray(t32, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t32, dtype=float), np.broadcast_to(np.asarray(t83, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t83, dtype=float)], axis=-1)
+
+def hk_traceSphere(R, p, O_0, O_1, O_2, d_0, d_1, d_2):
+    t0 = R
+    t1 = p
+    t2 = O_0
+    t3 = O_1
+    t4 = O_2
+    t5 = d_0
+    t6 = d_1
+    t7 = d_2
+    t8 = (t4 - t0)
+    t9 = (t5 * t2)
+    t10 = (t6 * t3)
+    t11 = (t9 + t10)
+    t12 = (t7 * t8)
+    t13 = (t11 + t12)
+    t14 = (t2 ** 2)
+    t15 = (t3 ** 2)
+    t16 = (t14 + t15)
+    t17 = (t8 ** 2)
+    t18 = (t16 + t17)
+    t19 = (t0 ** 2)
+    t20 = (t18 - t19)
+    t21 = (-t13)
+    t22 = (t13 ** 2)
+    t23 = (t22 - t20)
+    t24 = np.sqrt(t23)
+    t25 = (t21 + t24)
+    t26 = (t25 * t5)
+    t27 = (t2 + t26)
+    t28 = (t25 * t6)
+    t29 = (t3 + t28)
+    t30 = (t25 * t7)
+    t31 = (t4 + t30)
+    t32 = (-t27)
+    t33 = (t32 / t0)
+    t34 = (-t29)
+    t35 = (t34 / t0)
+    t36 = (t0 - t31)
+    t37 = (t36 / t0)
+    t38 = 2
+    t39 = (t5 * t33)
+    t40 = (t6 * t35)
+    t41 = (t39 + t40)
+    t42 = (t7 * t37)
+    t43 = (t41 + t42)
+    t44 = (t38 * t43)
+    t45 = (t44 * t33)
+    t46 = (t5 - t45)
+    t47 = (t44 * t35)
+    t48 = (t6 - t47)
+    t49 = (t44 * t37)
+    t50 = (t7 - t49)
+    t51 = (t1 - t31)
+    t52 = (t51 / t50)
+    t53 = (t52 * t46)
+    t54 = (t27 + t53)
+    t55 = (t52 * t48)
+    t56 = (t29 + t55)
+    t57 = (t54 ** 2)
+    t58 = (t56 ** 2)
+    t59 = (t57 + t58)
+    t60 = np.sqrt(t59)
+    t61 = 0
+    t62 = (t61 < t50)
+    t63 = 1
+    t64 = np.where(t62, t63, t61)
+    return np.stack([np.broadcast_to(np.asarray(t54, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t54, dtype=float), np.broadcast_to(np.asarray(t56, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t56, dtype=float), np.broadcast_to(np.asarray(t60, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t60, dtype=float), np.broadcast_to(np.asarray(t31, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t31, dtype=float), np.broadcast_to(np.asarray(t64, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, p, O_0, O_1, O_2, d_0, d_1, d_2]]).shape) if len([R, p, O_0, O_1, O_2, d_0, d_1, d_2]) else np.asarray(t64, dtype=float)], axis=-1)
 
 def hk_check_trackerBudget_iff(f, eps, h):
     t0 = f

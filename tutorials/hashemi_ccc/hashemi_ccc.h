@@ -199,6 +199,98 @@ HK_STATIC hk_real hk_coilCapture(hk_real rs, hk_real rc, hk_real d) {
   return t45;
 }
 
+HK_STATIC hk_real hk_conicHitS(hk_real c, hk_real k, hk_real O_0, hk_real O_1, hk_real O_2, hk_real d_0, hk_real d_1, hk_real d_2) {
+  const hk_real t0 = c;
+  const hk_real t1 = k;
+  const hk_real t2 = O_0;
+  const hk_real t3 = O_1;
+  const hk_real t4 = O_2;
+  const hk_real t5 = d_0;
+  const hk_real t6 = d_1;
+  const hk_real t7 = d_2;
+  const hk_real t8 = HK_LIT(1);
+  const hk_real t9 = (t8 + t1);
+  const hk_real t10 = t5 * t5;
+  const hk_real t11 = t6 * t6;
+  const hk_real t12 = (t10 + t11);
+  const hk_real t13 = t7 * t7;
+  const hk_real t14 = (t9 * t13);
+  const hk_real t15 = (t12 + t14);
+  const hk_real t16 = (t0 * t15);
+  const hk_real t17 = HK_LIT(2);
+  const hk_real t18 = (t17 * t0);
+  const hk_real t19 = (t2 * t5);
+  const hk_real t20 = (t3 * t6);
+  const hk_real t21 = (t19 + t20);
+  const hk_real t22 = (t9 * t4);
+  const hk_real t23 = (t22 * t7);
+  const hk_real t24 = (t21 + t23);
+  const hk_real t25 = (t18 * t24);
+  const hk_real t26 = (t17 * t7);
+  const hk_real t27 = (t25 - t26);
+  const hk_real t28 = t2 * t2;
+  const hk_real t29 = t3 * t3;
+  const hk_real t30 = (t28 + t29);
+  const hk_real t31 = t4 * t4;
+  const hk_real t32 = (t9 * t31);
+  const hk_real t33 = (t30 + t32);
+  const hk_real t34 = (t0 * t33);
+  const hk_real t35 = (t17 * t4);
+  const hk_real t36 = (t34 - t35);
+  const hk_real t37 = (t17 * t36);
+  const hk_real t38 = (-t27);
+  const hk_real t39 = t27 * t27;
+  const hk_real t40 = HK_LIT(4);
+  const hk_real t41 = (t40 * t16);
+  const hk_real t42 = (t41 * t36);
+  const hk_real t43 = (t39 - t42);
+  const hk_real t44 = HK_LIT(0);
+  const hk_real t45 = hk_max(t43, t44);
+  const hk_real t46 = hk_sqrt(t45);
+  const hk_real t47 = (t38 - t46);
+  const hk_real t48 = (t37 / t47);
+  return t48;
+}
+
+HK_STATIC hk_real hk_conicSlope(hk_real c, hk_real k, hk_real r) {
+  const hk_real t0 = c;
+  const hk_real t1 = k;
+  const hk_real t2 = r;
+  const hk_real t3 = (t0 * t2);
+  const hk_real t4 = HK_LIT(1);
+  const hk_real t5 = (t4 + t1);
+  const hk_real t6 = t0 * t0;
+  const hk_real t7 = (t5 * t6);
+  const hk_real t8 = t2 * t2;
+  const hk_real t9 = (t7 * t8);
+  const hk_real t10 = (t4 - t9);
+  const hk_real t11 = HK_LIT(0.000000000000000001);
+  const hk_real t12 = hk_max(t10, t11);
+  const hk_real t13 = hk_sqrt(t12);
+  const hk_real t14 = (t3 / t13);
+  return t14;
+}
+
+HK_STATIC hk_real hk_conicZ(hk_real c, hk_real k, hk_real r) {
+  const hk_real t0 = c;
+  const hk_real t1 = k;
+  const hk_real t2 = r;
+  const hk_real t3 = t2 * t2;
+  const hk_real t4 = (t0 * t3);
+  const hk_real t5 = HK_LIT(1);
+  const hk_real t6 = (t5 + t1);
+  const hk_real t7 = t0 * t0;
+  const hk_real t8 = (t6 * t7);
+  const hk_real t9 = (t8 * t3);
+  const hk_real t10 = (t5 - t9);
+  const hk_real t11 = HK_LIT(0);
+  const hk_real t12 = hk_max(t10, t11);
+  const hk_real t13 = hk_sqrt(t12);
+  const hk_real t14 = (t5 + t13);
+  const hk_real t15 = (t4 / t14);
+  return t15;
+}
+
 HK_STATIC void hk_constraints(hk_real c_chord, hk_real c_apexH, hk_real c_aBase, hk_real c_cross, hk_real c_barW, hk_real c_rDrive, hk_real b_rRail, hk_real b_zRail, hk_real b_zTube, hk_real b_zBearing, hk_real b_dPipe, hk_real b_nSpokes, hk_real HK_ADDR* out) {
   const hk_real t0 = c_chord;
   const hk_real t1 = c_apexH;
@@ -393,6 +485,38 @@ HK_STATIC hk_real hk_deadPoint(hk_real ym, hk_real hp, hk_real a, hk_real ze) {
   return t16;
 }
 
+HK_STATIC void hk_dishAxes(hk_real az, hk_real t, hk_real HK_ADDR* out) {
+  const hk_real t0 = az;
+  const hk_real t1 = t;
+  const hk_real t2 = hk_sin(t1);
+  const hk_real t3 = hk_cos(t0);
+  const hk_real t4 = (t2 * t3);
+  const hk_real t5 = hk_sin(t0);
+  const hk_real t6 = (t2 * t5);
+  const hk_real t7 = hk_cos(t1);
+  const hk_real t8 = (t7 * t3);
+  const hk_real t9 = (t7 * t5);
+  const hk_real t10 = (-t2);
+  const hk_real t11 = (t9 * t7);
+  const hk_real t12 = (t10 * t6);
+  const hk_real t13 = (t11 - t12);
+  const hk_real t14 = (t10 * t4);
+  const hk_real t15 = (t8 * t7);
+  const hk_real t16 = (t14 - t15);
+  const hk_real t17 = (t8 * t6);
+  const hk_real t18 = (t9 * t4);
+  const hk_real t19 = (t17 - t18);
+  out[0] = t13;
+  out[1] = t16;
+  out[2] = t19;
+  out[3] = t8;
+  out[4] = t9;
+  out[5] = t10;
+  out[6] = t4;
+  out[7] = t6;
+  out[8] = t7;
+}
+
 HK_STATIC hk_real hk_dishF(void) {
   const hk_real t0 = HK_LIT(1);
   return t0;
@@ -413,6 +537,21 @@ HK_STATIC hk_real hk_dishSide(void) {
   const hk_real t1 = HK_LIT(0.8);
   const hk_real t2 = (t0 * t1);
   return t2;
+}
+
+HK_STATIC hk_real hk_dot3(hk_real u_0, hk_real u_1, hk_real u_2, hk_real v_0, hk_real v_1, hk_real v_2) {
+  const hk_real t0 = u_0;
+  const hk_real t1 = u_1;
+  const hk_real t2 = u_2;
+  const hk_real t3 = v_0;
+  const hk_real t4 = v_1;
+  const hk_real t5 = v_2;
+  const hk_real t6 = (t0 * t3);
+  const hk_real t7 = (t1 * t4);
+  const hk_real t8 = (t6 + t7);
+  const hk_real t9 = (t2 * t5);
+  const hk_real t10 = (t8 + t9);
+  return t10;
 }
 
 HK_STATIC void hk_edgeClipAt(hk_real a, hk_real ze, hk_real t, hk_real HK_ADDR* out) {
@@ -674,6 +813,24 @@ HK_STATIC void hk_hingeWrench(hk_real xh, hk_real zBolt, hk_real HK_ADDR* out) {
 HK_STATIC hk_real hk_hpHashemi(void) {
   const hk_real t0 = HK_LIT(0.34);
   return t0;
+}
+
+HK_STATIC void hk_landAt(hk_real H_0, hk_real H_1, hk_real H_2, hk_real r_0, hk_real r_1, hk_real r_2, hk_real p, hk_real HK_ADDR* out) {
+  const hk_real t0 = H_0;
+  const hk_real t1 = H_1;
+  const hk_real t2 = H_2;
+  const hk_real t3 = r_0;
+  const hk_real t4 = r_1;
+  const hk_real t5 = r_2;
+  const hk_real t6 = p;
+  const hk_real t7 = (t6 - t2);
+  const hk_real t8 = (t7 / t5);
+  const hk_real t9 = (t8 * t3);
+  const hk_real t10 = (t0 + t9);
+  const hk_real t11 = (t8 * t4);
+  const hk_real t12 = (t1 + t11);
+  out[0] = t10;
+  out[1] = t12;
 }
 
 HK_STATIC hk_real hk_leverAt(hk_real ym, hk_real hp, hk_real a, hk_real ze, hk_real t) {
@@ -3907,6 +4064,31 @@ HK_STATIC hk_real hk_recip(hk_real t_0, hk_real t_1, hk_real t_2, hk_real t_3, h
   return t22;
 }
 
+HK_STATIC void hk_reflect3(hk_real n_0, hk_real n_1, hk_real n_2, hk_real d_0, hk_real d_1, hk_real d_2, hk_real HK_ADDR* out) {
+  const hk_real t0 = n_0;
+  const hk_real t1 = n_1;
+  const hk_real t2 = n_2;
+  const hk_real t3 = d_0;
+  const hk_real t4 = d_1;
+  const hk_real t5 = d_2;
+  const hk_real t6 = HK_LIT(2);
+  const hk_real t7 = (t3 * t0);
+  const hk_real t8 = (t4 * t1);
+  const hk_real t9 = (t7 + t8);
+  const hk_real t10 = (t5 * t2);
+  const hk_real t11 = (t9 + t10);
+  const hk_real t12 = (t6 * t11);
+  const hk_real t13 = (t12 * t0);
+  const hk_real t14 = (t3 - t13);
+  const hk_real t15 = (t12 * t1);
+  const hk_real t16 = (t4 - t15);
+  const hk_real t17 = (t12 * t2);
+  const hk_real t18 = (t5 - t17);
+  out[0] = t14;
+  out[1] = t16;
+  out[2] = t18;
+}
+
 HK_STATIC hk_real hk_rhoCu(void) {
   const hk_real t0 = HK_LIT(0.0000000172);
   return t0;
@@ -3970,6 +4152,24 @@ HK_STATIC void hk_rot(hk_real psi, hk_real p_1, hk_real p_2, hk_real HK_ADDR* ou
   const hk_real t10 = (t8 + t9);
   out[0] = t7;
   out[1] = t10;
+}
+
+HK_STATIC void hk_rotz(hk_real delta, hk_real v_0, hk_real v_1, hk_real v_2, hk_real HK_ADDR* out) {
+  const hk_real t0 = delta;
+  const hk_real t1 = v_0;
+  const hk_real t2 = v_1;
+  const hk_real t3 = v_2;
+  const hk_real t4 = hk_cos(t0);
+  const hk_real t5 = (t4 * t1);
+  const hk_real t6 = hk_sin(t0);
+  const hk_real t7 = (t6 * t2);
+  const hk_real t8 = (t5 - t7);
+  const hk_real t9 = (t6 * t1);
+  const hk_real t10 = (t4 * t2);
+  const hk_real t11 = (t9 + t10);
+  out[0] = t8;
+  out[1] = t11;
+  out[2] = t3;
 }
 
 HK_STATIC hk_real hk_screwLength(hk_real R, hk_real a) {
@@ -4084,6 +4284,129 @@ HK_STATIC hk_real hk_slotExit(hk_real a, hk_real ze) {
   const hk_real t2 = (t0 / t1);
   const hk_real t3 = hk_atan(t2);
   return t3;
+}
+
+HK_STATIC hk_real hk_sphereBestFocus(hk_real R, hk_real H) {
+  const hk_real t0 = R;
+  const hk_real t1 = H;
+  const hk_real t2 = HK_LIT(2);
+  const hk_real t3 = (t0 / t2);
+  const hk_real t4 = HK_LIT(1);
+  const hk_real t5 = (t1 / t0);
+  const hk_real t6 = t5 * t5;
+  const hk_real t7 = (t4 - t6);
+  const hk_real t8 = hk_sqrt(t7);
+  const hk_real t9 = (t2 * t8);
+  const hk_real t10 = (t0 / t9);
+  const hk_real t11 = (t3 + t10);
+  const hk_real t12 = (t11 / t2);
+  return t12;
+}
+
+HK_STATIC hk_real hk_sphereBlur(hk_real R, hk_real H) {
+  const hk_real t0 = R;
+  const hk_real t1 = H;
+  const hk_real t2 = HK_LIT(2);
+  const hk_real t3 = (t0 / t2);
+  const hk_real t4 = (t1 / t0);
+  const hk_real t5 = hk_asin(t4);
+  const hk_real t6 = hk_cos(t5);
+  const hk_real t7 = (t2 * t6);
+  const hk_real t8 = (t0 / t7);
+  const hk_real t9 = (t0 - t8);
+  const hk_real t10 = (t3 - t9);
+  const hk_real t11 = (t2 * t4);
+  const hk_real t12 = HK_LIT(1);
+  const hk_real t13 = t4 * t4;
+  const hk_real t14 = (t12 - t13);
+  const hk_real t15 = hk_sqrt(t14);
+  const hk_real t16 = (t11 * t15);
+  const hk_real t17 = (t2 * t13);
+  const hk_real t18 = (t12 - t17);
+  const hk_real t19 = (t16 / t18);
+  const hk_real t20 = (t10 * t19);
+  return t20;
+}
+
+HK_STATIC hk_real hk_sphereDev(hk_real R, hk_real h, hk_real p) {
+  const hk_real t0 = R;
+  const hk_real t1 = h;
+  const hk_real t2 = p;
+  const hk_real t3 = HK_LIT(2);
+  const hk_real t4 = HK_LIT(1);
+  const hk_real t5 = (t1 / t0);
+  const hk_real t6 = t5 * t5;
+  const hk_real t7 = (t4 - t6);
+  const hk_real t8 = hk_sqrt(t7);
+  const hk_real t9 = (t3 * t8);
+  const hk_real t10 = (t0 / t9);
+  const hk_real t11 = (t10 - t2);
+  const hk_real t12 = (t3 * t5);
+  const hk_real t13 = (t12 * t8);
+  const hk_real t14 = (t3 * t6);
+  const hk_real t15 = (t4 - t14);
+  const hk_real t16 = (t13 / t15);
+  const hk_real t17 = (t11 * t16);
+  return t17;
+}
+
+HK_STATIC hk_real hk_sphereFocal(hk_real R, hk_real h) {
+  const hk_real t0 = R;
+  const hk_real t1 = h;
+  const hk_real t2 = HK_LIT(2);
+  const hk_real t3 = (t1 / t0);
+  const hk_real t4 = hk_asin(t3);
+  const hk_real t5 = hk_cos(t4);
+  const hk_real t6 = (t2 * t5);
+  const hk_real t7 = (t0 / t6);
+  const hk_real t8 = (t0 - t7);
+  return t8;
+}
+
+HK_STATIC void hk_sphereHit(hk_real R, hk_real O_0, hk_real O_1, hk_real O_2, hk_real d_0, hk_real d_1, hk_real d_2, hk_real HK_ADDR* out) {
+  const hk_real t0 = R;
+  const hk_real t1 = O_0;
+  const hk_real t2 = O_1;
+  const hk_real t3 = O_2;
+  const hk_real t4 = d_0;
+  const hk_real t5 = d_1;
+  const hk_real t6 = d_2;
+  const hk_real t7 = (t3 - t0);
+  const hk_real t8 = (t4 * t1);
+  const hk_real t9 = (t5 * t2);
+  const hk_real t10 = (t8 + t9);
+  const hk_real t11 = (t6 * t7);
+  const hk_real t12 = (t10 + t11);
+  const hk_real t13 = t1 * t1;
+  const hk_real t14 = t2 * t2;
+  const hk_real t15 = (t13 + t14);
+  const hk_real t16 = t7 * t7;
+  const hk_real t17 = (t15 + t16);
+  const hk_real t18 = t0 * t0;
+  const hk_real t19 = (t17 - t18);
+  const hk_real t20 = (-t12);
+  const hk_real t21 = t12 * t12;
+  const hk_real t22 = (t21 - t19);
+  const hk_real t23 = hk_sqrt(t22);
+  const hk_real t24 = (t20 + t23);
+  const hk_real t25 = (t24 * t4);
+  const hk_real t26 = (t1 + t25);
+  const hk_real t27 = (t24 * t5);
+  const hk_real t28 = (t2 + t27);
+  const hk_real t29 = (t24 * t6);
+  const hk_real t30 = (t3 + t29);
+  const hk_real t31 = (-t26);
+  const hk_real t32 = (t31 / t0);
+  const hk_real t33 = (-t28);
+  const hk_real t34 = (t33 / t0);
+  const hk_real t35 = (t0 - t30);
+  const hk_real t36 = (t35 / t0);
+  out[0] = t26;
+  out[1] = t28;
+  out[2] = t30;
+  out[3] = t32;
+  out[4] = t34;
+  out[5] = t36;
 }
 
 HK_STATIC void hk_step(hk_real az, hk_real t, hk_real slack, hk_real omegam, hk_real omegad, hk_real dt, hk_real rw, hk_real R, hk_real rDrum, hk_real ym, hk_real hp, hk_real a, hk_real ze, hk_real W, hk_real rcm, hk_real Tmax, hk_real HK_ADDR* out) {
@@ -4747,6 +5070,69 @@ HK_STATIC hk_real hk_strutStrain(hk_real P_0, hk_real P_1, hk_real P_2, hk_real 
   return t16;
 }
 
+HK_STATIC void hk_sunDir(hk_real elSun, hk_real azSun, hk_real HK_ADDR* out) {
+  const hk_real t0 = elSun;
+  const hk_real t1 = azSun;
+  const hk_real t2 = hk_cos(t0);
+  const hk_real t3 = hk_cos(t1);
+  const hk_real t4 = (t2 * t3);
+  const hk_real t5 = hk_sin(t1);
+  const hk_real t6 = (t2 * t5);
+  const hk_real t7 = hk_sin(t0);
+  out[0] = t4;
+  out[1] = t6;
+  out[2] = t7;
+}
+
+HK_STATIC void hk_sunInDish(hk_real az, hk_real t, hk_real elSun, hk_real azSun, hk_real HK_ADDR* out) {
+  const hk_real t0 = az;
+  const hk_real t1 = t;
+  const hk_real t2 = elSun;
+  const hk_real t3 = azSun;
+  const hk_real t4 = hk_sin(t1);
+  const hk_real t5 = hk_cos(t0);
+  const hk_real t6 = (t4 * t5);
+  const hk_real t7 = hk_sin(t0);
+  const hk_real t8 = (t4 * t7);
+  const hk_real t9 = hk_cos(t1);
+  const hk_real t10 = (t9 * t5);
+  const hk_real t11 = (t9 * t7);
+  const hk_real t12 = (-t4);
+  const hk_real t13 = (t11 * t9);
+  const hk_real t14 = (t12 * t8);
+  const hk_real t15 = (t13 - t14);
+  const hk_real t16 = (t12 * t6);
+  const hk_real t17 = (t10 * t9);
+  const hk_real t18 = (t16 - t17);
+  const hk_real t19 = (t10 * t8);
+  const hk_real t20 = (t11 * t6);
+  const hk_real t21 = (t19 - t20);
+  const hk_real t22 = hk_cos(t2);
+  const hk_real t23 = hk_cos(t3);
+  const hk_real t24 = (t22 * t23);
+  const hk_real t25 = hk_sin(t3);
+  const hk_real t26 = (t22 * t25);
+  const hk_real t27 = hk_sin(t2);
+  const hk_real t28 = (t15 * t24);
+  const hk_real t29 = (t18 * t26);
+  const hk_real t30 = (t28 + t29);
+  const hk_real t31 = (t21 * t27);
+  const hk_real t32 = (t30 + t31);
+  const hk_real t33 = (t10 * t24);
+  const hk_real t34 = (t11 * t26);
+  const hk_real t35 = (t33 + t34);
+  const hk_real t36 = (t12 * t27);
+  const hk_real t37 = (t35 + t36);
+  const hk_real t38 = (t6 * t24);
+  const hk_real t39 = (t8 * t26);
+  const hk_real t40 = (t38 + t39);
+  const hk_real t41 = (t9 * t27);
+  const hk_real t42 = (t40 + t41);
+  out[0] = t32;
+  out[1] = t37;
+  out[2] = t42;
+}
+
 HK_STATIC void hk_swingFocus(hk_real P_1, hk_real P_2, hk_real d, hk_real f, hk_real t, hk_real HK_ADDR* out) {
   const hk_real t0 = P_1;
   const hk_real t1 = P_2;
@@ -5331,6 +5717,388 @@ HK_STATIC hk_real hk_tiltOfMismatch(hk_real e) {
   const hk_real t3 = (t1 * t2);
   const hk_real t4 = (t0 / t3);
   return t4;
+}
+
+HK_STATIC void hk_traceConic(hk_real c, hk_real k, hk_real p, hk_real O_0, hk_real O_1, hk_real O_2, hk_real d_0, hk_real d_1, hk_real d_2, hk_real HK_ADDR* out) {
+  const hk_real t0 = c;
+  const hk_real t1 = k;
+  const hk_real t2 = p;
+  const hk_real t3 = O_0;
+  const hk_real t4 = O_1;
+  const hk_real t5 = O_2;
+  const hk_real t6 = d_0;
+  const hk_real t7 = d_1;
+  const hk_real t8 = d_2;
+  const hk_real t9 = HK_LIT(1);
+  const hk_real t10 = (t9 + t1);
+  const hk_real t11 = t6 * t6;
+  const hk_real t12 = t7 * t7;
+  const hk_real t13 = (t11 + t12);
+  const hk_real t14 = t8 * t8;
+  const hk_real t15 = (t10 * t14);
+  const hk_real t16 = (t13 + t15);
+  const hk_real t17 = (t0 * t16);
+  const hk_real t18 = HK_LIT(2);
+  const hk_real t19 = (t18 * t0);
+  const hk_real t20 = (t3 * t6);
+  const hk_real t21 = (t4 * t7);
+  const hk_real t22 = (t20 + t21);
+  const hk_real t23 = (t10 * t5);
+  const hk_real t24 = (t23 * t8);
+  const hk_real t25 = (t22 + t24);
+  const hk_real t26 = (t19 * t25);
+  const hk_real t27 = (t18 * t8);
+  const hk_real t28 = (t26 - t27);
+  const hk_real t29 = t3 * t3;
+  const hk_real t30 = t4 * t4;
+  const hk_real t31 = (t29 + t30);
+  const hk_real t32 = t5 * t5;
+  const hk_real t33 = (t10 * t32);
+  const hk_real t34 = (t31 + t33);
+  const hk_real t35 = (t0 * t34);
+  const hk_real t36 = (t18 * t5);
+  const hk_real t37 = (t35 - t36);
+  const hk_real t38 = (t18 * t37);
+  const hk_real t39 = (-t28);
+  const hk_real t40 = t28 * t28;
+  const hk_real t41 = HK_LIT(4);
+  const hk_real t42 = (t41 * t17);
+  const hk_real t43 = (t42 * t37);
+  const hk_real t44 = (t40 - t43);
+  const hk_real t45 = HK_LIT(0);
+  const hk_real t46 = hk_max(t44, t45);
+  const hk_real t47 = hk_sqrt(t46);
+  const hk_real t48 = (t39 - t47);
+  const hk_real t49 = (t38 / t48);
+  const hk_real t50 = (t49 * t6);
+  const hk_real t51 = (t3 + t50);
+  const hk_real t52 = (t49 * t7);
+  const hk_real t53 = (t4 + t52);
+  const hk_real t54 = (t49 * t8);
+  const hk_real t55 = (t5 + t54);
+  const hk_real t56 = t51 * t51;
+  const hk_real t57 = t53 * t53;
+  const hk_real t58 = (t56 + t57);
+  const hk_real t59 = HK_LIT(0.000000000000000001);
+  const hk_real t60 = hk_max(t58, t59);
+  const hk_real t61 = hk_sqrt(t60);
+  const hk_real t62 = (t0 * t61);
+  const hk_real t63 = t0 * t0;
+  const hk_real t64 = (t10 * t63);
+  const hk_real t65 = t61 * t61;
+  const hk_real t66 = (t64 * t65);
+  const hk_real t67 = (t9 - t66);
+  const hk_real t68 = hk_max(t67, t59);
+  const hk_real t69 = hk_sqrt(t68);
+  const hk_real t70 = (t62 / t69);
+  const hk_real t71 = t70 * t70;
+  const hk_real t72 = (t9 + t71);
+  const hk_real t73 = hk_sqrt(t72);
+  const hk_real t74 = (-t70);
+  const hk_real t75 = (t74 * t51);
+  const hk_real t76 = (t75 / t61);
+  const hk_real t77 = (t76 / t73);
+  const hk_real t78 = (t74 * t53);
+  const hk_real t79 = (t78 / t61);
+  const hk_real t80 = (t79 / t73);
+  const hk_real t81 = (t9 / t73);
+  const hk_real t82 = (t6 * t77);
+  const hk_real t83 = (t7 * t80);
+  const hk_real t84 = (t82 + t83);
+  const hk_real t85 = (t8 * t81);
+  const hk_real t86 = (t84 + t85);
+  const hk_real t87 = (t18 * t86);
+  const hk_real t88 = (t87 * t77);
+  const hk_real t89 = (t6 - t88);
+  const hk_real t90 = (t87 * t80);
+  const hk_real t91 = (t7 - t90);
+  const hk_real t92 = (t87 * t81);
+  const hk_real t93 = (t8 - t92);
+  const hk_real t94 = (t2 - t55);
+  const hk_real t95 = (t94 / t93);
+  const hk_real t96 = (t95 * t89);
+  const hk_real t97 = (t51 + t96);
+  const hk_real t98 = (t95 * t91);
+  const hk_real t99 = (t53 + t98);
+  const hk_real t100 = (t0 * t65);
+  const hk_real t101 = hk_max(t67, t45);
+  const hk_real t102 = hk_sqrt(t101);
+  const hk_real t103 = (t9 + t102);
+  const hk_real t104 = (t100 / t103);
+  const hk_real t105 = (t104 - t55);
+  out[0] = t51;
+  out[1] = t53;
+  out[2] = t55;
+  out[3] = t89;
+  out[4] = t91;
+  out[5] = t93;
+  out[6] = t97;
+  out[7] = t99;
+  out[8] = t105;
+}
+
+HK_STATIC void hk_traceFacet(hk_real R, hk_real p, hk_real cx, hk_real cy, hk_real O_0, hk_real O_1, hk_real O_2, hk_real d_0, hk_real d_1, hk_real d_2, hk_real HK_ADDR* out) {
+  const hk_real t0 = R;
+  const hk_real t1 = p;
+  const hk_real t2 = cx;
+  const hk_real t3 = cy;
+  const hk_real t4 = O_0;
+  const hk_real t5 = O_1;
+  const hk_real t6 = O_2;
+  const hk_real t7 = d_0;
+  const hk_real t8 = d_1;
+  const hk_real t9 = d_2;
+  const hk_real t10 = t0 * t0;
+  const hk_real t11 = t2 * t2;
+  const hk_real t12 = t3 * t3;
+  const hk_real t13 = (t11 + t12);
+  const hk_real t14 = hk_sqrt(t13);
+  const hk_real t15 = t14 * t14;
+  const hk_real t16 = (t10 - t15);
+  const hk_real t17 = hk_sqrt(t16);
+  const hk_real t18 = (t0 - t17);
+  const hk_real t19 = (-t2);
+  const hk_real t20 = (t19 / t0);
+  const hk_real t21 = (-t3);
+  const hk_real t22 = (t21 / t0);
+  const hk_real t23 = (t0 - t18);
+  const hk_real t24 = (t23 / t0);
+  const hk_real t25 = (t2 - t4);
+  const hk_real t26 = (t25 * t20);
+  const hk_real t27 = (t3 - t5);
+  const hk_real t28 = (t27 * t22);
+  const hk_real t29 = (t26 + t28);
+  const hk_real t30 = (t18 - t6);
+  const hk_real t31 = (t30 * t24);
+  const hk_real t32 = (t29 + t31);
+  const hk_real t33 = (t7 * t20);
+  const hk_real t34 = (t8 * t22);
+  const hk_real t35 = (t33 + t34);
+  const hk_real t36 = (t9 * t24);
+  const hk_real t37 = (t35 + t36);
+  const hk_real t38 = (t32 / t37);
+  const hk_real t39 = (t38 * t7);
+  const hk_real t40 = (t4 + t39);
+  const hk_real t41 = (t38 * t8);
+  const hk_real t42 = (t5 + t41);
+  const hk_real t43 = (t38 * t9);
+  const hk_real t44 = (t6 + t43);
+  const hk_real t45 = HK_LIT(2);
+  const hk_real t46 = (t45 * t37);
+  const hk_real t47 = (t46 * t20);
+  const hk_real t48 = (t7 - t47);
+  const hk_real t49 = (t46 * t22);
+  const hk_real t50 = (t8 - t49);
+  const hk_real t51 = (t46 * t24);
+  const hk_real t52 = (t9 - t51);
+  const hk_real t53 = (t1 - t44);
+  const hk_real t54 = (t53 / t52);
+  const hk_real t55 = (t54 * t48);
+  const hk_real t56 = (t40 + t55);
+  const hk_real t57 = (t54 * t50);
+  const hk_real t58 = (t42 + t57);
+  const hk_real t59 = t56 * t56;
+  const hk_real t60 = t58 * t58;
+  const hk_real t61 = (t59 + t60);
+  const hk_real t62 = hk_sqrt(t61);
+  const hk_real t63 = HK_LIT(0);
+  const bool t64 = (t63 < t52);
+  const hk_real t65 = HK_LIT(1);
+  const hk_real t66 = (t64 ? t65 : t63);
+  out[0] = t56;
+  out[1] = t58;
+  out[2] = t62;
+  out[3] = t44;
+  out[4] = t66;
+}
+
+HK_STATIC void hk_traceParams(hk_real HK_ADDR* out) {
+  const hk_real t0 = HK_LIT(2);
+  const hk_real t1 = HK_LIT(1);
+  const hk_real t2 = HK_LIT(0.8);
+  const hk_real t3 = HK_LIT(0.05);
+  const hk_real t4 = HK_LIT(0.06);
+  out[0] = t0;
+  out[1] = t1;
+  out[2] = t2;
+  out[3] = t3;
+  out[4] = t4;
+}
+
+HK_STATIC void hk_traceRay(hk_real R, hk_real f, hk_real a, hk_real w, hk_real rc, hk_real cx, hk_real cy, hk_real ux, hk_real uy, hk_real dx, hk_real dy, hk_real dz, hk_real HK_ADDR* out) {
+  const hk_real t0 = R;
+  const hk_real t1 = f;
+  const hk_real t2 = a;
+  const hk_real t3 = w;
+  const hk_real t4 = rc;
+  const hk_real t5 = cx;
+  const hk_real t6 = cy;
+  const hk_real t7 = ux;
+  const hk_real t8 = uy;
+  const hk_real t9 = dx;
+  const hk_real t10 = dy;
+  const hk_real t11 = dz;
+  const hk_real t12 = hk_fabs(t5);
+  const bool t13 = (t12 <= t2);
+  const hk_real t14 = hk_fabs(t6);
+  const bool t15 = (t14 <= t2);
+  const hk_real t16 = hk_fabs(t7);
+  const hk_real t17 = HK_LIT(2);
+  const hk_real t18 = (t3 / t17);
+  const bool t19 = (t16 <= t18);
+  const hk_real t20 = hk_fabs(t8);
+  const bool t21 = (t20 <= t18);
+  const bool t22 = (t19 && t21);
+  const bool t23 = (t15 && t22);
+  const bool t24 = (t13 && t23);
+  const hk_real t25 = (t5 + t7);
+  const hk_real t26 = (t6 + t8);
+  const hk_real t27 = (t17 * t1);
+  const hk_real t28 = t0 * t0;
+  const hk_real t29 = t5 * t5;
+  const hk_real t30 = t6 * t6;
+  const hk_real t31 = (t29 + t30);
+  const hk_real t32 = hk_sqrt(t31);
+  const hk_real t33 = t32 * t32;
+  const hk_real t34 = (t28 - t33);
+  const hk_real t35 = hk_sqrt(t34);
+  const hk_real t36 = (t0 - t35);
+  const hk_real t37 = (-t5);
+  const hk_real t38 = (t37 / t0);
+  const hk_real t39 = (-t6);
+  const hk_real t40 = (t39 / t0);
+  const hk_real t41 = (t0 - t36);
+  const hk_real t42 = (t41 / t0);
+  const hk_real t43 = (t5 - t25);
+  const hk_real t44 = (t43 * t38);
+  const hk_real t45 = (t6 - t26);
+  const hk_real t46 = (t45 * t40);
+  const hk_real t47 = (t44 + t46);
+  const hk_real t48 = (t36 - t27);
+  const hk_real t49 = (t48 * t42);
+  const hk_real t50 = (t47 + t49);
+  const hk_real t51 = (t9 * t38);
+  const hk_real t52 = (t10 * t40);
+  const hk_real t53 = (t51 + t52);
+  const hk_real t54 = (t11 * t42);
+  const hk_real t55 = (t53 + t54);
+  const hk_real t56 = (t50 / t55);
+  const hk_real t57 = (t56 * t9);
+  const hk_real t58 = (t25 + t57);
+  const hk_real t59 = (t56 * t10);
+  const hk_real t60 = (t26 + t59);
+  const hk_real t61 = (t56 * t11);
+  const hk_real t62 = (t27 + t61);
+  const hk_real t63 = (t17 * t55);
+  const hk_real t64 = (t63 * t38);
+  const hk_real t65 = (t9 - t64);
+  const hk_real t66 = (t63 * t40);
+  const hk_real t67 = (t10 - t66);
+  const hk_real t68 = (t63 * t42);
+  const hk_real t69 = (t11 - t68);
+  const hk_real t70 = (t1 - t62);
+  const hk_real t71 = (t70 / t69);
+  const hk_real t72 = (t71 * t65);
+  const hk_real t73 = (t58 + t72);
+  const hk_real t74 = (t71 * t67);
+  const hk_real t75 = (t60 + t74);
+  const hk_real t76 = t73 * t73;
+  const hk_real t77 = t75 * t75;
+  const hk_real t78 = (t76 + t77);
+  const hk_real t79 = hk_sqrt(t78);
+  const hk_real t80 = HK_LIT(0);
+  const bool t81 = (t80 < t69);
+  const hk_real t82 = HK_LIT(1);
+  const hk_real t83 = (t81 ? t82 : t80);
+  const bool t84 = (t79 <= t4);
+  const bool t85 = (t80 < t83);
+  const bool t86 = (t84 && t85);
+  const bool t87 = (t24 && t86);
+  const hk_real t88 = (t87 ? t82 : t80);
+  const bool t89 = (!t24);
+  const hk_real t90 = (t86 ? t17 : t82);
+  const hk_real t91 = (t89 ? t80 : t90);
+  out[0] = t73;
+  out[1] = t75;
+  out[2] = t79;
+  out[3] = t88;
+  out[4] = t91;
+  out[5] = t62;
+  out[6] = t32;
+  out[7] = t83;
+}
+
+HK_STATIC void hk_traceSphere(hk_real R, hk_real p, hk_real O_0, hk_real O_1, hk_real O_2, hk_real d_0, hk_real d_1, hk_real d_2, hk_real HK_ADDR* out) {
+  const hk_real t0 = R;
+  const hk_real t1 = p;
+  const hk_real t2 = O_0;
+  const hk_real t3 = O_1;
+  const hk_real t4 = O_2;
+  const hk_real t5 = d_0;
+  const hk_real t6 = d_1;
+  const hk_real t7 = d_2;
+  const hk_real t8 = (t4 - t0);
+  const hk_real t9 = (t5 * t2);
+  const hk_real t10 = (t6 * t3);
+  const hk_real t11 = (t9 + t10);
+  const hk_real t12 = (t7 * t8);
+  const hk_real t13 = (t11 + t12);
+  const hk_real t14 = t2 * t2;
+  const hk_real t15 = t3 * t3;
+  const hk_real t16 = (t14 + t15);
+  const hk_real t17 = t8 * t8;
+  const hk_real t18 = (t16 + t17);
+  const hk_real t19 = t0 * t0;
+  const hk_real t20 = (t18 - t19);
+  const hk_real t21 = (-t13);
+  const hk_real t22 = t13 * t13;
+  const hk_real t23 = (t22 - t20);
+  const hk_real t24 = hk_sqrt(t23);
+  const hk_real t25 = (t21 + t24);
+  const hk_real t26 = (t25 * t5);
+  const hk_real t27 = (t2 + t26);
+  const hk_real t28 = (t25 * t6);
+  const hk_real t29 = (t3 + t28);
+  const hk_real t30 = (t25 * t7);
+  const hk_real t31 = (t4 + t30);
+  const hk_real t32 = (-t27);
+  const hk_real t33 = (t32 / t0);
+  const hk_real t34 = (-t29);
+  const hk_real t35 = (t34 / t0);
+  const hk_real t36 = (t0 - t31);
+  const hk_real t37 = (t36 / t0);
+  const hk_real t38 = HK_LIT(2);
+  const hk_real t39 = (t5 * t33);
+  const hk_real t40 = (t6 * t35);
+  const hk_real t41 = (t39 + t40);
+  const hk_real t42 = (t7 * t37);
+  const hk_real t43 = (t41 + t42);
+  const hk_real t44 = (t38 * t43);
+  const hk_real t45 = (t44 * t33);
+  const hk_real t46 = (t5 - t45);
+  const hk_real t47 = (t44 * t35);
+  const hk_real t48 = (t6 - t47);
+  const hk_real t49 = (t44 * t37);
+  const hk_real t50 = (t7 - t49);
+  const hk_real t51 = (t1 - t31);
+  const hk_real t52 = (t51 / t50);
+  const hk_real t53 = (t52 * t46);
+  const hk_real t54 = (t27 + t53);
+  const hk_real t55 = (t52 * t48);
+  const hk_real t56 = (t29 + t55);
+  const hk_real t57 = t54 * t54;
+  const hk_real t58 = t56 * t56;
+  const hk_real t59 = (t57 + t58);
+  const hk_real t60 = hk_sqrt(t59);
+  const hk_real t61 = HK_LIT(0);
+  const bool t62 = (t61 < t50);
+  const hk_real t63 = HK_LIT(1);
+  const hk_real t64 = (t62 ? t63 : t61);
+  out[0] = t54;
+  out[1] = t56;
+  out[2] = t60;
+  out[3] = t31;
+  out[4] = t64;
 }
 
 HK_STATIC void hk_wBearX(hk_real b_rRail, hk_real b_zRail, hk_real b_zTube, hk_real b_zBearing, hk_real b_dPipe, hk_real b_nSpokes, hk_real HK_ADDR* out) {
@@ -5978,6 +6746,59 @@ HK_STATIC bool hk_prop_clearance_hashemi(hk_real holeDown) {
   return t17;
 }
 
+HK_STATIC bool hk_prop_conicZ_paraboloid(hk_real c, hk_real r) {
+  const hk_real t0 = c;
+  const hk_real t1 = r;
+  const hk_real t2 = t1 * t1;
+  const hk_real t3 = (t0 * t2);
+  const hk_real t4 = HK_LIT(1);
+  const hk_real t5 = (-t4);
+  const hk_real t6 = (t4 + t5);
+  const hk_real t7 = t0 * t0;
+  const hk_real t8 = (t6 * t7);
+  const hk_real t9 = (t8 * t2);
+  const hk_real t10 = (t4 - t9);
+  const hk_real t11 = HK_LIT(0);
+  const hk_real t12 = hk_max(t10, t11);
+  const hk_real t13 = hk_sqrt(t12);
+  const hk_real t14 = (t4 + t13);
+  const hk_real t15 = (t3 / t14);
+  const hk_real t16 = HK_LIT(2);
+  const hk_real t17 = (t3 / t16);
+  const bool t18 = hk_eq(t15, t17);
+  return t18;
+}
+
+HK_STATIC bool hk_prop_conicZ_sphere(hk_real c, hk_real r) {
+  const hk_real t0 = c;
+  const hk_real t1 = r;
+  const hk_real t2 = t0 * t0;
+  const hk_real t3 = t1 * t1;
+  const hk_real t4 = HK_LIT(1);
+  const hk_real t5 = (t4 / t0);
+  const hk_real t6 = HK_LIT(0);
+  const bool t7 = (t6 < t0);
+  const hk_real t8 = (t2 * t3);
+  const bool t9 = (t8 <= t4);
+  const hk_real t10 = (t0 * t3);
+  const hk_real t11 = (t4 + t6);
+  const hk_real t12 = (t11 * t2);
+  const hk_real t13 = (t12 * t3);
+  const hk_real t14 = (t4 - t13);
+  const hk_real t15 = hk_max(t14, t6);
+  const hk_real t16 = hk_sqrt(t15);
+  const hk_real t17 = (t4 + t16);
+  const hk_real t18 = (t10 / t17);
+  const hk_real t19 = t5 * t5;
+  const hk_real t20 = (t19 - t3);
+  const hk_real t21 = hk_sqrt(t20);
+  const hk_real t22 = (t5 - t21);
+  const bool t23 = hk_eq(t18, t22);
+  const bool t24 = (!t9 || t23);
+  const bool t25 = (!t7 || t24);
+  return t25;
+}
+
 HK_STATIC bool hk_prop_constraints_reciprocal_yaw(hk_real c_chord, hk_real c_apexH, hk_real c_aBase, hk_real c_cross, hk_real c_barW, hk_real c_rDrive, hk_real b_rRail, hk_real b_zRail, hk_real b_zTube, hk_real b_zBearing, hk_real b_dPipe, hk_real b_nSpokes) {
   const hk_real t0 = c_chord;
   const hk_real t1 = c_apexH;
@@ -6128,6 +6949,84 @@ HK_STATIC bool hk_prop_deadTan_hashemi(void) {
   const bool t17 = (t13 < t16);
   const bool t18 = (t15 && t17);
   return t18;
+}
+
+HK_STATIC bool hk_prop_dishAxes_rot(hk_real az, hk_real t, hk_real delta) {
+  const hk_real t0 = az;
+  const hk_real t1 = t;
+  const hk_real t2 = delta;
+  const hk_real t3 = hk_sin(t1);
+  const hk_real t4 = (t0 + t2);
+  const hk_real t5 = hk_cos(t4);
+  const hk_real t6 = (t3 * t5);
+  const hk_real t7 = hk_sin(t4);
+  const hk_real t8 = (t3 * t7);
+  const hk_real t9 = hk_cos(t1);
+  const hk_real t10 = (t9 * t5);
+  const hk_real t11 = (t9 * t7);
+  const hk_real t12 = (-t3);
+  const hk_real t13 = hk_cos(t2);
+  const hk_real t14 = hk_cos(t0);
+  const hk_real t15 = (t3 * t14);
+  const hk_real t16 = hk_sin(t0);
+  const hk_real t17 = (t3 * t16);
+  const hk_real t18 = (t9 * t14);
+  const hk_real t19 = (t9 * t16);
+  const hk_real t20 = (t19 * t9);
+  const hk_real t21 = (t12 * t17);
+  const hk_real t22 = (t20 - t21);
+  const hk_real t23 = (t12 * t15);
+  const hk_real t24 = (t18 * t9);
+  const hk_real t25 = (t23 - t24);
+  const hk_real t26 = hk_sin(t2);
+  const hk_real t27 = (t11 * t9);
+  const hk_real t28 = (t12 * t8);
+  const hk_real t29 = (t27 - t28);
+  const hk_real t30 = (t13 * t22);
+  const hk_real t31 = (t26 * t25);
+  const hk_real t32 = (t30 - t31);
+  const bool t33 = hk_eq(t29, t32);
+  const hk_real t34 = (t12 * t6);
+  const hk_real t35 = (t10 * t9);
+  const hk_real t36 = (t34 - t35);
+  const hk_real t37 = (t26 * t22);
+  const hk_real t38 = (t13 * t25);
+  const hk_real t39 = (t37 + t38);
+  const bool t40 = hk_eq(t36, t39);
+  const hk_real t41 = (t10 * t8);
+  const hk_real t42 = (t11 * t6);
+  const hk_real t43 = (t41 - t42);
+  const hk_real t44 = (t18 * t17);
+  const hk_real t45 = (t19 * t15);
+  const hk_real t46 = (t44 - t45);
+  const bool t47 = hk_eq(t43, t46);
+  const bool t48 = (t40 && t47);
+  const bool t49 = (t33 && t48);
+  const hk_real t50 = (t13 * t18);
+  const hk_real t51 = (t26 * t19);
+  const hk_real t52 = (t50 - t51);
+  const bool t53 = hk_eq(t10, t52);
+  const hk_real t54 = (t26 * t18);
+  const hk_real t55 = (t13 * t19);
+  const hk_real t56 = (t54 + t55);
+  const bool t57 = hk_eq(t11, t56);
+  const bool t58 = hk_eq(t12, t12);
+  const bool t59 = (t57 && t58);
+  const bool t60 = (t53 && t59);
+  const hk_real t61 = (t13 * t15);
+  const hk_real t62 = (t26 * t17);
+  const hk_real t63 = (t61 - t62);
+  const bool t64 = hk_eq(t6, t63);
+  const hk_real t65 = (t26 * t15);
+  const hk_real t66 = (t13 * t17);
+  const hk_real t67 = (t65 + t66);
+  const bool t68 = hk_eq(t8, t67);
+  const bool t69 = hk_eq(t9, t9);
+  const bool t70 = (t68 && t69);
+  const bool t71 = (t64 && t70);
+  const bool t72 = (t60 && t71);
+  const bool t73 = (t49 && t72);
+  return t73;
 }
 
 HK_STATIC bool hk_prop_dish_between_posts(void) {
@@ -7714,6 +8613,41 @@ HK_STATIC bool hk_prop_roller_rpm_hashemi(void) {
   return t11;
 }
 
+HK_STATIC bool hk_prop_rotz_dot(hk_real delta, hk_real u_0, hk_real u_1, hk_real u_2, hk_real v_0, hk_real v_1, hk_real v_2) {
+  const hk_real t0 = delta;
+  const hk_real t1 = u_0;
+  const hk_real t2 = u_1;
+  const hk_real t3 = u_2;
+  const hk_real t4 = v_0;
+  const hk_real t5 = v_1;
+  const hk_real t6 = v_2;
+  const hk_real t7 = hk_cos(t0);
+  const hk_real t8 = hk_sin(t0);
+  const hk_real t9 = (t3 * t6);
+  const hk_real t10 = (t7 * t1);
+  const hk_real t11 = (t8 * t2);
+  const hk_real t12 = (t10 - t11);
+  const hk_real t13 = (t7 * t4);
+  const hk_real t14 = (t8 * t5);
+  const hk_real t15 = (t13 - t14);
+  const hk_real t16 = (t12 * t15);
+  const hk_real t17 = (t8 * t1);
+  const hk_real t18 = (t7 * t2);
+  const hk_real t19 = (t17 + t18);
+  const hk_real t20 = (t8 * t4);
+  const hk_real t21 = (t7 * t5);
+  const hk_real t22 = (t20 + t21);
+  const hk_real t23 = (t19 * t22);
+  const hk_real t24 = (t16 + t23);
+  const hk_real t25 = (t24 + t9);
+  const hk_real t26 = (t1 * t4);
+  const hk_real t27 = (t2 * t5);
+  const hk_real t28 = (t26 + t27);
+  const hk_real t29 = (t28 + t9);
+  const bool t30 = hk_eq(t25, t29);
+  return t30;
+}
+
 HK_STATIC bool hk_prop_screwLength_eq_focal(hk_real R, hk_real a) {
   const hk_real t0 = R;
   const hk_real t1 = a;
@@ -8118,6 +9052,124 @@ HK_STATIC bool hk_prop_strut_resists_lean(hk_real P_0, hk_real P_1, hk_real P_2,
   const bool t29 = (!t12 || t28);
   const bool t30 = (!t11 || t29);
   return t30;
+}
+
+HK_STATIC bool hk_prop_sunDir_rot(hk_real elSun, hk_real azSun, hk_real delta) {
+  const hk_real t0 = elSun;
+  const hk_real t1 = azSun;
+  const hk_real t2 = delta;
+  const hk_real t3 = hk_cos(t0);
+  const hk_real t4 = (t1 + t2);
+  const hk_real t5 = hk_sin(t0);
+  const hk_real t6 = hk_cos(t2);
+  const hk_real t7 = hk_cos(t1);
+  const hk_real t8 = (t3 * t7);
+  const hk_real t9 = hk_sin(t1);
+  const hk_real t10 = (t3 * t9);
+  const hk_real t11 = hk_sin(t2);
+  const hk_real t12 = hk_cos(t4);
+  const hk_real t13 = (t3 * t12);
+  const hk_real t14 = (t6 * t8);
+  const hk_real t15 = (t11 * t10);
+  const hk_real t16 = (t14 - t15);
+  const bool t17 = hk_eq(t13, t16);
+  const hk_real t18 = hk_sin(t4);
+  const hk_real t19 = (t3 * t18);
+  const hk_real t20 = (t11 * t8);
+  const hk_real t21 = (t6 * t10);
+  const hk_real t22 = (t20 + t21);
+  const bool t23 = hk_eq(t19, t22);
+  const bool t24 = hk_eq(t5, t5);
+  const bool t25 = (t23 && t24);
+  const bool t26 = (t17 && t25);
+  return t26;
+}
+
+HK_STATIC bool hk_prop_sunInDish_equivariant(hk_real az, hk_real t, hk_real elSun, hk_real azSun, hk_real delta) {
+  const hk_real t0 = az;
+  const hk_real t1 = t;
+  const hk_real t2 = elSun;
+  const hk_real t3 = azSun;
+  const hk_real t4 = delta;
+  const hk_real t5 = hk_sin(t1);
+  const hk_real t6 = (t0 + t4);
+  const hk_real t7 = hk_cos(t6);
+  const hk_real t8 = (t5 * t7);
+  const hk_real t9 = hk_sin(t6);
+  const hk_real t10 = (t5 * t9);
+  const hk_real t11 = hk_cos(t1);
+  const hk_real t12 = (t11 * t7);
+  const hk_real t13 = (t11 * t9);
+  const hk_real t14 = (-t5);
+  const hk_real t15 = hk_cos(t2);
+  const hk_real t16 = (t3 + t4);
+  const hk_real t17 = hk_cos(t16);
+  const hk_real t18 = (t15 * t17);
+  const hk_real t19 = hk_sin(t16);
+  const hk_real t20 = (t15 * t19);
+  const hk_real t21 = hk_sin(t2);
+  const hk_real t22 = (t14 * t21);
+  const hk_real t23 = (t11 * t21);
+  const hk_real t24 = hk_cos(t0);
+  const hk_real t25 = (t5 * t24);
+  const hk_real t26 = hk_sin(t0);
+  const hk_real t27 = (t5 * t26);
+  const hk_real t28 = (t11 * t24);
+  const hk_real t29 = (t11 * t26);
+  const hk_real t30 = hk_cos(t3);
+  const hk_real t31 = (t15 * t30);
+  const hk_real t32 = hk_sin(t3);
+  const hk_real t33 = (t15 * t32);
+  const hk_real t34 = (t13 * t11);
+  const hk_real t35 = (t14 * t10);
+  const hk_real t36 = (t34 - t35);
+  const hk_real t37 = (t36 * t18);
+  const hk_real t38 = (t14 * t8);
+  const hk_real t39 = (t12 * t11);
+  const hk_real t40 = (t38 - t39);
+  const hk_real t41 = (t40 * t20);
+  const hk_real t42 = (t37 + t41);
+  const hk_real t43 = (t12 * t10);
+  const hk_real t44 = (t13 * t8);
+  const hk_real t45 = (t43 - t44);
+  const hk_real t46 = (t45 * t21);
+  const hk_real t47 = (t42 + t46);
+  const hk_real t48 = (t29 * t11);
+  const hk_real t49 = (t14 * t27);
+  const hk_real t50 = (t48 - t49);
+  const hk_real t51 = (t50 * t31);
+  const hk_real t52 = (t14 * t25);
+  const hk_real t53 = (t28 * t11);
+  const hk_real t54 = (t52 - t53);
+  const hk_real t55 = (t54 * t33);
+  const hk_real t56 = (t51 + t55);
+  const hk_real t57 = (t28 * t27);
+  const hk_real t58 = (t29 * t25);
+  const hk_real t59 = (t57 - t58);
+  const hk_real t60 = (t59 * t21);
+  const hk_real t61 = (t56 + t60);
+  const bool t62 = hk_eq(t47, t61);
+  const hk_real t63 = (t12 * t18);
+  const hk_real t64 = (t13 * t20);
+  const hk_real t65 = (t63 + t64);
+  const hk_real t66 = (t65 + t22);
+  const hk_real t67 = (t28 * t31);
+  const hk_real t68 = (t29 * t33);
+  const hk_real t69 = (t67 + t68);
+  const hk_real t70 = (t69 + t22);
+  const bool t71 = hk_eq(t66, t70);
+  const hk_real t72 = (t8 * t18);
+  const hk_real t73 = (t10 * t20);
+  const hk_real t74 = (t72 + t73);
+  const hk_real t75 = (t74 + t23);
+  const hk_real t76 = (t25 * t31);
+  const hk_real t77 = (t27 * t33);
+  const hk_real t78 = (t76 + t77);
+  const hk_real t79 = (t78 + t23);
+  const bool t80 = hk_eq(t75, t79);
+  const bool t81 = (t71 && t80);
+  const bool t82 = (t62 && t81);
+  return t82;
 }
 
 HK_STATIC bool hk_prop_swingFocus_circle(hk_real P_1, hk_real P_2, hk_real d, hk_real f, hk_real t) {
@@ -8848,6 +9900,59 @@ HK_STATIC bool hk_check_clearance_hashemi(hk_real holeDown) {
   return t21;
 }
 
+HK_STATIC bool hk_check_conicZ_paraboloid(hk_real c, hk_real r) {
+  const hk_real t0 = c;
+  const hk_real t1 = r;
+  const hk_real t2 = t1 * t1;
+  const hk_real t3 = (t0 * t2);
+  const hk_real t4 = HK_LIT(1);
+  const hk_real t5 = (-t4);
+  const hk_real t6 = (t4 + t5);
+  const hk_real t7 = t0 * t0;
+  const hk_real t8 = (t6 * t7);
+  const hk_real t9 = (t8 * t2);
+  const hk_real t10 = (t4 - t9);
+  const hk_real t11 = HK_LIT(0);
+  const hk_real t12 = hk_max(t10, t11);
+  const hk_real t13 = hk_sqrt(t12);
+  const hk_real t14 = (t4 + t13);
+  const hk_real t15 = (t3 / t14);
+  const hk_real t16 = HK_LIT(2);
+  const hk_real t17 = (t3 / t16);
+  const bool t18 = hk_eq(t15, t17);
+  return t18;
+}
+
+HK_STATIC bool hk_check_conicZ_sphere(hk_real c, hk_real r) {
+  const hk_real t0 = c;
+  const hk_real t1 = r;
+  const hk_real t2 = HK_LIT(0);
+  const bool t3 = (t2 < t0);
+  const hk_real t4 = t0 * t0;
+  const hk_real t5 = t1 * t1;
+  const hk_real t6 = (t4 * t5);
+  const hk_real t7 = HK_LIT(1);
+  const bool t8 = (t6 <= t7);
+  const hk_real t9 = (t0 * t5);
+  const hk_real t10 = (t7 + t2);
+  const hk_real t11 = (t10 * t4);
+  const hk_real t12 = (t11 * t5);
+  const hk_real t13 = (t7 - t12);
+  const hk_real t14 = hk_max(t13, t2);
+  const hk_real t15 = hk_sqrt(t14);
+  const hk_real t16 = (t7 + t15);
+  const hk_real t17 = (t9 / t16);
+  const hk_real t18 = (t7 / t0);
+  const hk_real t19 = t18 * t18;
+  const hk_real t20 = (t19 - t5);
+  const hk_real t21 = hk_sqrt(t20);
+  const hk_real t22 = (t18 - t21);
+  const bool t23 = hk_eq(t17, t22);
+  const bool t24 = (!t8 || t23);
+  const bool t25 = (!t3 || t24);
+  return t25;
+}
+
 HK_STATIC bool hk_check_constraints_reciprocal_yaw(hk_real c_chord, hk_real c_apexH, hk_real c_aBase, hk_real c_cross, hk_real c_barW, hk_real c_rDrive, hk_real b_rRail, hk_real b_zRail, hk_real b_zTube, hk_real b_zBearing, hk_real b_dPipe, hk_real b_nSpokes) {
   const hk_real t0 = c_chord;
   const hk_real t1 = c_apexH;
@@ -8998,6 +10103,84 @@ HK_STATIC bool hk_check_deadTan_hashemi(void) {
   const bool t17 = (t14 < t16);
   const bool t18 = (t15 && t17);
   return t18;
+}
+
+HK_STATIC bool hk_check_dishAxes_rot(hk_real az, hk_real t, hk_real delta) {
+  const hk_real t0 = az;
+  const hk_real t1 = t;
+  const hk_real t2 = delta;
+  const hk_real t3 = hk_sin(t1);
+  const hk_real t4 = (t0 + t2);
+  const hk_real t5 = hk_cos(t4);
+  const hk_real t6 = (t3 * t5);
+  const hk_real t7 = hk_sin(t4);
+  const hk_real t8 = (t3 * t7);
+  const hk_real t9 = hk_cos(t1);
+  const hk_real t10 = (t9 * t5);
+  const hk_real t11 = (t9 * t7);
+  const hk_real t12 = (-t3);
+  const hk_real t13 = (t11 * t9);
+  const hk_real t14 = (t12 * t8);
+  const hk_real t15 = (t13 - t14);
+  const hk_real t16 = (t12 * t6);
+  const hk_real t17 = (t10 * t9);
+  const hk_real t18 = (t16 - t17);
+  const hk_real t19 = (t10 * t8);
+  const hk_real t20 = (t11 * t6);
+  const hk_real t21 = (t19 - t20);
+  const hk_real t22 = hk_cos(t2);
+  const hk_real t23 = hk_cos(t0);
+  const hk_real t24 = (t3 * t23);
+  const hk_real t25 = hk_sin(t0);
+  const hk_real t26 = (t3 * t25);
+  const hk_real t27 = (t9 * t23);
+  const hk_real t28 = (t9 * t25);
+  const hk_real t29 = (t28 * t9);
+  const hk_real t30 = (t12 * t26);
+  const hk_real t31 = (t29 - t30);
+  const hk_real t32 = (t12 * t24);
+  const hk_real t33 = (t27 * t9);
+  const hk_real t34 = (t32 - t33);
+  const hk_real t35 = (t27 * t26);
+  const hk_real t36 = (t28 * t24);
+  const hk_real t37 = (t35 - t36);
+  const hk_real t38 = (t22 * t31);
+  const hk_real t39 = hk_sin(t2);
+  const hk_real t40 = (t39 * t34);
+  const hk_real t41 = (t38 - t40);
+  const hk_real t42 = (t39 * t31);
+  const hk_real t43 = (t22 * t34);
+  const hk_real t44 = (t42 + t43);
+  const bool t45 = hk_eq(t15, t41);
+  const bool t46 = hk_eq(t18, t44);
+  const bool t47 = hk_eq(t21, t37);
+  const bool t48 = (t46 && t47);
+  const bool t49 = (t45 && t48);
+  const hk_real t50 = (t22 * t27);
+  const hk_real t51 = (t39 * t28);
+  const hk_real t52 = (t50 - t51);
+  const hk_real t53 = (t39 * t27);
+  const hk_real t54 = (t22 * t28);
+  const hk_real t55 = (t53 + t54);
+  const bool t56 = hk_eq(t10, t52);
+  const bool t57 = hk_eq(t11, t55);
+  const bool t58 = hk_eq(t12, t12);
+  const bool t59 = (t57 && t58);
+  const bool t60 = (t56 && t59);
+  const hk_real t61 = (t22 * t24);
+  const hk_real t62 = (t39 * t26);
+  const hk_real t63 = (t61 - t62);
+  const hk_real t64 = (t39 * t24);
+  const hk_real t65 = (t22 * t26);
+  const hk_real t66 = (t64 + t65);
+  const bool t67 = hk_eq(t6, t63);
+  const bool t68 = hk_eq(t8, t66);
+  const bool t69 = hk_eq(t9, t9);
+  const bool t70 = (t68 && t69);
+  const bool t71 = (t67 && t70);
+  const bool t72 = (t60 && t71);
+  const bool t73 = (t49 && t72);
+  return t73;
 }
 
 HK_STATIC bool hk_check_dish_between_posts(void) {
@@ -10584,6 +11767,41 @@ HK_STATIC bool hk_check_roller_rpm_hashemi(void) {
   return t11;
 }
 
+HK_STATIC bool hk_check_rotz_dot(hk_real delta, hk_real u_0, hk_real u_1, hk_real u_2, hk_real v_0, hk_real v_1, hk_real v_2) {
+  const hk_real t0 = delta;
+  const hk_real t1 = u_0;
+  const hk_real t2 = u_1;
+  const hk_real t3 = u_2;
+  const hk_real t4 = v_0;
+  const hk_real t5 = v_1;
+  const hk_real t6 = v_2;
+  const hk_real t7 = hk_cos(t0);
+  const hk_real t8 = (t7 * t1);
+  const hk_real t9 = hk_sin(t0);
+  const hk_real t10 = (t9 * t2);
+  const hk_real t11 = (t8 - t10);
+  const hk_real t12 = (t9 * t1);
+  const hk_real t13 = (t7 * t2);
+  const hk_real t14 = (t12 + t13);
+  const hk_real t15 = (t7 * t4);
+  const hk_real t16 = (t9 * t5);
+  const hk_real t17 = (t15 - t16);
+  const hk_real t18 = (t9 * t4);
+  const hk_real t19 = (t7 * t5);
+  const hk_real t20 = (t18 + t19);
+  const hk_real t21 = (t11 * t17);
+  const hk_real t22 = (t14 * t20);
+  const hk_real t23 = (t21 + t22);
+  const hk_real t24 = (t3 * t6);
+  const hk_real t25 = (t23 + t24);
+  const hk_real t26 = (t1 * t4);
+  const hk_real t27 = (t2 * t5);
+  const hk_real t28 = (t26 + t27);
+  const hk_real t29 = (t28 + t24);
+  const bool t30 = hk_eq(t25, t29);
+  return t30;
+}
+
 HK_STATIC bool hk_check_screwLength_eq_focal(hk_real R, hk_real a) {
   const hk_real t0 = R;
   const hk_real t1 = a;
@@ -10988,6 +12206,124 @@ HK_STATIC bool hk_check_strut_resists_lean(hk_real P_0, hk_real P_1, hk_real P_2
   const bool t29 = (!t12 || t28);
   const bool t30 = (!t11 || t29);
   return t30;
+}
+
+HK_STATIC bool hk_check_sunDir_rot(hk_real elSun, hk_real azSun, hk_real delta) {
+  const hk_real t0 = elSun;
+  const hk_real t1 = azSun;
+  const hk_real t2 = delta;
+  const hk_real t3 = hk_cos(t0);
+  const hk_real t4 = (t1 + t2);
+  const hk_real t5 = hk_cos(t4);
+  const hk_real t6 = (t3 * t5);
+  const hk_real t7 = hk_sin(t4);
+  const hk_real t8 = (t3 * t7);
+  const hk_real t9 = hk_sin(t0);
+  const hk_real t10 = hk_cos(t2);
+  const hk_real t11 = hk_cos(t1);
+  const hk_real t12 = (t3 * t11);
+  const hk_real t13 = hk_sin(t1);
+  const hk_real t14 = (t3 * t13);
+  const hk_real t15 = (t10 * t12);
+  const hk_real t16 = hk_sin(t2);
+  const hk_real t17 = (t16 * t14);
+  const hk_real t18 = (t15 - t17);
+  const hk_real t19 = (t16 * t12);
+  const hk_real t20 = (t10 * t14);
+  const hk_real t21 = (t19 + t20);
+  const bool t22 = hk_eq(t6, t18);
+  const bool t23 = hk_eq(t8, t21);
+  const bool t24 = hk_eq(t9, t9);
+  const bool t25 = (t23 && t24);
+  const bool t26 = (t22 && t25);
+  return t26;
+}
+
+HK_STATIC bool hk_check_sunInDish_equivariant(hk_real az, hk_real t, hk_real elSun, hk_real azSun, hk_real delta) {
+  const hk_real t0 = az;
+  const hk_real t1 = t;
+  const hk_real t2 = elSun;
+  const hk_real t3 = azSun;
+  const hk_real t4 = delta;
+  const hk_real t5 = hk_sin(t1);
+  const hk_real t6 = (t0 + t4);
+  const hk_real t7 = hk_cos(t6);
+  const hk_real t8 = (t5 * t7);
+  const hk_real t9 = hk_sin(t6);
+  const hk_real t10 = (t5 * t9);
+  const hk_real t11 = hk_cos(t1);
+  const hk_real t12 = (t11 * t7);
+  const hk_real t13 = (t11 * t9);
+  const hk_real t14 = (-t5);
+  const hk_real t15 = (t13 * t11);
+  const hk_real t16 = (t14 * t10);
+  const hk_real t17 = (t15 - t16);
+  const hk_real t18 = (t14 * t8);
+  const hk_real t19 = (t12 * t11);
+  const hk_real t20 = (t18 - t19);
+  const hk_real t21 = (t12 * t10);
+  const hk_real t22 = (t13 * t8);
+  const hk_real t23 = (t21 - t22);
+  const hk_real t24 = hk_cos(t2);
+  const hk_real t25 = (t3 + t4);
+  const hk_real t26 = hk_cos(t25);
+  const hk_real t27 = (t24 * t26);
+  const hk_real t28 = hk_sin(t25);
+  const hk_real t29 = (t24 * t28);
+  const hk_real t30 = hk_sin(t2);
+  const hk_real t31 = (t17 * t27);
+  const hk_real t32 = (t20 * t29);
+  const hk_real t33 = (t31 + t32);
+  const hk_real t34 = (t23 * t30);
+  const hk_real t35 = (t33 + t34);
+  const hk_real t36 = (t12 * t27);
+  const hk_real t37 = (t13 * t29);
+  const hk_real t38 = (t36 + t37);
+  const hk_real t39 = (t14 * t30);
+  const hk_real t40 = (t38 + t39);
+  const hk_real t41 = (t8 * t27);
+  const hk_real t42 = (t10 * t29);
+  const hk_real t43 = (t41 + t42);
+  const hk_real t44 = (t11 * t30);
+  const hk_real t45 = (t43 + t44);
+  const hk_real t46 = hk_cos(t0);
+  const hk_real t47 = (t5 * t46);
+  const hk_real t48 = hk_sin(t0);
+  const hk_real t49 = (t5 * t48);
+  const hk_real t50 = (t11 * t46);
+  const hk_real t51 = (t11 * t48);
+  const hk_real t52 = (t51 * t11);
+  const hk_real t53 = (t14 * t49);
+  const hk_real t54 = (t52 - t53);
+  const hk_real t55 = (t14 * t47);
+  const hk_real t56 = (t50 * t11);
+  const hk_real t57 = (t55 - t56);
+  const hk_real t58 = (t50 * t49);
+  const hk_real t59 = (t51 * t47);
+  const hk_real t60 = (t58 - t59);
+  const hk_real t61 = hk_cos(t3);
+  const hk_real t62 = (t24 * t61);
+  const hk_real t63 = hk_sin(t3);
+  const hk_real t64 = (t24 * t63);
+  const hk_real t65 = (t54 * t62);
+  const hk_real t66 = (t57 * t64);
+  const hk_real t67 = (t65 + t66);
+  const hk_real t68 = (t60 * t30);
+  const hk_real t69 = (t67 + t68);
+  const hk_real t70 = (t50 * t62);
+  const hk_real t71 = (t51 * t64);
+  const hk_real t72 = (t70 + t71);
+  const hk_real t73 = (t72 + t39);
+  const hk_real t74 = (t47 * t62);
+  const hk_real t75 = (t49 * t64);
+  const hk_real t76 = (t74 + t75);
+  const hk_real t77 = (t76 + t44);
+  const bool t78 = hk_eq(t35, t69);
+  const bool t79 = hk_eq(t40, t73);
+  const bool t80 = hk_eq(t45, t77);
+  const bool t81 = (t79 && t80);
+  const bool t82 = (t78 && t81);
+  return t82;
 }
 
 HK_STATIC bool hk_check_swingFocus_circle(hk_real P_1, hk_real P_2, hk_real d, hk_real f, hk_real t) {
