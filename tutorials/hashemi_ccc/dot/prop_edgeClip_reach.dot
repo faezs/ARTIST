@@ -1,0 +1,34 @@
+digraph "TandoorHashemi.prop_edgeClip_reach" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="a", shape=box];
+  n1 [label="ze", shape=box];
+  n2 [label="t", shape=box];
+  n3 [label="neg", shape=ellipse];
+  n0 -> n3;
+  n4 [label="cos", shape=ellipse];
+  n2 -> n4;
+  n5 [label="neg", shape=ellipse];
+  n1 -> n5;
+  n6 [label="sin", shape=ellipse];
+  n2 -> n6;
+  n7 [label="*", shape=ellipse];
+  n3 -> n7; n4 -> n7;
+  n8 [label="*", shape=ellipse];
+  n5 -> n8; n6 -> n8;
+  n9 [label="+", shape=ellipse];
+  n7 -> n9; n8 -> n9;
+  n10 [label="abs", shape=ellipse];
+  n9 -> n10;
+  n11 [label="^2", shape=ellipse];
+  n0 -> n11;
+  n12 [label="^2", shape=ellipse];
+  n1 -> n12;
+  n13 [label="+", shape=ellipse];
+  n11 -> n13; n12 -> n13;
+  n14 [label="sqrt", shape=ellipse];
+  n13 -> n14;
+  n15 [label="<=", shape=ellipse];
+  n10 -> n15; n14 -> n15;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n15 -> out0;
+}

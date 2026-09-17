@@ -28,12 +28,6 @@ digraph "TandoorHashemi.stepParams" {
   n18 [label="1", shape=plaintext];
   n19 [label="-", shape=ellipse];
   n17 -> n19; n18 -> n19;
-  n20 [label="0.00175", shape=plaintext];
-  n21 [label="π", shape=plaintext];
-  n22 [label="*", shape=ellipse];
-  n6 -> n22; n21 -> n22;
-  n23 [label="/", shape=ellipse];
-  n20 -> n23; n22 -> n23;
   out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n5 -> out0;
   out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n11 -> out1;
   out2 [label="out 2", shape=box, style=filled, fillcolor=lightgrey]; n12 -> out2;
@@ -41,6 +35,4 @@ digraph "TandoorHashemi.stepParams" {
   out4 [label="out 4", shape=box, style=filled, fillcolor=lightgrey]; n14 -> out4;
   out5 [label="out 5", shape=box, style=filled, fillcolor=lightgrey]; n15 -> out5;
   out6 [label="out 6", shape=box, style=filled, fillcolor=lightgrey]; n19 -> out6;
-  out7 [label="out 7", shape=box, style=filled, fillcolor=lightgrey]; n18 -> out7;
-  out8 [label="out 8", shape=box, style=filled, fillcolor=lightgrey]; n23 -> out8;
 }

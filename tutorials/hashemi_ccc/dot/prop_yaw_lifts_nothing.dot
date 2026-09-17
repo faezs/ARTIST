@@ -1,0 +1,19 @@
+digraph "TandoorHashemi.prop_yaw_lifts_nothing" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="p_0", shape=box];
+  n1 [label="p_1", shape=box];
+  n2 [label="p_2", shape=box];
+  n3 [label="0", shape=plaintext];
+  n4 [label="*", shape=ellipse];
+  n3 -> n4; n1 -> n4;
+  n5 [label="*", shape=ellipse];
+  n3 -> n5; n0 -> n5;
+  n6 [label="-", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  n7 [label="+", shape=ellipse];
+  n6 -> n7; n3 -> n7;
+  n8 [label="==", shape=ellipse];
+  n7 -> n8; n3 -> n8;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n8 -> out0;
+}

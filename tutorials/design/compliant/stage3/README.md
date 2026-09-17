@@ -628,3 +628,34 @@ over 4096 agents. NOT DONE: the ∀-theorems as property functions; wiring `hk_s
 the puffer env (replacing its mount for the Hashemi config, generating the MECHW row from `yaw`/`screwTwist`) -
 a change to the RL env's step that wants the user's choice of hook.
 
+
+THE WRONG TURN AND THE MEGAKERNEL (2026-09-17/18). Asked to "wire it into a separate env that you will then test
+against the raytracer", I subclassed the tandoor env and drove only its pointing with `hk_step`, scaling his 1.22 m
+mast to the tandoor's 2.1 m dish - a machine the video never showed - with 126 of 127 compiled definitions unused
+(commit c01c472c). The user: "Huh is this completely ignoring all the careful things we've done in Hashemi.lean", then
+"use every definition in Hashemi.lean in the megakernel". DONE, tutorials/hashemi_ccc/ (its README is the record):
+(1) Ccc.lean compiles THEOREMS WITH BINDERS as property functions (data binders → inputs, hypotheses → implications,
+the telescope stopping at a leading `∀ i : Fin n`, conjunctions right-nested) and gains linear `let`, `Nat.iterate`
+unrolling, structured `if`/`=`/`+`/`•`, arccos/arcsin, a classical-`if` node, let-bound Lean printing (the inline
+printer was exponential on shared graphs and killed the driver with the OOM signal); (2) HashemiPropsGen.lean writes
+HashemiProps.lean: `prop_X (data) : Prop := printed statement` and `prop_X_ok := X` for all 109 compilable theorems -
+Lean checks the theorem compiler against every theorem (12 not compilable: higher-order, LinearIndependent, span
+membership, ∃, a ∀ over ℝ under ↔); (3) HashemiStep.lean rewritten: the wire's LENGTH is the state's carrier
+(bisection for the swing on [0, t*], slack, the winch gated by `HoldsDish` since the tension diverges at the dead
+point - the first step divided the wire speed by the vanishing arm and flipped the dish to the zenith in the winter
+run); (4) HashemiMega.lean: six functions applying EVERY definition and every `prop_X` at the state (az, t, slack;
+the two motor rates; the sun; the eight values the video did not give, `megaParams`), 226 named columns, compiled to
+one Metal kernel `hashemi_mega`, one thread per agent; (5) hashemi_env.py: HIS machine as a puffer env
+(`puffer_hashemi_ccc`, hashemi_ccc.ini), reward the power on the coil, the video's sensor loop as a policy; the only
+laws not from the file, said so in the code: the sun, the motors' full-command rates, the coil capture (two discs'
+overlap of `facetSpot` shifted by `TandoorMount.spot`). VERIFIED five ways: 109/109 theorem statements proved by
+their theorems; rfl round trip 196/196 (the 24-fold bisection excluded from rfl with the reason, its step
+round-trips and the iterate rule is checked on `f^[3]`); C vs Float twin 945/945 over 315 functions, 109 checks true
+in double; Metal vs NumPy 226 columns over 4096 states in the tracker's range (1e-3; capture 1e-2 from the arccos at
+the lens boundary); two days at Quetta with 106 theorem columns never false. WHAT THE DAYS SAY: the dish parks where
+the wire holds (61.14 deg of swing, sun 28.86, 1.75 kN against the 2 kN assumed) rather than at the dead point
+(61.73, where the formula gives 934 kN); tracking within 0.05 deg in the 1.7 deg budget, capture 1.00, 1.65-2.06 kW
+on the coil while the sun is in reach; June 67 MJ/day with 70 % of the sun-up steps in budget, December 31 MJ and
+45 % - the video's closing shot, the dish pulled up and the sun on the horizon, is the winter afternoon. NEXT: the
+12 uncompiled statements as tactic-checked properties; a ray trace of his faceted sphere onto the coil to test
+`facetSpot` and the capture law; the mega row's eight parameters as a design box.

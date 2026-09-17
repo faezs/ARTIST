@@ -1,0 +1,15 @@
+digraph "TandoorHashemi.Panel.mk.congr_simp" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="watts", shape=box];
+  n1 [label="==", shape=ellipse];
+  n0 -> n1; n0 -> n1;
+  n2 [label="0", shape=plaintext];
+  n3 [label="<", shape=ellipse];
+  n2 -> n3; n0 -> n3;
+  n4 [label="->", shape=ellipse];
+  n3 -> n4; n1 -> n4;
+  n5 [label="->", shape=ellipse];
+  n1 -> n5; n4 -> n5;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n5 -> out0;
+}

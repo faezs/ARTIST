@@ -1,0 +1,25 @@
+digraph "TandoorHashemi.prop_rollerRadius_pos" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="c_chord", shape=box];
+  n1 [label="c_apexH", shape=box];
+  n2 [label="c_aBase", shape=box];
+  n3 [label="c_cross", shape=box];
+  n4 [label="c_barW", shape=box];
+  n5 [label="c_rDrive", shape=box];
+  n6 [label="0", shape=plaintext];
+  n7 [label="2", shape=plaintext];
+  n8 [label="/", shape=ellipse];
+  n0 -> n8; n7 -> n8;
+  n9 [label="^2", shape=ellipse];
+  n8 -> n9;
+  n10 [label="^2", shape=ellipse];
+  n1 -> n10;
+  n11 [label="+", shape=ellipse];
+  n9 -> n11; n10 -> n11;
+  n12 [label="sqrt", shape=ellipse];
+  n11 -> n12;
+  n13 [label="<", shape=ellipse];
+  n6 -> n13; n12 -> n13;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n13 -> out0;
+}

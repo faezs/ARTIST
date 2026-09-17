@@ -1,0 +1,12 @@
+digraph "TandoorHashemi.Leg.footLong" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="l_upright", shape=box];
+  n1 [label="l_foot", shape=box];
+  n2 [label="l_brace", shape=box];
+  n3 [label="l_footShort", shape=box];
+  n4 [label="l_holes", shape=box];
+  n5 [label="-", shape=ellipse];
+  n1 -> n5; n3 -> n5;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n5 -> out0;
+}

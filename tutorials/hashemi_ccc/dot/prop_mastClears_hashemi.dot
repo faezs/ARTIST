@@ -1,0 +1,23 @@
+digraph "TandoorHashemi.prop_mastClears_hashemi" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="0.8", shape=plaintext];
+  n1 [label="^2", shape=ellipse];
+  n0 -> n1;
+  n2 [label="3.36", shape=plaintext];
+  n3 [label="sqrt", shape=ellipse];
+  n2 -> n3;
+  n4 [label="1", shape=plaintext];
+  n5 [label="-", shape=ellipse];
+  n3 -> n5; n4 -> n5;
+  n6 [label="^2", shape=ellipse];
+  n5 -> n6;
+  n7 [label="+", shape=ellipse];
+  n1 -> n7; n6 -> n7;
+  n8 [label="sqrt", shape=ellipse];
+  n7 -> n8;
+  n9 [label="1.22", shape=plaintext];
+  n10 [label="<", shape=ellipse];
+  n8 -> n10; n9 -> n10;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n10 -> out0;
+}

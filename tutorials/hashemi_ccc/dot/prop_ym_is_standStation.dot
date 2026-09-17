@@ -1,0 +1,8 @@
+digraph "TandoorHashemi.prop_ym_is_standStation" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="1.22", shape=plaintext];
+  n1 [label="==", shape=ellipse];
+  n0 -> n1; n0 -> n1;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n1 -> out0;
+}
