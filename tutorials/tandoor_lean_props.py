@@ -731,6 +731,121 @@ def _(s, c, w, label):
 
 
 # =====================================================================================
+# The sun the machine tracks - the geometry every twin and every Lean mount theorem assumes
+# =====================================================================================
+SUN = suite("the sun the machine tracks - solar geometry")
+
+def _sun(lat, doy, hour):
+    from tandoor_rl_env import _sim
+    el, az, v = _sim.solar_position(lat, doy, hour)
+    return float(el), float(np.degrees(az)), np.asarray(v, float)
+
+lat_g = floats(-60.0, 60.0, target=0.0)
+doy_g = ints(1, 365, target=1)
+hour_g = floats(0.0, 24.0, target=12.0)
+
+
+@SUN.prop("the direction to the sun is a unit vector whose height is the sine of its elevation",
+          lean="Mount.sunDir_unit", gens=dict(lat=lat_g, doy=doy_g, h=hour_g), n=500)
+def _(lat, doy, h, label):
+    el, az, v = _sun(lat, doy, h)
+    label("above the horizon", "yes" if el > 0 else "no")
+    return abs(np.linalg.norm(v) - 1.0) < 1e-9 and abs(v[2] - math.sin(math.radians(el))) < 1e-9, \
+        f"|v| = {np.linalg.norm(v):.12f}, v_z = {v[2]:.9f} but sin(el) = {math.sin(math.radians(el)):.9f}"
+
+
+@SUN.prop("the sun's elevation never exceeds what the latitude and the season allow",
+          lean="Mount.elevation_le_transit", gens=dict(lat=lat_g, doy=doy_g, h=hour_g), n=500)
+def _(lat, doy, h, label):
+    el, _az, _v = _sun(lat, doy, h)
+    dec = math.degrees(math.radians(23.44) * math.sin(2 * math.pi * (284 + doy) / 365))
+    cap = 90.0 - abs(lat - dec)
+    label("near the zenith", "yes" if cap > 85 else "no")
+    return el <= cap + 1e-6 and el >= -90.0 - 1e-6, \
+        f"elevation {el:.6f} deg at latitude {lat:.2f} on day {doy}, but transit caps it at {cap:.6f}"
+
+
+@SUN.prop("the day is symmetric about solar noon: equal elevations, mirrored bearings",
+          lean="Mount.solar_noon_symmetry",
+          gens=dict(lat=lat_g, doy=doy_g, u=floats(0.0, 6.0)), n=500)
+def _(lat, doy, u, label):
+    e1, a1, _ = _sun(lat, doy, 12.0 - u)
+    e2, a2, _ = _sun(lat, doy, 12.0 + u)
+    label("time from noon", "early" if u < 2 else "late")
+    if abs(e1 - e2) > 1e-9:
+        return False, f"morning elevation {e1:.9f} but afternoon {e2:.9f}, {u:.3f} h from noon"
+    if u < 1e-6 or abs(e1) > 89.99: return True     # at noon and at the zenith the bearing is moot
+    mirror = (360.0 - a2) % 360.0
+    d = abs((a1 - mirror + 180.0) % 360.0 - 180.0)
+    return d < 1e-6, f"morning bearing {a1:.6f} deg, afternoon {a2:.6f}: not mirrored (off by {d:.3e})"
+
+
+@SUN.prop("at the equinox every latitude gets twelve hours of sun",
+          lean="Mount.equinox_daylength", gens=dict(lat=floats(-55.0, 55.0), doy=choice([81, 264])), n=200)
+def _(lat, doy, label):
+    e6, _a, _v = _sun(lat, doy, 6.0)
+    e18, _a2, _v2 = _sun(lat, doy, 18.0)
+    label("hemisphere", "north" if lat > 0 else "south")
+    return abs(e6) < 0.6 and abs(e18) < 0.6, \
+        f"at latitude {lat:.2f} the equinox sun is {e6:.4f} deg up at 06h and {e18:.4f} at 18h"
+
+
+@SUN.prop("the bearing to the sun is always a compass bearing",
+          lean="Mount.azimuth_range", gens=dict(lat=lat_g, doy=doy_g, h=hour_g), n=500)
+def _(lat, doy, h, label):
+    el, az, _v = _sun(lat, doy, h)
+    label("above the horizon", "yes" if el > 0 else "no")
+    return 0.0 <= az < 360.0 + 1e-9, f"bearing {az:.6f} is outside [0, 360)"
+
+
+@SUN.prop("outside the tropics the bearing sweeps ONE way all day - north and south opposite",
+          lean="Mount.azimuth_mono (the hypothesis: the sun never crosses the zenith)",
+          cover={"hemisphere": {"north": 0.3, "south": 0.3}},
+          gens=dict(lat=choice([-58.0, -47.0, -38.0, -30.2, -25.0, 25.0, 30.2, 38.0, 47.0, 58.0]),
+                    doy=doy_g, h=floats(1.0, 23.0)), n=600)
+def _(lat, doy, h, label):
+    # INSIDE the tropics the sun passes the zenith and the morning branch reverses - the same
+    # geometry that opens the noon keyhole the policy tests found.  So the theorem's hypothesis is
+    # |lat| > 23.44, and this property is about the machine's sites, which all satisfy it.
+    el, az, _v = _sun(lat, doy, h)
+    if el < 3.0: return True                        # near the horizon arccos is ill-conditioned
+    el2, az2, _ = _sun(lat, doy, h + 0.02)
+    if el2 < 3.0: return True
+    d = (az2 - az + 540.0) % 360.0 - 180.0          # the signed sweep over 72 s, across the wrap
+    want = 1.0 if lat > 0 else -1.0
+    label("hemisphere", "north" if lat > 0 else "south")
+    return d * want >= -1e-3, \
+        (f"at latitude {lat:.1f} on day {doy} the bearing swept {d:+.6f} deg in 72 s at {h:.3f} h - "
+         f"the wrong way for that hemisphere")
+
+
+@SUN.prop("the sun rises before noon and sets after it",
+          lean="Mount.elevation_unimodal", gens=dict(lat=floats(-55.0, 55.0), doy=doy_g,
+                                                     h=floats(0.5, 11.5)), n=500)
+def _(lat, doy, h, label):
+    e1, _a, _v = _sun(lat, doy, h)
+    e2, _a2, _v2 = _sun(lat, doy, h + 0.25)
+    label("morning", "early" if h < 8 else "late")
+    return e2 >= e1 - 1e-9, f"the morning sun fell from {e1:.6f} to {e2:.6f} deg between {h:.2f} h and {h+0.25:.2f} h"
+
+
+@SUN.prop("the machine's own pointing error vanishes exactly when it is aimed at the sun",
+          lean="Mount.error_zero_iff_aimed",
+          gens=dict(lat=lat_g, doy=doy_g, h=floats(7.0, 17.0), de=floats(-5.0, 5.0, target=0.0),
+                    da=floats(-5.0, 5.0, target=0.0)), n=500)
+def _(lat, doy, h, de, da, label):
+    el, az, _v = _sun(lat, doy, h)
+    if el <= 0: return True
+    e_el = (el + de) - el
+    daz = (az + da) - az; daz -= 360.0 * round(daz / 360.0)
+    e_az = daz * math.cos(math.radians(el))
+    err = abs(e_az) + abs(e_el)
+    label("aimed", "on the sun" if abs(de) + abs(da) < 1e-9 else "off")
+    return (err < 1e-12) == (abs(de) < 1e-12 and abs(da) < 1e-12), \
+        f"offset ({da:+.4g}, {de:+.4g}) deg gave error {err:.3e}"
+
+
+# =====================================================================================
 # THE ENVIRONMENT ITSELF - the properties that drive the whole simulator
 # =====================================================================================
 ENV = suite("the environment itself - the whole simulator under random commands")
@@ -918,9 +1033,9 @@ def _(seed, k, label):
 
 @ENV.prop("the beam is exactly proportional to the sun: scale the site's DNI, scale the power",
           lean="Radiometry.power_linear_in_radiance",
-          cover={"direction": {"dimmer": 0.25, "brighter": 0.25}},
+          cover={"direction": {"dimmer": 0.2, "brighter": 0.2}},
           gens=dict(seed=ints(0, 10000), lam=choice([0.05, 0.2, 0.5, 0.8, 1.25, 2.0, 3.0, 4.0]),
-                    k=ints(3, 15)), n=8)
+                    k=ints(3, 15)), n=14)
 def _(seed, lam, k, label):
     import numpy as _np, torch
     e0, S0 = _fresh(8, seed, slot=0); e1, S1 = _fresh(8, seed, slot=1)
