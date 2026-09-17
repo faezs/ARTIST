@@ -1158,6 +1158,109 @@ def _(seed, receiver, lat, doy, hour, pres, blur, off, label):
          f"{receiver} at latitude {lat:.1f}, day {doy}, {hour:.2f} h, {pres:.0f} Pa")
 
 
+_EAGER = {}
+def _eager(B=4):
+    """the EAGER torch twin (GpuState, no megakernel) - the path tandoor_gpu_step.py runs"""
+    import contextlib, io, torch
+    from tandoor_hashemi_env import TandoorHashemiEnv
+    from tandoor_design_readout import env_kwargs
+    e = _EAGER.get(B)
+    if e is None:
+        kw = env_kwargs(B, receiver="cass")
+        kw.update(device="cpu", gpu=1, n_rays=64, design_rand=0)
+        with contextlib.redirect_stdout(io.StringIO()):
+            e = TandoorHashemiEnv(**kw); e.reset(seed=0)
+            e.step_torch(torch.full((B, e.N_HEADS), 3, dtype=torch.long))
+        _EAGER[B] = e
+    return e, e._gpu
+
+
+@ENV.prop("the pointing error is an angle on a circle, whatever the roof's rotation",
+          lean="Mount.abs_wrap_le (the bug the kernel's own comment records)",
+          cover={"roof": {"past half a turn": 0.3}},
+          gens=dict(off=floats(-359.0, 359.0, target=0.0)), n=120)
+def _(off, label):
+    import contextlib, io, torch
+    from tandoor_mount_batch import solar_batch
+    B = 4
+    e, S = _eager(B)
+    el1, az1r, _v = solar_batch(S.lat_v, S.day_v, float(e.t_solar[0]), az_off=e._ds_azs_t)
+    az0d = torch.rad2deg(az1r)
+    # the mount's angle runs continuously while the sun's comes back wrapped into [0, 360), so on a
+    # rotated roof their raw difference is unbounded; the error the machine ACTS on must not be
+    S.az_m = az0d + off; S.el_m = el1.clone()
+    with contextlib.redirect_stdout(io.StringIO()):
+        e.step_torch(torch.full((B, e.N_HEADS), 3, dtype=torch.long))
+    got = float(np.abs(np.asarray(e._e_az_t.detach().cpu())).max())
+    w = off - 360.0 * round(off / 360.0)
+    want = float(np.abs(w * np.cos(np.radians(np.asarray(el1)))).max())
+    label("roof", "past half a turn" if abs(off) > 180.0 else "within half a turn")
+    return got <= 180.0 + 1e-6 and abs(got - want) < 1.0, \
+        (f"a roof turned {off:+.1f} deg gave a recorded error of {got:.2f} deg where the angle on "
+         f"the circle is {want:.2f} - unwrapped, this is what fires the guillotine on a dish that "
+         f"is pointing straight at the sun")
+
+
+@ENV.prop("the pointing encoder does not saturate before the guillotine fires",
+          lean="MountCompliance.sat_lipschitz (the observation must resolve the failure it predicts)",
+          gens=dict(ini=choice(["hashemi.ini", "hashemi_design.ini", "hashemi_tri.ini",
+                                "hashemi_design_tri.ini", "flower.ini"])), n=5)
+def _(ini, label):
+    # the observation is (error / 0.5) clamped to +-enc_clamp (hashemi_env:3491), so each AXIS
+    # pins at 0.5*enc_clamp degrees, while the guillotine fires on the SUM exceeding lost_deg
+    # (hashemi_env:1539).  If the pin comes first there is a band in which the machine is losing
+    # the sun and the policy cannot see how far off it is.
+    import configparser
+    cp = configparser.ConfigParser(inline_comment_prefixes=(";", "#"))
+    cp.read(f"/Users/faezs/ARTIST/tutorials/puffer_tandoor/{ini}")
+    if "env" not in cp or "lost_deg" not in cp["env"]: return True
+    lost = float(cp["env"]["lost_deg"].split()[0])
+    enc = float(cp["env"].get("enc_clamp", "3.0").split()[0])
+    sat = 0.5 * enc
+    label("resolves the cut", "yes" if sat >= lost else "no")
+    return sat >= lost, \
+        (f"{ini}: each axis saturates at {sat:.1f} deg but the cut needs a sum of {lost:.1f} - "
+         f"between them the policy is blind, e.g. an azimuth error of {sat + 1.0:.1f} deg with the "
+         f"elevation on the sun reads the same as {sat:.1f} and is not yet lost; "
+         f"enc_clamp = {2 * lost:.0f} would close it")
+
+
+@ENV.prop("the figure blur follows the measured law the film was fitted to, not the quadratic load",
+          lean="Wind.dynPressure is quadratic - the BLUR is not, so no critical-speed theorem "
+               "quoting c*V^2 describes this machine's optics",
+          cover={"windy": {"yes": 0.6}}, gens=dict(seed=ints(0, 10000)), n=4)
+def _(seed, label):
+    import numpy as _np
+    # PER AGENT: the batch sits at different sites, so a fit to the batch MEAN of a nonlinear law
+    # measures Jensen's inequality, not the exponent.  The first version of this property did that
+    # and read V^0.99 off a V^1.2 law.
+    V, SB = [], []
+    for g in (0.02, 0.5, 1.0, 1.5, 2.2, 3.0):
+        e, S = _fresh(8, seed)
+        if not _windy(e, S, g): return True
+        r = _np.random.default_rng(seed)
+        for _i, _o, _rw, _t in _drive(e, S, 12, r):
+            pass
+        V.append(_np.asarray(S.wind.detach().cpu(), float).copy())
+        SB.append(_np.asarray(S.sigb.detach().cpu(), float).copy())
+    V, SB = _np.array(V), _np.array(SB)
+    base = SB[0]                                      # still air: the static figure and the drift
+    slopes = []
+    for b in range(V.shape[1]):
+        m = (V[1:, b] > 0.5) & (V[1:, b] < 24.0) & (SB[1:, b] > base[b])
+        if m.sum() < 3: continue
+        x = _np.log(V[1:, b][m])
+        y = 0.5 * _np.log(_np.maximum(SB[1:, b][m] ** 2 - base[b] ** 2, 1e-30))
+        slopes.append(float(_np.polyfit(x, y, 1)[0]))
+    label("windy", "yes" if len(slopes) >= 3 else "no")
+    if len(slopes) < 3: return True
+    slope = float(_np.median(slopes))
+    return abs(slope - 1.2) < 0.15, \
+        (f"the blur grows as V^{slope:.3f} (median over {len(slopes)} agents); the env is fitted to V^1.2 "
+         f"(sig_wind = 0.88e-3 (0.6 V^2 / 15)^0.6, polar_env:804), and a quadratic-load theorem "
+         f"would claim V^2")
+
+
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()

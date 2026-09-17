@@ -405,7 +405,14 @@ def gpu_step(env, actions):
 
     # ---- Hashemi shaping + truncation + wrap
     e_el2 = S.el_m - el0s
-    e_az2 = (S.az_m - az0d) * torch.cos(torch.deg2rad(el0s))
+    # ON THE CIRCLE, exactly as the optics path above (:140) and both other twins
+    # (hashemi_env:1513, metal_kernel:1205). This line used to take the RAW difference: S.az_m runs
+    # continuously from degrees(az0 - _ds_azs) while az0d comes back wrapped into [0, 360), so on a
+    # rotated roof the difference reached ~300 deg and fed the shaping potential, e_az_prev, the
+    # encoder obs and the lost counter - the guillotine fired on a dish that was pointing straight
+    # at the sun. The kernel's own comment records the symptom: ~50 cuts a day on such sites.
+    _daz2 = S.az_m - az0d; _daz2 = _daz2 - 360.0 * torch.round(_daz2 / 360.0)
+    e_az2 = _daz2 * torch.cos(torch.deg2rad(el0s))
     sun_up = el0s >= float(env.el_min_h)          # the evening: nothing to track (kernel twin)
     pot_now = torch.where(sun_up, (e_az2.abs() + e_el2.abs()).clamp(max=4.0), pot_prev)
     rew = rew + 1.0 * (pot_prev - pot_now)
