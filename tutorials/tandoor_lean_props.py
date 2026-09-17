@@ -1261,6 +1261,178 @@ def _(seed, label):
          f"would claim V^2")
 
 
+_RAYS = {}
+def _rayset(NR):
+    """a built machine at ray budget NR, traced deterministically at Quetta noon"""
+    import contextlib, io
+    from tandoor_hashemi_env import TandoorHashemiEnv
+    from tandoor_design_readout import env_kwargs
+    e = _RAYS.get(NR)
+    if e is None:
+        kw = env_kwargs(4, receiver="cass")
+        kw.update(n_rays=NR, seed=0, design_rand=0)
+        with contextlib.redirect_stdout(io.StringIO()):
+            e = TandoorHashemiEnv(**kw); e.reset(seed=0)
+        e._det_trace = True
+        _RAYS[NR] = e
+    return e
+
+
+def _area(e):
+    """the collecting area the BUILT dish's ray set carries (block 0; blocks 1.. are the
+    section library, each with its own roof geometry)"""
+    S = int(getattr(e, "N_SURF", 1)); P = len(e._hx)
+    return float(e._ray_pw.view(S, P)[0].sum()) / float(e._loss_chain)
+
+
+def _aperture(e):
+    """the physical aperture the weights are meant to stand for: the annulus from the 5 percent
+    central hole to the rim, taxed by the film's radial reflectivity taper"""
+    a = float(e.a_mem)
+    r = np.linspace(0.05 * a, a, 200001)
+    return float(np.trapezoid((1.0 - 0.10 * (r / a) ** 4) * 2.0 * np.pi * r, r))
+
+
+@ENV.prop("the ray budget is a Monte-Carlo knob, not a physical one: it never moves the aperture",
+          lean="Stratification (equal-area sampling carries the area, whatever N)",
+          gens=dict(n1=choice([32, 64, 128, 256]), mult=choice([2, 4, 8])), n=12)
+def _(n1, mult, label):
+    n2 = n1 * mult
+    a1, a2 = _area(_rayset(n1)), _area(_rayset(n2))
+    label("budget ratio", f"x{mult}")
+    return abs(a2 - a1) <= 1e-4 * a1, \
+        f"{n1} rays carry {a1:.6f} m2 but {n2} carry {a2:.6f} - the ray count moved the dish"
+
+
+@ENV.prop("the ray set carries the aperture the dish actually has",
+          lean="Radiometry.etendue (the weights must tile the aperture they stand for)",
+          gens=dict(NR=choice([32, 64, 128, 256, 512])), n=10)
+def _(NR, label):
+    e = _rayset(NR)
+    got, want = _area(e), _aperture(e)
+    a = float(e.a_mem)
+    # the samples are placed over [0.05a, 0.985a] while the weights stand for [0.05a, a], so the
+    # OUTER 1.5 percent of the radius - 3 percent of the area - is never sampled.  The total is
+    # still right, because the weights target the full aperture; what is invisible is anything
+    # localised at the rim (rim thinning, edge shading, a clamp shadow).
+    label("rim sampled", "no")
+    return abs(got - want) <= 5e-3 * want, \
+        (f"the ray set carries {got:.5f} m2 against a physical aperture of {want:.5f} "
+         f"({100 * (got / want - 1):+.2f} %); the outermost ray sits at 0.985a = {0.985 * a:.4f} m")
+
+
+@ENV.prop("doubling the ray budget changes the traced power only by Monte-Carlo noise",
+          lean="Stratification (the estimator converges, it does not drift)",
+          cover={"budget": {"large": 0.3}}, gens=dict(n1=choice([64, 128, 256, 512])), n=8)
+def _(n1, label):
+    from tandoor_rl_env import _sim
+    B = 4
+    out = []
+    for NR in (n1, 2 * n1):
+        e = _rayset(NR)
+        e.day = 172; e.t_solar[:] = 12.0; e.day_v[:] = 172.0; e.lat_v[:] = 30.2
+        el, az, _v = _sim.solar_position(30.2, 172, 12.0)
+        e.el_m[:] = el; e.az_m[:] = np.degrees(az - e._ds_azs)
+        e._e_el[:] = 0.0; e._e_az[:] = 0.0
+        out.append(float(e._trace_power(np.full(B, e.p0), np.full(B, 7e-3),
+                                        np.zeros((B, 2)), np.ones(B)).sum(1).mean()))
+    p1, p2 = out
+    label("budget", "large" if n1 >= 256 else "small")
+    tol = 4.0 / math.sqrt(n1)                      # the estimator's own 1/sqrt(N) scale
+    return abs(p2 - p1) <= tol * max(p1, 1e-9), \
+        (f"{n1} rays traced {p1:.4f} W and {2 * n1} traced {p2:.4f} "
+         f"({100 * (p2 / p1 - 1):+.2f} %), outside the {100 * tol:.1f} % the budget allows")
+
+
+# ---- numpy against the FUSED megakernel.  tandoor_traj_verify compares numpy against the EAGER
+# twin and tandoor_fused_step compares eager against fused, so this pair - the two ends, and the
+# two that actually run - has never been compared; and tandoor_fused_step says in its own comment
+# that "the parity harness never crosses a day-over".
+_PAIR = {}
+def _pair(B=16, NR=64, seed=3):
+    import contextlib, io, torch
+    from tandoor_hashemi_env import TandoorHashemiEnv
+    from tandoor_fused_step import FusedState
+    from tandoor_traj_verify import _ZeroRng
+    key = (B, NR)
+    if key not in _PAIR:
+        mk = lambda gpu, fuse: TandoorHashemiEnv(num_agents=B, seed=seed, wide_shutter=1,
+                                                 device="mps", n_rays=NR, fuse=fuse, gpu=gpu)
+        with contextlib.redirect_stdout(io.StringIO()):
+            _PAIR[key] = (mk(0, 0), mk(1, 1))
+    A, Bv = _PAIR[key]
+    with contextlib.redirect_stdout(io.StringIO()):
+        A.reset(seed=seed); Bv.reset(seed=seed)
+    Bv._gen.set_state(A._gen.get_state())          # one generator stream for both trace draws
+    # the reference must run float32 like the kernel, or its continuous state drifts and the
+    # discrete gates flip on one path only (tandoor_traj_verify says the same)
+    for nm in ("T", "p_act", "p_set", "p_dist", "bread_E", "bread_t", "_belt_prev", "cloud",
+               "wind_g", "bore", "load_timer", "ep_return", "soil", "el_m", "az_m", "f_locked",
+               "decl_formed", "form_time"):
+        setattr(A, nm, getattr(A, nm).astype(np.float32))
+    A.rng = _ZeroRng(); Bv.rng = _ZeroRng()
+    Bv._gpu = FusedState(Bv); Bv._gpu.zero_noise = True
+    return A, Bv
+
+
+def _walk(A, Bv, steps, seed):
+    """step both paths on identical commands; return the worst deviation in each channel"""
+    import numpy as _np
+    r = _np.random.default_rng(seed)
+    w = dict(T=0.0, p_act=0.0, rew=0.0, e_az=0.0, obs=0.0, p_in=0.0)
+    B = A.num_agents
+    for _t in range(steps):
+        act = r.integers(0, 7, (B, 5))
+        _o, rA, *_ = A.step(act.copy()); rA = _np.asarray(rA, float).copy()
+        _o, rB, *_ = Bv.step(act.copy())
+        S = Bv._gpu
+        w["T"] = max(w["T"], float(_np.abs(A.T - S.T.cpu().numpy()).max()))
+        w["p_act"] = max(w["p_act"], float(_np.abs(A.p_act - S.p_act.cpu().numpy()).max()))
+        w["rew"] = max(w["rew"], float(_np.abs(rA - _np.asarray(rB, float)).max()))
+        w["e_az"] = max(w["e_az"], float(_np.abs(A._e_az - _np.asarray(Bv._e_az)).max()))
+        w["obs"] = max(w["obs"], float(_np.abs(_np.asarray(A.observations)
+                                               - _np.asarray(Bv.observations)).max()))
+        w["p_in"] = max(w["p_in"], float(_np.abs(_np.asarray(A.p_in, float)
+                                                 - _np.asarray(Bv.p_in, float)).max()))
+    return w
+
+
+# the tolerances tandoor_traj_verify holds the numpy/EAGER pair to; this pair must meet them too
+_TOL = dict(T=0.5, p_act=0.05, rew=0.02, e_az=1e-3, obs=5e-3)
+
+
+@ENV.prop("the numpy state machine and the fused megakernel walk the same trajectory",
+          lean="Physics (one machine, and the two implementations that actually run)",
+          gens=dict(steps=ints(40, 200), seed=ints(0, 10000)), n=4)
+def _(steps, seed, label):
+    A, Bv = _pair()
+    w = _walk(A, Bv, steps, seed)
+    label("length", "long" if steps > 120 else "short")
+    bad = [f"{k} {w[k]:.3e} > {v:g}" for k, v in _TOL.items() if w[k] > v]
+    return not bad, \
+        ("; ".join(bad) + f"   (worst absorbed power gap {w['p_in']:.0f} W) - these are the "
+         f"tolerances tandoor_traj_verify holds the numpy/eager pair to, and this pair has never "
+         f"been compared")
+
+
+@ENV.prop("the twins agree THROUGH a day-over, not just inside a day",
+          lean="Physics (the boundary tandoor_fused_step says its harness never crosses)",
+          cover={"crossed": {"yes": 0.8}}, gens=dict(seed=ints(0, 10000), lead=ints(3, 30)), n=4)
+def _(seed, lead, label):
+    A, Bv = _pair()
+    t_end = float(getattr(A, "day_end", 16.0))   # the env's own default (polar_env:1006)
+    t0 = t_end - lead * float(A.dt) / 3600.0
+    A.t_solar[:] = t0; Bv.t_solar[:] = t0
+    t_before = float(np.asarray(A.t_solar).reshape(-1)[0])
+    w = _walk(A, Bv, lead + 20, seed)
+    t_after = float(np.asarray(A.t_solar).reshape(-1)[0])
+    crossed = t_after < t_before                  # the clock wrapped: day_over fired
+    label("crossed", "yes" if crossed else "no")
+    bad = [f"{k} {w[k]:.3e} > {v:g}" for k, v in _TOL.items() if w[k] > v]
+    return not bad, ("; ".join(bad) + f"   clock {t_before:.2f}h -> {t_after:.2f}h, "
+                     f"day_end {t_end:.2f}h, crossed={crossed}")
+
+
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()

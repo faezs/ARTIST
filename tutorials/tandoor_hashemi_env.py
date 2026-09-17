@@ -1643,6 +1643,23 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             self.el_m = np.clip(el1 + self.rng.normal(0, 0.3, B),
                                 self.el_min_h, self.el_max_h)
             self.az_m = np.degrees(az1 - self._ds_azs) + self.rng.normal(0, 0.3, B)
+            # the encoder must read the REPARKED mount, not last night's sunset error. The fused
+            # path refreshes both alongside the repark (tandoor_fused_step.py:443-444); this one
+            # did not, so on the first step of a new day the policy was shown a pointing error
+            # carried across the whole overnight slew - both encoder columns differed from the
+            # fused twin by the full clamp.
+            _az0d = np.degrees(az1 - self._ds_azs)
+            self._e_el = self.el_m - el1
+            _daz0 = self.az_m - _az0d
+            _daz0 = _daz0 - 360.0 * np.round(_daz0 / 360.0)     # on the circle, as everywhere else
+            self._e_az = _daz0 * np.cos(np.radians(el1))
+            # ...and the obs must be rebuilt on top of the reparked mount, exactly as the cut
+            # branch above already does. The base env assembles the obs inside super().step,
+            # BEFORE this branch runs, so without the rebuild a day-over step returns yesterday's
+            # evening obs while the fused twin returns the new morning's. The cut branch was fixed
+            # when the zero-noise harness caught it; this branch was not, because (as
+            # tandoor_fused_step.py says of itself) no parity harness ever crossed a day-over.
+            self.observations[:] = self._obs()
         rd = getattr(self, "reward_div", 1.0)
         if rd != 1.0:
             # trainer-facing channel only; ep_return/infos stay raw

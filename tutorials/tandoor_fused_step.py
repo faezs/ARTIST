@@ -442,6 +442,11 @@ def _day_over(env, F, infos):
     S.az_m.copy_(az1d + 0.3 * S.n(B))
     S.e_el_prev.copy_(S.el_m - el1)
     S.e_az_prev.copy_((S.az_m - az1d) * torch.cos(torch.deg2rad(el1)))
+    # the exposed pointing mirrors are views into diag, and the obs below is rebuilt from the
+    # REPARKED error - so leave them holding yesterday's sunset value and this step reports two
+    # different pointing errors at once, one to the policy and one to every diagnostic. The numpy
+    # twin refreshes both (tandoor_hashemi_env.py, the wrapped branch).
+    S.diag[:, 1].copy_(S.e_el_prev); S.diag[:, 2].copy_(S.e_az_prev)
     S.belt_prev.copy_(S.T[:, :env.n_belt].max(1).values)
     obs, rew, infos = env._gpu_obs(S, dev, B, rew, F.diag[:, 0],
                                    S.e_el_prev, S.e_az_prev, infos, az_rad=az1r)   # the dawn sun, site frame
