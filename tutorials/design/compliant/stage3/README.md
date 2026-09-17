@@ -158,3 +158,32 @@ Two other things the paper settles: the membrane's SLOT is not optional - he pic
 because the focus balances better, and its stated price is that the dish must be cut where the focal base passes through
 it (fig 12) - and his production reflector is a cut home satellite dish faceted with 2 mm mirror in 5 x 3 cm pieces, not
 a membrane at all.
+
+## The master design in Lean, from the video, one stage at a time (2026-09-17): `~/manifold-pareto/lean/RequestProject/Hashemi.lean`
+
+The machine the Lean library is about, written down as Hashemi builds it: a section per stage of the video, the
+structures carrying his dimensions, the theorems saying what those dimensions commit the machine to. This revision
+is the base, 0:00-4:42. The fixed base (`FixedBase`): the 2 cm ring on the deck, the central tube "with a higher
+height", the foam ring that "keeps the bearings at the right level"; `bearing_life` is his "second-hand type,
+because the speed of the rotation is very low" as a number, a hundredfold margin over twenty years on any bearing
+rated to a million turns. The movable base (`Carriage`, `hashemi`): his figure shot from above - a 184 x 13.5 cm bar
+with a roller at each end and a flat A of base 98 and height 80 with a cross member at 39 and a bearing at the apex.
+The A lies IN THE PLANE OF THE RING: the apex bearing drops over the tube, the rollers ride the rail, the rubber
+third roller drives. So the rollers ride a circle of radius sqrt(0.92^2 + 0.80^2) = 1.219 m about the tube
+(`rollerRadius_hashemi_bounds`): the rail is 2.44 m across, the paper's "2 m ring" to one figure; `Fits` is the one
+condition joining base to carriage. The drive rate is `azRate = ωm rw / R`, and `tracks_exactly` is `Mount.lean`'s
+`follow_exact` with that rate - the roller carrying the sun's azimuth exactly whenever it can outrun it, 0.14 rpm
+on a 5 cm roller at Quetta's fastest 2 deg/min (`roller_rpm_hashemi`). The FACT statement (`Screw`, `recip`,
+`wrenchAt`): five constraint wrenches - the tube bearing's two horizontal forces, the foam ring's vertical, the two
+rollers' verticals - are all reciprocal to the yaw (`constraints_reciprocal_yaw`) and linearly independent
+(`constraints_linearIndependent`), so the yaw is the whole freedom space and the stage is exactly determinate; the
+traction's reciprocal product with the yaw is F R (`drive_recip_yaw`), so the motor works on the freedom and the
+bearings never hold the traction as a moment (`drive_works_on_yaw`). Two constraints on the stages still to come
+fall out of the base alone: `focus_on_axis` (a point the azimuth leaves fixed lies on the tube's axis, so the focus
+sits over the tube and the elevation stage must put it there - the fixed-focus condition itself) and `screwLength`
+(`R/2 - TandoorSphere.sag R a`, the screw that stands the rim off the axis through the focus: sqrt 3 - 1 = 0.732 m
+on his 2 m sphere with a 2 m dish, the paper's 73 cm, `screwLength_hashemi_bounds`). Builds against
+`RequestProject.Mount` and `RequestProject.OpticsSphere`; the dish frame, posts, trunnion, screws, tow-wire loop,
+slot and receiver arrive with their stretches of the video. `fact_mount/hashemi_dims.py` is the to-scale drawing of
+the same machine (R 2 m, f 1 m, dish 2 m) with the three-focal-ratio strip that answers why the env's f 4 mount is
+tall: a_mem, f_nom and g_orbit scale together in the env, so g_orbit cannot drop alone.
