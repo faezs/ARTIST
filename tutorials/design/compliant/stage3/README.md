@@ -466,6 +466,17 @@ pulley, the sensor's precision and the circuit's logic, the battery. Frames fold
 THE USER, on the closing shots: the receiver's post stands at the DEAD CENTRE OF THE FRAME - the bar's midpoint between
 the two legs - so it is the vertical through F from the carriage, height to F = the legs' upright - holeDown = 1.25 m
 (`receiverPost_height`); the receiver's base is no longer open. 202 declarations, no sorry.
+THE USER: "the swing limit for the dish is probably 90 degrees. i'm sure he mentioned it somewhere. were you not paying
+attention?" - right about the dish, and I had conflated two limits. His length figure (10:30) draws the dish VERTICAL at
+the low-sun end - in the file since section 5 as `edgeDepth_horizon`; the post's 1.25 m clears the rim at every angle
+(`dish_swings_to_vertical`, `clearance_hashemi`); by hand he swings it there at 17:27. The pendulum's range is 90+ deg.
+The 62 deg is THE WIRE'S REACH: with the clip on the mast-side rim and the pulley 0.34 m over the bolts, the wire from
+pulley to clip is shortest at 61.7 deg, past which the winch cannot shorten it, and its moment at the vertical is
+negative (`wire_short_of_vertical` = `edgeClip_cross` at 90 deg) - clips do not change this, the wire bears on the
+mast-side rim whatever it is clamped to. To reach the vertical from that rim the pulley must rise >= a/ze = 0.96 of ym
+above the bolts (`ReachesVertical`, `reachesVertical_iff`): 1.17 m at 1.22 m out, a 2.4 m mast (`mast_for_vertical_hashemi`)
+- or a wire path that does not cross the mast-side rim. The closing shot (dish 60-65 deg, coil unlit, sun low) is what
+the rigging as shown gives. Section 15 rewritten to keep the two limits apart. 207 declarations, no sorry.
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
