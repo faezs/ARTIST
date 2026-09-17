@@ -82,6 +82,11 @@ from tandoor_rl_env import _sim, ROTI_ENERGY, T_COOK_LO
 # so it drives both ways with no return spring and the working branch is always in tension. The command therefore acts
 # on the drum, and the dish hangs off it through the loop's elasticity. The threaded rods in fig 16 are NOT this drive:
 # they are the two 73 cm adjusting screws that set the dish tangential to the focal circle, once, at assembly.
+# WHICH DRIVE: the roof machine's own caption says "the winch related to the vertical movement", and fig 17 draws the same
+# thing - a cable on a motor drum. The desk model uses a thin rod instead. Both are representable; 'winch' is the default
+# because that is what the built machine has.
+EL_DRIVE = "winch"
+EL_WINCH_SIG, EL_WINCH_E = 48e6, 110e9                 # a 6x19 rope: working stress under the weight moment, effective modulus
 EL_LINK_N, EL_LINK_DMIN = 2, 0.0127                    # TWO drive rods, one each side, on ONE shared motor: the sides always move
                                                        # together, so the machine has a single elevation command and no differential
                                                        # freedom - any asymmetric load is taken by the trunnion, not by the drive.
@@ -997,7 +1002,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, x_turn=None, r_m4=1.3, shell="perlite",
-                 r_strut=0.08, film_T=4922.0, film_slope=2.0e-3, film_t=None, **kwargs):
+                 r_strut=0.08, film_T=4922.0, film_slope=2.0e-3, film_t=None, el_drive=EL_DRIVE, **kwargs):
         # OPTICAL-EFFICIENCY levers (defaults = current machine):
         # beta_dev: off-axis deviation [deg] of the beam from retro.
         #   The primary is a SPHERE - it has no optical axis, so the
@@ -1193,6 +1198,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         # which the cook's fused step reads from sp[7] and the flower envs from film_k_scale. film_slope is the film's
         # own rms slope error (2 mrad as assumed so far; 1 mrad is the lever: +12 points of the year through the strip's
         # 27x, stage3/wind/README.md 'The rim-fed film'), doubled on reflection into sig_static with the print.
+        self.el_drive = str(el_drive)      # 'winch' (the built machine: a cable on a motor drum) or 'rod' (the desk model's link)
+        assert self.el_drive in ("winch", "rod"), self.el_drive
         self.film_T = float(film_T if film_t is None else film_t); self.film_slope = float(film_slope)   # film_t: the ini loader lower-cases its keys
         self.film_k_scale = 4922.0/self.film_T; self.film_sig_work = 98.4/self.film_k_scale
         # x_turn: M3's x. None = over the chase (X_TOWER, the bore's foot). Set it to
@@ -1868,8 +1875,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         A = np.pi * float(self.a_mem) ** 2
         W = EL_HEAD_KG_M2 * A * 9.81                         # the dish's weight; its moment about the trunnion is W R cos(el)
         lever, L = EL_LINK_ARM * R, EL_LINK_LR * R           # the crank the rod pulls on, and the rod's own length
-        A_r = self._el_rod_area()                            # the two rods' TOTAL area, sized to that load with a half-inch floor
-        k = EL_LINK_E * A_r * lever * lever / L              # N m/rad about the trunnion, both rods in parallel
+        if str(getattr(self, "el_drive", EL_DRIVE)) == "winch":
+            A_r, E_ = W * R / (lever * EL_WINCH_SIG), EL_WINCH_E   # one cable, sized to the load it pulls
+        else:
+            A_r, E_ = self._el_rod_area(), EL_LINK_E              # the rod pair, with the half-inch floor
+        k = E_ * A_r * lever * lever / L                     # N m/rad about the trunnion
         sag_g = W * R / k
         sag_w = (EL_CT * A * R + EL_CM * A * 2.0 * float(self.a_mem)) * 0.6 / k
         return float(sag_g), float(sag_w)
@@ -4815,44 +4825,61 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             # counterweight at the arc's upper end (fig 18)
             pr.draw_sphere(v3(arc(e_lo) - 0.15*zh_), 0.14,
                            (110, 110, 120, 255))
-            # THE FOCUS POST AND ITS TRUNNION: the mast from the rotating
-            # beam up to F, and the horizontal pivot at its top whose axis
-            # passes through the focus. The dish hangs on two arms from it,
-            # which is what makes the vertical movement a rotation about F
-            # rather than a slide along the rail.
-            mast0 = Pf_*[1, 1, 0] + [0, 0, z_beam]
+            # THE TRUNNION, CARRIED TO THE SIDES. The posts stand either
+            # side of the dish on the rotating frame - four of them, braced,
+            # in the roof photos - and the pivot axis runs between their
+            # tops THROUGH F. The dish hangs from those two side bearings on
+            # rods along its own normal, one focal length long, so the
+            # vertical movement is a rotation about F and the focus never
+            # moves. The posts are NOT behind the dish and the rods do not
+            # spring from a point at F: they hang from the sides.
             trun = (190, 176, 150, 255)
-            for aa in (0.0, np.pi/2, np.pi, 1.5*np.pi):      # the focus post as four rails, so it hides nothing behind it
-                off_ = 0.10*(np.cos(aa)*hdir + np.sin(aa)*e_s)
-                pr.draw_line_3d(v3(mast0 + off_), v3(Pf_ + off_), colc)
-            for zz in np.linspace(z_beam, Pf_[2], 7): ring([Pf_[0], Pf_[1], zz], 0.10, colc, 10)
-            pr.draw_cylinder_ex(v3(Pf_ - 0.55*e_s), v3(Pf_ + 0.55*e_s), 0.10, 0.10, 10, trun)   # the trunnion
+            s_off = 0.85*float(self.a_mem)                         # the posts stand at the dish's own edge, as the photos show
+            n_d = np.asarray(H["naim"] if "naim" in H else H["n"], float)
+            p_side = e_s - float(np.dot(e_s, n_d))*n_d             # the dish's in-plane direction on the posts' side
+            p_side = p_side/max(np.linalg.norm(p_side), 1e-9)
             for sg_ in (1.0, -1.0):
-                pr.draw_line_3d(v3(Pf_ + sg_*0.55*e_s), v3(Cd_ + sg_*0.55*e_s), trun)           # the dish's arms
-                ring(Pf_ + sg_*0.55*e_s, 0.09, trun, 10)
+                top_ = Pf_ + sg_*s_off*e_s                         # the post's head, a bearing on the trunnion axis
+                base_ = np.array([top_[0], top_[1], z_beam])
+                pr.draw_cylinder_ex(v3(base_), v3(top_), 0.045, 0.045, 8, colc)
+                brace = base_ + 0.7*s_off*hdir                     # the diagonal brace, as the photos show
+                pr.draw_line_3d(v3(top_), v3(brace), colc)
+                pr.draw_line_3d(v3(base_), v3(brace), colc)
+                ring(top_, 0.08, trun, 10)                         # the bearing
+                rim_ = Cd_ + sg_*float(self.a_mem)*p_side          # THE THREADED ROD, post head down to the dish's rim beam
+                pr.draw_cylinder_ex(v3(top_), v3(rim_), 0.032, 0.032, 8, trun)
+                pr.draw_sphere(v3(rim_), 0.06, trun)               # nutted above and below the rim, as the close-ups show
+            pr.draw_cylinder_ex(v3(Pf_ - s_off*e_s), v3(Pf_ + s_off*e_s), 0.035, 0.035, 10, trun)   # the axis, through F
             self._pot_lbls.append((Pf_ + np.array([0, 0, 0.42]),
-                                   f"trunnion at F: the dish turns about this, arm {self.g_orbit:.1f} m", trun))
-            # THE TOW-WIRE LOOP (fig 17), which is what the elevation
-            # command actually drives. The rail above is a WIND STIFFENER
-            # with bearings inside it (paper p13), not the drive: a DC
-            # gear motor turns a pulley at the bottom of the moving
-            # frame, the wire runs over an idler at each end of rail D,
-            # and BOTH free ends tie to the back of the dish - so it
-            # pulls either way with no return spring and the working
-            # branch is always in tension.
-            P_up, P_lo = arc(e_lo), arc(e_hi)
-            P_drv = Pf_*[1, 1, 0] + [0, 0, z_beam] + 0.85*R_rail*hdir
-            wire = (176, 176, 186, 255); puly = (196, 170, 120, 255)
-            strap_hi = arc(el_r - dstrap); strap_lo = arc(el_r + dstrap)
-            for q_ in (P_up, P_lo, P_drv): ring(q_, 0.11, puly, 10)
-            pr.draw_cylinder_ex(v3(P_drv - 0.12*e_s), v3(P_drv + 0.12*e_s),
-                                0.09, 0.09, 8, (70, 70, 78, 255))          # the gear motor
-            for seg in ((strap_hi, P_up), (P_up, P_drv),
-                        (P_drv, P_lo), (P_lo, strap_lo)):
-                pr.draw_line_3d(v3(seg[0]), v3(seg[1]), wire)
-            self._pot_lbls.append((P_drv + np.array([0, 0, 0.30]),
-                                   f"el drive: rod on the trunnion, sag {self.el_sag_deg(H):+.3f} deg",
-                                   wire))
+                                   f"trunnion axis through F, borne on the side posts; arm {self.g_orbit:.1f} m", trun))
+            # THE DRIVE: a crank on the trunnion and TWO RODS, one each
+            # side, down to ONE motor on the rotating beam. The sides
+            # always move together, so the machine has a single elevation
+            # command and no differential freedom; an asymmetric load
+            # goes into the trunnion, not into the drive. (Fig 17 draws a
+            # tow-wire loop on two pulleys instead; his model and the
+            # production build use rods, which are stiffer and can push -
+            # at the price of buckling, so they run in tension.)
+            u_d = Cd_ - Pf_; u_d = u_d/max(np.linalg.norm(u_d), 1e-9)      # the trunnion's arm, F out to the dish
+            t_d = np.cross(e_s, u_d); t_d = t_d/max(np.linalg.norm(t_d), 1e-9)
+            if t_d[2] > 0: t_d = -t_d                                       # take the branch that swings down toward the beam
+            lever = EL_LINK_ARM*float(self.g_orbit)
+            K_ = Pf_ + lever*t_d
+            foot_ = Pf_*[1, 1, 0] + [0, 0, z_beam] + 0.45*lever*hdir
+            rod = (186, 178, 150, 255); _winch = str(getattr(self, "el_drive", "winch")) == "winch"
+            pr.draw_cylinder_ex(v3(Pf_), v3(K_), 0.035, 0.035, 8, rod)      # the crank
+            d_mm, p_cr, p_rod = self.el_link_mm()
+            if _winch:                                                  # the built machine: one cable off a motor drum
+                pr.draw_line_3d(v3(K_), v3(foot_), (176, 176, 186, 255))
+                ring(foot_, 0.17, (196, 170, 120, 255), 12)
+            else:                                                       # the desk model's pair of rods
+                for sg_ in (1.0, -1.0):
+                    pr.draw_cylinder_ex(v3(K_ + sg_*0.5*e_s), v3(foot_ + sg_*0.5*e_s),
+                                        0.5*d_mm/1000.0*2.0, 0.5*d_mm/1000.0*2.0, 8, rod)
+                    pr.draw_sphere(v3(K_ + sg_*0.5*e_s), 0.05, rod)
+            pr.draw_cylinder_ex(v3(foot_ - 0.30*e_s), v3(foot_ + 0.30*e_s), 0.11, 0.11, 10, (70, 70, 78, 255))
+            self._pot_lbls.append((foot_ + np.array([0, 0, 0.36]),
+                                   f"el drive: {self.el_drive} on the trunnion, sag {self.el_sag_deg(H):+.4f} deg", rod))
 
             if self.receiver == "focus":
                 # RECEIVER AT THE FOCUS: M1 (steerable flat) at F, M2 the
