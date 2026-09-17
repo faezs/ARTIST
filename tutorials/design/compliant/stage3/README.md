@@ -218,7 +218,26 @@ FC = 1.155 m. `dishR/dishF/dishHalf`, `HD_eq/_bounds` (= `TandoorSphere.sag 2 0.
 (= `screwLength 2 0.8`), `FC_eq/_bounds` (= the bound of `edgeDepth_le`, the deepest the rim reaches below F, at
 tan el = FH/HC = 46 deg), `hashemi_clearance`: the 130 cm upright against FC 1.155 leaves 14.5 cm - IF the pivot is at
 the post top as his first figure draws it. The 2 m dish and its 6 cm of the previous revision were mine; the figure
-fixes the dish at 1.6 m and the number with it. "Base" names a length; the file takes it as no more than that.
+fixes the dish at 1.6 m and the number with it.
+
+10:43-12:40, THE SWING, which closes the requirement: "the length of this base to be 130 cm, because the distance of
+the hole above the base should also be taken into account ... our dish is bigger than the previous one and it cannot
+be hung with two legs. And it needs four hanging legs. These four hanging legs act like swing chains. I made four
+hanger legs like this and used threaded rod and carefully welded the ends to the iron nut. Of course, you can use
+bearings instead of nuts. Two for one side and two for the other side. We choose two screws with the right diameter,
+which we must install on top of the vertical posts. These two screws must be able to bear the weight of the entire
+solar dish ... Nuts welded to threaded rods are bolted at the proper distance." The frames: a bolt through the hole
+about 5 cm below each post's top, pointing INWARD along the chord; on each bolt the two hanger eyes side by side at
+a set gap, so each side's pair leaves one pivot as a V to two rim points. So the elevation axis is the bolt line,
+the "Base" F-C of the figure is the hanger from pivot to rim edge (1.155 m), the hangers are threaded so the rim
+nuts set that length - the earlier caption's "length of the screw passed from the edge of the dish" - and dish plus
+hangers is a rigid pendulum about the bolts with F AT the bolts. `swingVertex`/`swingNormal`, `swing_alwaysTangent`
+(DISCHARGES `AlwaysTangent`: F is the pivot), `swing_focusCircle`, `Hanger`/`hashemiHanger` (FC long, ~10 mm rod),
+`clearance l holeDown FC = upright - holeDown - FC`, `clearance_hashemi` (14.5 cm less the hole's drop: ~9.5 cm at
+5 cm). Stated and left open: the bolt line is the chord line 0.80 m from the tube's axis, so F is there and a
+roof-fixed receiver would see it circle 0.8 m through the day (`focus_on_axis`) - either the receiver rides the
+carriage or something not yet shown moves F. 85 declarations, no sorry. The user's video frames are in
+~/Downloads/hashemi_frames (71 at 12:40).
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
