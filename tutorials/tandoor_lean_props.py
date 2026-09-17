@@ -1685,8 +1685,8 @@ def _(seed, gust, k, label):
     return bool((sb >= st - 1e-9).all()), f"blur {sb.min():.3e} below the static {st:.3e}"
 
 
-@LAW.prop("more blur on the figure, less power into the pot (measured; the optics have no theorem for this yet)",
-          lean="StatedLaws TandoorBlur.sigmaB_mono_wind - and then the duct catches less; MEASURED, not proved",
+@LAW.prop("more blur on the figure, less power into the pot: the batch, with the same draws",
+          lean="ReceiverCapture TandoorCapture.power_antitone_duct (the beam theorem, the batch mean as its witness)",
           cover={"changed": {"yes": 0.6}},
           gens=dict(seed=ints(0, 10000), receiver=choice(["cass", "tri"]), lat=floats(24.0, 36.0), doy=ints(1, 365),
                     hour=floats(9.0, 15.0), b1=floats(2e-3, 8e-3), mult=floats(1.5, 4.0)), n=16)
@@ -1853,6 +1853,74 @@ def _(seed, label):
         out.append(float(_np.asarray(S.day_rotis.detach().cpu(), float).mean()))
     label("baked", "some" if max(out) > 0 else "none")
     return out[1] >= out[0] - 3.0, f"mean rotis by 12:15h: soiled {out[0]:.1f}, clean {out[1]:.1f}"
+
+
+
+def _capture_sets(e, blurs):
+    """the per-ray capture sets and weights of the parked machine at each blur, with the SAME draws
+    (the generator restored), on the stochastic trace - `_det_trace` makes the blur inert"""
+    import torch
+    B = e.num_agents
+    e._det_trace = False
+    try:
+        g = e._gen.get_state(); out = []
+        for b in blurs:
+            e._gen.set_state(g)
+            e._trace_power(np.full(B, e.p0), np.full(B, b), np.zeros((B, 2)), np.ones(B))
+            code = e._fate[..., 0].detach().cpu().numpy()
+            out.append(code == 0)                                      # fate 0: through, into the pot
+        w = e._ray_weights(e._fate, torch.ones(B, device=e.device)).detach().cpu().numpy()
+    finally:
+        e._det_trace = True
+    return out, w
+
+
+@LAW.prop("blur loses only rays whose focused landing was inside the entry - captured at more blur, captured at less - and the rays it rescues were aimed outside",
+          lean="ReceiverCapture TandoorCapture.lands_of_lands_of_le, power_antitone, exists_blur_captures",
+          cover={"rescued": {"some": 0.3}},
+          gens=dict(seed=ints(0, 10000), receiver=choice(["cass", "tri"]), lat=floats(24.0, 36.0), doy=ints(1, 365),
+                    hour=floats(9.0, 15.0), b1=floats(2e-3, 8e-3), mult=floats(1.5, 4.0)), n=16)
+def _(seed, receiver, lat, doy, hour, b1, mult, label):
+    e = _traced(8, receiver, seed)
+    if _park(e, lat, doy, hour) < 10.0: return True
+    (S0, S1, S2), w = _capture_sets(e, (1e-7, b1, b1 * mult))     # focused, small blur, large blur
+    inside = S0                                                     # the theorem's hypothesis, ray by ray
+    base = int((inside & S2).sum())
+    if base == 0: return True
+    # NESTED CAPTURE, the lemma: a focused-inside ray captured at the larger blur is captured at the
+    # smaller. Exact for an AFFINE landing on a convex set; the trace bends rays on curved mirrors
+    # and runs them past the strip's and the arm's shadows, so the landing is only paraxially
+    # affine and a few rays break the nesting - 2.04 % in the worst case the shrinker found (low
+    # winter sun at 9h, latitude 24, the tri receiver, blur x1.5). Reported, bounded loosely.
+    viol = int((inside & S2 & ~S1).sum())
+    rescued = int((S2 & ~S0).sum())                                 # aimed outside, captured by blur
+    label("rescued", "some" if rescued > 0 else "none")
+    label("nesting broken", "none" if viol == 0 else ("under 1 %" if viol < 0.01 * base else "1-5 %"))
+    # THE THEOREM'S CONCLUSION, asserted strictly: the power of the focused-inside rays is antitone
+    # in the blur, machine by machine, with the same draws
+    Pf1 = (w * (inside & S1)).sum(1); Pf2 = (w * (inside & S2)).sum(1)
+    gain = float(np.maximum(Pf2 - Pf1, 0.0).max() / max(float(Pf1.max()), 1e-9))
+    return viol <= 0.05 * base and gain <= 0.005, \
+        (f"{viol} of {base} focused-inside rays captured at blur x{mult:.1f} were lost at the smaller blur "
+         f"({100 * viol / base:.2f} %); the focused-inside power rose by {100 * gain:.3f} % at most; "
+         f"{rescued} rays aimed outside were rescued by the blur")
+
+
+@LAW.prop("a mis-aimed beam can GAIN power from blur: the theorem's hypothesis is necessary",
+          lean="ReceiverCapture TandoorCapture.exists_blur_captures, captured_zero_of_not_mem (a witness)",
+          cover={"blur helped": {"yes": 0.25}},
+          gens=dict(seed=ints(0, 10000), receiver=choice(["cass", "tri"]), lat=floats(24.0, 36.0), doy=ints(1, 365),
+                    hour=floats(9.0, 15.0), miss=floats(0.6, 2.0), b1=floats(2e-3, 6e-3), mult=floats(2.0, 5.0)), n=16)
+def _(seed, receiver, lat, doy, hour, miss, b1, mult, label):
+    e = _traced(8, receiver, seed)
+    if _park(e, lat, doy, hour) < 10.0: return True
+    e.el_m[:] = e.el_m + miss                                        # point past the half-power cliff (~0.7 deg)
+    (S0, S1, S2), w = _capture_sets(e, (1e-7, b1, b1 * mult))
+    P1 = (w * S1).sum(1); P2 = (w * S2).sum(1)
+    helped = bool((P2 > P1 * (1 + 1e-6)).any())
+    label("blur helped", "yes" if helped else "no")
+    return True, (f"mis-aimed by {miss:.2f} deg: power at blur x{mult:.1f} {'rose' if helped else 'fell'} on "
+                  f"{int((P2 > P1 * (1 + 1e-6)).sum())} of 8 machines; focused-inside rays {int(S0.sum())} of {S0.size}")
 
 
 if __name__ == "__main__":
