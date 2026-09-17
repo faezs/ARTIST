@@ -387,6 +387,18 @@ eye passes is (w, 0, 0, 0, zBolt w, 0) = w * swingTwist - the turn about the bol
 redundant constraints, a door on two hinges - "bolted at the proper distance" and the shims carry it),
 `helixAdvance`/`helixAdvance_small` (an eye threaded on the bolt is a helical joint: under 0.31 mm of travel over 62 deg
 on an M12 - bolt size not given). 169 declarations, no sorry. Frames folder: 194 (the re-sent batch recovered).
+THE USER: THE BOLTS ARE M12 AND THE EYES TURN ON THE THREAD. So the joint is helical, not the plain hinge: `hM12` =
+1.75 mm / 2 pi = 0.28 mm per radian (coarse pitch), `screwTwist` (1, 0, 0, h, zBolt, 0), `screwTwist_zero` (the hinge is
+h = 0), `screwWrench` (the two forces across the bolt, the two moments across it, and the axial force PAIRED WITH THE
+MOMENT -h about it - what the thread turns a push into; the axial force alone is no longer a constraint),
+`screw_reciprocal`, `screw_freedom` (THE MOTION THROUGH THE THREADED CONNECTION: a passed twist is (w, 0, 0, h w,
+zBolt w, 0) - the swing plus h of travel along the bolt per radian). Both eyes ride the same screw, so the dish and F
+walk along the bar h phi over a swing phi: under 0.31 mm over the wire's 62 deg (`helixAdvance_small`), and no binding -
+a right-hand thread advances the same way about the same turn whichever way its bolt points. `boltStress`,
+`m12_carries_dish`: "these two screws must be able to bear the weight of the entire solar dish" - eyes 3 cm out (spacer
+nut + eyes, read off the frames) carry half the dish each in bending on the thread's minor diameter 10.1 mm: a dish
+under 100 kg is UNDER 160 MPa, inside a grade-4.6 bolt's 240 MPa (factor 1.5 at 100 kg, five at the 30 kg a man
+carries; the grade is not given). 177 declarations, no sorry.
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
