@@ -113,6 +113,20 @@ sys.modules.setdefault("tandoor_hashemi_env", _mod5)
 _spec5.loader.exec_module(_mod5)
 TandoorHashemiEnv = _mod5.TandoorHashemiEnv
 
+# the Lean-driven twin: TandoorHashemiEnv with its motors stepped by the
+# compiled Hashemi.lean (tutorials/hashemi_ccc); optional so a missing
+# kernel never breaks the package
+try:
+    _spec6 = importlib.util.spec_from_file_location(
+        "hashemi_ccc_env", _tutorials / "hashemi_ccc" / "hashemi_ccc_env.py")
+    _mod6 = importlib.util.module_from_spec(_spec6)
+    sys.modules.setdefault("hashemi_ccc_env", _mod6)
+    _spec6.loader.exec_module(_mod6)
+    HashemiCccEnv = _mod6.HashemiCccEnv
+except Exception as _e:          # pragma: no cover
+    HashemiCccEnv = None
+    print(f"[puffer_tandoor] hashemi_ccc_env unavailable: {_e}")
+
 
 _spec7 = importlib.util.spec_from_file_location(
     "tandoor_flower_env", _tutorials / "tandoor_flower_env.py")
@@ -145,6 +159,8 @@ def env_creator(name="puffer_tandoor"):
         return functools.partial(TandoorFlowerFastEnv)
     if "flower" in name:
         return functools.partial(TandoorFlowerEnv)
+    if "ccc" in name and HashemiCccEnv is not None:
+        return functools.partial(HashemiCccEnv)
     if "hashemi" in name:
         return functools.partial(TandoorHashemiEnv)
     if "coude" in name:
