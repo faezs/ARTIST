@@ -48,3 +48,102 @@ theorem single_bounce {f : α → α} {done : α → Prop} (h : Stops f done) (s
   simpa using iterate_stationary h 1 s (by simpa using h1)
 
 end Feedback
+
+namespace Feedback
+
+/-! ## A train of surfaces is a bounded feedback
+
+Every receiver configuration is a multi-bounce train - the tri (dish, strip, M4, pot), the
+cassegrain (dish, fold, waist, M5, duct), the focus, the CPC lip - a FIXED SEQUENCE of surfaces,
+each of which either terminates the ray with a fate or passes it to the next. Such a train is a
+bounded feedback: the step advances the stage or sets the fate, a set fate is stationary, and
+after as many steps as there are surfaces every ray is done. So the kernel's fixed sequence IS the
+least fixed point of "step until a fate", attained at stage `n` - `iterate_stationary` with
+`N = n` - and the measured statement "every ray has exactly one fate" is this theorem seen from
+the GPU. -/
+
+/-- a ray in a train: its geometric state, the stage it is at, and its fate once it has one -/
+structure Ray (σ : Type*) where
+  geom : σ
+  stage : ℕ
+  fate : Option ℕ
+
+/-- one surface: from the geometric state, either a fate or the state passed on -/
+def Surface (σ : Type*) := σ → Sum ℕ σ
+
+/-- the train's step: a done ray stays; otherwise the surface at the ray's stage acts, and past
+the last surface the ray gets the terminal fate `n` (missed everything) -/
+def trainStep {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) (r : Ray σ) : Ray σ :=
+  match r.fate with
+  | some _ => r
+  | none =>
+    if r.stage < n then
+      match surf r.stage r.geom with
+      | Sum.inl f => { r with fate := some f }
+      | Sum.inr g => { r with geom := g, stage := r.stage + 1 }
+    else { r with fate := some n }
+
+def Done {σ : Type*} (r : Ray σ) : Prop := r.fate.isSome = true
+
+/-- a done ray is fixed by the step -/
+theorem trainStep_done {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) {r : Ray σ} (h : Done r) :
+    trainStep surf n r = r := by
+  unfold Done at h
+  cases hf : r.fate with
+  | none => simp [hf] at h
+  | some f => simp [trainStep, hf]
+
+theorem trainStep_stops {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) :
+    Stops (trainStep surf n) Done :=
+  fun _ h => trainStep_done surf n h
+
+/-- an undone step advanced the stage, and the stage was below the train's length -/
+theorem step_undone {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) {r : Ray σ} (h0 : r.fate = none)
+    (h1 : (trainStep surf n r).fate = none) :
+    (trainStep surf n r).stage = r.stage + 1 ∧ r.stage < n := by
+  unfold trainStep at h1 ⊢
+  rw [h0] at h1 ⊢
+  by_cases hlt : r.stage < n
+  · rcases hs : surf r.stage r.geom with f | g
+    · simp [hlt, hs] at h1
+    · simp [hlt, hs]
+  · simp [hlt] at h1
+
+/-- an undone iterate has advanced one stage per step, within the train's length -/
+theorem undone_iter {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) (r : Ray σ) (hr : r.stage ≤ n) :
+    ∀ k, ((trainStep surf n)^[k] r).fate = none →
+      ((trainStep surf n)^[k] r).stage = r.stage + k ∧ r.stage + k ≤ n := by
+  intro k
+  induction k with
+  | zero => intro _; simpa using hr
+  | succ k ih =>
+    intro hk
+    rw [Function.iterate_succ_apply'] at hk ⊢
+    have hprev : ((trainStep surf n)^[k] r).fate = none := by
+      by_contra hc
+      have hd : Done ((trainStep surf n)^[k] r) := Option.ne_none_iff_isSome.mp hc
+      rw [trainStep_done surf n hd] at hk
+      exact hc hk
+    obtain ⟨hst, _⟩ := ih hprev
+    obtain ⟨hst2, hlt⟩ := step_undone surf n hprev hk
+    constructor
+    · omega
+    · omega
+
+/-- **the train terminates within its length**: after `n + 1` steps from stage 0 every ray has a
+fate - the least fixed point is attained, which is the theorem a kernel's fixed sequence of
+surfaces embodies and "every ray has exactly one fate" measures -/
+theorem train_done {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) (r : Ray σ) (h0 : r.stage = 0) :
+    Done ((trainStep surf n)^[n + 1] r) := by
+  unfold Done
+  rw [← Option.ne_none_iff_isSome]
+  intro hnone
+  obtain ⟨_, hle⟩ := undone_iter surf n r (by omega) (n + 1) hnone
+  omega
+
+/-- and it stays there: the fixed point, from stage `n + 1` on -/
+theorem train_fixed {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) (r : Ray σ) (h0 : r.stage = 0) :
+    ∀ m, n + 1 ≤ m → (trainStep surf n)^[m] r = (trainStep surf n)^[n + 1] r :=
+  iterate_stationary (trainStep_stops surf n) (n + 1) r (train_done surf n r h0)
+
+end Feedback

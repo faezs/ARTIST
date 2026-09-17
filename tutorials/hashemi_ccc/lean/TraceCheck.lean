@@ -544,6 +544,74 @@ def sceneChecks : IO (Array Check) := do
     halfK := halfK.push halfD
   cs := cs.push ⟨"the pointing budget along the homotopy: half power for the film's conic and for the sphere's",
     true, s!"half power at {fmt halfK[0]!} deg (film, k {fmt kFit}) and {fmt halfK[1]!} deg (sphere, k 0)"⟩
+  -- E. THE ADMISSIBLE SET AS A PATH. Through the day, tracked exactly (the mount's own law, pnt =
+  -- the sentinel), the film at each of its recorded pressure levels: the capture at the pot per
+  -- hour and level, the best level and the levels within 5 % of it - an interval at each hour is
+  -- one class, and the sequence of intervals is the path the policy has to stay on.
+  let hours : Array Float := #[8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0]
+  let mut pathRows : Array String := #[]
+  let mut allIntervals := true
+  let mut bestLevels : Array Float := #[]
+  for h in hours do
+    let mut capL : Array Float := #[]
+    for l in [0:Lv] do
+      let o ← traceWith src mount trace mIn tIn
+        (fun m => (m.set! 8 (m[8]!.set! 0 h)).set! mPnt (MetalBridge.const m[mPnt]!.size (-999.0)))
+        (fun t => (t.set! 4 (MetalBridge.const B l.toFloat)).set! iDvec (MetalBridge.const t[iDvec]!.size 0.0))
+      capL := capL.push (total o[iPer]!)
+    let best := maxOf capL
+    let mut bl := 0
+    for l in [0:Lv] do
+      if capL[l]! == best then bl := l
+    let adm := (List.range Lv).filter fun l => capL[l]! ≥ 0.95 * best
+    let contiguous := adm.length == 0 || (adm.getLast! - adm.head! + 1 == adm.length)
+    if !contiguous then allIntervals := false
+    bestLevels := bestLevels.push bl.toFloat
+    pathRows := pathRows.push (s!"  {fmt h} h: " ++ toString (capL.map fmt) ++ s!"  best level {bl}, admissible {adm}")
+  cs := cs.push ⟨"the admissible set is a path: at every hour the levels within 5 % of the best form one interval",
+    allIntervals, "capture at the pot per level (0..6) through the day, tracked:\n" ++ "\n".intercalate pathRows.toList ++ "\n  best level per hour: " ++ toString (bestLevels.map fmt)⟩
+  -- F. THE RIM-SHAPING CONTROL AS A FAMILY THE TRACE CONSUMES. bridge/film_family.py solves the
+  -- film with per-zone pressures (the env's zoned law at several strengths, a rim zone pressed
+  -- harder or softer, a ring pressed in), re-bisected to the design focal length, fitted into NURBS
+  -- control points warm-started from the working level, and evaluated at the env's aperture. Here
+  -- each shape replaces the working level's rows and the tri train is replayed at the recorded
+  -- hour; the conic constant is fitted to each for the record.
+  let famDir := bridgeDir ++ "/family"
+  let famOk ← System.FilePath.pathExists (famDir ++ "/manifest.json")
+  if famOk then
+    let ftxt ← IO.FS.readFile (famDir ++ "/manifest.json")
+    let fj ← IO.ofExcept (Json.parse ftxt)
+    let ctrls ← IO.ofExcept (fj.getObjVal? "controls" >>= Json.getArr?)
+    let mut famRows : Array String := #[]
+    let mut famPow : Array Float := #[]
+    let mut baseline := 0.0
+    for c in ctrls do
+      let name ← IO.ofExcept (c.getObjVal? "name" >>= Json.getStr?)
+      let fpts ← IO.ofExcept (c.getObjVal? "pts" >>= Json.getStr?)
+      let fnrm ← IO.ofExcept (c.getObjVal? "nrm" >>= Json.getStr?)
+      let kfam := match c.getObjVal? "conic_k" with | .ok v => (v.getNum?.toOption.map (·.toFloat)).getD 0.0 | _ => 0.0
+      let ffit := match c.getObjVal? "f_fit" with | .ok v => (v.getNum?.toOption.map (·.toFloat)).getD 0.0 | _ => 0.0
+      let pf ← MetalBridge.readF64 (famDir ++ "/" ++ fpts)
+      let nf ← MetalBridge.readF64 (famDir ++ "/" ++ fnrm)
+      let mut p := pts
+      let mut n := nrm
+      for row in [lvl, lvl + 1] do
+        if row < Lv then
+          let b := row * P * 3
+          for i in [0:P * 3] do
+            p := p.set! (b + i) pf[i]!
+            n := n.set! (b + i) nf[i]!
+      let o ← runCall src trace (tIn.set! 2 p |>.set! 3 n)
+      let pw := total o[iPer]!
+      famPow := famPow.push pw
+      if name == "zc_0.4" then baseline := pw
+      famRows := famRows.push s!"  {name}: power {fmt pw}, f_fit {fmt ffit}, conic k {fmt kfam}"
+    cs := cs.push ⟨"the family: the env's own zoned law refitted into NURBS reproduces the recorded working level through the tri train",
+      baseline > 0.0 && relDiff baseline p0 < 0.05, s!"zc_0.4 refit {fmt baseline} vs recorded {fmt p0} ({fmt (100.0 * relDiff baseline p0)} %)"⟩
+    cs := cs.push ⟨"the rim-shaping family through the tri train: the capture per control, with each shape's conic constant",
+      famPow.size > 0, "\n".intercalate famRows.toList⟩
+  else
+    cs := cs.push ⟨"the rim-shaping family (bridge/family/manifest.json)", true, "not generated yet: run bridge/film_family.py"⟩
   pure cs
 
 end TraceCheck
