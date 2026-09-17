@@ -1923,6 +1923,78 @@ def _(seed, receiver, lat, doy, hour, miss, b1, mult, label):
                   f"{int((P2 > P1 * (1 + 1e-6)).sum())} of 8 machines; focused-inside rays {int(S0.sum())} of {S0.size}")
 
 
+
+def _capture_grid(e, el0, points):
+    """capture sets and weights at each (pointing error [deg of elevation], blur) with the SAME
+    draws: the joint landing of the theorem, one machine, one generator state"""
+    import torch
+    B = e.num_agents
+    e._det_trace = False
+    try:
+        g = e._gen.get_state(); out = {}
+        for (pe, sig) in points:
+            e.el_m[:] = el0 + pe
+            e._gen.set_state(g)
+            e._trace_power(np.full(B, e.p0), np.full(B, sig), np.zeros((B, 2)), np.ones(B))
+            out[(pe, sig)] = (e._fate[..., 0].detach().cpu().numpy() == 0)
+        w = e._ray_weights(e._fate, torch.ones(B, device=e.device)).detach().cpu().numpy()
+    finally:
+        e._det_trace = True; e.el_m[:] = el0
+    return out, w
+
+
+@LAW.prop("pointing and blur are one budget: scaled down together they never lose a ray whose aimed focused landing was inside, and that power falls monotonically along the ray",
+          lean="ReceiverCapture TandoorCapture.budget_convex, lands_of_joint_scale, jointPower_antitone",
+          cover={"pointing": {"past the cliff": 0.25}},
+          gens=dict(seed=ints(0, 10000), receiver=choice(["cass", "tri"]), lat=floats(24.0, 36.0), doy=ints(1, 365),
+                    hour=floats(9.0, 15.0), pe=floats(0.1, 1.5), sig=floats(2e-3, 1.5e-2)), n=16)
+def _(seed, receiver, lat, doy, hour, pe, sig, label):
+    e = _traced(8, receiver, seed)
+    if _park(e, lat, doy, hour) < 10.0: return True
+    el0 = np.asarray(e.el_m, float).copy()
+    caps, w = _capture_grid(e, el0, [(0.0, 1e-7), (pe / 2, sig / 2), (pe, sig)])
+    S00, Sh, S1 = caps[(0.0, 1e-7)], caps[(pe / 2, sig / 2)], caps[(pe, sig)]
+    base = int((S00 & S1).sum())
+    label("pointing", "past the cliff" if pe > 0.7 else "inside the cliff")
+    if base == 0: return True
+    viol = int((S00 & S1 & ~Sh).sum())                     # captured at (e, σ) but not at (e/2, σ/2): the star shape broken
+    P0 = (w * S00).sum(1); Ph = (w * (S00 & Sh)).sum(1); P1 = (w * (S00 & S1)).sum(1)
+    up = max(float(np.maximum(P1 - Ph, 0.0).max()), float(np.maximum(Ph - P0, 0.0).max())) / max(float(P0.max()), 1e-9)
+    label("star shape broken", "none" if viol == 0 else ("under 1 %" if viol < 0.01 * base else "1-5 %"))
+    return viol <= 0.05 * base and up <= 0.005, \
+        (f"{viol} of {base} aimed-inside rays captured at ({pe:.2f} deg, {1e3 * sig:.1f} mrad) were lost at half of both "
+         f"({100 * viol / base:.2f} %); along the ray the aimed-inside power rose by {100 * up:.3f} % at most")
+
+
+@LAW.prop("the blur budget shrinks as the pointing error grows: the joint budget is one curve, and it is monotone",
+          lean="ReceiverCapture TandoorCapture.full_power_of_budget (the budget line L*|e| + sigma*m <= r - rho), jointPower_antitone",
+          cover={"trade-off seen": {"yes": 0.5}},
+          gens=dict(seed=ints(0, 10000), receiver=choice(["cass", "tri"]), lat=floats(26.0, 34.0), doy=ints(1, 365),
+                    hour=floats(10.0, 14.0)), n=8)
+def _(seed, receiver, lat, doy, hour, label):
+    e = _traced(8, receiver, seed)
+    if _park(e, lat, doy, hour) < 20.0: return True
+    el0 = np.asarray(e.el_m, float).copy()
+    P = [0.0, 0.25, 0.5, 0.75]                                  # degrees of pointing error
+    G = [1e-7] + [5e-4 * 1.25 ** k for k in range(18)]          # blur grid, 0.5 .. 22 mrad (the tri receiver's budget is under 2)
+    caps, w = _capture_grid(e, el0, [(pe, sig) for pe in P for sig in G])
+    S00 = caps[(0.0, 1e-7)]
+    P00 = float((w * S00).sum())
+    if P00 < 1e-9: return True
+    # the fraction of the aimed-inside power kept, batch-summed, at each (pointing, blur)
+    frac = {(pe, sig): float((w * (S00 & caps[(pe, sig)])).sum()) / P00 for pe in P for sig in G}
+    def budget(pe):                                             # the largest blur keeping 90 %; -1 = below the grid
+        kept = [sig for sig in G[1:] if frac[(pe, sig)] >= 0.9]
+        return max(kept) if kept else -1.0
+    b = [budget(pe) for pe in P]
+    # monotone, to within one step of the grid (a ratio of 1.25)
+    ok = all(b[k + 1] <= max(b[k], 0.0) * 1.25 + 1e-12 for k in range(len(P) - 1))
+    label("trade-off seen", "yes" if b[-1] < b[0] else "no")
+    label("budget at perfect pointing", "below 0.5 mrad" if b[0] < 0 else ("under 2 mrad" if b[0] < 2e-3 else "2 mrad or more"))
+    fmt = lambda bb: "<0.5" if bb < 0 else f"{1e3 * bb:.1f}"
+    return ok, ("the 90 % blur budget by pointing error [mrad]: " + ", ".join(f"{pe:.2f} deg -> {fmt(bb)}" for pe, bb in zip(P, b)))
+
+
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
