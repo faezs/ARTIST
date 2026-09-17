@@ -486,3 +486,57 @@ the circle of radius f about F. HOW the dish swings from the post tops is not in
 earlier inference that F must sit over the tube is now stated conditionally (if the receiver stands on the roof). The
 method, after the user's "forget what you know, look at the pictures": each section records the frames and captions,
 the theorems follow from the figures' numbers, and nothing is asserted about a stage the video has not shown.
+
+COMPILING HASHEMI.LEAN INTO THE MEGAKERNEL - AN ANALYSIS, NOT AN IMPLEMENTATION (2026-09-17, on the user's request).
+What the file holds, in three layers. (A) DATA: the instances - hashemi/hashemiBase/hashemiLeg/hashemiHanger/hashemiStand/
+hashemiOutrigger/hashemiPanel, ymHashemi, dishR/dishF/dishHalf, hM12, systemVolts, cableArea/rhoCu - some forty numbers,
+each with a provenance (figure, caption, frame, the user). (B) FUNCTIONS, all `noncomputable` over ℝ: rollerRadius,
+azRate, sag/screwLength, postTop, edgeDepth, hangerLength, swingVertexAt/swingFocus/swingNormal, setLength,
+tiltOfMismatch, cosTubeCut, wrenchAt/recip and the twists and wrench sets (yaw, swingTwist, screwTwist, hingeWrench,
+screwWrench, constraints, constraintsGrooved), pointVel, elRate, wireTension, elPower, focusShift, wireLever/pulleyAt/
+swungPt/edgeClipAt, slackSpot, cableDrop, boltStress, helixAdvance, facetSpot, strutStrain, plus Mount.lean's follow and
+spot. (C) PROPS AND THEOREMS: requirements (AlwaysTangent, Fits, HangerClearsPost, MastClears, SlackHarmless, HoldsDish,
+TrackerBudget, ReachesVertical) and proofs (numeric bounds, identities, reciprocity/rank, exact tracking).
+WHY NOT LEAN'S OWN COMPILER: everything is over ℝ (Cauchy reals) - `Real.sqrt 3.36` cannot be evaluated; Frontier.lean
+runs because Pareto is over ℚ. So "compile" is a METAPROGRAM: a command elaborator (`#hashemi_kernel "path"`, defs tagged
+`@[kernel]`, a `HashemiMachine` structure bundling the instances as the one root) that reads each definition's Expr and
+prints C99 from a small fragment - numerals (OfNat/OfScientific), + - * / neg, ℕ powers, Real.sqrt/sin/cos/tan/arctan/pi,
+abs/min/max, Prod -> float2, `![..]`/Fin n -> ℝ -> fixed arrays, let, lambda binders -> parameters, instance projections
+-> the generated param table (tunables) or literals, ℕ-recursion (follow) -> a loop; anything outside the fragment is a
+compile ERROR naming the def, so the fragment is enforced by the macro. Emits: hashemi_geom.h (static inline device
+functions, `hk_` prefix per the hygiene rule, MSL/CUDA-neutral), hashemi_params.h + JSON (the design-table row generated
+WITH NAMES, unlike the hand-numbered FCTW/MECHW), hashemi_checks.h (Props as bool functions; theorem bounds as init-time
+double assertions). The same traversal with a Float printer gives a Lean twin (`lake exe hashemi_twin`, JSON in/out, the
+frontier pattern) for parity. ~500 lines of Lean; no external tool.
+THE MEGAKERNEL: the repo already keeps one physics in three forms (_geo_core torch -> MSL -> CUDA, verify_megakernel /
+tandoor_cuda_verify); the extractor makes Lean the first form and the three derived. Per agent per step: (1) sun
+(mount_solve, unchanged); (2) the pose from the two motors - yaw about the tube at azRate, the swing t from the winch's
+drum through the wire: L(t) = |edgeClipAt - pulleyAt| is monotone on [0, t*], inverted per step (Newton on the closed
+form or a table from wireLever_edge_formula's denominator), the dead point a HARD CLAMP (deadTan_at_ym), wireTension x
+wireLever the winch load (stall), hM12 the helical creep of F along the bar; (3) the mount-as-screws row GENERATED from
+the spec - screw 1 yaw (w = z, q = tube), screw 2 screwTwist hM12 about the bolt line through (apexH, 0, zBolt), home
+vertex/axis from swingVertexAt at t = 0, the constraint wrenches (hingeWrench/screwWrench, constraints) what MountCompliance's
+C must be reciprocal to - the MECHW layout already has exactly these slots, the product-of-exponentials walk is
+unchanged; (4) the errors that move F rather than the axis (tiltOfMismatch, focusShift, slackSpot) as design-rand
+params - the one-time alignments the sensor cannot see; (5) the sensor loop: the dish's axis vs the sun, the sensor's
+precision/misalignment as params, TrackerBudget gating the reward; the circuit's logic (deadband, homing) is NOT in the
+spec - the policy or a deadband controller supplies it; (6) optics in tandoor_trace with two additions from the spec: the
+receiver post through the slot (rim_under_F_iff: inside the footprint below 43.8 deg, a shading strip + a missing strip of
+mirror) and the flat-facet blur (facetSpot: a 5 cm BOX, not the env's Gaussian slope error); (7) thermal/reward unchanged.
+WHAT TRANSFERS AND WHAT DOES NOT: the STRUCTURE transfers exactly (mechanical translation, no transcription bug - the
+class verify_megakernel exists for); the float error does not (Lean is exact-real; theorems have finite margins - the
+tight ones: wireLever_sixty's 1e-6 interval steps, m12_carries_dish 3 %, the dead-point arm A cos t + B sin t -> 0 by
+cancellation: compute in double). Bridges: (i) every theorem with a numeric bound -> an init-time assertion in double on
+the emitted constants; (ii) every identity/inequality over the fragment -> a randomized property in the existing suite
+(65 today, generatable); (iii) rank/reciprocity (LinearIndependent, span) do not extract - they are WHY the wrench sets are
+right; the kernel gets the arrays and a numeric rank check. LEAN-vs-C SEMANTICS the extractor must handle explicitly:
+x / 0 = 0 in Lean vs NaN in C (emit guarded division or assert the theorems' `hpos` side conditions), Real.sqrt of a
+negative = 0 vs NaN, tan at pi/2, the two swing sign conventions (swungPt CW, swingVertexAt CCW - emit both, use one).
+WHAT THE SPEC LACKS for a complete step: the drum radius/ratio, the sensor logic, the coil's size, the dish's mass and
+CoM (W, rcm), wind (Wind.lean/MountCompliance), the thermal model - emitted as REQUIRED params with provenance "not in
+the video", so the env must supply them (a typed contract, not a silent zero).
+SEQUENCE IF DONE: (1) HashemiMachine root + @[kernel] tags, no proof changes; (2) extractor + C printer -> geom.h and the
+JSON; (3) the Float twin + parity test; (4) the MECHW row from the JSON - the smallest env change with immediate value;
+(5) the wire elevation drive + sensor loop in mount_solve/step_pre; (6) slot/post aperture + facet box in tandoor_trace;
+(7) the generated property suite. Each step verifiable under the three-implementations discipline.
+
