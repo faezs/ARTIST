@@ -453,6 +453,16 @@ NOT here: the receiver's base (on the carriage by the physics), the coil's size/
 the wire's diameter, the bolts' grade, the bronze pulley's role, the sensor's precision and the circuit's logic (the
 "first position" it returns to), the battery. Frames folder: 214 (the 26:40-28:30 batches arrived mid-turn; not yet in
 the transcript).
+28:43-30:07, THE END. "Now the system is launched and active ... I have not been able to explain the installation of
+the electrical circuit ... [The focus] placed here is temporary and I did not have time to prepare a suitable focus. As
+you can see, the sun is on the horizon and the dish is pulled up." The machine complete at evening: the dish pulled up
+steep, its face to a low sun; the coil at F, the sensor on the top rim, the panel, the box, the mast and wire. The last
+shot IS the file's range limit: the dish at 60-65 deg of swing, where `deadTan_at_ym` puts the wire's dead point (61.7),
+the sun not on the horizon but ~28 deg up (`lowestSun_tan_at_ym`: tan 0.538). A lower sun is out of the wire's reach on
+this mast. The video is complete: fifteen sections, 201 declarations, no sorry; source
+https://www.youtube.com/watch?v=5rIKy5frygw. What the video did not give, listed at the end of the file's header: the
+receiver's base and the coil (temporary), the winch's drum and ratios, the wire's diameter, the bolts' grade, the bronze
+pulley, the sensor's precision and the circuit's logic, the battery. Frames folder: 221.
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
