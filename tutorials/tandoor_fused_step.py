@@ -197,7 +197,8 @@ class FusedState:
         self.ip = torch.tensor([B, N, NB, e.N_HEADS, self.NS, OD, 0,
                                 int(getattr(e, "sticky_k", 0)), nd,
                                 int(getattr(e, "form_min", 1)),
-                                int(bool(getattr(e, "night_carry", 0)))],
+                                int(bool(getattr(e, "night_carry", 0))),
+                                1],                # ip[11]: motors integrated on the host (fused_full_step)
                                dtype=torch.int32, device=dev)
         S_ = int(getattr(e, "N_SURF", 1)); L = e._pts_l.shape[0] // S_     # levels per surface block, blocks installed
         self.tdims = torch.tensor([B, self.P, L, N + e.n_belt, S_],
@@ -255,6 +256,32 @@ def fused_full_step(env, actions):
     lib = env._metal.lib
     env._mnt_prm[0] = float(env.t_solar[0])
     F.ip[6] = int(env.tick)          # the cook's hash clock
+    a = actions if torch.is_tensor(actions) else \
+        torch.as_tensor(np.asarray(actions), device=dev)
+    # .contiguous() is LOAD-BEARING: sample_logits returns action.T, a
+    # non-contiguous (NH,B)-strided view; reshape((B,NH)) is a no-op on
+    # it and .to() preserves the transposed strides, so the megakernel
+    # (which reads act + b*NH assuming row-major) gets every agent's
+    # heads scrambled - motors read the wrong head, drift off-sun, and
+    # the whole sampled-rollout collect loop trains on garbage while
+    # greedy (contiguous argmax) looks fine. Cost measured: champion
+    # sampled 2213 guillotine cuts vs 0 with this line.
+    a32 = a.reshape(B, env.N_HEADS).to(
+        device=dev, dtype=torch.int32).contiguous()
+    rn, ru = F.draw()                # drawn here, not below: nothing in between touches _gen
+    # THE MOTORS MOVE BEFORE THE MOUNT IS SOLVED. The solve is its own launch, ahead of
+    # step_pre, and step_pre is where the kernel integrated the motor command - so the solve
+    # saw the mount as LAST step's command left it, and the trace was handed geometry one
+    # command stale together with a pointing error taken after the move. The eager twin had
+    # the same fault (tandoor_gpu_step.py) and the numpy twin never did; measured at up to
+    # 40 percent of the traced power per agent, 2 kW at a step. This is the kernel's own
+    # integration, line for line (metal_kernel step_pre, guarded there by ip[11]), on the
+    # views into st the kernel reads, with the same two noise slots rb[0], rb[1].
+    _rate = env._fct[:, 44]
+    _r_az = ((a32[:, 3].clamp(0, 6) - 3).float() / 3.0) * F.sp[2] * _rate
+    _r_el = ((a32[:, 4].clamp(0, 6) - 3).float() / 3.0) * F.sp[3] * _rate
+    F.az_m.copy_(F.az_m + _r_az * F.sp[0] + 0.02 * rn[:, 0])
+    F.el_m.copy_((F.el_m + _r_el * F.sp[0] + 0.02 * rn[:, 1]).clamp(F.sp[14] - 2.0, F.sp[15] + 1.0))
     mnt = env._metal.mount(F.day_v, F.lat_v, env._mnt_prm, B,
                            pnt=torch.stack([F.el_m, F.az_m], 1),
                            fct=env._fct)
@@ -268,19 +295,6 @@ def fused_full_step(env, actions):
     dsn = (torch.cat([env._dsn_t, env._hz_obs(aux[:, 1])], 1).contiguous()
            if env._dsn_t.shape[1] == env.N_DESIGN and (getattr(env, "design_rand", 0) or getattr(env, "site_rand", 0)) else env._dsn_t)
     env.t_solar += env.dt / 3600.0
-    a = actions if torch.is_tensor(actions) else \
-        torch.as_tensor(np.asarray(actions), device=dev)
-    # .contiguous() is LOAD-BEARING: sample_logits returns action.T, a
-    # non-contiguous (NH,B)-strided view; reshape((B,NH)) is a no-op on
-    # it and .to() preserves the transposed strides, so the megakernel
-    # (which reads act + b*NH assuming row-major) gets every agent's
-    # heads scrambled - motors read the wrong head, drift off-sun, and
-    # the whole sampled-rollout collect loop trains on garbage while
-    # greedy (contiguous argmax) looks fine. Cost measured: champion
-    # sampled 2213 guillotine cuts vs 0 with this line.
-    a32 = a.reshape(B, env.N_HEADS).to(
-        device=dev, dtype=torch.int32).contiguous()
-    rn, ru = F.draw()
     lib.step_pre(F.lv, F.st, a32, rn, ru, F.sp, F.ip, aux, F.day_v,
                  F.lat_v, env._mnt_prm, F.sigb, F.dvec, F.off, F.aim,
                  F.per, env._fct, F.site)
@@ -403,10 +417,14 @@ def _day_over(env, F, infos):
         S.T_sand.copy_(newT[:, NBb:NBb + 2, None].expand(B, 2, KSAND))
         S.T_halo.copy_(torch.where(warm, 395.0 + 20.0 * S.u(B),
                                    torch.full((B,), 300.0, device=dev)))
+    # load_timer, stowed and bore were missing from this list (numpy zeroes all three, polar_env
+    # day-over): the load timer then ran one step out of phase with the eval path for the whole
+    # of the next morning, and a dish stowed at sunset stayed stowed - and dark - into the new day
     for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                "ep_len", "bread_E", "bread_t", "bread_C",
                "form_time", "wind_g", "cloud", "p_dist",
-               "day_rotis", "orders", "shelf", "sold"):
+               "day_rotis", "orders", "shelf", "sold",
+               "load_timer", "stowed", "bore"):
         getattr(S, nm).zero_()
     # the dawn routine's book: the minutes and the charge land in the new day
     S.form_time.copy_(need_dawn.float() * float(getattr(env, "form_min", 4)))
@@ -436,7 +454,10 @@ def _day_over(env, F, infos):
         # the carry-over the figure persists and the re-form is PAID
         S.decl_formed.copy_(23.44 * torch.sin(
             2.0 * np.pi * (284.0 + S.day_v) / 365.0))
-    S.soil.copy_(0.90 + 0.08 * S.u(B))
+    # the day's soiling: numpy's uniform(0.85, 1.0) (polar_env day-over). Both GPU twins had it
+    # as 0.90 + 0.08 u - a narrower, higher band, mean 0.94 against 0.925 - so every day after
+    # the first traced 1.6 percent more power on the training path than on the eval path.
+    S.soil.copy_(0.85 + 0.15 * S.u(B))
     S.el_m.copy_((el1 + 0.3 * S.n(B)).clamp(env.el_min_h,
                                             env.el_max_h))
     S.az_m.copy_(az1d + 0.3 * S.n(B))

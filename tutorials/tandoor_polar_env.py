@@ -1068,7 +1068,7 @@ class TandoorPolarEnv(TandoorEnv):
                     self.T_sand[i] = self.T[i, self.n_belt:self.n_belt + 2, None]
                     self.T_halo[i] = (self.rng.uniform(395, 415)
                                       if warm_i else 300.0)
-                self._belt_prev[i] = self.T[i, : self.n_belt].mean()
+                self._belt_prev[i] = self.T[i, : self.n_belt].max()     # the per-step rule (:1006) and both GPU twins take the max; .mean() here was the one exception
                 self.p_set[i] = self.p_act[i] = self.p0
                 self.f_locked[i] = self.p0
                 self.jammed[i] = True

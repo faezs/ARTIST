@@ -1194,9 +1194,18 @@ kernel void step_pre(
         s[S0+22] = clamp(s[S0+22] + r_ph*PI_/180.0f*dt, sp[6] - mk_phw, sp[6] + mk_phw);
         s[S0+23] = clamp(s[S0+23] + r_zz*dt, sp[8], sp[9]);
     }
-    s[S0+15] = s[S0+15] + r_az*dt + 0.02f*rb[0];
-    s[S0+14] = clamp(s[S0+14] + r_el*dt + 0.02f*rb[1],
-                     sp[14] - 2.0f, sp[15] + 1.0f);
+    // ip[11] == 1: the HOST has already integrated this step's motor command into
+    // s[S0+14..15] (tandoor_fused_step.fused_full_step), so that the mount solve - a
+    // separate launch that runs BEFORE this kernel - sees the mount where the command
+    // left it. Until 2026-09-17 the solve saw last step's angles and handed the trace
+    // one-command-stale geometry alongside a fresh pointing error (the same fault the
+    // eager twin had at tandoor_gpu_step.py). The two lines below are the original,
+    // kept for a caller that launches step_pre on its own.
+    if (ip[11] == 0) {
+        s[S0+15] = s[S0+15] + r_az*dt + 0.02f*rb[0];
+        s[S0+14] = clamp(s[S0+14] + r_el*dt + 0.02f*rb[1],
+                         sp[14] - 2.0f, sp[15] + 1.0f);
+    }
     float e_el = s[S0+14] - el0;
     // ON THE CIRCLE (2026-09-11): the mount's azimuth runs on continuously while the
     // sun's comes wrapped to [0, 360) in the SITE's frame (mount_solve), so on a roof

@@ -3457,7 +3457,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             for nm in ("ep_rotis", "ep_scorch", "ep_spall", "ep_return",
                        "ep_len", "bread_E", "bread_t", "bread_C",
                        "form_time", "wind_g", "cloud", "p_dist",
-                       "day_rotis", "orders", "shelf", "sold"):
+                       "day_rotis", "orders", "shelf", "sold",
+                       "load_timer", "stowed", "bore"):     # the numpy twin zeroes these three too
                 setattr(S, nm, torch.zeros_like(getattr(S, nm)))
             S.form_time = need_dawn.float() * float(self.form_min)
             S.ep_return = S.ep_return - 0.02 * self.form_min * need_dawn.float()
@@ -3477,7 +3478,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             if not getattr(self, "night_carry", 0):
                 S.decl_formed = 23.44 * torch.sin(
                     2.0 * np.pi * (284.0 + S.day_v) / 365.0)
-            S.soil = 0.90 + 0.08 * S.u(B)
+            S.soil = 0.85 + 0.15 * S.u(B)     # the day's soiling, the numpy twin's uniform(0.85, 1.0) (polar_env day-over)
             S.el_m = (el1 + 0.3 * S.n(B)).clamp(self.el_min_h,
                                                 self.el_max_h)
             S.az_m = az1d + 0.3 * S.n(B)
