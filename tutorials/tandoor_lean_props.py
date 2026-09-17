@@ -1995,6 +1995,75 @@ def _(seed, receiver, lat, doy, hour, label):
     return ok, ("the 90 % blur budget by pointing error [mrad]: " + ", ".join(f"{pe:.2f} deg -> {fmt(bb)}" for pe, bb in zip(P, b)))
 
 
+
+# =====================================================================================
+# ReceiverCapture.lean, the Decision section - the film figure and the tracker as one allocation
+# =====================================================================================
+DEC = suite("ReceiverCapture.lean, the decision - the figure and the tracker as one allocation of the margin")
+
+
+@DEC.prop("the budget line is the frontier of the affordable pairs: nothing affordable dominates a point on it, and every pair short of it is dominated",
+          lean="ReceiverCapture TandoorCapture.not_dominated_of_onLine, dominated_of_lt_line, feasible_convex",
+          gens=dict(L=floats(0.1, 20.0), m=floats(0.1, 20.0), M=floats(0.5, 50.0), t=floats(0.0, 1.0),
+                    u=floats(0.0, 1.0), v=floats(0.0, 1.0), seedp=ints(0, 1 << 20)), n=400)
+def _(L, m, M, t, u, v, seedp, label):
+    line = (t * M / L, (1 - t) * M / m)                      # alloc t: on the line
+    rng = np.random.default_rng(seedp)
+    # a random affordable pair, and a random pair strictly inside
+    P = rng.uniform(size=(200, 2)) * np.array([M / L, M / m])
+    aff = P[(L * P[:, 0] + m * P[:, 1]) <= M]
+    dom = lambda a, b: a[0] <= b[0] and a[1] <= b[1] and (a[0] < b[0] or a[1] < b[1])
+    label("affordable draws", "many" if len(aff) > 50 else "few")
+    if any(dom(line, q) for q in aff):
+        return False, f"an affordable pair dominated the line point {line}"
+    inside = (u * M / L * 0.5, v * M / m * 0.5)               # strictly inside (at most half the margin)
+    if inside[0] + inside[1] == 0: return True
+    k = M / (L * inside[0] + m * inside[1]); onl = (k * inside[0], k * inside[1])
+    if not (abs(L * onl[0] + m * onl[1] - M) < 1e-9 * M and dom(inside, onl)):
+        return False, f"the pair {inside} short of the line was not dominated by its ray's line point {onl}"
+    # and the triangle is convex: a mix of two affordable pairs is affordable
+    if len(aff) >= 2:
+        a, b = aff[0], aff[1]; lam = rng.uniform(); mix = lam * a + (1 - lam) * b
+        if L * mix[0] + m * mix[1] > M + 1e-9 * M or mix.min() < -1e-12:
+            return False, "a mix of two affordable pairs was not affordable"
+    return True
+
+
+@DEC.prop("the cheapest affordable allocation lies on the line, and stopping short is never cheaper",
+          lean="ReceiverCapture TandoorCapture.exists_decision, line_no_dearer",
+          cover={"optimum": {"interior": 0.3}},
+          gens=dict(L=floats(0.1, 20.0), m=floats(0.1, 20.0), M=floats(0.5, 50.0),
+                    a=floats(0.1, 10.0), b=floats(0.1, 10.0), ka=floats(0.3, 3.0), kb=floats(0.3, 3.0)), n=300)
+def _(L, m, M, a, b, ka, kb, label):
+    # a tracker costs more the tighter it must point, a film more the finer its figure: antitone costs
+    cT = lambda p: a / (p + 0.05) ** ka
+    cF = lambda s: b / (s + 0.05) ** kb
+    n = 80
+    ps = np.linspace(0, M / L, n); ss = np.linspace(0, M / m, n)
+    Pg, Sg = np.meshgrid(ps, ss, indexing="ij")
+    feas = L * Pg + m * Sg <= M * (1 + 1e-12)
+    cost = np.where(feas, cT(Pg) + cF(Sg), np.inf)
+    i, j = np.unravel_index(np.argmin(cost), cost.shape)
+    spent = (L * Pg[i, j] + m * Sg[i, j]) / M
+    # the grid's line is the last feasible diagonal: within one cell of the margin
+    tol = max(L * (ps[1] - ps[0]), m * (ss[1] - ss[0])) / M
+    label("optimum", "interior" if 0 < i < n - 1 and 0 < j < n - 1 else "at an end")
+    if spent < 1 - tol - 1e-9:
+        return False, f"the cheapest affordable allocation spent only {100 * spent:.1f} % of the margin"
+    # and scaling any interior pair up to the line never costs more
+    q = (0.3 * M / L, 0.3 * M / m); k = M / (L * q[0] + m * q[1])
+    return cT(k * q[0]) + cF(k * q[1]) <= cT(q[0]) + cF(q[1]) + 1e-12, "the line point on a pair's ray cost more than the pair"
+
+
+@DEC.prop("one number decides both: the allocation's readings lie on the line and are affordable for every share",
+          lean="ReceiverCapture TandoorCapture.alloc_onLine, alloc_feasible",
+          gens=dict(L=floats(0.1, 20.0), m=floats(0.1, 20.0), M=floats(0.0, 50.0), t=floats(0.0, 1.0)), n=400)
+def _(L, m, M, t, label):
+    p, sg = t * M / L, (1 - t) * M / m
+    label("share", "all tracker" if t > 0.95 else ("all figure" if t < 0.05 else "mixed"))
+    return abs(L * p + m * sg - M) <= 1e-9 * max(M, 1.0) and p >= 0 and sg >= 0, f"alloc {t:.3f} -> ({p:.4g}, {sg:.4g}) spends {L * p + m * sg:.6g} of {M:.6g}"
+
+
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
