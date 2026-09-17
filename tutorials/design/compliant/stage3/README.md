@@ -413,6 +413,46 @@ bar (the carriage bar's own stock) lies across the rails and the mast stands on 
 `hashemiOutrigger` (root 0.98, standStation 1.22, endStation ~1.35, endWidth ~0.25 - the last two the roughest),
 `ym_is_standStation` (ym IS the cross member's station), `mast_beyond_ring` (the mast's foot apexH + ym = 2.02 m from
 the tube, beyond the ring's 1.22: "outside the circular axis of the base"). 186 declarations, no sorry.
+24:10-26:40, THE TRACKER, THE AZIMUTH MOTOR, THE TOW HOLDING THE DISH. "It's time to install the tracker ... the control
+circuit inside the control box are in the previous videos ... For the fixed focus system, you must use a precise solar
+tracker ... it must be installed on top of the solar dish in a way that is perpendicular to the plane of the dish ... a
+small 12 volt electric motor with a gearbox ... can perform the horizontal movement ... Now I will remove the obstacle
+that I have placed to hold the dish up, you can see that the tow is holding it up. Since the system circuits are not
+connected at the moment, I lower the dish with a battery and connecting it to a vertical electric motor." The frames: a
+sun SENSOR (a short tube, aperture at one end, on a bracket) fixed to the rim at the TOP of the dish - the mast-side
+edge - with its axis along the dish's axis, cable to the box: THE LOOP CLOSES ON THE DISH'S OWN POINTING. The azimuth
+motor (12 V + gearbox) on a bracket at the bar's end by the panel, its roller on the ring (`rDrive`). The dish swung up,
+back to the mast, propped by a pipe; the pipe comes away and the WIRE HOLDS IT; then he lowers it with a battery straight
+on the winch (gravity return, `wire_taut_iff`). `TrackerBudget`/`trackerBudget_iff` ("precise" as a number: the sensor's
+error incl. mounting misalignment is a dish pointing error, spot f eps <= h <=> tan eps <= h/f; what the loop cannot see:
+anything that moves F rather than the axis - nut mismatch, post lean - stay one-time alignments), `systemVolts` 12,
+`panel_current` (<0.5 A), `wireLever_edge_formula`, `wireLever_sixty_at_ym` (the arm at 60 deg with ym 1.22: 0.38 m,
+down from 1.03 at rest, two degrees short of the dead point; tension there ~2.3 W rcm ~ twice the dish's weight;
+proof via three interval lemmas `mul_bounds_neg_pos`/`mul_bounds_pos_pos`/`sq_bounds_neg` - the one-shot nlinarith
+version timed out).
+26:40-28:30, THE START, THE RECEIVER ON ITS POST THROUGH THE SLOT, THE SHADOW TEST - the file's oldest open question
+answered. "Now our dish is in horizontal position ... connect the interface cables in the control box and then start the
+system ... the weather is cloudy and we will test it on a sunny day. Now I started the system and you can see that it is
+working and the dish is perpendicular to the sunlight ... I have used an old copper spiral tube with an additional base as
+a focus. Because our solar dish is made of 5 cm mirrors, so its focus width is more and I have to use a bigger spiral
+tube. The center of the focus shadow on the dish should be in the center of the dish. Now the sun is almost at the
+highest point and because of that, the focus heat is more. You can see that the small dc motor is activated and returns
+the moving part to the first position. The heat of the focus is high and if I apply Electrical Contact Cleaner Spray
+to it, it produces a lot of smoke." The frames: the RECEIVER is a copper spiral coil ~12 cm across on a vertical pipe
+("an additional base") rising to F; the dish's face has a SLOT in the mosaic from its centre to the sun-side rim - the
+strip of 16:5x was its cover - and the post passes through it: THE RECEIVER RIDES THE CARRIAGE, F with it (the roof-fixed
+receiver of `focus_on_axis` is not what he built; section 6's open question closed). The coil's shadow at the dish's
+centre is his alignment check; at noon the coil glows and contact cleaner smokes. `rim_under_F_iff`, `slot_exit_hashemi`:
+the post is straight below F, so it leaves the dish through the sun-side rim exactly when that rim point is straight
+below F - tan t = a/FH = 0.96, 43.8 DEG OF SWING (sun 46 deg up), the same swing at which the rim is deepest
+(`edgeDepth_le`); higher sun the post is inside the panel and needs the slot, lower the dish hangs beside it - so the
+slot runs centre to rim, as built. `facetSpot`/`facetSpot_hashemi` (a flat 5 cm facet's beam does not converge: 5 cm +
+9.3 mrad x 1 m = 6 CM at F, hence "a bigger spiral tube"), `tracker_margin_hashemi` (a 12 cm coil over a 6 cm spot
+leaves 3 cm: the tracker's budget tan eps <= 0.03, 1.7 deg - what "precise" comes to). 200 declarations, no sorry.
+NOT here: the receiver's base (on the carriage by the physics), the coil's size/plumbing, the winch's drum and ratios,
+the wire's diameter, the bolts' grade, the bronze pulley's role, the sensor's precision and the circuit's logic (the
+"first position" it returns to), the battery. Frames folder: 214 (the 26:40-28:30 batches arrived mid-turn; not yet in
+the transcript).
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
