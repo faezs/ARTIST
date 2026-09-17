@@ -399,6 +399,20 @@ a right-hand thread advances the same way about the same turn whichever way its 
 nut + eyes, read off the frames) carry half the dish each in bending on the thread's minor diameter 10.1 mm: a dish
 under 100 kg is UNDER 160 MPa, inside a grade-4.6 bolt's 240 MPa (factor 1.5 at 100 kg, five at the 30 kg a man
 carries; the grade is not given). 177 declarations, no sorry.
+YM CALCULATED (the user: "calculate ym"; then "your Hashemi.lean should have the geometry of the frame and the little
+appendage this one is sitting on"). Two frames shot along the bar (20:50 "we use a level", 20:55 "place this alignment")
+put the outrigger across the image with the mast's own 1.59 m as the scale at the bar-midpoint depth: the mast's foot
+312 px from the bar's midpoint at 255 px/m -> 1.22 m; 285 px at 230 px/m -> 1.24 m. `ymHashemi` = 1.22 m (a decimetre
+either way) - right at the floor `MastClears` sets (1.155 + the mast's half-width + a hand): he put the mast as close as
+the swinging dish allows. `mastClears_hashemi`; `deadTan_at_ym` (tan t* 1.859-1.86: 61.7 deg of swing), `wireLeft_at_ym`
+(11 cm of wire between clip and pulley at the dead point), `wireLever_rest_at_ym` (1.03 m - the wire nearly tangent to
+the clip's circle); the winch takes in ~1.13 m over the swing; lowest sun 28 deg. THE APPENDAGE: frame 14:29 shows the
+outrigger plainly - two rails leaving the bar at the A's feet (`aBase` 0.98 apart), tapering over ~1.35 m to a narrow end
+~0.25 m across (the bronze pulley there, the winch later), a bolted cross member part-way where the stand's 1.84 m foot
+bar (the carriage bar's own stock) lies across the rails and the mast stands on the centreline. `OutriggerGeom`,
+`hashemiOutrigger` (root 0.98, standStation 1.22, endStation ~1.35, endWidth ~0.25 - the last two the roughest),
+`ym_is_standStation` (ym IS the cross member's station), `mast_beyond_ring` (the mast's foot apexH + ym = 2.02 m from
+the tube, beyond the ring's 1.22: "outside the circular axis of the base"). 186 declarations, no sorry.
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
