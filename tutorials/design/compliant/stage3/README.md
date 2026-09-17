@@ -705,3 +705,12 @@ homotopy at the same vertex curvature, 92.4 (paraboloid) -> 96.4 (the film) -> 1
 pointing budget unchanged (half power 0.74 vs 0.75 deg: the strip's acceptance sets it). So the sphere end is worth a
 fifth at the pot and pressure cannot reach it: the shaping control is the rim (tension, the strings), which is the
 learning problem's real knob on tri, with the fitted k per level as the observation. 24/24 measured theorems.
+
+THE RIM-SHAPING FAMILY THROUGH THE TRI TRAIN (2026-09-18, the user: "why not use nurbs"). bridge/film_family.py: the film's
+zoned solve (per-zone pressures, the K-DOF adaptive mirror already in solve_membrane) at several laws, re-bisected to f
+4.05, fitted into ARTIST NURBS control points warm-started from the working level (600 epochs, 5 s each on MPS),
+evaluated at the env's aperture and consumed by the trace. trace_check section F: the design's own law refit reproduces
+the recorded working level to 0.0002 % (the pipeline is exact); every other member loses at the same f - uniform 48,
+law 0.2/0.6/0.8 -> 83/76/47, rim x0.6/x1.4 -> 85/73, a ring pressed in 35, against 96 - the zoned law is a sharp optimum
+for the strip and M4 as built, the only admissible member at 5 %. Caveat in the record: far shapes' fits converged worse
+(20-45 mdeg mean slope error vs 12, local maxima > 1 deg), so part of the loss is fit noise. 27/27 measured theorems.

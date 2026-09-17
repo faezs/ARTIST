@@ -152,6 +152,41 @@ needs a shaping boundary - the rim tension, the strings of the user's descriptio
 the learning problem's real control on the tri machine, with the traced capture at the pot as the
 reward and the fitted k per level as the observation.
 
+## The day as a path, and the rim-shaping family (27 measured theorems)
+
+**The admissible set is a path.** The film's seven recorded pressure levels through the tri train,
+tracked exactly at each hour: the best level is 5 at every hour, not the design's 4, which is 17 to
+20 % below at midday and within 5 % only in the morning and afternoon; levels 0 to 2 capture nothing.
+The admissible set is an interval at every hour, so the day's path is one class: {4, 5}, then {5},
+then {4, 5}.
+
+**Every receiver is a train** (`lean/Feedback.lean`): a ray with a stage and a fate, a step that
+lets the stage's surface set a fate or pass the ray on, and the theorems `train_done` and
+`train_fixed`: after as many steps as there are surfaces every ray has a fate and the iterate is
+stationary. The kernel's fixed sequence of surfaces is that fixed point, and "every ray has one
+fate" is it measured.
+
+**The rim-shaping control as a NURBS family** (`bridge/film_family.py`): the film's own zoned solve
+at per-zone pressures, re-bisected to the design focal length, fitted into ARTIST control points
+warm-started from the working level, evaluated at the env's aperture, consumed by the trace.
+
+| control (f held at 4.05 m) | power at the pot, m² per unit DNI |
+|---|---|
+| uniform pressure (zoned law at 0) | 48.0 |
+| zoned law at 0.2 | 82.8 |
+| **zoned law at 0.4, the design** | **96.1** (refit of the record: 96.103 vs 96.103) |
+| zoned law at 0.6 | 76.2 |
+| zoned law at 0.8 | 46.7 |
+| rim zone pressed softer (x0.6) | 85.1 |
+| rim zone pressed harder (x1.4) | 73.0 |
+| a ring pressed in, one zone short of the rim | 35.3 |
+
+The design's zone law is a sharp optimum for the strip and M4 as built: at 5 % it is the only
+admissible member of this family. Caveat kept with the numbers: the fits of shapes far from the
+warm start converged worse (20 to 45 mdeg mean slope error against 12 for the baseline, local
+maxima over a degree), so part of those losses is fit noise; the baseline's exactness is the
+method's, the far shapes want longer fits from their own warm starts.
+
 ## The homotopy: from the paraboloid to the sphere, without a film model
 
 The user's problem (2026-09-18): the sphere is the fixed-point set of the rotations about its

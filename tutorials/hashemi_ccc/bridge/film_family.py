@@ -62,7 +62,7 @@ def main():
     f_design = float(env.f_nom)
     dev = env.device
     mem = env.primary.membrane
-    ctrl0 = mem.ctrl[4].clone()                                  # the working level's control points
+    ctrl0 = mem.ctrl[4].detach().clone().to(_sim.DEVICE)        # the working level's control points, on the fitter's device
     u = torch.as_tensor(env._hx / (2 * a) + 0.5, dtype=torch.float32).clamp(1e-5, 1 - 1e-5).to(dev)
     v = torch.as_tensor(env._hy / (2 * a) + 0.5, dtype=torch.float32).clamp(1e-5, 1 - 1e-5).to(dev)
     print(f"zones {K}, a {a}, f_design {f_design:.3f}, p0 {env.p0:.1f}, ctrl {tuple(ctrl0.shape)}, aperture {len(env._hx)} samples")
