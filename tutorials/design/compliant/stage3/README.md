@@ -602,3 +602,29 @@ deterministic, and can emit `eval (ccc f) = f` as a theorem; (2) Lean's source c
 same translator reads Props into Bool nodes - nothing in Core corresponds. The Lean translator for the first-order
 fragment is a few hundred lines, not 2300: the 2300 are casts, dictionaries and simplifier interleaving.
 
+IMPLEMENTED (2026-09-17, the user: "implement it", then "I want a puffer env megakernel"). tutorials/hashemi_ccc/.
+THE COMPILER: RequestProject/Ccc.lean (~600 lines, mirrored in hashemi_ccc/lean/): `translate` walks a definition's
+Expr - fvar / letE (zeta) / proj / app - into a hash-consed graph (`Node`: input lit bconst pi un bin pow ite; `Val`:
+real bool pair vec struct), with the vocabulary as the match on the head constant (HAdd.hAdd ... Real.sqrt ... Prod.mk
+... Matrix.vecCons ... ite ... LT.lt ... ∀ i : Fin n unrolled), user definitions unfolded by `unfoldDefinition?` +
+headBeta, structure constructors read field by field (proofs skipped), instance projections resolved against the
+constructor, `bindInput` turning binders of type ℝ / ℝ×ℝ / Fin n → ℝ / a structure into flattened inputs that carry
+both a C name and a Lean access path. Printers: C99, dot, Lean-ℝ (the round trip), Lean-Float (the twin), NumPy.
+Driver RequestProject/HashemiCcc.lean: `#eval` at `lake build` over the namespace, writing the artifacts. The step:
+RequestProject/HashemiStep.lean - `TandoorHashemi.step` composed from the spec (dL/dt = -wireLever, so the swing
+per step is `elRate` and the dead point a clamp; `deadPoint`, `slotExit`, `leverAt`, `stepParams`), 13 outputs.
+BUGS MET, ALL FIXED: `b` as a pattern variable inside `def Val.flatten` resolves to the constructor `Val.b` (the
+namespace is open there); ℝ is itself a Mathlib `structure`, so "unfold a structure instance" must key on the
+body's head being a constructor, not on the type; double-backtick name literals are checked at elaboration, so a
+module that does not import Mathlib uses single backticks; Greek binder names (ε δ ωm) must be transliterated for C
+and kept for Lean; `Float.toString` prints six digits - the twin prints `Float.toBits`; `Float.sqrt x` as an argument
+needs parentheses; `=` on ℝ is a tolerance in floats (four exact-equality checks fail bitwise otherwise); MSL needs
+`thread` on pointer parameters (`HK_ADDR`); a generated file must import what it names or the names become
+auto-bound variables and `rfl` "fails". VERIFIED: 127 compiled (72 defs, 7 props, 48 theorem checks), 74 skipped
+(∀-quantified theorems, one higher-order Prop); round trip 0 errors - 79 `theorem f_ccc : f = ⟦ccc f⟧ := rfl`
+kernel-checked; C(double) vs Float twin 381/381 samples; 48/48 theorem checks true in double; Metal `hashemi_step`
+(torch.mps.compile_shader, one thread per agent, the header under MSL macros) vs the NumPy twin: max rel err 2.6e-6
+over 4096 agents. NOT DONE: the ∀-theorems as property functions; wiring `hk_step` into tandoor_hashemi_env.py /
+the puffer env (replacing its mount for the Hashemi config, generating the MECHW row from `yaw`/`screwTwist`) -
+a change to the RL env's step that wants the user's choice of hook.
+
