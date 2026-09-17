@@ -4792,21 +4792,26 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 wp = Pf_*[1,1,0] + [0,0,z_beam] + sgn*R_ring*hdir
                 ring(wp - [0,0,0.06], 0.10, (200,180,140,255), 10)
             ring([self.X_TOWER_C, 0, z_beam], 0.22, colc, 12)   # the collar
-            # ---- ELEVATION: TWO A-FRAMES TO THE SIDES, THE TRUNNION
-            # AXIS THROUGH F BETWEEN THEIR APEXES.  The two tall braced
-            # posts stand on the TURNING beam, one to each side of the
-            # dish, and the axis their apexes carry is the horizontal line
-            # through F.  The dish hangs off that axis on a yoke one focal
-            # length long, so its vertex rides the focus circle and F does
-            # not move.  Compose that with the beam turning on the red
-            # hoop and the dish has its two degrees of freedom over the
-            # focal sphere.  The FOUR THREADED RODS are not a linkage:
-            # they are the one-time setting.  "The length of the screw
-            # passed from the edge of the dish should be such that the
-            # focus distance from the centre of the dish is the same in
-            # all cases" - they stand the rim beam off its cradle, nutted
-            # above and below, and you turn the nuts until the dish is
-            # tangent to the focus circle.  Then you leave them alone.
+            # ---- ELEVATION: TWO BRACED POSTS AT F, THE TRUNNION AXIS
+            # THROUGH F BETWEEN THEIR APEXES.  The posts stand upright on
+            # the TURNING beam under F, one to each side and no wider than
+            # the rim, so the axis their apexes carry is the horizontal
+            # line through F and nothing of theirs ever crosses the
+            # mirror.  They are as tall as the focal length, which on this
+            # machine is 4 m against a 4.2 m dish - his yard unit is
+            # f 1 m against a 2 m dish, so his look half as tall for the
+            # same drawing.
+            # The dish hangs off that axis on two arms one focal length
+            # long, taken straight onto the RIM BEAM - there is no box
+            # behind the mirror.  Its vertex therefore rides the focus
+            # circle; compose that with the beam turning on the red hoop
+            # and the dish has its two freedoms over the focal sphere.
+            # The FOUR THREADED RODS are the one-time setting, not the
+            # motion: "the length of the screw passed from the edge of the
+            # dish should be such that the focus distance from the centre
+            # of the dish is the same in all cases".  They stand the rim
+            # beam off its two saddles, nutted above and below, and you
+            # turn the nuts until the dish is tangent to the focus circle.
             el_r = np.radians(H.get("el_b", H["el"]))
             Cd_ = np.asarray(H["C"])
             n_d = np.asarray(H["naim"] if "naim" in H else H["n"], float)
@@ -4815,64 +4820,56 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             p_up = np.cross(n_d, p_side)
             p_up = p_up/max(np.linalg.norm(p_up), 1e-9)
             a_r = float(self.a_mem)
-            d_ax = a_r + 0.50                                # the posts clear the dish
-            frmc = (224, 222, 214, 255)
-            rodc = (198, 186, 156, 255)
-            sillc = Pf_*[1, 1, 0] + [0, 0, z_beam]
-            pr.draw_cylinder_ex(v3(sillc - d_ax*e_s), v3(sillc + d_ax*e_s),
-                                0.05, 0.05, 8, colc)         # cross member on the beam
+            frmc = (172, 164, 148, 255)          # the frame sits in the scene's palette,
+            rodc = (198, 186, 156, 255)          # not above it: it is not the subject
+            b_dish = Pf_*[1, 1, 0] + [0, 0, z_beam]          # the posts stand UNDER F
+            pr.draw_cylinder_ex(v3(b_dish - a_r*e_s), v3(b_dish + a_r*e_s),
+                                0.032, 0.032, 8, colc)       # the beam's cross member
+            PH = np.radians(28.0)
+            K_lo = None
             for sg_ in (1.0, -1.0):
-                apex = Pf_ + sg_*d_ax*e_s                    # ON the axis through F
-                sill = sillc + sg_*d_ax*e_s
-                pr.draw_cylinder_ex(v3(sill - 0.70*hdir), v3(sill + 0.70*hdir),
-                                    0.04, 0.04, 8, colc)     # the post's sill
+                apex = Pf_ + sg_*a_r*e_s                     # ON the axis through F
                 for s2 in (1.0, -1.0):                       # the A: two braced legs
-                    pr.draw_cylinder_ex(v3(sill + s2*0.70*hdir), v3(apex),
-                                        0.045, 0.045, 8, frmc)
-                ring(apex, 0.13, (200, 180, 140, 255), 10)   # the trunnion bearing
-            # the yoke: one arm each side, F out to the dish, and the
-            # cradle the dish sits on at its end
-            crd = Cd_ - 0.28*n_d
-            corn = [crd + (a_r/np.sqrt(2.0))*(sx*p_side + sy*p_up)
-                    for sx, sy in ((1, 1), (1, -1), (-1, -1), (-1, 1))]
-            for sg_ in (1.0, -1.0):
-                pr.draw_cylinder_ex(v3(Pf_ + sg_*d_ax*e_s),
-                                    v3(crd + sg_*(a_r/np.sqrt(2.0))*p_side),
-                                    0.055, 0.055, 8, frmc)
-            for k in range(4):
-                pr.draw_cylinder_ex(v3(corn[k]), v3(corn[(k + 1) % 4]),
-                                    0.040, 0.040, 8, frmc)
-            for k in range(4):                               # the four threaded rods
-                q_ = corn[k] + 0.28*n_d                      # through the rim beam
-                pr.draw_cylinder_ex(v3(corn[k]), v3(q_ + 0.07*n_d),
-                                    0.016, 0.016, 8, rodc)
-                ring(q_ + 0.04*n_d, 0.045, rodc, 8)          # nutted above
-                ring(q_ - 0.04*n_d, 0.045, rodc, 8)          # and below
+                    pr.draw_cylinder_ex(v3(b_dish + sg_*a_r*e_s + s2*0.45*hdir),
+                                        v3(apex), 0.022, 0.022, 8, frmc)
+                ring(apex, 0.10, (200, 180, 140, 255), 10)   # the trunnion bearing
+                qs = [Cd_ + a_r*(np.cos(PH)*sg_*p_side + s2*np.sin(PH)*p_up)
+                      for s2 in (1.0, -1.0)]                 # two points ON the rim beam
+                ss = [q_ - 0.22*n_d for q_ in qs]            # the saddle under them
+                pr.draw_cylinder_ex(v3(apex), v3(0.5*(ss[0] + ss[1])),
+                                    0.026, 0.026, 8, frmc)   # the arm, F out to the rim
+                pr.draw_cylinder_ex(v3(ss[0]), v3(ss[1]), 0.022, 0.022, 8, frmc)
+                for q_, s_ in zip(qs, ss):                   # the threaded rods
+                    pr.draw_cylinder_ex(v3(s_), v3(q_ + 0.07*n_d),
+                                        0.014, 0.014, 8, rodc)
+                    ring(q_ + 0.035*n_d, 0.038, rodc, 8)     # nutted above the rim
+                    ring(q_ - 0.035*n_d, 0.038, rodc, 8)     # and below
+                K_lo = ss[1] if K_lo is None else 0.5*(K_lo + ss[1])
             self._pot_lbls.append(
-                (crd - 0.55*p_up,
+                (Cd_ - (a_r + 0.35)*p_up,
                  "4 threaded rods: the one-time setting, not the motion - "
                  "their length puts the dish tangent to the focus circle",
                  rodc))
-            # THE DRIVE: the tow-wire loop of fig 17, taken off the low
-            # side of the cradle down to one drum on the turning beam. The
-            # network's elevation command is this loop, never a position
-            # on any rail; the two sides share the drum, so there is one
-            # command and no differential freedom, and an asymmetric load
-            # goes into the trunnion rather than into the drive.
-            K_ = 0.5*(corn[1] + corn[2])                     # the low edge of the cradle
-            foot_ = sillc + 0.60*R_ring*hdir
+            # THE DRIVE: the tow-wire loop of fig 17, off the low saddle
+            # down to one drum on the turning beam. The network's elevation
+            # command is this loop, never a position on any rail; the two
+            # sides share the drum, so there is one command and no
+            # differential freedom, and an asymmetric load goes into the
+            # trunnion rather than into the drive.
+            foot_ = Pf_*[1, 1, 0] + [0, 0, z_beam] + 0.60*R_ring*hdir
             rod = (186, 178, 150, 255)
             d_mm, p_cr, p_rod = self.el_link_mm()
             if str(getattr(self, "el_drive", "winch")) == "winch":
-                pr.draw_line_3d(v3(K_), v3(foot_), (176, 176, 186, 255))
-                ring(foot_, 0.17, (196, 170, 120, 255), 12)
+                pr.draw_line_3d(v3(K_lo), v3(foot_), (176, 176, 186, 255))
+                ring(foot_, 0.14, (196, 170, 120, 255), 12)
             else:
                 for sg_ in (1.0, -1.0):
-                    pr.draw_cylinder_ex(v3(K_ + sg_*0.6*e_s), v3(foot_ + sg_*0.6*e_s),
+                    pr.draw_cylinder_ex(v3(K_lo + sg_*0.5*e_s),
+                                        v3(foot_ + sg_*0.5*e_s),
                                         d_mm/1000.0, d_mm/1000.0, 8, rod)
-            pr.draw_cylinder_ex(v3(foot_ - 0.30*e_s), v3(foot_ + 0.30*e_s),
-                                0.11, 0.11, 10, (70, 70, 78, 255))
-            self._pot_lbls.append((foot_ + np.array([0, 0, 0.36]),
+            pr.draw_cylinder_ex(v3(foot_ - 0.22*e_s), v3(foot_ + 0.22*e_s),
+                                0.09, 0.09, 10, (70, 70, 78, 255))
+            self._pot_lbls.append((foot_ + np.array([0, 0, 0.30]),
                                    f"el drive: {self.el_drive} on the yoke, "
                                    f"sag {self.el_sag_deg(H):+.4f} deg", rod))
 
