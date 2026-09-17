@@ -61,6 +61,26 @@ cd ~/ARTIST-compliant/tutorials/hashemi_ccc
 5. **The theorems at the machine's states.** Through two days at Quetta, every one of the 106
    theorem columns of the row is 1 at every step of every agent.
 
+## Speed (`bench_kernels.py`, Apple GPU over MPS, single precision)
+
+| kernel | agents | per launch or step | per agent-step |
+|---|---|---|---|
+| `hashemi_mega`, the generated kernel: 226 columns, 315 inlined functions, the 24-step bisection | 8 192 | 0.30 ms | 37 ns |
+| same | 65 536 | 1.06 ms | 16 ns |
+| same | 262 144 and up | 3.2 ms per 262 144 | 12 ns (83 M agent-steps/s) |
+| the handwritten mount solve alone (`MetalGeo.mount`, one launch) | 8 192 | 0.29 ms | 36 ns |
+| `HashemiMachineEnv.step` (the generated kernel plus the sun, the observation and the reward in NumPy, host copies each step) | 8 192 | 4.2 ms | 506 ns |
+| `TandoorHashemiEnv.step` on hashemi.ini (the handwritten megakernel: motors, mount, 512-ray trace, thermal, reward) | 8 192 | 34.5 ms | 4 209 ns |
+| the NumPy twin of the row (the reference) | 8 192 | 24 ms | 2 971 ns |
+
+Like for like - the mount - the generated kernel costs what the handwritten launch costs (both are at
+the launch floor at 8 192 agents), while computing every definition and theorem of the file rather than
+one frame; at a quarter million agents it runs at 12 ns per agent-step. The tandoor step is a hundred
+times dearer per agent because it traces 512 rays per agent through three mirrors and steps a thermal
+pot; the Lean gives the mount, the loads and the optics as closed forms, which is why the row is cheap.
+The env around the generated kernel is fourteen times its kernel: the observation, the sun and the
+host-to-GPU copies are still NumPy, the next thing to move into the kernel.
+
 ## What the kernel does NOT take from Hashemi.lean
 
 Said in the code where it happens: the sun (the tandoor's `solar_position` and Meinel DNI); the
