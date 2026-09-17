@@ -450,6 +450,100 @@ def sceneChecks : IO (Array Check) := do
   let pe := total o[iPer]!
   cs := cs.push ⟨"the site turned 20 deg with the machine: the beam is the same but the receiver (fold, slot, horizon) does not turn - the power changes by the receiver's asymmetry, under 5 %",
     relDiff pe p0 < 0.05, s!"{fmt pe} vs {fmt p0}: {fmt (100.0 * relDiff pe p0)} % (his machine's coil rides the carriage: exact, above)"⟩
+  -- D. THE TRI PRIMARY ALONG THE HOMOTOPY. The trace takes the film's shape as buffers: the P
+  -- aperture points on the membrane per pressure level and their normals (the env's FvK/NURBS
+  -- solve). At lv = 4 the kernel reads level 4 alone. First the film's own conic constant is fitted
+  -- to those points (the pressure-to-shape chart, measured); then the level's points are replaced by
+  -- conics of the same vertex curvature along k, and the tri train - strip, M4, pot - is replayed.
+  let P := thr.size / B
+  let Lv := tIn[2]!.size / (P * 3)
+  let lvl := 4
+  let pts := tIn[2]!
+  let nrm := tIn[3]!
+  let base := lvl * P * 3
+  let mut xs : Array Float := #[]
+  let mut ys : Array Float := #[]
+  let mut zs : Array Float := #[]
+  for i in [0:P] do
+    xs := xs.push pts[base + 3 * i]!
+    ys := ys.push pts[base + 3 * i + 1]!
+    zs := zs.push pts[base + 3 * i + 2]!
+  let rs := (List.range P).toArray.map fun i => Float.sqrt (xs[i]! * xs[i]! + ys[i]! * ys[i]!)
+  let conic := fun (c k r : Float) => c * r * r / (1 + Float.sqrt (max (1 - (1 + k) * c * c * r * r) 0))
+  let mut bestRms := 1e300
+  let mut cFit := 0.12
+  let mut kFit := -1.0
+  for ik in [0:31] do
+    let k := -1.2 + 0.05 * ik.toFloat
+    for ic in [0:61] do
+      let c := 0.09 + 0.001 * ic.toFloat
+      let mut z0 := 0.0
+      for i in [0:P] do z0 := z0 + (zs[i]! - conic c k rs[i]!)
+      z0 := z0 / P.toFloat
+      let mut ss := 0.0
+      for i in [0:P] do
+        let e := zs[i]! - conic c k rs[i]! - z0
+        ss := ss + e * e
+      let rms := Float.sqrt (ss / P.toFloat)
+      if rms < bestRms then
+        bestRms := rms
+        cFit := c
+        kFit := k
+  cs := cs.push ⟨"the film's shape at the working level is a conic: the FvK/NURBS points fit the family to a fraction of a millimetre",
+    bestRms < 5e-4, s!"level {lvl} of {Lv}: c {fmt cFit} (R {fmt (1.0 / cFit)}, f {fmt (1.0 / (2.0 * cFit))}), k {fmt kFit}, rms {fmt (1e3 * bestRms)} mm - a near-paraboloid, not a sphere"⟩
+  -- the conic primary along k, the same vertex curvature, in the level's rows (4 and 5: the lerp)
+  let withConic := fun (k : Float) => Id.run do
+    let mut p := pts
+    let mut n := nrm
+    for row in [lvl, lvl + 1] do
+      if row < Lv then
+        let b := row * P * 3
+        for i in [0:P] do
+          let r := rs[i]!
+          let z := conic cFit k r
+          let g := cFit * r / Float.sqrt (max (1 - (1 + k) * cFit * cFit * r * r) 1e-18)   -- dz/dr
+          let (gx, gy) := if r > 1e-9 then (g * xs[i]! / r, g * ys[i]! / r) else (0.0, 0.0)
+          let nn := Float.sqrt (1 + gx * gx + gy * gy)
+          p := p.set! (b + 3 * i) xs[i]! |>.set! (b + 3 * i + 1) ys[i]! |>.set! (b + 3 * i + 2) z
+          n := n.set! (b + 3 * i) (-gx / nn) |>.set! (b + 3 * i + 1) (-gy / nn) |>.set! (b + 3 * i + 2) (1 / nn)
+    (p, n)
+  let ksT : Array Float := #[-1.0, -0.9, kFit, -0.5, -0.25, 0.0]
+  let mut powK : Array Float := #[]
+  for k in ksT do
+    let (p, n) := withConic k
+    let o ← runCall src trace (tIn.set! 2 p |>.set! 3 n)
+    powK := powK.push (total o[iPer]!)
+  let pFilm := powK[2]!
+  cs := cs.push ⟨"the conic at the film's fitted k reproduces the film's power through the tri train (strip, M4, pot): the family is the right one for the machine",
+    relDiff pFilm p0 < 0.03, s!"conic k {fmt kFit}: {fmt pFilm} vs the film's own points {fmt p0} m2 per unit DNI ({fmt (100.0 * relDiff pFilm p0)} %)"⟩
+  cs := cs.push ⟨"the tri train along the homotopy: the capture at the pot for the paraboloid, the film, and toward the sphere (same vertex curvature)",
+    true, "k " ++ toString (ksT.map fmt) ++ " -> power " ++ toString (powK.map fmt)⟩
+  -- the pointing cliff for the film (its k) and for the sphere end: the strip magnifies the figure
+  let mut halfK : Array Float := #[]
+  for k in ([kFit, 0.0] : List Float) do
+    let (p, n) := withConic k
+    let mut pp : Array Float := #[]
+    for d in degs do
+      let dr := d * 3.141592653589793 / 180
+      let o ← traceWith src mount trace mIn (tIn.set! 2 p |>.set! 3 n)
+        (fun m => m.set! mPnt (Id.run do
+          let mut q := m[mPnt]!
+          for b in [0:B] do q := q.set! (2 * b) (q[2 * b]! + d)
+          return q))
+        (fun t => t.set! iDvec (Id.run do
+          let mut v := t[iDvec]!
+          for b in [0:B] do v := v.set! (2 * b) (2 * fDesign * dr)
+          return v))
+      pp := pp.push (total o[iPer]!)
+    let q0 := pp[0]!
+    let mut halfD := 0.0
+    for i in [1:degs.size] do
+      if halfD == 0.0 && pp[i]! < q0 / 2.0 then
+        let (x0, x1, y0, y1) := (degs[i-1]!, degs[i]!, pp[i-1]!, pp[i]!)
+        halfD := x0 + (x1 - x0) * (y0 - q0 / 2.0) / (y0 - y1)
+    halfK := halfK.push halfD
+  cs := cs.push ⟨"the pointing budget along the homotopy: half power for the film's conic and for the sphere's",
+    true, s!"half power at {fmt halfK[0]!} deg (film, k {fmt kFit}) and {fmt halfK[1]!} deg (sphere, k 0)"⟩
   pure cs
 
 end TraceCheck

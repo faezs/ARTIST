@@ -694,3 +694,14 @@ wrong top module (auto-bound names, `rfl` "fails"); `Prod.fst` applied to a pair
 Float arithmetic in the check program. NEXT: the mega row's theorem columns fed by the traced capture; the FvK chart
 measured (pressure -> k) on the env's seven fitted levels; the admissible-k intervals across a day as the policy's
 target; the CPC lip's bounce bound (the first multi-bounce train, the fixed-point lemma's real case).
+
+THE TRI MACHINE ALONG THE HOMOTOPY (2026-09-18, the user: "the tri receiver configuration is paramount"). The tri trace
+takes the film as buffers (aperture points + normals per pressure level, the env's FvK/NURBS solve), so trace_check fits
+the conic family to the film and replays the train with conic primaries along k. MEASURED: the film at every level is a
+NEAR-PARABOLOID, k in -1.15..-0.80 (0.03-0.11 mm rms), pressure moving f from 4.85 to 3.91 m and k by a tenth - the env's
+comment "measurably nearer a sphere than a paraboloid" is wrong on the env's own solve; the conic at the fitted k
+reproduces the film's power through strip, M4 and pot to 0.3 %; and the capture at the pot RISES monotonically along the
+homotopy at the same vertex curvature, 92.4 (paraboloid) -> 96.4 (the film) -> 116.7 (the sphere), +21 %, with the
+pointing budget unchanged (half power 0.74 vs 0.75 deg: the strip's acceptance sets it). So the sphere end is worth a
+fifth at the pot and pressure cannot reach it: the shaping control is the rim (tension, the strings), which is the
+learning problem's real knob on tri, with the fitted k per level as the observation. 24/24 measured theorems.

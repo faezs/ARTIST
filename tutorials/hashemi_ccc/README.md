@@ -109,7 +109,7 @@ traced capture (`trace_rays` per agent per step) with the added model kept besid
 
 `bridge/export_scene.py` records one real dispatch of the handwritten tandoor kernels (the mount
 solve and the 31-buffer trace, hashemi.ini at 16 agents, deterministic) so `trace_check` can
-replay them with edited inputs. `lean/TraceCheck.lean` then measures, on the GPU, from Lean:
+replay them with edited inputs. `lean/TraceCheck.lean` then measures, on the GPU, from Lean (24 checks; the tri ones in the next section):
 
 | measured theorem | result |
 |---|---|
@@ -132,6 +132,25 @@ replay them with edited inputs. `lean/TraceCheck.lean` then measures, on the GPU
 The two days with the traced capture in the reward (64 agents, 15 s, the sensor loop): 38.6 MJ on
 the coil in June and 16.1 in December, against 67 and 31 under the added model; the 106 theorem
 columns still never false.
+
+## The tri machine along the homotopy (the receiver that matters)
+
+The tri train takes the film's shape as buffers: the aperture points on the membrane per pressure
+level and their normals, from the env's FvK/NURBS solve. `trace_check` fits the conic family to
+those points and replays the train with conic primaries of the same vertex curvature along k.
+
+| measured, through strip, M4 and pot | result |
+|---|---|
+| the film's shape at the working level is a conic | c 0.123 (f 4.065 m), k = -0.80, rms 0.087 mm: a near-paraboloid, not a sphere; over the seven levels k stays in -1.15..-0.80 while f runs 4.85 to 3.91 m, so pressure moves the curvature, not the conic constant |
+| the conic at the fitted k reproduces the film's power | 96.38 vs 96.10 m² per unit DNI, 0.29 % |
+| the capture at the pot along k, same vertex curvature | k -1: 92.4, -0.9: 93.9, -0.8 (the film): 96.4, -0.5: 103.9, -0.25: 111.7, 0 (the sphere): 116.7 - a 21 % gain the sphere end would give |
+| the pointing budget along k | half power at 0.736 deg (the film) and 0.750 deg (the sphere): the strip's acceptance, not the primary, sets it |
+
+So the homotopy parameter is the lever and the pressure is not the knob for it: pumping changes
+the focal length by a quarter and the conic constant by a tenth. Moving the film toward the sphere
+needs a shaping boundary - the rim tension, the strings of the user's description - and that is
+the learning problem's real control on the tri machine, with the traced capture at the pot as the
+reward and the fitted k per level as the observation.
 
 ## The homotopy: from the paraboloid to the sphere, without a film model
 
