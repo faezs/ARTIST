@@ -355,6 +355,23 @@ current not given). 149 declarations, no sorry. NOT here: where on the back the 
 from the bar (ym, zb); the wire's diameter; the bronze pulley's role; the battery's size and what the control circuit
 does; the slot; the receiver. Frames folder: 180 at 23:20 (the 23:03-24:10 batch arrived mid-turn; its transcript
 entry was not yet written when the extractor ran).
+THE USER'S TWO CORRECTIONS (2026-09-17, after 24:10). (1) The four hangers reach the edge nearest their post at the
+MIDDLE OF EACH HALF EDGE, y = +-a/2 = +-0.4 m, not the corners the wide shots suggested, each rod "at like a 60 degree
+angle" - the pair's V. Third value for the hanger: eye to hole sqrt(4.36 - 2 sqrt 3.2) = 0.884 m (`hangerLength_halfEdge`,
+`hangerLength_bounds`; F-C 1.155 was the post's reach, the corners gave 1.03); `rodTan` = 0.4/(sqrt 3.2 - 1) = 0.507, each
+rod 27 deg off the vertical, the V 54 deg (a rod 60 deg off vertical would need 1.4 m of sideways reach, so the user's
+60 is read as the V); `cosTubeCut` 0.888, x = 27 deg (was 34). `hashemiHanger` corrected in place, sections 6 and 8 say so.
+(2) The tow wire is clipped at the TOP EDGE NEAREST THE PULLEY, halfway between the corners - the figure's C - and again at
+the centre of the back; the pull on the dish acts at C, the last contact before the pulley. The clip rides a circle of
+radius F-C = 1.155 m about the bolts (`edgeClip_radius_hashemi`: his "Base" a third time). Two consequences a centre clip
+did not have: `edgeClip_reach`/`MastClears`/`mastClears_hashemi_iff` - THE MAST MUST STAND BEYOND 1.155 m from the bolt
+line, at least 1.2 m; and `edgeClip_cross`/`edgeLever_pos_iff`/`edgeLever_dead` - THE WIRE HAS A DEAD POINT where the
+clip reaches the pulley's ray, t* = arctan(ze/a) + arctan(hp/ym) = 46 deg + arctan(0.34/ym); with the mast at 1.2 m
+`deadTan_hashemi` puts tan t* in 1.878-1.88, 62 DEG OF SWING, 9 cm of wire left, the lowest sun 28 deg up;
+`sixty_reachable`: 60 deg (the sun 30 deg up, Quetta's winter noon 36 deg inside) is within range. A mast farther out
+shortens the range toward 46 deg, a taller mast lengthens it - the 159 cm mast sets the range. `wireLever_rest` at C:
+(ym ze + hp a)/sqrt((ym - a)^2 + (hp + ze)^2), 1.03 m at ym 1.2. The earlier `wireLever_pos` ("no dead point", centre
+clip) is WITHDRAWN with the centre-clip model. 162 declarations, no sorry. Open: ym (the mast's distance from the bar).
 `Leg`/`hashemiLeg`, `braceHeight` = sqrt(96^2 - 44.5^2) = 85 cm, `brace_cuts_moment` (peak moment 0.35 of unbraced) and
 `brace_stiffens` (tip stiffness x24) are that sentence as numbers; `postTop` records only what is measured - the tops
 level, 1.30 m over the bar, a chord apart, on the chord line 0.80 m from the tube. His requirement on the vertical
