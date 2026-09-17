@@ -4792,15 +4792,17 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 wp = Pf_*[1,1,0] + [0,0,z_beam] + sgn*R_ring*hdir
                 ring(wp - [0,0,0.06], 0.10, (200,180,140,255), 10)
             ring([self.X_TOWER_C, 0, z_beam], 0.22, colc, 12)   # the collar
-            # ---- ELEVATION: TWO BRACED POSTS AT F, THE TRUNNION AXIS
-            # THROUGH F BETWEEN THEIR APEXES.  The posts stand upright on
-            # the TURNING beam under F, one to each side and no wider than
-            # the rim, so the axis their apexes carry is the horizontal
-            # line through F and nothing of theirs ever crosses the
-            # mirror.  They are as tall as the focal length, which on this
-            # machine is 4 m against a 4.2 m dish - his yard unit is
-            # f 1 m against a 2 m dish, so his look half as tall for the
-            # same drawing.
+            # ---- ELEVATION: TWO A-FRAMES STANDING ON THE HOOP, THE
+            # TRUNNION AXIS THROUGH F BETWEEN THEIR APEXES.  All four feet
+            # RIDE THE RAIL on their own wheels, like the beam's two (fig
+            # 14) - there is nothing joining the two posts along the
+            # ground, because the hoop already is that tie and a member
+            # under the dish would foul it at high sun.  The apexes sit at
+            # the rim's half-width, so the axis they carry is the
+            # horizontal line through F and nothing of theirs crosses the
+            # mirror.  They are as tall as the focal length: 4 m against a
+            # 4.2 m dish here, where his yard unit is f 1 m against a 2 m
+            # dish, so the same drawing looks half as tall on his roof.
             # The dish hangs off that axis on two arms one focal length
             # long, taken straight onto the RIM BEAM - there is no box
             # behind the mirror.  Its vertex therefore rides the focus
@@ -4822,16 +4824,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             a_r = float(self.a_mem)
             frmc = (172, 164, 148, 255)          # the frame sits in the scene's palette,
             rodc = (198, 186, 156, 255)          # not above it: it is not the subject
-            b_dish = Pf_*[1, 1, 0] + [0, 0, z_beam]          # the posts stand UNDER F
-            pr.draw_cylinder_ex(v3(b_dish - a_r*e_s), v3(b_dish + a_r*e_s),
-                                0.032, 0.032, 8, colc)       # the beam's cross member
+            b_hub = Pf_*[1, 1, 0] + [0, 0, z_beam]           # the bearing at the focus base
             PH = np.radians(28.0)
+            DFT = np.radians(13.0)                           # how far apart the feet sit on the hoop
             K_lo = None
             for sg_ in (1.0, -1.0):
                 apex = Pf_ + sg_*a_r*e_s                     # ON the axis through F
-                for s2 in (1.0, -1.0):                       # the A: two braced legs
-                    pr.draw_cylinder_ex(v3(b_dish + sg_*a_r*e_s + s2*0.45*hdir),
-                                        v3(apex), 0.022, 0.022, 8, frmc)
+                for s2 in (1.0, -1.0):                       # the A: two legs, BOTH ON THE HOOP
+                    ft = b_hub + R_ring*(np.cos(DFT)*sg_*e_s
+                                         + s2*np.sin(DFT)*hdir)
+                    pr.draw_cylinder_ex(v3(ft), v3(apex), 0.022, 0.022, 8, frmc)
+                    ring(ft - [0, 0, 0.06], 0.10, (200, 180, 140, 255), 10)
+                    pr.draw_line_3d(v3(ft), v3(b_hub), colc)  # the spoke back to the hub
                 ring(apex, 0.10, (200, 180, 140, 255), 10)   # the trunnion bearing
                 qs = [Cd_ + a_r*(np.cos(PH)*sg_*p_side + s2*np.sin(PH)*p_up)
                       for s2 in (1.0, -1.0)]                 # two points ON the rim beam
