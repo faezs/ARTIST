@@ -479,40 +479,112 @@ def verify_fused(B=32, steps=120, quiet=False, dev="mps"):
     kernels must produce the same obs/reward trajectory from the same
     initial state and action script. (On CUDA the torch path shares
     the kernel TRACE via _metal_trace, so this gates the step logic;
-    the MPS-frozen bundle in tandoor_step_verify gates the trace.)"""
+    the MPS-frozen bundle in tandoor_step_verify gates the trace.)
+
+    AND THE NUMPY REFERENCE (2026-09-17): the absorbed power of both GPU
+    paths is asserted against the numpy state machine's, per agent and
+    per step. Eager-against-fused alone could not see the fault both of
+    them shared - the mount solved from the angles BEFORE the step's
+    motor command, the trace handed geometry one command stale - because
+    the two moved together; the numpy twin solves its mount inside the
+    trace, after the motors, and was forty percent apart from both.
+    Nor could it see the twins' day-over draws drifting from numpy's.
+    So the reference runs too, zeroed the way tandoor_traj_verify zeroes
+    it, and p_in must agree to a tenth of a percent of the beam."""
     import contextlib
     import io
     from tandoor_gpu_step import GpuState
-    from tandoor_step_verify import _env, _script
+    from tandoor_step_verify import _env, _script as _script0
+    from tandoor_traj_verify import _ZeroRng
+
+    def _script(t):
+        """_script0 with the BEAM ON from step 10: its shutter head is 0/1
+        and its jam head is never set, and with wide_shutter both gates
+        sit at 3.5 - so p_in was zero for all 120 steps and this check
+        passed on a batch of zeros for as long as it existed. _script0
+        itself is left alone: the CUDA bundle is generated from it."""
+        a = _script0(t).copy()
+        if t >= 10:
+            a[:, 1] = 6                  # shutter open
+            a[:, 2] = 6                  # membrane jammed: the beam is gated by BOTH
+        return a
 
     def run(force_torch):
         e = _env(dev)
         S = GpuState(e) if force_torch else FusedState(e)
         S.zero_noise = True
         e._gpu = S
-        obs_t, rew_t = [], []
+        obs_t, rew_t, pin_t = [], [], []
         for t in range(steps):
             a = torch.as_tensor(_script(t), device=e.device)
             o, r, d, tr, _ = e.step_torch(a)
             obs_t.append(o.cpu().clone())
             rew_t.append(r.cpu().clone())
-        return torch.stack(obs_t), torch.stack(rew_t)
+            pin_t.append(e._p_in_t.detach().float().cpu().clone())
+        return torch.stack(obs_t), torch.stack(rew_t), torch.stack(pin_t)
 
-    o1, r1 = run(True)
-    o2, r2 = run(False)
+    def run_numpy():
+        """the reference: step() on the numpy branch, the same trace
+        kernel, float32 state so the continuous variables do not drift
+        from the GPU's, and every host noise source zeroed"""
+        e = _env(dev)
+        e.gpu = False                    # step() takes the numpy branch
+        for nm in ("T", "T_sub", "T_deep", "T_halo", "T_sand", "p_act",
+                   "p_set", "p_dist", "bread_E", "bread_t", "_belt_prev",
+                   "cloud", "wind_g", "bore", "load_timer", "ep_return",
+                   "soil", "el_m", "az_m", "f_locked", "decl_formed",
+                   "form_time"):
+            if hasattr(e, nm):
+                setattr(e, nm, np.asarray(getattr(e, nm)).astype(np.float32))
+        e.rng = _ZeroRng()
+        pin_t = []
+        with contextlib.redirect_stdout(io.StringIO()):
+            for t in range(steps):
+                e.step(_script(t))
+                pin_t.append(torch.as_tensor(
+                    np.asarray(e.p_in, dtype=np.float32)))
+        return torch.stack(pin_t)
+
+    o1, r1, p1 = run(True)
+    o2, r2, p2 = run(False)
+    p0 = run_numpy()
     do = float((o1 - o2).abs().max())
     dr = float((r1 - r2).abs().max())
     per_step = (o1 - o2).abs().amax(dim=(1, 2))
     first_bad = int((per_step > 5e-3).float().argmax()) \
         if bool((per_step > 5e-3).any()) else -1
-    if not quiet:
+    # the absorbed power against the numpy reference, per agent, per step - and that there was
+    # a beam to compare at all: a parity check on zeros proves nothing, and this one was exactly
+    # that until 2026-09-17. The script jogs the motors, so the beam lands in the pot only while
+    # the pointing is good - about a third of agent-steps - which is precisely the regime a
+    # mount fault shows in; the guard asks for that third, not for a beam that never moves.
+    lit = float((p0 > 1.0).float().mean())
+    scale = max(float(p0.max()), 1.0)
+    tol = 1e-3 * scale
+    dpf = float((p0 - p2).abs().max())
+    dpe = float((p0 - p1).abs().max())
+    def _first(d):
+        ps = d.abs().amax(dim=1)
+        return int((ps > tol).float().argmax()) if bool((ps > tol).any()) else -1
+    if not quiet:                        # every number BEFORE any assertion, so a failing run still shows them all
         print(f"fused vs torch step: max obs err {do:.2e}, "
               f"max rew err {dr:.2e}, first step over 5e-3: "
               f"{first_bad}")
+        print(f"beam on in {100 * lit:.0f} % of agent-steps, peak {scale:.0f} W")
+        print(f"p_in vs numpy: fused {dpf:.3e} W, torch {dpe:.3e} W "
+              f"(tol {tol:.2f} W); first step over: "
+              f"fused {_first(p0 - p2)}, torch {_first(p0 - p1)}")
+    assert lit > 0.2 and scale > 100.0, (
+        f"the beam was on in only {100 * lit:.0f} % of agent-steps (peak {scale:.0f} W): "
+        f"the p_in check is vacuous - the script is not lighting the dish")
+    assert dpf < tol, (f"fused absorbed power diverges from the numpy "
+                       f"reference by {dpf:.1f} W on a {scale:.0f} W beam")
+    assert dpe < tol, (f"torch absorbed power diverges from the numpy "
+                       f"reference by {dpe:.1f} W on a {scale:.0f} W beam")
     assert do < 5e-3, "fused obs trajectory diverges"
     assert dr < 2e-2, "fused reward trajectory diverges"
     if not quiet:
-        print("fused-vs-torch step parity: PASS")
+        print("fused-vs-torch step parity: PASS; both vs numpy p_in: PASS")
     return do, dr
 
 
