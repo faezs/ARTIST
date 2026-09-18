@@ -496,17 +496,18 @@ partial def translateApp (root : Name) (e : Expr) : TM Val := do
       match ← attempt with
       | some v => pure v
       | none =>
-        -- unrolled: the body at each literal index, added up (the finite product)
+        -- unrolled: the body at each literal index, added up right-nested with a trailing zero,
+        -- `f 0 + (f 1 + (… + (f (P-1) + 0)))` - the shape `Finset.sum univ f` unfolds to over
+        -- `List.finRange P`, so the round trip is definitional
         set st0
-        let mut acc : Option Val := none
+        let mut terms : Array Val := #[]
         for j in [0:P] do
-          let term ← translate root (mkApp args[4]! (finLit P j)).headBeta
-          acc := some (← match acc with
-            | none => pure term
-            | some a => zipVal "+" a term)
-        match acc with
-        | some v => pure v
-        | none => .s <$> emit (.lit "0")
+          terms := terms.push (← translate root (mkApp args[4]! (finLit P j)).headBeta)
+        let zero ← emit (.lit "0")
+        let mut acc : Val := ← (if terms.isEmpty then pure (.s zero) else constVal zero terms[0]!)
+        for j in [0:P] do
+          acc := ← zipVal "+" terms[P - 1 - j]! acc
+        pure acc
     | `Real.sqrt, 1 => unop root "sqrt" args[0]!
     | `Real.sin, 1 => unop root "sin" args[0]!
     | `Real.cos, 1 => unop root "cos" args[0]!
