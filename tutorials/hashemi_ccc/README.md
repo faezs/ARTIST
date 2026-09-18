@@ -369,3 +369,11 @@ observation and command names, the loop's columns. The env maps its heads throug
 `headToDriveAz` / `headToDriveEl` (the NumPy twin on one path, the same formula on the device on
 the other). `hashemi_loop_kernel.py` runs the loop and shows the follower expressed as weights of
 the interface.
+
+`hashemi_policy.py` is emitted by the driver too: `observation_space()` (a Box with the spec's
+`obsLo` / `obsHi`), `action_space()` (the two commands in `[-1, 1]`), `action_space_heads()` (the
+seven levels), and `heads_to_commands` / `commands_to_drives` through the compiled `headToCmd`,
+`driveAz`, `driveEl`. The env exposes them as `machine_observation_space`, `machine_action_space`
+and serves `machine_obs` from the kernel's own observation columns. In the megakernel the
+prelude runs once on thread 0 and the values the ray level reads are broadcast through
+threadgroup memory; the rays run on every thread; thread 0 reduces, finishes, writes.
