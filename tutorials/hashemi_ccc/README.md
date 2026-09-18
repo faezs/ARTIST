@@ -383,3 +383,23 @@ proved reference, not the controller). The shaping that makes that learnable is 
 the spec's `pointing_err` column (0.5 per radian per step, capped at 0.5 rad, only while the sun
 is within the winch's reach): a gradient at every error, where the smooth gate is flat beyond
 3 deg. A day at 3 deg costs 50, at 0.3 deg 5, beside +1 per roti and 75 per guillotine cut.
+
+## The loop as a field (HashemiField.lean)
+
+The energy density along the loop, `u = ρ c A T`, and the power flux, `Φ = v u`, obey
+`∂ₜ u + ∂ₛ Φ = σ - λ (T - Tₐ)`; the lumped balance of HashemiHeat.lean is its zero mode. Two
+transports are linear with closed Green's functions and the kernel carries them:
+
+* the pipe: `δ(s - s' - v (t - t')) e^{-a (t - t')}`, plug flow with attenuation - the oil at
+  the pot is the coil's outlet two steps ago scaled by `pipeGreen = e^{-U/mcp}` (`pipeGreen_pos`,
+  `pipeGreen_le_one`, `pipeGreen_semigroup`: two runs attenuate by the product; `delivered_le`).
+  The state along the pipe is the history of outlet temperatures, `shift`ed a station per step;
+* the coil: the oil crosses it in a second, so its field along the eight turns is a fold from
+  the inlet through each turn's source and loss (`coilProfile`, `coilProfile_balance`: the
+  discrete continuity law, telescoped);
+* the receiver's flux: the trace's landing radii binned into eight annuli (`inBin`,
+  `bins_partition`: the annuli partition the aperture), sums over the rays in the megakernel.
+
+`hashemiEnv` carries all of it as columns: `flux_0..7` (W per annulus), `coil_0..7` (K along the
+turns), `hist_0..15` and `ret_0..15` (the two histories, K). The pot wall's Green's function
+(Duhamel's half-order integral of the flux) is the parent oven's physics and stays there.
