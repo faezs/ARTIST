@@ -274,3 +274,20 @@ ln -sfn $PWD/tutorials/puffer_tandoor/hashemi_ccc.ini $SP/config/hashemi_ccc.ini
 The ini says `package = tandoor_ccc`. pufferlib promotes RuntimeWarnings to errors, so the NumPy twins run
 under `np.errstate`. The numpy path costs ~0.5 s/step at the ini's 8192 agents (the parent's numpy step);
 lower `num_envs`/agents for a first run, or wait for the fused gpu path with the traced power injected.
+
+## The fused GPU path (`gpu = 1`, the training path)
+
+The parent's whole step runs in Metal (mount, step_pre, trace, step_post on one packed state).
+`HashemiTandoorEnv._gpu_full_step` advances the Lean state by `hk_step` from the action heads,
+writes the pose into the packed state's motor columns before the mount, and `tandoor_fused_step`
+calls `env._fused_power(F, aux, soil_eff)` in place of the tandoor's trace: `sunInDish` compiled
+(one thread per agent), the facet/disc sampler on the device, `hk_traceRayK` at k = -1, and
+`F.per` = dish area x reflectance x capture x shading, along the tandoor beam's node profile
+(recorded from the parent's own trace on the first fused step). Cut agents (step_post re-parks
+their motors) and the day-over park resync the Lean state from the motors. The slope and
+specularity errors are folded into each ray as one Gaussian tilt of sqrt((2 s_slope)^2 + s_spec^2)
+on both paths (the k-trace takes no error inputs; the error trace is sphere-only).
+
+Day 172, 16 agents, the naive cook: numpy 99 rotis at 4.8 ms/step, fused 92 at 7.3 ms/step;
+capture 0.96-0.97 on both. Fused at the ini's 8192 agents: ~7.5 ms/step (numpy: 526).
+`test_tandoor_env.py --gpu 1` runs the fused day.

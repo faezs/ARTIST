@@ -32,7 +32,7 @@ import torch                                        # noqa: E402
 from tandoor_hashemi_env import TandoorHashemiEnv   # noqa: E402
 from hashemi_kernel import COL, HashemiMetal, mega_numpy, mega_params_numpy   # noqa: E402
 from hashemi_trace_kernel import (HashemiTraceMetal, sample_rays_mc, sun_in_dish, trace_params_numpy,   # noqa: E402
-                                  RAY_W, OUT_W)
+                                  RAY_W, OUT_W, SUN_HALF_ANGLE)
 
 
 class HashemiTandoorEnv(TandoorHashemiEnv):
@@ -45,7 +45,9 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     RC_INLET = 0.06          # the pot's aperture at F, his 12 cm coil's size
 
     def __init__(self, *args, trace_rays=64, **kwargs):
-        kwargs["gpu"] = 0                     # the parent's numpy step: its pot, bread and reward; the trace on Metal
+        # gpu=0: the parent's numpy step, the trace on Metal (the eval/bench path);
+        # gpu=1: the parent's fused Metal step with the trace injected (the training path)
+        self._fused_profile = None
         super().__init__(*args, **kwargs)
         B = self.num_agents
         self.trace_rays = int(trace_rays)
@@ -112,6 +114,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         P = self.trace_rays
         rays = np.concatenate([sample_rays_mc(P, sd[b], self.rng, sigma_slope=self.SLOPE_ERR, sigma_spec=self.SPEC_ERR)
                                for b in range(B)], 0)
+        rays = self._fold_errors(rays)
         prm = torch.as_tensor(np.concatenate([self._trace_prm[:5], [self.DISH_K]]), dtype=torch.float32, device="mps")
         out = torch.empty(B * P, OUT_W, dtype=torch.float32, device="mps")
         self._tr.lib.hashemi_trace_k(torch.as_tensor(rays[:, :RAY_W], device="mps").contiguous(), prm, out,
@@ -121,8 +124,141 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         per = (self.dish_area * self.RHO * self.cap_traced)[:, None] * self._beam_profile
         return torch.as_tensor(per, dtype=torch.float32)
 
+    # ------------------------------------------------------------------ the fused GPU path
+    # The parent's whole step runs in Metal (mount -> step_pre -> trace -> step_post on one
+    # packed state). Here the motors are the Lean state, written into the packed state before
+    # the step, and F.per (m^2 of aperture per unit DNI, per node) comes from his dish's trace
+    # instead of the tandoor's, delivered along the tandoor beam's own node profile (recorded
+    # from the parent's trace on the first fused step, as the numpy path records it at reset).
+    def _sample_rays_t(self, sd, P):
+        """the numpy sampler's draws on the device: the facet uniform on the grid, the point
+        uniform in it, the direction -sun tilted by a draw on the sun's disc; the slope and
+        specularity errors folded into that tilt as one Gaussian of sqrt((2 s_slope)^2 + s_spec^2)
+        (a single reflection: the mirror's slope error doubles into the ray, first order)"""
+        B = sd.shape[0]
+        dev, g = sd.device, self._gen
+        a, w = float(self._trace_prm[2]), float(self._trace_prm[3])
+        n_side = int(round(2 * a / w))
+        ci = torch.randint(0, n_side, (B, P), generator=g, device=dev).float()
+        cj = torch.randint(0, n_side, (B, P), generator=g, device=dev).float()
+        cx = -a + w / 2 + ci * w
+        cy = -a + w / 2 + cj * w
+        ux = (torch.rand(B, P, generator=g, device=dev) - 0.5) * w
+        uy = (torch.rand(B, P, generator=g, device=dev) - 0.5) * w
+        s = -sd[:, None, :].expand(B, P, 3)
+        helper = torch.where(s[..., 2:3].abs() < 0.9, torch.tensor([0.0, 0.0, 1.0], device=dev),
+                             torch.tensor([1.0, 0.0, 0.0], device=dev))
+        e1 = torch.cross(s, helper, dim=-1); e1 = e1 / e1.norm(dim=-1, keepdim=True)
+        e2 = torch.cross(s, e1, dim=-1)
+        rho = SUN_HALF_ANGLE * torch.rand(B, P, generator=g, device=dev).sqrt()
+        phi = 2 * np.pi * torch.rand(B, P, generator=g, device=dev)
+        sig = float(np.sqrt((2 * self.SLOPE_ERR) ** 2 + self.SPEC_ERR ** 2))
+        tx = rho * torch.cos(phi) + sig * torch.randn(B, P, generator=g, device=dev)
+        ty = rho * torch.sin(phi) + sig * torch.randn(B, P, generator=g, device=dev)
+        d = s + tx[..., None] * e1 + ty[..., None] * e2
+        d = d / d.norm(dim=-1, keepdim=True)
+        rays = torch.cat([cx[..., None], cy[..., None], ux[..., None], uy[..., None], d], -1)
+        return rays.reshape(B * P, RAY_W).to(torch.float32).contiguous()
+
+    def _fused_power(self, F, aux, soil_eff):
+        """fills F.per from his dish's trace, on the device; called by tandoor_fused_step"""
+        B, P, dev = self.num_agents, self.trace_rays, F.per.device
+        if self._fused_profile is None:
+            per0 = F.per.clone()
+            tot = per0.sum(1, keepdim=True)
+            prof = torch.where(tot > 0, per0 / tot.clamp_min(1e-9), torch.zeros_like(per0))
+            uni = torch.zeros(per0.shape[1], device=dev); uni[:self.n_nodes] = 1.0 / self.n_nodes
+            self._fused_profile = torch.where(prof.sum(1, keepdim=True) > 0, prof, uni[None, :])
+            self._cap_t = torch.zeros(B, device=dev)
+            self._sun_buf = (torch.empty(B, 4, dtype=torch.float32, device=dev),
+                             torch.empty(B, 3, dtype=torch.float32, device=dev),
+                             torch.empty(1, dtype=torch.float32, device=dev),
+                             torch.tensor([B], dtype=torch.int32, device=dev),
+                             torch.as_tensor(np.concatenate([self._trace_prm[:5], [self.DISH_K]]),
+                                             dtype=torch.float32, device=dev),
+                             torch.empty(B * P, OUT_W, dtype=torch.float32, device=dev),
+                             torch.tensor([B * P], dtype=torch.int32, device=dev))
+        pose, sd, dummy, nB, prm, out, nBP = self._sun_buf
+        # the sun in the dish's frame: `sunInDish` compiled, one thread per agent (the mount's
+        # per-agent sun: el deg, az rad)
+        pose[:, 0] = self._st[:, 0]
+        pose[:, 1] = self._st[:, 1]
+        pose[:, 2] = torch.deg2rad(aux[:, 0])
+        pose[:, 3] = aux[:, 1]
+        self._tr.lib.hashemi_sun(pose, dummy, sd, nB)
+        up = aux[:, 0] > self.el_min_h
+        rays = self._sample_rays_t(sd, P)
+        self._tr.lib.hashemi_trace_k(rays, prm, out, nBP)
+        cap = out[:, 3].reshape(B, P).mean(1) * up.float()
+        self._cap_t.copy_(cap)
+        F.per.copy_(self._fused_profile * (self.dish_area * self.RHO * cap * soil_eff)[:, None])
+
+    def _gpu_full_step(self, actions):
+        B = self.num_agents
+        if self._gpu is None:
+            from tandoor_fused_step import make_state
+            self._gpu = make_state(self)
+        F = self._gpu
+        if not getattr(F, "fused", False):
+            raise RuntimeError("HashemiTandoorEnv gpu=1 needs the fused Metal step (MPS)")
+        a = actions if torch.is_tensor(actions) else torch.as_tensor(np.asarray(actions, dtype=np.float32), device=self.device)
+        a = a.reshape(B, self.N_HEADS)
+        c_az = (a[:, 3].float().clamp(0, 6) - 3) / 3.0
+        c_el = (a[:, 4].float().clamp(0, 6) - 3) / 3.0
+        cmd = torch.stack([c_az * self._om_full, -c_el * self._od_full], 1)
+        el0, az0 = self._sun()
+        sun = torch.tensor([np.radians(el0), az0, 800.0], dtype=torch.float32, device=self.device).expand(B, 3)
+        out = self._hk.step(self._st, cmd, float(self.dt), sun, self._prm)
+        self._st[:, 0] = out[:, COL["az_next"]]
+        self._st[:, 1] = out[:, COL["t_next"]]
+        self._st[:, 2] = out[:, COL["slack_next"]]
+        F.el_m.copy_(90.0 - torch.rad2deg(self._st[:, 1]))
+        F.az_m.copy_(torch.rad2deg(self._st[:, 0]))
+        F.el_dish.copy_(F.el_m)
+        neutral = a.clone()
+        neutral[:, 3] = 3
+        neutral[:, 4] = 3
+        neutral[:, 0] = 4          # the level head pinned (his dish has no membrane)
+        neutral[:, 2] = 6          # the jam head held on (the parent gates the beam by `jammed`)
+        t_before = float(self.t_solar[0])
+        from tandoor_fused_step import fused_full_step
+        res = fused_full_step(self, neutral)
+        # a cut agent's motors were re-parked by step_post, every agent's at day over: the
+        # Lean state follows the parent's motors there, as on the numpy path
+        mask = F.trunc > 0.5
+        if float(self.t_solar[0]) < t_before - 1.0:
+            mask = torch.ones_like(mask, dtype=torch.bool)
+        az_p = torch.deg2rad(F.az_m)
+        t_p = torch.deg2rad(90.0 - F.el_m).clamp(0.0, self.t_dead)
+        self._st[:, 0] = torch.where(mask, az_p, self._st[:, 0])
+        self._st[:, 1] = torch.where(mask, t_p, self._st[:, 1])
+        self._st[:, 2] = torch.where(mask, torch.zeros_like(t_p), self._st[:, 2])
+        return res
+
+    def _fold_errors(self, rays11):
+        """the sampler's four normal draws folded into the ray's direction as one Gaussian tilt of
+        sqrt((2 s_slope)^2 + s_spec^2) - the same fold the device sampler makes (hk_traceRayK
+        takes the conic constant but no optical errors; hk_traceRayErr takes the errors on the
+        sphere only). Returns the 7-wide rays hashemi_trace_k reads."""
+        r = np.asarray(rays11, dtype=np.float64)
+        s = r[:, 4:7]
+        helper = np.where(np.abs(s[:, 2:3]) < 0.9, np.array([0.0, 0.0, 1.0]), np.array([1.0, 0.0, 0.0]))
+        e1 = np.cross(s, helper); e1 /= np.linalg.norm(e1, axis=-1, keepdims=True)
+        e2 = np.cross(s, e1)
+        sig = np.sqrt((2 * self.SLOPE_ERR) ** 2 + self.SPEC_ERR ** 2)
+        d = s + sig * (r[:, 7:8] * e1 + r[:, 8:9] * e2)
+        d /= np.linalg.norm(d, axis=-1, keepdims=True)
+        return np.concatenate([r[:, :4], d], 1).astype(np.float32)
+
     # --- the step: the machine from the megakernel, everything else the parent's
     def step(self, actions):
+        if self.gpu and self._metal is not None:
+            res = super().step(actions)              # routes through _gpu_full_step above
+            self.cap_traced = self._cap_t.cpu().numpy().astype(np.float64)
+            self.hk_state[:] = self._st.cpu().numpy()
+            self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])       # host mirrors for the eval path
+            self.az_m = np.degrees(self.hk_state[:, 0])
+            return res
         B = self.num_agents
         a = np.asarray(actions).reshape(B, self.N_HEADS)
         c_az = (np.clip(a[:, 3], 0, 6) - 3) / 3.0

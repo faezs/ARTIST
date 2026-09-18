@@ -21,10 +21,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--agents", type=int, default=16)
     ap.add_argument("--day", type=int, default=172)
+    ap.add_argument("--gpu", type=int, default=0, help="1: the parent's fused Metal step with the trace injected")
     args = ap.parse_args()
     kw = ini_env_kwargs(os.path.join(os.path.dirname(HERE), "puffer_tandoor", "hashemi_ccc.ini"))
     kw["day_random"] = 0
     kw["lat_random"] = 0
+    kw["gpu"] = args.gpu
     B = args.agents
     env = HashemiTandoorEnv(num_agents=B, lat=30.2, day_of_year=args.day, **kw)
     env.reset()
@@ -50,11 +52,13 @@ def main():
         obs, rew, term, trunc, infos = env.step(a)
         k += 1
         if k % 240 == 0:
+            S = env._gpu if args.gpu else env            # the fused path keeps the pot on the device
+            T = np.asarray(S.T.cpu() if args.gpu else S.T)
             rows.append((float(env.t_solar[0]), el0, float(env.el_m.mean()), float(e_el.mean()), float(env.cap_traced.mean()),
-                         float(np.mean(env.p_in)), float(np.mean(env.T[:, :env.n_belt].max(1))), float(env.ep_rotis.mean())))
+                         float(np.mean(env.p_in)), float(np.mean(T[:, :env.n_belt].max(1))), float(np.asarray(S.ep_rotis.cpu() if args.gpu else S.ep_rotis).mean())))
         if float(env.t_solar[0]) < t_before - 1.0 or k > 4000:
             break
-    print(f"day {args.day}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}")
+    print(f"day {args.day} gpu={args.gpu}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}")
     print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis")
     for r in rows:
         print("  %5.2f  %6.2f  %6.2f  %+6.2f   %5.3f   %7.0f   %7.1f   %6.2f" % r)

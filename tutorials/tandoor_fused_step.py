@@ -290,12 +290,19 @@ def fused_full_step(env, actions):
     # AFTER step_pre, which is what moves the aim: the mirror must be where this
     # step's action has just put it, exactly as on the torch path (_metal_trace)
     env._apply_m3_turn()
-    lib.tandoor_trace(F.thr, F.out6, env._pts_l, env._nrm_l, F.lv,
-                      du, de, upick, F.sigb, F.dvec, F.off,
-                      mnt["vp"], env._sc_base, mnt["Acan"], mnt["Mt"],
-                      mnt["Cd"], env.ell_M, env.ell_S, env.ell_ctr_t,
-                      env._V0t, F.tdims, env._ray_pw, soil_eff, F.per,
-                      us, F.aim, mnt["scb"], F.lfp, env._fct, F.fate, F.pex)
+    # A SUBCLASS'S OWN OPTICS (hashemi_ccc.HashemiTandoorEnv): `_fused_power(F, aux, soil_eff)`
+    # fills F.per (m^2 per unit DNI, per node) from its own trace; the tandoor's trace then runs
+    # only until the subclass has recorded its beam profile (it says so through _fused_profile)
+    own = getattr(env, "_fused_power", None)
+    if own is None or getattr(env, "_fused_profile", None) is None:
+        lib.tandoor_trace(F.thr, F.out6, env._pts_l, env._nrm_l, F.lv,
+                          du, de, upick, F.sigb, F.dvec, F.off,
+                          mnt["vp"], env._sc_base, mnt["Acan"], mnt["Mt"],
+                          mnt["Cd"], env.ell_M, env.ell_S, env.ell_ctr_t,
+                          env._V0t, F.tdims, env._ray_pw, soil_eff, F.per,
+                          us, F.aim, mnt["scb"], F.lfp, env._fct, F.fate, F.pex)
+    if own is not None:
+        own(F, aux, soil_eff)
     lib.step_post(F.rew, F.st, F.per, F.sp, F.ip, rn, ru, F.day_v,
                   F.lat_v, env._mnt_prm, F.off, F.obs, F.trunc,
                   F.diag, a32, dsn, env._fct)
