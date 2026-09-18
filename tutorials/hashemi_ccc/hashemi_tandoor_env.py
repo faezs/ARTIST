@@ -56,13 +56,22 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
 
     def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.0, capture_shaping=0.2, t_amb=300.0, trace_rays=None,
-                 machine_receiver="oil", beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
+                 machine_receiver="oil", oil_nodes=8, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
         # THE MACHINE'S RECEIVER (the parent's `receiver` - its tri chain - passes through untouched):
         # "oil" - the coil at F, hot oil in insulated pipes, the exchanger in the pot's wall
         # (HashemiHeat/HashemiField.lean); "beam" - a hyperboloid inside the coil's envelope sending
         # the beam down through the slot into the tunnel to the pot (HashemiBeamdown.lean): the
         # parent's pot takes the beam directly, per unit DNI, as its own tri chain would
         self.machine_receiver = str(machine_receiver)
+        # THE EXCHANGER'S PROFILE IS DEFINED, NOT INHERITED. The coil in the pot's wall
+        # (HashemiHeat.lean qPot = UAx (Toil - Twall)) heats the wall band the bread is slapped on:
+        # the first `oil_nodes` belt slots, uniformly (8 = the whole band; fewer = a hot plate under
+        # k slots), nothing on the loaf columns (no beam on the bread's face). Until 2026-09-19 the
+        # profile was the parent's own tri-chain spot frozen at the first step: on day 172 that put
+        # 74 % of the pot's power into ONE slot (which then baked, 61 a day from that slot), on day 80
+        # it spread it over all 15 nodes (nothing reached 380 K, 0 a day) - the trainer's zero.
+        # The beam receiver keeps the parent's live landing profile every step.
+        self.oil_nodes = int(oil_nodes)
         self.beam_design = dict(L=beam_L, dm=beam_dm, rm=beam_rm, rt=beam_rt, slotW=beam_slot, beta=beam_beta)
         # trace_rays: accepted for the ini's sake; the rays are the spec's (HashemiEnv.lean `envRays`, 64)
         if trace_rays is not None and int(trace_rays) != ENV_RAYS:
@@ -213,6 +222,13 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         return lib.where(ok, prof, uni[None, :])
 
     # ------------------------------------------------------------------ the numpy path
+    def _oil_profile(self, lib, dev=None):
+        """uniform over the first oil_nodes belt slots, zero elsewhere (N nodes + n_belt loaf columns)"""
+        k = max(1, min(self.oil_nodes, self.n_belt))
+        w = self.n_nodes + self.n_belt
+        prof = np.zeros((self.num_agents, w)); prof[:, :k] = 1.0 / k
+        return prof if lib is np else torch.as_tensor(prof, dtype=torch.float32, device=dev)
+
     def _valve_np(self):
         """the parent's beam gate, as it will compute it this step: dni x cos x shutter x jammed"""
         el_deg = np.degrees(self._sun()[0])
@@ -251,6 +267,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
                         np.asarray(H.hk_headToDriveEl(a[:, HEAD_EL], arm, np.full(B, float(self._prm_np[0]))), dtype=np.float64)], 1)
         el, az = self._sun()
         sun = np.stack([np.full(B, el), np.full(B, az), np.asarray(self.dni, dtype=np.float64)], 1)
+        if self.machine_receiver != "beam" and self._beam_profile is None:
+            self._beam_profile = self._oil_profile(np)
         if self._beam_profile is None:
             twall = self.T[:, :self.n_nodes].mean(1)
         else:
@@ -285,10 +303,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
         """the numpy path: the exchanger's power to the pot, as the parent's per-unit-DNI aperture"""
         B = self.num_agents
-        if self._beam_profile is None:
+        if self.machine_receiver == "beam":                            # the beam itself: aperture per unit DNI,
             self._beam_profile = self._profile_from(super()._trace_power(p_eff, sigma_b, offset_w, soil).numpy(), np)
-        if self.machine_receiver == "beam":                            # the beam itself: aperture per unit DNI
-            return torch.as_tensor(self._per_beam[:, None] * self._beam_profile, dtype=torch.float32)
+            return torch.as_tensor(self._per_beam[:, None] * self._beam_profile, dtype=torch.float32)   # where the parent's trace lands it, live
+        if self._beam_profile is None:
+            self._beam_profile = self._oil_profile(np)
         gate = self._valve_np()
         per = np.where(gate > 0, self._q_pot / np.maximum(gate * 0.85, 1e-9), 0.0)[:, None] * self._beam_profile
         return torch.as_tensor(per, dtype=torch.float32)
@@ -296,11 +315,12 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     # ------------------------------------------------------------------ the fused path
     def _fused_power(self, F, aux, soil_eff):
         """after the parent's step_pre (its gate is current): F.per from the exchanger's power"""
-        if self._fused_profile is None:
-            self._fused_profile = self._profile_from(F.per.clone(), torch)
         if self.machine_receiver == "beam":
+            self._fused_profile = self._profile_from(F.per.clone(), torch)     # the parent's landing, live
             F.per.copy_(self._fused_profile * self._per_beam_t[:, None])
             return
+        if self._fused_profile is None:
+            self._fused_profile = self._oil_profile(torch, F.per.device)
         gate = F.gate
         per = torch.where(gate > 0, self._q_pot_t / (gate * 0.85).clamp_min(1e-9), torch.zeros_like(gate))
         F.per.copy_(self._fused_profile * per[:, None])

@@ -27,6 +27,7 @@ def main():
     ap.add_argument("--discrete", type=int, default=1, help="1: the sensor loop's commands rounded to the seven head values (the policy's space)")
     ap.add_argument("--receiver", default="oil", help="oil (the coil and the loop) or beam (the hyperboloid beam-down through the slot)")
     ap.add_argument("--slot", type=float, default=0.06, help="the slot's width [m] for the beam-down")
+    ap.add_argument("--oil-nodes", type=int, default=8, help="belt slots the coil heats (8 = the whole wall band)")
     ap.add_argument("--random", type=int, default=0, help="1: uniform-random heads instead of the follower (the return's floor)")
     args = ap.parse_args()
     kw = ini_env_kwargs(os.path.join(os.path.dirname(HERE), "puffer_tandoor", "hashemi_ccc.ini"))
@@ -35,6 +36,7 @@ def main():
     kw["gpu"] = args.gpu
     kw["machine_receiver"] = args.receiver
     kw["beam_slot"] = args.slot
+    kw["oil_nodes"] = args.oil_nodes
     B = args.agents
     env = HashemiTandoorEnv(num_agents=B, lat=30.2, day_of_year=args.day, **kw)
     env.reset()
