@@ -379,10 +379,16 @@ prelude runs once on thread 0 and the values the ray level reads are broadcast t
 threadgroup memory; the rays run on every thread; thread 0 reduces, finishes, writes.
 
 The policy learns to point; no sensor closes the loop (the follower in HashemiPolicy.lean is a
-proved reference, not the controller). The shaping that makes that learnable is proportional to
-the spec's `pointing_err` column (0.5 per radian per step, capped at 0.5 rad, only while the sun
-is within the winch's reach): a gradient at every error, where the smooth gate is flat beyond
-3 deg. A day at 3 deg costs 50, at 0.3 deg 5, beside +1 per roti and 75 per guillotine cut.
+proved reference, not the controller). The shaping that makes that learnable is the light
+arriving at the receiver, the spec's `p_in` column, paid every step in roti units: energy per
+step over the roti's energy, times `capture_shaping` (0.2) times the parent's 5 per roti, only
+while the sun is within the winch's reach. It is delay-free where the oil loop lags minutes and
+the rotis hours, it is the physical quantity the rotis are made of, and it is non-negative, so
+the guillotine can never be an exit. Both shaping terms go in in the parent's raw units before
+its `reward_div` on both paths (`roll_checkpoint.py` shows a checkpoint's day hour by hour; the
+epoch-260 policy of the first run was found riding a 1.4 deg lag and leaving at the noon
+keyhole because the earlier per-step penalty entered raw on the fused path and divided on the
+numpy path, 75x apart, and made being cut cheaper than a day near the cliff).
 
 ## The loop as a field (HashemiField.lean)
 

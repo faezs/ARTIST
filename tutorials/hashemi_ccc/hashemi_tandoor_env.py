@@ -55,7 +55,7 @@ OBS_COLS = [ECOL["obs_" + n] for n in machine_policy.OBS_NAMES]
 class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
 
-    def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.5, t_amb=300.0, trace_rays=None,
+    def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.0, capture_shaping=0.2, t_amb=300.0, trace_rays=None,
                  machine_receiver="oil", beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
         # THE MACHINE'S RECEIVER (the parent's `receiver` - its tri chain - passes through untouched):
         # "oil" - the coil at F, hot oil in insulated pipes, the exchanger in the pot's wall
@@ -85,16 +85,31 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # device; the receiver's 1.7 deg budget is the spec's `lost_sun` column, felt through the
         # capture itself and the smooth gate's shaping. (Set to 1.7 deg once: with a discrete
         # policy no episode survived the day.)
-        # THE POLICY LEARNS TO POINT (no sensor closes the loop): the shaping must have a gradient
-        # at every error. `pointing_err` (the spec's pointingError, an angle) charged per step in
-        # proportion, capped at 0.5 rad, and only while the sun is within the winch's reach
-        # (lostSun_unreachable: the cook is not charged for the machine's reach). The smooth gate
-        # `lost_sun_s` saturates beyond ~3 deg - flat where a young policy lives (between the
-        # guillotine's 5 deg and the receiver's 1.7 deg) - so it is off by default. The scale:
-        # at 0.5 per rad per step a day at 3 deg costs 50, at 0.3 deg 5, beside the parent's
-        # +1 per roti (77 a day when pointed) and 75 per guillotine cut.
+        # THE POLICY LEARNS TO POINT (no sensor closes the loop). The shaping terms are in the
+        # parent's RAW reward units (5 per roti, 75 per guillotine cut, its own potential-based
+        # tracking term 1 per degree of |e_az|+|e_el| capped at 4 deg) and go in BEFORE the parent
+        # divides by reward_div, on both paths: the fused path's rew_t is raw when this class adds
+        # to it, the numpy path's self.rewards is already divided, so that path adds shape/reward_div.
+        # (Until 2026-09-19 the pointing penalty went in raw on the fused path and divided on the
+        # numpy path: the trainer saw 1/75 of what the day test showed, and the policy drifted to
+        # a 1.4 deg lag; and a per-step PENALTY makes the guillotine an exit - at 0.5 per rad a
+        # day at 4 deg costs 66 against a cut of 1 in the trainer's units, and the epoch-260
+        # policy rode the 5 deg cliff and left at noon.)
+        #   capture_shaping: the light arriving at the receiver (`p_in`, the spec's column, W) as
+        #   energy per step in roti units (roti_energy), paid capture_shaping x 5 per roti's worth.
+        #   Delay-free (the oil loop lags minutes, the rotis hours), physical, non-negative: a
+        #   policy that points earns it every step, so being cut never pays. At 0.2 a pointed day
+        #   (~3 kW x 15 s / 130 kJ = 0.35 roti of light a step, ~1700 steps) earns ~120 raw, its
+        #   70-80 rotis at 5 each ~375: the light is a fifth of the roti it could become.
+        #   pointing_shaping: potential-based, k (phi - phi_prev) with phi = -min(pointing_err, 0.5 rad),
+        #   only while the sun is reachable, zero on a resynced step and the one after: it
+        #   telescopes, cannot be farmed, and adds nothing the parent's own term does not; off.
+        #   lost_shaping: the smooth gate `lost_sun_s`, saturated beyond ~3 deg; off.
         self.lost_shaping = float(lost_shaping)
         self.pointing_shaping = float(pointing_shaping)
+        self.capture_shaping = float(capture_shaping)
+        self._phi_prev = self._phi_prev_t = None
+        self._pb_skip = self._pb_skip_t = None
         self.t_amb = float(t_amb)
         super().__init__(*args, **kwargs)
         B = self.num_agents
@@ -177,6 +192,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
 
     def reset(self, *args, **kwargs):
         res = super().reset(*args, **kwargs)
+        self._phi_prev = self._phi_prev_t = None
+        self._pb_skip = self._pb_skip_t = None
         self._sync_from_motors(np.ones(self.num_agents, dtype=bool))
         self.t_oil[:] = self.t_amb
         self.hist[:] = self.t_amb
@@ -202,6 +219,28 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         cosf = 1.0 if el_deg > 8.0 else 0.0
         return np.asarray(self.dni, dtype=np.float64) * cosf * np.asarray(self.shutter, dtype=np.float64) \
             * np.asarray(self.jammed, dtype=np.float64)
+
+    ROTI_REWARD_RAW = 5.0        # tandoor_rl_env: rew += 5.0 * cooked
+
+    def _shape_raw(self, pe, p_in, reach, resync, xp):
+        """the shaping in the parent's raw reward units (see __init__): the light at the receiver
+        in roti units, and the potential-based pointing term if it is on"""
+        cap = self.capture_shaping * self.ROTI_REWARD_RAW * float(self.dt) / float(self.roti_energy) * p_in * reach
+        if not self.pointing_shaping:
+            return cap
+        if xp is np:
+            phi = -np.minimum(pe, 0.5)
+            prev = phi if self._phi_prev is None else self._phi_prev
+            skip = resync if self._pb_skip is None else (resync | self._pb_skip)
+            pb = np.where(skip, 0.0, self.pointing_shaping * (phi - prev) * reach)
+            self._phi_prev = phi.copy(); self._pb_skip = np.asarray(resync, dtype=bool).copy()
+        else:
+            phi = -pe.clamp(max=0.5)
+            prev = phi if self._phi_prev_t is None else self._phi_prev_t
+            skip = resync if self._pb_skip_t is None else (resync | self._pb_skip_t)
+            pb = torch.where(skip, torch.zeros_like(phi), self.pointing_shaping * (phi - prev) * reach)
+            self._phi_prev_t = phi.clone(); self._pb_skip_t = resync.clone()
+        return cap + pb
 
     def _run_np(self, a):
         """one launch of the C twin: the pose, the capture, the oil, the pot's heat"""
@@ -330,16 +369,19 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         neutral[:, 2] = 6          # the jam head held on (the parent gates the beam by `jammed`)
         from tandoor_fused_step import fused_full_step
         obs_t, rew_t, infos = fused_full_step(self, neutral)
-        if self.lost_shaping:
-            rew_t = rew_t - self.lost_shaping * out[:, C["lost_sun_s"]]
-        if self.pointing_shaping:
-            rew_t = rew_t - self.pointing_shaping * out[:, C["pointing_err"]].clamp(max=0.5) * out[:, C["sun_reachable"]]
-        res = (obs_t, rew_t, infos)
         # a cut agent's motors were re-parked by step_post, every agent's at day over: the Lean
         # state follows the parent's motors there; the oil keeps its field
         mask = F.trunc > 0.5
         if float(self.t_solar[0]) < t_before - 1.0:
             mask = torch.ones_like(mask, dtype=torch.bool)
+        # the shaping, raw like rew_t (step and step_torch divide by reward_div after this), and
+        # into the parent's raw running return so the trainer's episode_return shows it
+        shape = self._shape_raw(out[:, C["pointing_err"]], out[:, C["p_in"]], out[:, C["sun_reachable"]], mask, torch)
+        if self.lost_shaping:
+            shape = shape - self.lost_shaping * out[:, C["lost_sun_s"]]
+        rew_t = rew_t + shape
+        F.ep_return.add_(shape)
+        res = (obs_t, rew_t, infos)
         az_p = torch.deg2rad(F.az_m)
         t_p = torch.deg2rad(90.0 - F.el_m).clamp(0.0, self.t_dead)
         self._st[:, 0] = torch.where(mask, az_p, self._st[:, 0])
@@ -374,13 +416,15 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         t_before = float(self.t_solar[0])
         res = super().step(neutral)
         C = self._bk.BCOL if self.machine_receiver == "beam" else ECOL
-        if self.lost_shaping:
-            self.rewards[:] = self.rewards - self.lost_shaping * self.row[:, C["lost_sun_s"]]
-        if self.pointing_shaping:
-            self.rewards[:] = self.rewards - self.pointing_shaping * np.minimum(self.row[:, C["pointing_err"]], 0.5) * self.row[:, C["sun_reachable"]]
         wrapped = float(self.t_solar[0]) < t_before - 1.0
         resync = np.asarray(self.truncations, dtype=bool).copy()
         if wrapped:
             resync[:] = True
+        # the shaping in raw units: the parent has divided self.rewards by reward_div already
+        shape = self._shape_raw(self.row[:, C["pointing_err"]], self.row[:, C["p_in"]], self.row[:, C["sun_reachable"]], resync, np)
+        if self.lost_shaping:
+            shape = shape - self.lost_shaping * self.row[:, C["lost_sun_s"]]
+        self.rewards[:] = self.rewards + (shape / float(getattr(self, "reward_div", 1.0))).astype(np.float32)
+        self.ep_return += shape
         self._sync_from_motors(resync)
         return res

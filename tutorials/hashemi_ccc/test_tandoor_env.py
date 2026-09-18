@@ -27,6 +27,7 @@ def main():
     ap.add_argument("--discrete", type=int, default=1, help="1: the sensor loop's commands rounded to the seven head values (the policy's space)")
     ap.add_argument("--receiver", default="oil", help="oil (the coil and the loop) or beam (the hyperboloid beam-down through the slot)")
     ap.add_argument("--slot", type=float, default=0.06, help="the slot's width [m] for the beam-down")
+    ap.add_argument("--random", type=int, default=0, help="1: uniform-random heads instead of the follower (the return's floor)")
     args = ap.parse_args()
     kw = ini_env_kwargs(os.path.join(os.path.dirname(HERE), "puffer_tandoor", "hashemi_ccc.ini"))
     kw["day_random"] = 0
@@ -43,6 +44,7 @@ def main():
     k = 0
     rows = []
     agree_reach = agree_lost = 0.0
+    ret = np.zeros(B); rng = np.random.default_rng(0)
     while True:
         el0, az0, _ = _m._sim.solar_position(env.lat, env.day, float(env.t_solar[0]))
         az0 = np.degrees(az0 - env._ds_azs)
@@ -58,8 +60,11 @@ def main():
         a[:, 4] = 3 + 3 * -np.clip(e_el / (env.RATE_EL * env.dt), -1, 1)
         if args.discrete:
             a[:, 3] = np.round(a[:, 3]); a[:, 4] = np.round(a[:, 4])
+        if args.random:
+            a = np.stack([rng.integers(0, n, size=B) for n in nvec], 1)
         t_before = float(env.t_solar[0])
         obs, rew, term, trunc, infos = env.step(a)
+        ret += np.asarray(rew, dtype=np.float64)
         k += 1
         # the spec's Ω-columns against the parent's flags: the sun reachable = the parent's sun up,
         # the sun lost = the parent's lost counter (its L1 error in degrees vs the spec's angle:
@@ -78,7 +83,8 @@ def main():
                          float(np.mean(env.t_oil)) if oil else 0.0, float(np.mean(env.row[:, ECOL["q_pot"]])) if oil else float(np.mean(env.row[:, env._bk.BCOL["spot"]]))))
         if float(env.t_solar[0]) < t_before - 1.0 or k > 4000:
             break
-    print(f"day {args.day} gpu={args.gpu} discrete={args.discrete} receiver={args.receiver}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}")
+    print(f"day {args.day} gpu={args.gpu} discrete={args.discrete} receiver={args.receiver} random={args.random}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}; "
+          f"the day's return {ret.mean():+.2f} +- {ret.std():.2f} (the trainer's units, reward_div {getattr(env, 'reward_div', 1.0):g})")
     print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis   T_oil[K]  q_pot[W]" + ("   (beam: the last column is the spot at F2 [m])" if args.receiver == "beam" else ""))
     for r in rows:
         print("  %5.2f  %6.2f  %6.2f  %+6.2f   %5.3f   %7.0f   %7.1f   %6.2f   %7.1f   %7.0f" % r)
@@ -86,7 +92,9 @@ def main():
     ok = rows[-1][7] > 50 and all(r[4] > 0.9 for r in rows) and agree_reach / k > 0.99 and agree_lost / k > 0.97
     if args.receiver == "beam":     # the beam-down's capture is the design's: report, do not judge
         ok = agree_reach / k > 0.99 and agree_lost / k > 0.97
-    print("COOKS" if ok else "DOES NOT COOK")
+    if args.random:                   # the floor: the sun lost within the hour, a negative day
+        ok = ret.mean() < 0
+    print(("FLOOR HOLDS (a negative day)" if ok else "FLOOR BROKEN (random heads earn a positive day)") if args.random else ("COOKS" if ok else "DOES NOT COOK"))
     sys.exit(0 if ok else 1)
 
 
