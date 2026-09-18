@@ -377,3 +377,9 @@ seven levels), and `heads_to_commands` / `commands_to_drives` through the compil
 and serves `machine_obs` from the kernel's own observation columns. In the megakernel the
 prelude runs once on thread 0 and the values the ray level reads are broadcast through
 threadgroup memory; the rays run on every thread; thread 0 reduces, finishes, writes.
+
+The policy learns to point; no sensor closes the loop (the follower in HashemiPolicy.lean is a
+proved reference, not the controller). The shaping that makes that learnable is proportional to
+the spec's `pointing_err` column (0.5 per radian per step, capped at 0.5 rad, only while the sun
+is within the winch's reach): a gradient at every error, where the smooth gate is flat beyond
+3 deg. A day at 3 deg costs 50, at 0.3 deg 5, beside +1 per roti and 75 per guillotine cut.

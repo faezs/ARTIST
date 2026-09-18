@@ -55,7 +55,7 @@ OBS_COLS = [ECOL["obs_" + n] for n in machine_policy.OBS_NAMES]
 class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
 
-    def __init__(self, *args, lost_shaping=0.02, t_amb=300.0, trace_rays=None, **kwargs):
+    def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.5, t_amb=300.0, trace_rays=None, **kwargs):
         # trace_rays: accepted for the ini's sake; the rays are the spec's (HashemiEnv.lean `envRays`, 64)
         if trace_rays is not None and int(trace_rays) != ENV_RAYS:
             print(f"  [hashemi_ccc] trace_rays={trace_rays} ignored: the megakernel's rays are the spec's {ENV_RAYS}")
@@ -77,9 +77,16 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # device; the receiver's 1.7 deg budget is the spec's `lost_sun` column, felt through the
         # capture itself and the smooth gate's shaping. (Set to 1.7 deg once: with a discrete
         # policy no episode survived the day.)
-        # THE GATE AS A GRADIENT: `lost_sun_s` (the smooth gate, slope 1/(4 tau) per radian by
-        # theorem) charged per step, so the cook feels the sun slipping before the guillotine
+        # THE POLICY LEARNS TO POINT (no sensor closes the loop): the shaping must have a gradient
+        # at every error. `pointing_err` (the spec's pointingError, an angle) charged per step in
+        # proportion, capped at 0.5 rad, and only while the sun is within the winch's reach
+        # (lostSun_unreachable: the cook is not charged for the machine's reach). The smooth gate
+        # `lost_sun_s` saturates beyond ~3 deg - flat where a young policy lives (between the
+        # guillotine's 5 deg and the receiver's 1.7 deg) - so it is off by default. The scale:
+        # at 0.5 per rad per step a day at 3 deg costs 50, at 0.3 deg 5, beside the parent's
+        # +1 per roti (77 a day when pointed) and 75 per guillotine cut.
         self.lost_shaping = float(lost_shaping)
+        self.pointing_shaping = float(pointing_shaping)
         self.t_amb = float(t_amb)
         super().__init__(*args, **kwargs)
         B = self.num_agents
@@ -272,6 +279,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         obs_t, rew_t, infos = fused_full_step(self, neutral)
         if self.lost_shaping:
             rew_t = rew_t - self.lost_shaping * out[:, ECOL["lost_sun_s"]]
+        if self.pointing_shaping:
+            rew_t = rew_t - self.pointing_shaping * out[:, ECOL["pointing_err"]].clamp(max=0.5) * out[:, ECOL["sun_reachable"]]
         res = (obs_t, rew_t, infos)
         # a cut agent's motors were re-parked by step_post, every agent's at day over: the Lean
         # state follows the parent's motors there; the oil keeps its temperature
@@ -310,6 +319,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         res = super().step(neutral)
         if self.lost_shaping:
             self.rewards[:] = self.rewards - self.lost_shaping * self.row[:, ECOL["lost_sun_s"]]
+        if self.pointing_shaping:
+            self.rewards[:] = self.rewards - self.pointing_shaping * np.minimum(self.row[:, ECOL["pointing_err"]], 0.5) * self.row[:, ECOL["sun_reachable"]]
         wrapped = float(self.t_solar[0]) < t_before - 1.0
         resync = np.asarray(self.truncations, dtype=bool).copy()
         if wrapped:
