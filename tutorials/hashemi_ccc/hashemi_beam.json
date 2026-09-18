@@ -1,0 +1,7 @@
+{
+"kernel": "hashemi_beam", "c": "hk_hashemiEnvBeam",
+"columns": ["az_next", "t_next", "slack_next", "wire_len", "t_dead", "stalled", "taut", "wire_holds", "arm", "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun", "sun_reachable_s", "lost_sun_s", "capture", "hit_secondary", "passes_dish", "per_dni", "p_in", "spot", "obs_e_az", "obs_e_el", "obs_swing", "obs_taut", "obs_holds", "obs_oil", "obs_reach_s", "obs_lost_s"],
+"inputs": ["az", "t", "slack", "omegam", "omegad", "dt", "elSun", "azSun", "dni", "rDrum", "W", "rcm", "Tmax", "rho", "Fdrive", "L10", "rodLen", "R", "f", "a", "w", "rc", "k", "sigmaslope", "sigmaspec", "hsun", "soil", "L", "dm", "rm", "rt", "slotW", "beta"],
+"arrays": [{"name": "dr", "P": 64, "m": 10}],
+"n_columns": 31, "rays": 64, "n_nodes": 1855, "ray_nodes": 380, "sums": 4
+}

@@ -8,6 +8,10 @@ set_option maxRecDepth 8000
 theorem Fits_ccc : Fits = fun (b : TandoorHashemi.FixedBase) (c : TandoorHashemi.Carriage) =>
     (b.rRail = (Real.sqrt (((c.chord / (2 : ℝ)) ^ 2) + (c.apexH ^ 2)))) := rfl
 
+theorem FitsReceiver_ccc : FitsReceiver = fun (a : ℝ) (b2 : ℝ) (rm : ℝ) =>
+    let v4 := (rm ^ 2)
+    (((Real.pi * v4) * ((a * (Real.sqrt ((1 : ℝ) + (v4 / b2)))) - a)) ≤ ((Real.pi * ((0.06 : ℝ) ^ 2)) * (0.04 : ℝ))) := rfl
+
 theorem HangerClearsPost_ccc : HangerClearsPost = fun (eyeOffset : ℝ) (dRod : ℝ) =>
     ((dRod / (2 : ℝ)) < eyeOffset) := rfl
 
@@ -52,6 +56,10 @@ theorem azFull_ccc : azFull =
 theorem azRate_ccc : azRate = fun (ωm : ℝ) (rw : ℝ) (R : ℝ) =>
     ((ωm * rw) / R) := rfl
 
+theorem beamAxis_ccc : beamAxis = fun (t : ℝ) (β : ℝ) =>
+    let v2 := (t + β)
+    ![(Real.sin v2), (0 : ℝ), (-(Real.cos v2))] := rfl
+
 theorem bisectStep_ccc : bisectStep = fun (ym : ℝ) (hp : ℝ) (a : ℝ) (ze : ℝ) (L : ℝ) (lohi : ℝ × ℝ) =>
     let v9 := ((lohi.1 + lohi.2) / (2 : ℝ))
     let v11 := (-a)
@@ -72,6 +80,9 @@ theorem cableArea_ccc : cableArea =
 
 theorem cableDrop_ccc : cableDrop = fun (L : ℝ) (I : ℝ) =>
     ((((0.0000000172 : ℝ) * ((2 : ℝ) * L)) * I) / (0.0000015 : ℝ)) := rfl
+
+theorem capSag_ccc : capSag = fun (a : ℝ) (b2 : ℝ) (rm : ℝ) =>
+    ((a * (Real.sqrt ((1 : ℝ) + ((rm ^ 2) / b2)))) - a) := rfl
 
 theorem captureS_ccc : captureS = fun (rc : ℝ) (rad : ℝ) =>
     (Real.sigmoid ((rc - rad) / (0.005 : ℝ))) := rfl
@@ -100,6 +111,9 @@ theorem coilProfile_ccc : coilProfile = fun (α : ℝ) (ε : ℝ) (Ac : ℝ) (hC
     let v81 := (v71 + (((α * (P 5)) - ((v20 * ((v71 ^ 4) - v22)) + (v25 * (v71 - Ta)))) / mcp))
     let v91 := (v81 + (((α * (P 6)) - ((v20 * ((v81 ^ 4) - v22)) + (v25 * (v81 - Ta)))) / mcp))
     ![v31, v41, v51, v61, v71, v81, v91, (v91 + (((α * (P 7)) - ((v20 * ((v91 ^ 4) - v22)) + (v25 * (v91 - Ta)))) / mcp))] := rfl
+
+theorem coilVolume_ccc : coilVolume =
+    ((Real.pi * ((0.06 : ℝ) ^ 2)) * (0.04 : ℝ)) := rfl
 
 theorem conicHitS_ccc : conicHitS = fun (c : ℝ) (k : ℝ) (O : Fin 3 → ℝ) (d : Fin 3 → ℝ) =>
     let v9 := ((1 : ℝ) + k)
@@ -179,6 +193,35 @@ theorem dishHalf_ccc : dishHalf =
 theorem dishR_ccc : dishR =
     (2 : ℝ) := rfl
 
+theorem dishReflect_ccc : dishReflect = fun (R : ℝ) (f : ℝ) (a : ℝ) (w : ℝ) (k : ℝ) (σslope : ℝ) (σspec : ℝ) (cx : ℝ) (cy : ℝ) (ux : ℝ) (uy : ℝ) (dx : ℝ) (dy : ℝ) (dz : ℝ) (e1 : ℝ) (e2 : ℝ) (s1 : ℝ) (s2 : ℝ) =>
+    let v24 := (w / (2 : ℝ))
+    let v31 := (cx + ux)
+    let v32 := (cy + uy)
+    let v33 := ((2 : ℝ) * f)
+    let v35 := ((1 : ℝ) / R)
+    let v41 := (Real.sqrt (max ((cx ^ 2) + (cy ^ 2)) (0.000000000000000001 : ℝ)))
+    let v42 := (v41 ^ 2)
+    let v48 := ((1 : ℝ) - ((((1 : ℝ) + k) * (v35 ^ 2)) * v42))
+    let v57 := ((v35 * v41) / (Real.sqrt (max v48 (0.000000000000000001 : ℝ))))
+    let v60 := (Real.sqrt ((1 : ℝ) + (v57 ^ 2)))
+    let v61 := (-v57)
+    let v64 := (((v61 * cx) / v41) / v60)
+    let v67 := (((v61 * cy) / v41) / v60)
+    let v68 := ((1 : ℝ) / v60)
+    let v70 := (v64 + (σslope * e1))
+    let v72 := (v67 + (σslope * e2))
+    let v78 := (Real.sqrt (((v70 ^ 2) + (v72 ^ 2)) + (v68 ^ 2)))
+    let v79 := (v70 / v78)
+    let v80 := (v72 / v78)
+    let v81 := (v68 / v78)
+    let v95 := (((((cx - v31) * v64) + ((cy - v32) * v67)) + ((((v35 * v42) / ((1 : ℝ) + (Real.sqrt (max v48 (0 : ℝ))))) - v33) * v68)) / (((dx * v64) + (dy * v67)) + (dz * v68)))
+    let v107 := ((2 : ℝ) * (((dx * v79) + (dy * v80)) + (dz * v81)))
+    let v113 := (dz - (v107 * v81))
+    let v115 := ((dx - (v107 * v79)) + (σspec * s1))
+    let v117 := ((dy - (v107 * v80)) + (σspec * s2))
+    let v123 := (Real.sqrt (((v115 ^ 2) + (v117 ^ 2)) + (v113 ^ 2)))
+    ![(v31 + (v95 * dx)), (v32 + (v95 * dy)), (v33 + (v95 * dz)), (v115 / v123), (v117 / v123), (v113 / v123), (if ((|cx| ≤ a) ∧ ((|cy| ≤ a) ∧ ((|ux| ≤ v24) ∧ (|uy| ≤ v24)))) then (1 : ℝ) else (0 : ℝ))] := rfl
+
 theorem dishSide_ccc : dishSide =
     ((2 : ℝ) * (0.8 : ℝ)) := rfl
 
@@ -228,6 +271,8 @@ theorem hangerLength_ccc : hangerLength = fun (R : ℝ) (a : ℝ) (yr : ℝ) (dx
 
 -- hashemiEnv: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)
 
+-- hashemiEnvBeam: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)
+
 -- hashemiLoop: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)
 
 theorem headToCmd_ccc : headToCmd = fun (h : ℝ) =>
@@ -260,6 +305,43 @@ theorem hingeWrench_ccc : hingeWrench = fun (xh : ℝ) (zBolt : ℝ) =>
 
 theorem hpHashemi_ccc : hpHashemi =
     (0.34 : ℝ) := rfl
+
+theorem hyperHit_ccc : hyperHit = fun (f : ℝ) (L : ℝ) (dm : ℝ) (t : ℝ) (β : ℝ) (O : Fin 3 → ℝ) (d : Fin 3 → ℝ) =>
+    let v11 := (t + β)
+    let v12 := (Real.sin v11)
+    let v15 := (-(Real.cos v11))
+    let v17 := (L / (2 : ℝ))
+    let v20 := ((v17 - dm) ^ 2)
+    let v21 := ((v17 ^ 2) - v20)
+    let v22 := (v12 * v17)
+    let v23 := ((0 : ℝ) * v17)
+    let v25 := (f + (v15 * v17))
+    let v26 := ((O 0) - v22)
+    let v27 := ((O 1) - v23)
+    let v28 := ((O 2) - v25)
+    let v34 := (-(((v26 * v12) + (v27 * (0 : ℝ))) + (v28 * v15)))
+    let v40 := (-((((d 0) * v12) + ((d 1) * (0 : ℝ))) + ((d 2) * v15)))
+    let v44 := (((1 : ℝ) / v20) + ((1 : ℝ) / v21))
+    let v53 := (((v40 ^ 2) * v44) - (((((d 0) * (d 0)) + ((d 1) * (d 1))) + ((d 2) * (d 2))) / v21))
+    let v64 := (((((2 : ℝ) * v34) * v40) * v44) - (((2 : ℝ) * (((v26 * (d 0)) + (v27 * (d 1))) + (v28 * (d 2)))) / v21))
+    let v81 := (Real.sqrt (max ((v64 ^ 2) - (((4 : ℝ) * v53) * ((((v34 ^ 2) * v44) - ((((v26 * v26) + (v27 * v27)) + (v28 * v28)) / v21)) - (1 : ℝ)))) (0 : ℝ)))
+    let v82 := (-v64)
+    let v84 := ((2 : ℝ) * v53)
+    let v85 := ((v82 - v81) / v84)
+    let v87 := ((v82 + v81) / v84)
+    let v93 := ((v85 > (0.000001 : ℝ)) ∧ ((v34 + (v85 * v40)) > (0 : ℝ)))
+    let v98 := ((v87 > (0.000001 : ℝ)) ∧ ((v34 + (v87 * v40)) > (0 : ℝ)))
+    let v104 := (if (v93 ∧ v98) then (min v85 v87) else (if v93 then v85 else (if v98 then v87 else (-(1 : ℝ)))))
+    let v112 := (v34 + (v104 * v40))
+    let v115 := ((((O 0) + (v104 * (d 0))) - v22) + (v112 * v12))
+    let v118 := ((((O 1) + (v104 * (d 1))) - v23) + (v112 * (0 : ℝ)))
+    let v121 := ((((O 2) + (v104 * (d 2))) - v25) + (v112 * v15))
+    let v131 := (-(v112 / v20))
+    let v134 := ((v131 * v12) - (v115 / v21))
+    let v137 := ((v131 * (0 : ℝ)) - (v118 / v21))
+    let v140 := ((v131 * v15) - (v121 / v21))
+    let v147 := (Real.sqrt (max (((v134 * v134) + (v137 * v137)) + (v140 * v140)) (0.000000000000000001 : ℝ)))
+    ![((O 0) + (v104 * (d 0))), ((O 1) + (v104 * (d 1))), ((O 2) + (v104 * (d 2))), v104, (Real.sqrt (max (((v115 * v115) + (v118 * v118)) + (v121 * v121)) (0.000000000000000001 : ℝ))), (v134 / v147), (v137 / v147), (v140 / v147)] := rfl
 
 theorem landAt_ccc : landAt = fun (H : Fin 3 → ℝ) (r : Fin 3 → ℝ) (p : ℝ) =>
     let v8 := ((p - (H 2)) / (r 2))
@@ -1460,6 +1542,9 @@ theorem screwWrench_ccc : screwWrench = fun (xh : ℝ) (zBolt : ℝ) (h : ℝ) =
     let v11 := (xh * (1 : ℝ))
     ![![(0 : ℝ), (1 : ℝ), (0 : ℝ), (v5 - (zBolt * (1 : ℝ))), (v8 - v9), (v11 - v5)], ![(0 : ℝ), (0 : ℝ), (1 : ℝ), (((0 : ℝ) * (1 : ℝ)) - v8), (v8 - v11), (v9 - v5)], ![(0 : ℝ), (0 : ℝ), (0 : ℝ), (0 : ℝ), (1 : ℝ), (0 : ℝ)], ![(0 : ℝ), (0 : ℝ), (0 : ℝ), (0 : ℝ), (0 : ℝ), (1 : ℝ)], ![(1 : ℝ), (0 : ℝ), (0 : ℝ), (-h), zBolt, (0 : ℝ)]] := rfl
 
+theorem secondaryMag_ccc : secondaryMag = fun (L : ℝ) (dm : ℝ) =>
+    ((L - dm) / dm) := rfl
+
 theorem setLength_ccc : setLength = fun (rod : ℝ) (excess : ℝ) =>
     (rod - excess) := rfl
 
@@ -1574,6 +1659,67 @@ theorem tilt_ccc : tilt = fun (v : Fin 3 → ℝ) (e1 : ℝ) (e2 : ℝ) =>
 
 theorem tiltOfMismatch_ccc : tiltOfMismatch = fun (e : ℝ) =>
     (e / ((2 : ℝ) * (0.8 : ℝ))) := rfl
+
+theorem traceBeam_ccc : traceBeam = fun (R : ℝ) (f : ℝ) (a : ℝ) (k : ℝ) (L : ℝ) (dm : ℝ) (rm : ℝ) (rt : ℝ) (slotW : ℝ) (t : ℝ) (β : ℝ) (H : Fin 3 → ℝ) (r : Fin 3 → ℝ) (onPanel : ℝ) =>
+    let v18 := (t + β)
+    let v19 := (Real.sin v18)
+    let v22 := (-(Real.cos v18))
+    let v24 := (L / (2 : ℝ))
+    let v27 := ((v24 - dm) ^ 2)
+    let v28 := ((v24 ^ 2) - v27)
+    let v29 := (v19 * v24)
+    let v30 := ((0 : ℝ) * v24)
+    let v32 := (f + (v22 * v24))
+    let v33 := ((H 0) - v29)
+    let v34 := ((H 1) - v30)
+    let v35 := ((H 2) - v32)
+    let v41 := (-(((v33 * v19) + (v34 * (0 : ℝ))) + (v35 * v22)))
+    let v47 := (-((((r 0) * v19) + ((r 1) * (0 : ℝ))) + ((r 2) * v22)))
+    let v51 := (((1 : ℝ) / v27) + ((1 : ℝ) / v28))
+    let v60 := (((v47 ^ 2) * v51) - (((((r 0) * (r 0)) + ((r 1) * (r 1))) + ((r 2) * (r 2))) / v28))
+    let v71 := (((((2 : ℝ) * v41) * v47) * v51) - (((2 : ℝ) * (((v33 * (r 0)) + (v34 * (r 1))) + (v35 * (r 2)))) / v28))
+    let v88 := (Real.sqrt (max ((v71 ^ 2) - (((4 : ℝ) * v60) * ((((v41 ^ 2) * v51) - ((((v33 * v33) + (v34 * v34)) + (v35 * v35)) / v28)) - (1 : ℝ)))) (0 : ℝ)))
+    let v89 := (-v71)
+    let v91 := ((2 : ℝ) * v60)
+    let v92 := ((v89 - v88) / v91)
+    let v94 := ((v89 + v88) / v91)
+    let v100 := ((v92 > (0.000001 : ℝ)) ∧ ((v41 + (v92 * v47)) > (0 : ℝ)))
+    let v105 := ((v94 > (0.000001 : ℝ)) ∧ ((v41 + (v94 * v47)) > (0 : ℝ)))
+    let v111 := (if (v100 ∧ v105) then (min v92 v94) else (if v100 then v92 else (if v105 then v94 else (-(1 : ℝ)))))
+    let v113 := ((H 0) + (v111 * (r 0)))
+    let v115 := ((H 1) + (v111 * (r 1)))
+    let v117 := ((H 2) + (v111 * (r 2)))
+    let v119 := (v41 + (v111 * v47))
+    let v122 := ((v113 - v29) + (v119 * v19))
+    let v125 := ((v115 - v30) + (v119 * (0 : ℝ)))
+    let v128 := ((v117 - v32) + (v119 * v22))
+    let v138 := (-(v119 / v27))
+    let v141 := ((v138 * v19) - (v122 / v28))
+    let v144 := ((v138 * (0 : ℝ)) - (v125 / v28))
+    let v147 := ((v138 * v22) - (v128 / v28))
+    let v154 := (Real.sqrt (max (((v141 * v141) + (v144 * v144)) + (v147 * v147)) (0.000000000000000001 : ℝ)))
+    let v155 := (v141 / v154)
+    let v156 := (v144 / v154)
+    let v157 := (v147 / v154)
+    let v163 := ((onPanel > (0.5 : ℝ)) ∧ ((v111 > (0 : ℝ)) ∧ ((Real.sqrt (max (((v122 * v122) + (v125 * v125)) + (v128 * v128)) (0.000000000000000001 : ℝ))) ≤ rm)))
+    let v169 := ((2 : ℝ) * ((((r 0) * v155) + ((r 1) * v156)) + ((r 2) * v157)))
+    let v171 := ((r 0) - (v169 * v155))
+    let v173 := ((r 1) - (v169 * v156))
+    let v175 := ((r 2) - (v169 * v157))
+    let v176 := ((1 : ℝ) + k)
+    let v177 := ((1 : ℝ) / R)
+    let v194 := ((((2 : ℝ) * v177) * (((v113 * v171) + (v115 * v173)) + ((v176 * v117) * v175))) - ((2 : ℝ) * v175))
+    let v203 := ((v177 * (((v113 ^ 2) + (v115 ^ 2)) + (v176 * (v117 ^ 2)))) - ((2 : ℝ) * v117))
+    let v213 := (((2 : ℝ) * v203) / ((-v194) - (Real.sqrt (max ((v194 ^ 2) - (((4 : ℝ) * (v177 * (((v171 ^ 2) + (v173 ^ 2)) + (v176 * (v175 ^ 2))))) * v203)) (0 : ℝ)))))
+    let v215 := (v113 + (v213 * v171))
+    let v222 := |(v115 + (v213 * v173))|
+    let v232 := ((v213 > (0 : ℝ)) → ((¬ ((|v215| ≤ a) ∧ (v222 ≤ a))) ∨ ((v222 ≤ (slotW / (2 : ℝ))) ∧ (v215 ≥ (0 : ℝ)))))
+    let v233 := (v19 * L)
+    let v234 := ((0 : ℝ) * L)
+    let v236 := (f + (v22 * L))
+    let v250 := (((((v233 - v113) * v19) + ((v234 - v115) * (0 : ℝ))) + ((v236 - v117) * v22)) / (((v171 * v19) + (v173 * (0 : ℝ))) + (v175 * v22)))
+    let v268 := (((Real.sqrt (((((v113 + (v250 * v171)) - v233) ^ 2) + (((v115 + (v250 * v173)) - v234) ^ 2)) + (((v117 + (v250 * v175)) - v236) ^ 2))) ≤ rt) ∧ (v250 > (0 : ℝ)))
+    ![(if (v163 ∧ (v232 ∧ v268)) then (1 : ℝ) else (0 : ℝ)), (if v163 then (1 : ℝ) else (0 : ℝ)), (if (v163 ∧ v232) then (1 : ℝ) else (0 : ℝ)), (Real.sqrt (((((v113 + (v250 * v171)) - v233) ^ 2) + (((v115 + (v250 * v173)) - v234) ^ 2)) + (((v117 + (v250 * v175)) - v236) ^ 2))), v215, (v115 + (v213 * v173)), (Real.sqrt (max (((v122 * v122) + (v125 * v125)) + (v128 * v128)) (0.000000000000000001 : ℝ))), (if (¬ v163) then (0 : ℝ) else (if (¬ v232) then (1 : ℝ) else (if (¬ v268) then (2 : ℝ) else (3 : ℝ))))] := rfl
 
 theorem traceConic_ccc : traceConic = fun (c : ℝ) (k : ℝ) (p : ℝ) (O : Fin 3 → ℝ) (d : Fin 3 → ℝ) =>
     let v10 := ((1 : ℝ) + k)
@@ -1730,6 +1876,9 @@ theorem traceSphere_ccc : traceSphere = fun (R : ℝ) (p : ℝ) (O : Fin 3 → �
     let v50 := ((d 2) - (v44 * v37))
     let v52 := ((p - v31) / v50)
     ![(v27 + (v52 * ((d 0) - (v44 * v33)))), (v29 + (v52 * ((d 1) - (v44 * v35)))), (Real.sqrt (((v27 + (v52 * ((d 0) - (v44 * v33)))) ^ 2) + ((v29 + (v52 * ((d 1) - (v44 * v35)))) ^ 2))), v31, (if ((0 : ℝ) < v50) then (1 : ℝ) else (0 : ℝ))] := rfl
+
+theorem tunnelThroughput_ccc : tunnelThroughput =
+    ((0.94 : ℝ) * (0.96 : ℝ)) := rfl
 
 theorem turnLoss_ccc : turnLoss = fun (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Ta : ℝ) (Tin : ℝ) =>
     let v8 := (Ac / (8 : ℝ))
