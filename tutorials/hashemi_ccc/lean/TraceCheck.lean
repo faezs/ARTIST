@@ -712,9 +712,7 @@ def mcChecks (src : String) : IO (Array Check) := do
     mono, cliff⟩
   pure cs
 
-end TraceCheck
 
-open TraceCheck in
 /-! ## H. The Modula layer from Lean: the gates' slopes through the generated box kernels
 
 Ccc prints every definition's tangent (`hk_<f>_jvp`) and box (`hk_<f>_box`: interval + Lipschitz
@@ -783,16 +781,21 @@ def modulaChecks : IO (Array Check) := do
   let mut jumpsOk := true
   let mut nJump := 0
   let mut smoothMax := 0.0
+  let mut nEdge := 0
   for i in [0:n] do
     let straddles := mlo[i]![6]! <= floor && floor <= mhi[i]![6]!
+    -- a box edge within float32 of the floor is decided by rounding, either way: not a verdict
+    let onEdge := Float.abs (mlo[i]![6]! - floor) < 1e-5 || Float.abs (mhi[i]![6]! - floor) < 1e-5
     let lb := mL[i]![13]!
     let lsm := mL[i]![15]!
-    if straddles then nJump := nJump + 1
-    if straddles && lb < 1e29 then jumpsOk := false
-    if !straddles && lb != 0.0 then jumpsOk := false
+    if onEdge then nEdge := nEdge + 1
+    else
+      if straddles then nJump := nJump + 1
+      if straddles && lb < 1e29 then jumpsOk := false
+      if !straddles && lb != 0.0 then jumpsOk := false
     if lsm > smoothMax then smoothMax := lsm
   cs := cs.push ⟨"gate: in the megakernel the Boolean reach column jumps exactly on the boxes straddling the floor (SunReachable, a subobject: L = inf) and is flat elsewhere",
-    jumpsOk, s!"{nJump} straddling boxes of {n} jump, the rest have L = 0"⟩
+    jumpsOk, s!"{nJump} straddling boxes of {n} jump, the rest have L = 0 ({nEdge} boxes with an edge on the floor left undecided)"⟩
   cs := cs.push ⟨"gate: the megakernel's smooth reach column keeps the theorem's slope on the same boxes",
     smoothMax <= 1.0 / (4.0 * tau) * 1.001, s!"max L {fmt smoothMax} per rad vs {fmt (1.0 / (4.0 * tau))}"⟩
   -- H3. lostSunS <= sunReachableS at sampled poses, both values from the tangent kernels
@@ -818,6 +821,9 @@ def modulaChecks : IO (Array Check) := do
     leOk, s!"max (lost - reach) {fmt worst} over {m} poses"⟩
   pure cs
 
+end TraceCheck
+
+open TraceCheck in
 def main : IO Unit := do
   let src ← dishSource
   let a0 ← dishChecks src

@@ -3,6 +3,7 @@
 using namespace metal;
 #define HK_NO_STD
 #define HK_ADDR thread
+#define HK_RADDR device
 #define hk_real float
 #define HK_STATIC static inline
 #define HK_LIT(x) ((float)(x))
