@@ -198,7 +198,7 @@ def run : MetaM Unit := do
     "/-- `=` on ℝ, in floating point -/",
     "def feq (a b : Float) : Bool := Float.abs (a - b) <= 1e-9 * max 1.0 (max (Float.abs a) (Float.abs b))", ""]
   -- the round trip names every compiled definition, so it imports the top module of the chain
-  let mut rt : Array String := #["import RequestProject.HashemiTraceProps", "import RequestProject.HashemiPolicy", "namespace TandoorHashemi",
+  let mut rt : Array String := #["import RequestProject.HashemiTraceProps", "import RequestProject.HashemiPolicy", "import RequestProject.HashemiBeamdown", "namespace TandoorHashemi",
     "open Classical", "set_option maxHeartbeats 4000000", "set_option maxRecDepth 8000", ""]
   let mut seed := 7
   for f in funs do
@@ -269,7 +269,7 @@ def run : MetaM Unit := do
         -- the C and Float twins agree on these three at the samples
         if ["swingOfLength", "step", "megaStep"].contains ref then
           rt := rt.push s!"-- {ref}: round trip by the twins (the 24-fold bisection is beyond rfl's budget)" |>.push ""
-        else if ref == "dishPower" || ref == "hashemiEnv" || ref == "hashemiLoop" || ref == "hashemiEnvBeam" then
+        else if ref == "dishPower" || ref == "hashemiEnv" || ref == "hashemiLoop" || ref == "hashemiEnvBeam" || ref == "traceBeam" then
           -- the whole optical pipeline as one term: its parts (`sunInDish`, `sampleRay`,
           -- `traceRayKErr`) each round-trip by `rfl`; the composite's defeq check times out
           rt := rt.push s!"-- {ref}: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)" |>.push ""

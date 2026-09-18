@@ -905,7 +905,7 @@ def beamChecks : IO (Array Check) := do
     for hour in [8, 10, 12, 14, 16] do
       -- Quetta, day 172: the sun's elevation by the hour (the tandoor's solar model, read here as a table)
       let el : Float := match hour with | 8 => 0.639 | 10 => 1.09 | 12 => 1.453 | 14 => 1.091 | _ => 0.640
-      let tt := Float.max 0.0 (Float.min 1.077 (1.5707963 - el))
+      let tt := max 0.0 (min 1.077 (1.5707963 - el))
       let mut x : Array (Array Float) := #[]
       let mut dr : Array (Array Float) := #[]
       for b in [0:B] do
