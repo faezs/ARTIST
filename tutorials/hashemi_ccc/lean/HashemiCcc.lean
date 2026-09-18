@@ -34,7 +34,9 @@ def sample (seed : Nat) (k : Nat) : String :=
   (if ip.isEmpty then "0" else ip) ++ "." ++ (String.ofList (vs.toList.drop (vs.length - 6)))
 
 def jsonStr (s : String) : String :=
-  "\"" ++ ((s.replace "\\" "\\\\").replace "\"" "\\\"") ++ "\""
+  let t := ((s.replace "\\" "\\\\").replace "\"" "\\\"")
+  let t := (t.replace "\n" " ").replace "\t" " "     -- no control characters in a JSON string
+  "\"" ++ t ++ "\""
 
 /-- the string literals of an array/list literal expression, in order -/
 partial def strLits (e : Expr) : Array String :=

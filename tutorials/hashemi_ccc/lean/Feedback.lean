@@ -97,6 +97,16 @@ theorem trainStep_stops {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) :
     Stops (trainStep surf n) Done :=
   fun _ h => trainStep_done surf n h
 
+/-- an undone ray below the train's length: the step is the stage's surface acting -/
+theorem trainStep_of_undone {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) {r : Ray σ}
+    (h0 : r.fate = none) (hlt : r.stage < n) :
+    trainStep surf n r = match surf r.stage r.geom with
+      | Sum.inl f => { r with fate := some f }
+      | Sum.inr g => { r with geom := g, stage := r.stage + 1 } := by
+  unfold trainStep
+  rw [h0]
+  simp [hlt]
+
 /-- an undone step advanced the stage, and the stage was below the train's length -/
 theorem step_undone {σ : Type*} (surf : ℕ → Surface σ) (n : ℕ) {r : Ray σ} (h0 : r.fate = none)
     (h1 : (trainStep surf n r).fate = none) :

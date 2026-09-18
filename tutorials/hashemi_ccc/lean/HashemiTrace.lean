@@ -230,3 +230,130 @@ noncomputable def traceConic (c k p : ℝ) (O d : Fin 3 → ℝ) : Fin 9 → ℝ
   ![H 0, H 1, H 2, rd 0, rd 1, rd 2, L.1, L.2, conicZ c k r - H 2]
 
 end TandoorHashemi
+
+namespace TandoorHashemi
+
+/-! ## Optical errors, and the dish as a train
+
+SolTrace's objection (2026-09-18): a trace without a sampled sun and without slope and
+specularity errors is geometry, not radiometry. `traceRayErr` adds the errors: the facet's normal
+tilted by a slope error and the reflected direction by a specularity error, each a pair of
+standard-normal draws `(e₁, e₂)` and `(s₁, s₂)` scaled by `σslope` and `σspec` (radians) - small
+tilts in the tangent plane, the SolTrace model. The sun's disc is drawn by the caller into `d`.
+With both sigmas zero it is `traceRay` (measured on the GPU ray for ray: the tilt of a unit vector by
+nothing is itself only through the sphere's identity, not by unfolding).
+
+The dish as a train (Feedback.lean): stage 0 the facet, which drops a ray off the panel (fate 0)
+or passes it on reflected; stage 1 the coil's plane, which lands it past the coil (fate 1) or in it
+(fate 2). `dishTrain_done` is `train_done` for it, and `dishTrain_fate` says its fate IS
+`traceRay`'s fate code - so the fixed-point theorem is about the compiled trace, and "every ray
+has one fate" measured on the GPU is its other side. -/
+
+/-- a unit vector tilted by small angles `(e₁, e₂)` in the tangent plane -/
+noncomputable def tilt (v : Fin 3 → ℝ) (e1 e2 : ℝ) : Fin 3 → ℝ :=
+  let w : Fin 3 → ℝ := ![v 0 + e1, v 1 + e2, v 2]
+  let nn := Real.sqrt (w 0 ^ 2 + w 1 ^ 2 + w 2 ^ 2)
+  ![w 0 / nn, w 1 / nn, w 2 / nn]
+
+/-- **his dish's ray with optical errors**: as `traceRay`, the facet's normal tilted by
+`σslope (e₁, e₂)` and the reflected direction by `σspec (s₁, s₂)`; the same eight outputs -/
+noncomputable def traceRayErr (R f a w rc cx cy ux uy dx dy dz σslope σspec e1 e2 s1 s2 : ℝ) :
+    Fin 8 → ℝ :=
+  let onPanel := |cx| ≤ a ∧ |cy| ≤ a ∧ |ux| ≤ w / 2 ∧ |uy| ≤ w / 2
+  let O : Fin 3 → ℝ := ![cx + ux, cy + uy, 2 * f]
+  let d : Fin 3 → ℝ := ![dx, dy, dz]
+  let zc := TandoorSphere.sag R (Real.sqrt (cx ^ 2 + cy ^ 2))
+  let n0 : Fin 3 → ℝ := ![-cx / R, -cy / R, (R - zc) / R]
+  let n := tilt n0 (σslope * e1) (σslope * e2)
+  let s := ((cx - O 0) * n0 0 + (cy - O 1) * n0 1 + (zc - O 2) * n0 2) / dot3 d n0
+  let H : Fin 3 → ℝ := ![O 0 + s * d 0, O 1 + s * d 1, O 2 + s * d 2]
+  let r := tilt (reflect3 n d) (σspec * s1) (σspec * s2)
+  let L := landAt H r f
+  let rad := Real.sqrt (L.1 ^ 2 + L.2 ^ 2)
+  let inside := rad ≤ rc ∧ 0 < r 2
+  let captured := onPanel ∧ inside
+  ![L.1, L.2, rad, if captured then 1 else 0,
+    if ¬ onPanel then 0 else if inside then 2 else 1, H 2, Real.sqrt (cx ^ 2 + cy ^ 2), if 0 < r 2 then 1 else 0]
+
+/-! ### The dish as a train -/
+
+/-- the ray's geometry between stages: origin and direction -/
+abbrev RayGeom := (Fin 3 → ℝ) × (Fin 3 → ℝ)
+
+/-- the facet stage: off the panel is fate 0; otherwise the ray leaves the facet's hit point along
+the reflected direction (`traceFacet`'s geometry) -/
+noncomputable def facetStage (R f a w rc cx cy ux uy : ℝ) : Feedback.Surface RayGeom := fun g =>
+  let onPanel := |cx| ≤ a ∧ |cy| ≤ a ∧ |ux| ≤ w / 2 ∧ |uy| ≤ w / 2
+  if onPanel then
+    let zc := TandoorSphere.sag R (Real.sqrt (cx ^ 2 + cy ^ 2))
+    let n : Fin 3 → ℝ := ![-cx / R, -cy / R, (R - zc) / R]
+    let s := ((cx - g.1 0) * n 0 + (cy - g.1 1) * n 1 + (zc - g.1 2) * n 2) / dot3 g.2 n
+    let H : Fin 3 → ℝ := ![g.1 0 + s * g.2 0, g.1 1 + s * g.2 1, g.1 2 + s * g.2 2]
+    Sum.inr (H, reflect3 n g.2)
+  else Sum.inl 0
+
+/-- the coil stage: the ray lands on the plane `z = f`; inside the coil is fate 2, past it fate 1 -/
+noncomputable def coilStage (f rc : ℝ) : Feedback.Surface RayGeom := fun g =>
+  let L := landAt g.1 g.2 f
+  if Real.sqrt (L.1 ^ 2 + L.2 ^ 2) ≤ rc ∧ 0 < g.2 2 then Sum.inl 2 else Sum.inl 1
+
+/-- his dish's train: the facet, then the coil -/
+noncomputable def dishTrain (R f a w rc cx cy ux uy : ℝ) : ℕ → Feedback.Surface RayGeom
+  | 0 => facetStage R f a w rc cx cy ux uy
+  | 1 => coilStage f rc
+  | _ => fun _ => Sum.inl 1
+
+/-- the ray as it starts: above the panel, at its facet point, heading down along `d` -/
+noncomputable def dishStart (f cx cy ux uy dx dy dz : ℝ) : Feedback.Ray RayGeom :=
+  ⟨(![cx + ux, cy + uy, 2 * f], ![dx, dy, dz]), 0, none⟩
+
+/-- **every ray of the dish has a fate within the train's length** (`Feedback.train_done`) -/
+theorem dishTrain_done (R f a w rc cx cy ux uy dx dy dz : ℝ) :
+    Feedback.Done ((Feedback.trainStep (dishTrain R f a w rc cx cy ux uy) 2)^[3]
+      (dishStart f cx cy ux uy dx dy dz)) :=
+  Feedback.train_done _ 2 _ rfl
+
+/-- `0 < (if p then 1 else 0)` is `p` -/
+theorem pos_ite_one_zero (p : Prop) [Decidable p] : (0 : ℝ) < (if p then 1 else 0) ↔ p := by
+  split_ifs with h <;> simp [h]
+
+set_option maxHeartbeats 2000000 in
+/-- **the train's fate is `traceRay`'s fate code**: the fixed point the kernel computes is the
+compiled trace's fate -/
+theorem dishTrain_fate (R f a w rc cx cy ux uy dx dy dz : ℝ) :
+    ((Feedback.trainStep (dishTrain R f a w rc cx cy ux uy) 2)^[3]
+      (dishStart f cx cy ux uy dx dy dz)).fate =
+    some (if traceRay R f a w rc cx cy ux uy dx dy dz 4 = 0 then 0
+          else if traceRay R f a w rc cx cy ux uy dx dy dz 4 = 2 then 2 else 1) := by
+  set D := dishTrain R f a w rc cx cy ux uy with hD
+  -- the three steps, one at a time
+  rw [Function.iterate_succ_apply', Function.iterate_succ_apply', Function.iterate_succ_apply',
+    Function.iterate_zero_apply]
+  have h1 := Feedback.trainStep_of_undone D 2 (r := dishStart f cx cy ux uy dx dy dz) rfl
+    (by show (0 : ℕ) < 2; norm_num)
+  have h2 := fun g : RayGeom => Feedback.trainStep_of_undone D 2 (r := ⟨g, 1, none⟩) rfl (by norm_num)
+  rw [h1]
+  simp only [dishStart, hD, dishTrain, facetStage]
+  by_cases hp : |cx| ≤ a ∧ |cy| ≤ a ∧ |ux| ≤ w / 2 ∧ |uy| ≤ w / 2
+  · rw [if_pos hp]
+    try simp only [Nat.zero_add]
+    rw [h2]
+    dsimp only
+    rw [hD]
+    simp only [dishTrain, coilStage]
+    have h3 : ∀ (g : RayGeom) (k : ℕ), Feedback.trainStep (dishTrain R f a w rc cx cy ux uy) 2 ⟨g, 1, some k⟩ = ⟨g, 1, some k⟩ :=
+      fun g k => Feedback.trainStep_done _ _ (by simp [Feedback.Done])
+    simp only [traceRay, traceFacet, landAt, Matrix.cons_val_zero, Matrix.cons_val_one,
+      Matrix.head_cons, Matrix.cons_val_two, Matrix.cons_val_four, Matrix.cons_val_succ,
+      Matrix.tail_cons, hp, not_true_eq_false, ite_false, pos_ite_one_zero]
+    split_ifs with hin <;> simp only [h3] <;> simp_all
+  · rw [if_neg hp]
+    dsimp only
+    have hd : Feedback.Done ({ geom := (![cx + ux, cy + uy, 2 * f], ![dx, dy, dz]), stage := 0, fate := some 0 } :
+        Feedback.Ray RayGeom) := by simp [Feedback.Done]
+    rw [Feedback.trainStep_done _ _ hd, Feedback.trainStep_done _ _ hd]
+    simp only [traceRay, Matrix.cons_val_four, Matrix.cons_val_succ, Matrix.cons_val_zero,
+      Matrix.cons_val_one, Matrix.head_cons, Matrix.tail_cons, hp, not_false_eq_true, ite_true]
+    try simp
+
+end TandoorHashemi

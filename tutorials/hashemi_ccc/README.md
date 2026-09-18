@@ -152,6 +152,23 @@ needs a shaping boundary - the rim tension, the strings of the user's descriptio
 the learning problem's real control on the tri machine, with the traced capture at the pot as the
 reward and the fitted k per level as the observation.
 
+## Radiometry, not geometry: the three SolTrace objections, fixed (30 measured theorems)
+
+- **The sun and the statistics.** `mcRays` in TraceCheck.lean draws each ray Monte Carlo from Lean's own
+  generator: a facet, a point in it, the direction on the sun's 4.65 mrad pillbox disc. Capture is a
+  Bernoulli estimate quoted with its standard error. With zero errors the error-bearing trace agrees
+  with the trace on 40 000 of 40 000 fates.
+- **Optical errors.** `traceRayErr` tilts the facet's normal by a Gaussian slope error and the reflected
+  direction by a specularity error, SolTrace's model. On axis, N = 40 000: 0.591 +- 0.002 with no
+  errors, 0.590, 0.589, 0.584 at 1, 2, 4 mrad of slope, 0.589 at 2 mrad slope with 1 mrad specularity.
+  His dish is aberration-limited: 4 mrad is 8 mm at F against a 1.13 m spot. The pointing cliff with a
+  sampled sun and 2 + 1 mrad errors: 0.596, 0.551, 0.376, 0.145, 0.034, 0.000 at 0, 0.5, 1, 1.5, 2, 3
+  deg, each +- 0.003 or less, antitone within its error bars.
+- **The stage model.** His dish is an instance of the train in Feedback.lean (`facetStage`, `coilStage`,
+  `dishTrain`), and `dishTrain_fate` PROVES the train's fate after its length is `traceRay`'s fate
+  code. So the fixed-point theorem is about the compiled trace, `train_done` covers every receiver's
+  sequence of surfaces, and "every ray has one fate" on the GPU is its measured side.
+
 ## The day as a path, and the rim-shaping family (27 measured theorems)
 
 **The admissible set is a path.** The film's seven recorded pressure levels through the tri train,

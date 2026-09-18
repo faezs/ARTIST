@@ -1362,6 +1362,12 @@ theorem swungPt_ccc : swungPt = fun (y₀ : ℝ) (z₀ : ℝ) (t : ℝ) =>
 theorem systemVolts_ccc : systemVolts =
     (12 : ℝ) := rfl
 
+theorem tilt_ccc : tilt = fun (v : Fin 3 → ℝ) (e1 : ℝ) (e2 : ℝ) =>
+    let v5 := ((v 0) + e1)
+    let v6 := ((v 1) + e2)
+    let v12 := (Real.sqrt (((v5 ^ 2) + (v6 ^ 2)) + ((v 2) ^ 2)))
+    ![(v5 / v12), (v6 / v12), ((v 2) / v12)] := rfl
+
 theorem tiltOfMismatch_ccc : tiltOfMismatch = fun (e : ℝ) =>
     (e / ((2 : ℝ) * (0.8 : ℝ))) := rfl
 
@@ -1418,6 +1424,34 @@ theorem traceRay_ccc : traceRay = fun (R : ℝ) (f : ℝ) (a : ℝ) (w : ℝ) (r
     let v71 := ((f - (v27 + (v56 * dz))) / v69)
     let v86 := (((Real.sqrt ((((v25 + (v56 * dx)) + (v71 * (dx - (v63 * v38)))) ^ 2) + (((v26 + (v56 * dy)) + (v71 * (dy - (v63 * v40)))) ^ 2))) ≤ rc) ∧ ((0 : ℝ) < (if ((0 : ℝ) < v69) then (1 : ℝ) else (0 : ℝ))))
     ![((v25 + (v56 * dx)) + (v71 * (dx - (v63 * v38)))), ((v26 + (v56 * dy)) + (v71 * (dy - (v63 * v40)))), (Real.sqrt ((((v25 + (v56 * dx)) + (v71 * (dx - (v63 * v38)))) ^ 2) + (((v26 + (v56 * dy)) + (v71 * (dy - (v63 * v40)))) ^ 2))), (if (v24 ∧ v86) then (1 : ℝ) else (0 : ℝ)), (if (¬ v24) then (0 : ℝ) else (if v86 then (2 : ℝ) else (1 : ℝ))), (v27 + (v56 * dz)), (Real.sqrt ((cx ^ 2) + (cy ^ 2))), (if ((0 : ℝ) < v69) then (1 : ℝ) else (0 : ℝ))] := rfl
+
+theorem traceRayErr_ccc : traceRayErr = fun (R : ℝ) (f : ℝ) (a : ℝ) (w : ℝ) (rc : ℝ) (cx : ℝ) (cy : ℝ) (ux : ℝ) (uy : ℝ) (dx : ℝ) (dy : ℝ) (dz : ℝ) (σslope : ℝ) (σspec : ℝ) (e1 : ℝ) (e2 : ℝ) (s1 : ℝ) (s2 : ℝ) =>
+    let v24 := (w / (2 : ℝ))
+    let v30 := ((|cx| ≤ a) ∧ ((|cy| ≤ a) ∧ ((|ux| ≤ v24) ∧ (|uy| ≤ v24))))
+    let v31 := (cx + ux)
+    let v32 := (cy + uy)
+    let v33 := ((2 : ℝ) * f)
+    let v42 := (R - (Real.sqrt ((R ^ 2) - ((Real.sqrt ((cx ^ 2) + (cy ^ 2))) ^ 2))))
+    let v44 := ((-cx) / R)
+    let v46 := ((-cy) / R)
+    let v48 := ((R - v42) / R)
+    let v50 := (v44 + (σslope * e1))
+    let v52 := (v46 + (σslope * e2))
+    let v58 := (Real.sqrt (((v50 ^ 2) + (v52 ^ 2)) + (v48 ^ 2)))
+    let v59 := (v50 / v58)
+    let v60 := (v52 / v58)
+    let v61 := (v48 / v58)
+    let v75 := (((((cx - v31) * v44) + ((cy - v32) * v46)) + ((v42 - v33) * v48)) / (((dx * v44) + (dy * v46)) + (dz * v48)))
+    let v87 := ((2 : ℝ) * (((dx * v59) + (dy * v60)) + (dz * v61)))
+    let v93 := (dz - (v87 * v61))
+    let v95 := ((dx - (v87 * v59)) + (σspec * s1))
+    let v97 := ((dy - (v87 * v60)) + (σspec * s2))
+    let v103 := (Real.sqrt (((v95 ^ 2) + (v97 ^ 2)) + (v93 ^ 2)))
+    let v106 := (v93 / v103)
+    let v108 := ((f - (v33 + (v75 * dz))) / v106)
+    let v119 := ((0 : ℝ) < v106)
+    let v120 := (((Real.sqrt ((((v31 + (v75 * dx)) + (v108 * (v95 / v103))) ^ 2) + (((v32 + (v75 * dy)) + (v108 * (v97 / v103))) ^ 2))) ≤ rc) ∧ v119)
+    ![((v31 + (v75 * dx)) + (v108 * (v95 / v103))), ((v32 + (v75 * dy)) + (v108 * (v97 / v103))), (Real.sqrt ((((v31 + (v75 * dx)) + (v108 * (v95 / v103))) ^ 2) + (((v32 + (v75 * dy)) + (v108 * (v97 / v103))) ^ 2))), (if (v30 ∧ v120) then (1 : ℝ) else (0 : ℝ)), (if (¬ v30) then (0 : ℝ) else (if v120 then (2 : ℝ) else (1 : ℝ))), (v33 + (v75 * dz)), (Real.sqrt ((cx ^ 2) + (cy ^ 2))), (if v119 then (1 : ℝ) else (0 : ℝ))] := rfl
 
 theorem traceSphere_ccc : traceSphere = fun (R : ℝ) (p : ℝ) (O : Fin 3 → ℝ) (d : Fin 3 → ℝ) =>
     let v8 := ((O 2) - R)

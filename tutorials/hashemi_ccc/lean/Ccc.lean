@@ -139,8 +139,9 @@ def finLit (n j : Nat) : Expr :=
 
 /-- the names whose definitions we unfold and translate on, beyond the root namespace -/
 def unfoldable : List Name :=
-  [`TandoorSphere.sag, `TandoorSphere.sphereR, `TandoorSphere.focal, `TandoorMount.spot,
-   `TandoorMount.spotParaxial]
+  [`TandoorSphere.sag, `TandoorSphere.sphereR, `TandoorSphere.focal, `TandoorSphere.cosOf,
+   `TandoorSphere.tanTwo, `TandoorSphere.blur, `TandoorSphere.axial, `TandoorSphere.bestFocus,
+   `TandoorSphere.dev, `TandoorMount.spot, `TandoorMount.spotParaxial]
 
 def isRealTy (t : Expr) : Bool := t.isConstOf `Real
 
@@ -336,6 +337,11 @@ partial def translateApp (root : Name) (e : Expr) : TM Val := do
   | .fvar _ => do
     let v ← translate root f
     applyArgs v args
+  | .letE .. | .mdata .. => do
+    -- a `let` (or annotated) expression in head position: its value, then the indices
+    let v ← translate root f
+    applyArgs v args
+  | .lam .. => translate root e.headBeta
   | .const n _ =>
     let k := args.size
     match n, k with
@@ -457,6 +463,9 @@ partial def translateConst (root : Name) (n : Name) (_f : Expr) (args : Array Ex
         | .struct _ fs =>
           if h : pinfo.i < fs.size then pure fs[pinfo.i].2
           else throwError "field {pinfo.i} of {major}"
+        | .pair a b =>                                   -- `Prod.fst`/`Prod.snd` applied on, e.g. `(p.1) 2`
+          if pinfo.i == 0 then pure a else if pinfo.i == 1 then pure b
+          else throwError "field {pinfo.i} of a pair"
         | v => throwError "a projection {n} of a {v.shape}"
       return ← applyArgs field (args.extract (pinfo.numParams + 1) args.size)
   let some ci := env.find? n | throwError "unknown constant {n}"

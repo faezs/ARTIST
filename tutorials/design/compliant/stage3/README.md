@@ -714,3 +714,12 @@ the recorded working level to 0.0002 % (the pipeline is exact); every other memb
 law 0.2/0.6/0.8 -> 83/76/47, rim x0.6/x1.4 -> 85/73, a ring pressed in 35, against 96 - the zoned law is a sharp optimum
 for the strip and M4 as built, the only admissible member at 5 %. Caveat in the record: far shapes' fits converged worse
 (20-45 mdeg mean slope error vs 12, local maxima > 1 deg), so part of the loss is fit noise. 27/27 measured theorems.
+
+THE SOLTRACE OBJECTIONS, FIXED (2026-09-18, "what would the author of soltrace say", "fix these"). (1) A sampled sun and
+statistics: Monte Carlo rays from Lean's generator (facet, point, pillbox disc), capture as a Bernoulli estimate with its
+standard error; zero-error trace = the trace on 40000/40000 fates. (2) Optical errors: `traceRayErr` tilts the normal by a
+Gaussian slope error and the reflection by a specularity error; on axis 0.591+-0.002 -> 0.584 at 4 mrad: his dish is
+ABERRATION-LIMITED (8 mm of error against a 1.13 m spot); the pointing cliff under 2+1 mrad errors 0.596 -> 0.000 over
+0-3 deg, antitone within error bars. (3) The stage model: his dish as an instance of Feedback's train, and
+`dishTrain_fate` PROVED - the train's fate is `traceRay`'s fate code - so the fixed-point theorem is about the compiled
+trace. Ccc gained a `let`-in-head-position case (a reflected vector applied to an index). 30/30 measured theorems.

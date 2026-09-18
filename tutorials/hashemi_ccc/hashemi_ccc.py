@@ -11396,6 +11396,25 @@ def hk_check_tension_le_of_holds(Tmax, W, rcm, rw, t):
     t19 = np.logical_or(np.logical_not(t5), t18)
     return t19
 
+def hk_tilt(v_0, v_1, v_2, e1, e2):
+    t0 = v_0
+    t1 = v_1
+    t2 = v_2
+    t3 = e1
+    t4 = e2
+    t5 = (t0 + t3)
+    t6 = (t1 + t4)
+    t7 = (t5 ** 2)
+    t8 = (t6 ** 2)
+    t9 = (t7 + t8)
+    t10 = (t2 ** 2)
+    t11 = (t9 + t10)
+    t12 = np.sqrt(t11)
+    t13 = (t5 / t12)
+    t14 = (t6 / t12)
+    t15 = (t2 / t12)
+    return np.stack([np.broadcast_to(np.asarray(t13, dtype=float), np.broadcast(*[np.asarray(x) for x in [v_0, v_1, v_2, e1, e2]]).shape) if len([v_0, v_1, v_2, e1, e2]) else np.asarray(t13, dtype=float), np.broadcast_to(np.asarray(t14, dtype=float), np.broadcast(*[np.asarray(x) for x in [v_0, v_1, v_2, e1, e2]]).shape) if len([v_0, v_1, v_2, e1, e2]) else np.asarray(t14, dtype=float), np.broadcast_to(np.asarray(t15, dtype=float), np.broadcast(*[np.asarray(x) for x in [v_0, v_1, v_2, e1, e2]]).shape) if len([v_0, v_1, v_2, e1, e2]) else np.asarray(t15, dtype=float)], axis=-1)
+
 def hk_tiltOfMismatch(e):
     t0 = e
     t1 = 2
@@ -11685,6 +11704,137 @@ def hk_traceRay(R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz):
     t90 = np.where(t86, t17, t82)
     t91 = np.where(t89, t80, t90)
     return np.stack([np.broadcast_to(np.asarray(t73, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t73, dtype=float), np.broadcast_to(np.asarray(t75, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t75, dtype=float), np.broadcast_to(np.asarray(t79, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t79, dtype=float), np.broadcast_to(np.asarray(t88, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t88, dtype=float), np.broadcast_to(np.asarray(t91, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t91, dtype=float), np.broadcast_to(np.asarray(t62, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t62, dtype=float), np.broadcast_to(np.asarray(t32, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t32, dtype=float), np.broadcast_to(np.asarray(t83, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz]) else np.asarray(t83, dtype=float)], axis=-1)
+
+def hk_traceRayErr(R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2):
+    t0 = R
+    t1 = f
+    t2 = a
+    t3 = w
+    t4 = rc
+    t5 = cx
+    t6 = cy
+    t7 = ux
+    t8 = uy
+    t9 = dx
+    t10 = dy
+    t11 = dz
+    t12 = sigmaslope
+    t13 = sigmaspec
+    t14 = e1
+    t15 = e2
+    t16 = s1
+    t17 = s2
+    t18 = np.abs(t5)
+    t19 = (t18 <= t2)
+    t20 = np.abs(t6)
+    t21 = (t20 <= t2)
+    t22 = np.abs(t7)
+    t23 = 2
+    t24 = (t3 / t23)
+    t25 = (t22 <= t24)
+    t26 = np.abs(t8)
+    t27 = (t26 <= t24)
+    t28 = np.logical_and(t25, t27)
+    t29 = np.logical_and(t21, t28)
+    t30 = np.logical_and(t19, t29)
+    t31 = (t5 + t7)
+    t32 = (t6 + t8)
+    t33 = (t23 * t1)
+    t34 = (t0 ** 2)
+    t35 = (t5 ** 2)
+    t36 = (t6 ** 2)
+    t37 = (t35 + t36)
+    t38 = np.sqrt(t37)
+    t39 = (t38 ** 2)
+    t40 = (t34 - t39)
+    t41 = np.sqrt(t40)
+    t42 = (t0 - t41)
+    t43 = (-t5)
+    t44 = (t43 / t0)
+    t45 = (-t6)
+    t46 = (t45 / t0)
+    t47 = (t0 - t42)
+    t48 = (t47 / t0)
+    t49 = (t12 * t14)
+    t50 = (t44 + t49)
+    t51 = (t12 * t15)
+    t52 = (t46 + t51)
+    t53 = (t50 ** 2)
+    t54 = (t52 ** 2)
+    t55 = (t53 + t54)
+    t56 = (t48 ** 2)
+    t57 = (t55 + t56)
+    t58 = np.sqrt(t57)
+    t59 = (t50 / t58)
+    t60 = (t52 / t58)
+    t61 = (t48 / t58)
+    t62 = (t5 - t31)
+    t63 = (t62 * t44)
+    t64 = (t6 - t32)
+    t65 = (t64 * t46)
+    t66 = (t63 + t65)
+    t67 = (t42 - t33)
+    t68 = (t67 * t48)
+    t69 = (t66 + t68)
+    t70 = (t9 * t44)
+    t71 = (t10 * t46)
+    t72 = (t70 + t71)
+    t73 = (t11 * t48)
+    t74 = (t72 + t73)
+    t75 = (t69 / t74)
+    t76 = (t75 * t9)
+    t77 = (t31 + t76)
+    t78 = (t75 * t10)
+    t79 = (t32 + t78)
+    t80 = (t75 * t11)
+    t81 = (t33 + t80)
+    t82 = (t9 * t59)
+    t83 = (t10 * t60)
+    t84 = (t82 + t83)
+    t85 = (t11 * t61)
+    t86 = (t84 + t85)
+    t87 = (t23 * t86)
+    t88 = (t87 * t59)
+    t89 = (t9 - t88)
+    t90 = (t87 * t60)
+    t91 = (t10 - t90)
+    t92 = (t87 * t61)
+    t93 = (t11 - t92)
+    t94 = (t13 * t16)
+    t95 = (t89 + t94)
+    t96 = (t13 * t17)
+    t97 = (t91 + t96)
+    t98 = (t95 ** 2)
+    t99 = (t97 ** 2)
+    t100 = (t98 + t99)
+    t101 = (t93 ** 2)
+    t102 = (t100 + t101)
+    t103 = np.sqrt(t102)
+    t104 = (t95 / t103)
+    t105 = (t97 / t103)
+    t106 = (t93 / t103)
+    t107 = (t1 - t81)
+    t108 = (t107 / t106)
+    t109 = (t108 * t104)
+    t110 = (t77 + t109)
+    t111 = (t108 * t105)
+    t112 = (t79 + t111)
+    t113 = (t110 ** 2)
+    t114 = (t112 ** 2)
+    t115 = (t113 + t114)
+    t116 = np.sqrt(t115)
+    t117 = (t116 <= t4)
+    t118 = 0
+    t119 = (t118 < t106)
+    t120 = np.logical_and(t117, t119)
+    t121 = np.logical_and(t30, t120)
+    t122 = 1
+    t123 = np.where(t121, t122, t118)
+    t124 = np.logical_not(t30)
+    t125 = np.where(t120, t23, t122)
+    t126 = np.where(t124, t118, t125)
+    t127 = np.where(t119, t122, t118)
+    return np.stack([np.broadcast_to(np.asarray(t110, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]) else np.asarray(t110, dtype=float), np.broadcast_to(np.asarray(t112, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]) else np.asarray(t112, dtype=float), np.broadcast_to(np.asarray(t116, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]) else np.asarray(t116, dtype=float), np.broadcast_to(np.asarray(t123, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]) else np.asarray(t123, dtype=float), np.broadcast_to(np.asarray(t126, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]) else np.asarray(t126, dtype=float), np.broadcast_to(np.asarray(t81, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]) else np.asarray(t81, dtype=float), np.broadcast_to(np.asarray(t38, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]) else np.asarray(t38, dtype=float), np.broadcast_to(np.asarray(t127, dtype=float), np.broadcast(*[np.asarray(x) for x in [R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]]).shape) if len([R, f, a, w, rc, cx, cy, ux, uy, dx, dy, dz, sigmaslope, sigmaspec, e1, e2, s1, s2]) else np.asarray(t127, dtype=float)], axis=-1)
 
 def hk_traceSphere(R, p, O_0, O_1, O_2, d_0, d_1, d_2):
     t0 = R

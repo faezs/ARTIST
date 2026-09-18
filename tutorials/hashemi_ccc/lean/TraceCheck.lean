@@ -614,12 +614,111 @@ def sceneChecks : IO (Array Check) := do
     cs := cs.push ⟨"the rim-shaping family (bridge/family/manifest.json)", true, "not generated yet: run bridge/film_family.py"⟩
   pure cs
 
+/-! ## G. Radiometry, not geometry: a Monte Carlo sun and optical errors on his dish -/
+
+/-- a standard normal by Box-Muller from Lean's generator -/
+def normalDraw (g : StdGen) : Float × Float × StdGen :=
+  let (u1, g1) := randNat g 1 1000000
+  let (u2, g2) := randNat g1 0 999999
+  let r := Float.sqrt (-2.0 * Float.log (u1.toFloat / 1000000.0))
+  let th := 2.0 * 3.141592653589793 * u2.toFloat / 1000000.0
+  (r * Float.cos th, r * Float.sin th, g2)
+
+def uniformDraw (g : StdGen) : Float × StdGen :=
+  let (u, g1) := randNat g 0 999999
+  (u.toFloat / 1000000.0, g1)
+
+/-- N Monte Carlo rays of the dish for the sun along `u` (unit, toward the sun): a facet on the
+5 cm grid, a point in it, the direction on the pillbox disc, four normal draws for the errors -/
+def mcRays (N : Nat) (u : Array Float) (seed : Nat) : Array (Array Float) := Id.run do
+  let mut g := mkStdGen seed
+  let mut rays : Array (Array Float) := #[]
+  let nSide := 32
+  -- an orthonormal pair normal to u
+  let helper : Array Float := if Float.abs u[2]! < 0.9 then #[0, 0, 1] else #[1, 0, 0]
+  let cr := fun (a b : Array Float) => #[a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!]
+  let e1r := cr u helper
+  let n1 := Float.sqrt (e1r[0]! * e1r[0]! + e1r[1]! * e1r[1]! + e1r[2]! * e1r[2]!)
+  let e1 := e1r.map (· / n1)
+  let e2 := cr u e1
+  for _ in [0:N] do
+    let (a1, g1) := randNat g 0 (nSide - 1)
+    let (a2, g2) := randNat g1 0 (nSide - 1)
+    let (v1, g3) := uniformDraw g2
+    let (v2, g4) := uniformDraw g3
+    let (v3, g5) := uniformDraw g4
+    let (v4, g6) := uniformDraw g5
+    let (z1, z2, g7) := normalDraw g6
+    let (z3, z4, g8) := normalDraw g7
+    g := g8
+    let cx := -0.8 + 0.025 + a1.toFloat * 0.05
+    let cy := -0.8 + 0.025 + a2.toFloat * 0.05
+    let ux := (v1 - 0.5) * 0.05
+    let uy := (v2 - 0.5) * 0.05
+    let rho := 4.65e-3 * Float.sqrt v3
+    let phi := 2.0 * 3.141592653589793 * v4
+    -- toward the dish, tilted within the disc
+    let d := (List.range 3).toArray.map fun k =>
+      -(Float.cos rho * u[k]! + Float.sin rho * (Float.cos phi * e1[k]! + Float.sin phi * e2[k]!))
+    rays := rays.push #[cx, cy, ux, uy, d[0]!, d[1]!, d[2]!, z1, z2, z3, z4]
+  return rays
+
+def mcChecks (src : String) : IO (Array Check) := do
+  let mut cs : Array Check := #[]
+  let N := 40000
+  let prm := fun (sl sp : Float) => #[R, f, a, w, rc, sl, sp]
+  -- the sun on the axis: the capture with its standard error, for slope errors 0, 1, 2, 4 mrad
+  -- (SolTrace's model: Gaussian tilts of the normal) and a 1 mrad specularity
+  let u0 : Array Float := #[0, 0, 1]
+  let rays0 := mcRays N u0 11
+  let mut line := ""
+  let mut caps : Array Float := #[]
+  let mut ses : Array Float := #[]
+  for (sl, sp) in ([(0.0, 0.0), (1e-3, 0.0), (2e-3, 0.0), (4e-3, 0.0), (2e-3, 1e-3)] : List (Float × Float)) do
+    let out ← runRows src "hashemi_trace_err" rays0 11 (prm sl sp) 8
+    let p := (out.filter (fun r => r[3]! > 0.5)).size.toFloat / N.toFloat
+    let se := Float.sqrt (p * (1 - p) / N.toFloat)
+    caps := caps.push p
+    ses := ses.push se
+    line := line ++ s!"  slope {fmt (1e3 * sl)} mrad, spec {fmt (1e3 * sp)}: {fmt p} +- {fmt se}"
+  -- the deterministic trace with zero errors, on the same rays: the same fates
+  let outErr0 ← runRows src "hashemi_trace_err" rays0 11 (prm 0.0 0.0) 8
+  let outDet ← runRows src "hashemi_trace" (rays0.map fun r => r.extract 0 7) 7 #[R, f, a, w, rc] 8
+  let mut flips := 0
+  for i in [0:N] do
+    if outErr0[i]![3]! != outDet[i]![3]! then flips := flips + 1
+  cs := cs.push ⟨"with zero errors the error-bearing trace is the trace, ray for ray (the sun on the pillbox disc, Monte Carlo)",
+    flips == 0, s!"{flips} of {N} fates differ"⟩
+  let mut nonInc := true
+  for i in [1:4] do
+    if caps[i]! > caps[i-1]! + 2.0 * (ses[i]! + ses[i-1]!) then nonInc := false
+  cs := cs.push ⟨"radiometry on his dish: the on-axis capture with a sampled sun, with its standard error, non-increasing in the slope error within the error bars - and barely: the dish is aberration-limited, 4 mrad of slope error is 8 mm at F against a 1.13 m spot",
+    nonInc, "N = 40000:\n" ++ line⟩
+  -- the pointing cliff with a sampled sun and 2 mrad slope error: capture vs error with error bars
+  let mut cliff := ""
+  let mut prev := 2.0
+  let mut mono := true
+  for e in ([0.0, 0.5, 1.0, 1.5, 2.0, 3.0] : List Float) do
+    let er := e * 3.141592653589793 / 180
+    let u : Array Float := #[Float.sin er, 0, Float.cos er]
+    let rays := mcRays 20000 u (17 + (e * 10).toUInt64.toNat)
+    let out ← runRows src "hashemi_trace_err" rays 11 (prm 2e-3 1e-3) 8
+    let p := (out.filter (fun r => r[3]! > 0.5)).size.toFloat / 20000.0
+    let se := Float.sqrt (p * (1 - p) / 20000.0)
+    if p > prev + 3.0 * se then mono := false
+    prev := p
+    cliff := cliff ++ s!"  {fmt e} deg: {fmt p} +- {fmt se}"
+  cs := cs.push ⟨"the pointing cliff under a sampled sun with 2 mrad slope and 1 mrad specularity errors is antitone within its error bars (power_antitone_duct)",
+    mono, cliff⟩
+  pure cs
+
 end TraceCheck
 
 open TraceCheck in
 def main : IO Unit := do
   let src ← dishSource
-  let a ← dishChecks src
+  let a0 ← dishChecks src
+  let a ← (a0 ++ ·) <$> mcChecks src
   let b ← sceneChecks
   let mut bad := 0
   for c in a ++ b do

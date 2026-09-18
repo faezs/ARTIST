@@ -40,6 +40,16 @@ kernel void hashemi_trace(device const float* rays [[buffer(0)]], device const f
 
 
 SPHERE_KERNELS = """
+kernel void hashemi_trace_err(device const float* rays [[buffer(0)]], device const float* prm [[buffer(1)]],
+                              device float* out [[buffer(2)]], device const int* n [[buffer(3)]],
+                              uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float row[8];
+  hk_traceRayErr(prm[0], prm[1], prm[2], prm[3], prm[4], rays[i*11+0], rays[i*11+1], rays[i*11+2], rays[i*11+3],
+                 rays[i*11+4], rays[i*11+5], rays[i*11+6], prm[5], prm[6], rays[i*11+7], rays[i*11+8], rays[i*11+9], rays[i*11+10], row);
+  for (int k = 0; k < 8; ++k) out[i*8+k] = row[k];
+}
+
 kernel void hashemi_sphere(device const float* rays [[buffer(0)]], device const float* prm [[buffer(1)]],
                            device float* out [[buffer(2)]], device const int* n [[buffer(3)]],
                            uint i [[thread_position_in_grid]]) {
@@ -132,6 +142,41 @@ def sample_rays(B, P, sun_dish, rng, a=0.8, w=0.05, disc=True):
         s = np.cos(rho)[..., None] * s + np.sin(rho)[..., None] * (np.cos(phi)[..., None] * e1 + np.sin(phi)[..., None] * e2)
     rays = np.concatenate([cx[..., None], cy[..., None], ux[..., None], uy[..., None], s], axis=-1)
     return rays.reshape(B * P, RAY_W).astype(np.float32)
+
+
+def sample_rays_mc(N, sun_dish, rng, a=0.8, w=0.05, sigma_slope=0.0, sigma_spec=0.0):
+    """N Monte Carlo rays for one sun direction (unit, toward the sun, in the dish's frame): the
+    facet uniform on the grid, the point uniform in it, the direction drawn on the sun's pillbox
+    disc, and four standard-normal draws for the slope and specularity errors. Returns (N, 11)."""
+    n_side = int(round(2 * a / w))
+    ci = rng.integers(0, n_side, N)
+    cj = rng.integers(0, n_side, N)
+    cx = -a + w / 2 + ci * w
+    cy = -a + w / 2 + cj * w
+    ux = rng.uniform(-w / 2, w / 2, N)
+    uy = rng.uniform(-w / 2, w / 2, N)
+    s = -np.asarray(sun_dish, dtype=np.float64)[None, :] * np.ones((N, 1))
+    rho = SUN_HALF_ANGLE * np.sqrt(rng.random(N))
+    phi = rng.uniform(0, 2 * np.pi, N)
+    helper = np.where(np.abs(s[:, 2:3]) < 0.9, np.array([0.0, 0.0, 1.0]), np.array([1.0, 0.0, 0.0]))
+    e1 = np.cross(s, helper); e1 /= np.linalg.norm(e1, axis=-1, keepdims=True)
+    e2 = np.cross(s, e1)
+    s = np.cos(rho)[:, None] * s + np.sin(rho)[:, None] * (np.cos(phi)[:, None] * e1 + np.sin(phi)[:, None] * e2)
+    z = rng.standard_normal((N, 4))
+    return np.concatenate([cx[:, None], cy[:, None], ux[:, None], uy[:, None], s, z], axis=1).astype(np.float32)
+
+
+def capture_mc(tracer, N, sun_dish, rng, prm5, sigma_slope, sigma_spec):
+    """the capture as a Bernoulli estimate with its standard error, on the GPU"""
+    import torch
+    rays = sample_rays_mc(N, sun_dish, rng, sigma_slope=sigma_slope, sigma_spec=sigma_spec)
+    prm = np.concatenate([np.asarray(prm5, dtype=np.float32), [sigma_slope, sigma_spec]]).astype(np.float32)
+    out = torch.empty(N, 8, dtype=torch.float32, device="mps")
+    tracer.lib.hashemi_trace_err(torch.as_tensor(rays, device="mps"), torch.as_tensor(prm, device="mps"), out,
+                                 torch.tensor([N], dtype=torch.int32, device="mps"))
+    cap = out[:, 3].cpu().numpy().astype(np.float64)
+    p = cap.mean()
+    return p, np.sqrt(p * (1 - p) / N)
 
 
 def sun_in_dish(az, t, el_sun, az_sun):
