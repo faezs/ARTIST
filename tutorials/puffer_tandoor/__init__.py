@@ -113,18 +113,18 @@ sys.modules.setdefault("tandoor_hashemi_env", _mod5)
 _spec5.loader.exec_module(_mod5)
 TandoorHashemiEnv = _mod5.TandoorHashemiEnv
 
-# Hashemi's machine itself, its physics the megakernel compiled from Hashemi.lean
-# (tutorials/hashemi_ccc/hashemi_env.py); optional so a missing kernel never breaks the package
+# his concentrator on the tandoor: the pose and the power into the pot from Hashemi.lean compiled
+# (tutorials/hashemi_ccc/hashemi_tandoor_env.py), the pot, bread and reward the tandoor's own
 try:
     _spec6 = importlib.util.spec_from_file_location(
-        "hashemi_env", _tutorials / "hashemi_ccc" / "hashemi_env.py")
+        "hashemi_tandoor_env", _tutorials / "hashemi_ccc" / "hashemi_tandoor_env.py")
     _mod6 = importlib.util.module_from_spec(_spec6)
-    sys.modules.setdefault("hashemi_env", _mod6)
+    sys.modules.setdefault("hashemi_tandoor_env", _mod6)
     _spec6.loader.exec_module(_mod6)
-    HashemiMachineEnv = _mod6.HashemiMachineEnv
+    HashemiTandoorEnv = _mod6.HashemiTandoorEnv
 except Exception as _e:          # pragma: no cover
-    HashemiMachineEnv = None
-    print(f"[puffer_tandoor] hashemi_env unavailable: {_e}")
+    HashemiTandoorEnv = None
+    print(f"[puffer_tandoor] hashemi_tandoor_env unavailable: {_e}")
 
 
 _spec7 = importlib.util.spec_from_file_location(
@@ -158,8 +158,8 @@ def env_creator(name="puffer_tandoor"):
         return functools.partial(TandoorFlowerFastEnv)
     if "flower" in name:
         return functools.partial(TandoorFlowerEnv)
-    if "ccc" in name and HashemiMachineEnv is not None:
-        return functools.partial(HashemiMachineEnv)
+    if "ccc" in name and HashemiTandoorEnv is not None:
+        return functools.partial(HashemiTandoorEnv)
     if "hashemi" in name:
         return functools.partial(TandoorHashemiEnv)
     if "coude" in name:

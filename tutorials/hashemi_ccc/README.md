@@ -66,6 +66,20 @@ cd ~/ARTIST-compliant/tutorials/hashemi_ccc
 5. **The theorems at the machine's states.** Through two days at Quetta, every one of the 106
    theorem columns of the row is 1 at every step of every agent.
 
+## The competing env: his concentrator on the tandoor (`puffer_hashemi_ccc`)
+
+`hashemi_tandoor_env.py`, `puffer_tandoor/hashemi_ccc.ini` (hashemi.ini with `gpu = 0`,
+`trace_rays = 64`). The tandoor env is kept whole - its pot, wall chain, bread, guillotine,
+observations and reward are what `puffer_hashemi` and `puffer_flower` score on. Two things come
+from Hashemi.lean through Ccc instead: the pose (the state (az, t, slack) advanced by `hk_step`,
+the parent's motors still and its pose set from the Lean state) and the power into the pot (his
+1.6 m satellite dish traced by `hk_traceRayK` with the sun on its disc and 2 + 1 mrad errors, the
+capture on a 12 cm aperture at F, times the dish's area, reflectance and the DNI, delivered along
+the parent's own beam profile over the floor and belt). The parent's level head is pinned and its
+jam head held on, since this dish has no membrane. `test_tandoor_env.py`, a naive cook on day 172:
+1.1 to 1.4 kW into the pot, the belt at 410 to 420 K, about 100 rotis by 16:00, 4 ms per step at
+16 agents. Training is `puffer train --config hashemi_ccc.ini`; the metric is the parent's.
+
 ## Speed (`bench_kernels.py`, Apple GPU over MPS, single precision)
 
 | kernel | agents | per launch or step | per agent-step |

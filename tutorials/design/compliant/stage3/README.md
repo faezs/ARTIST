@@ -732,3 +732,13 @@ is 0.998 on axis, 0.92 at 0.5 deg, 0.48 at 1 deg, 0 at 1.7 deg - HIS tracker bud
 against 0.59 on the circle. The env's traced capture now uses k = -1 (`dish_k`): 65.1 MJ/day June, 26.9 December (38.6 /
 16.1 on the circle). The mounting construction (hangers, swing, wire) keeps the circle: it only placed the bolt line and
 the rim. Lesson: a drawing's circle is a construction, the built surface is in the frames.
+
+THE COMPETING ENV (2026-09-18, "turn all the Hashemi.lean infra and ccc to msl that we just built to push out a puffer env to
+compete with hashemi and flower in rotis_per_day"; "Hashemi.lean bro"; "WHY ARE YOU REIMPLEMENTING SHIT"): NOT a new oven -
+the tandoor env kept whole (its pot, bread, reward are what the competitors score on, with their laws already in Lean),
+and exactly two things from the compiled Hashemi.lean: the pose from `hk_step` and the power into the pot from his
+satellite dish's trace (`hk_traceRayK`, sampled sun, 2+1 mrad errors), delivered along the parent's beam profile.
+hashemi_tandoor_env.py, registered as puffer_hashemi_ccc, ini hashemi_ccc.ini. Two gates cost an hour: the shutter head
+opens above 3, and the tandoor counts the beam only while its membrane is JAMMED - his dish has none, so the jam head is
+held on and the level pinned. A naive cook on day 172: 1.1-1.4 kW into the pot, belt 410-420 K, ~100 rotis by 16:00,
+4 ms/step at 16 agents. Training is the user's to run.
