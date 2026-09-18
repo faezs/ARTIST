@@ -54,10 +54,14 @@ cd ~/ARTIST-compliant/tutorials/hashemi_ccc
    theorems (109 of the design, 6 of the trace): the printed statement is the theorem's, up to unfolding (`simpa` with the file's
    definitions, `funext_iff`, `Prod.ext_iff`, `Fin.forall_fin_succ`, `Matrix.cons_val`).
 2. **Definition round trip, in Lean.** `f_ccc : f = fun … => printed := rfl` for 196 definitions and
-   predicates (the seven structure instances have no `ℝ` printing);
-   the 24-fold bisection (`swingOfLength`, `step`, `megaStep`) is beyond `rfl`'s budget - a term
-   that doubles at every level - so its one step `bisectStep` round-trips, the iterate rule is
-   checked on a 3-fold instance, and the twins cover the three.
+   predicates (the seven structure instances have no `ℝ` printing).
+   The 24-fold bisection (`swingOfLength`, `step`, `megaStep`) is beyond a single `rfl`: `isDefEq`
+   zeta-reduces the printed `let`s, so the shared graph becomes a term that doubles at every level
+   (measured 2.2x per level; 4M heartbeats are gone by level 16). Their statement is the same - the
+   whole flat graph - but the proof is STAGED: `lift_lets` turns the twin's `let`s into local
+   definitions, `intro` names them as the printer did, and one `have` per bisection level relates
+   the composite to them, each level seeing the previous one as the same local on both sides
+   (`stagedProof` in `lean/HashemiCcc.lean`). 12-15 s each, against a timeout before.
 3. **C against Float.** 1041 samples over 347 functions agree to 1e-12; the 115 theorem checks are
    true in double.
 4. **Metal against NumPy.** The whole 226-column row over 4096 random states in the tracker's range

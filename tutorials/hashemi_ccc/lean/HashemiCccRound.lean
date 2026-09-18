@@ -534,7 +534,280 @@ theorem megaScrew_ω_ccc : megaScrew.ω = fun (t : ℝ) (ωd : ℝ) (rDrum : ℝ
     let v26 := (((-v8) * v20) + (v19 * v9))
     ((ωd * rDrum) / (((v5 * v26) - ((0.34 : ℝ) * v22)) / (Real.sqrt (((v22 - v5) ^ 2) + ((v26 - (0.34 : ℝ)) ^ 2))))) := rfl
 
--- megaStep: round trip by the twins (the 24-fold bisection is beyond rfl's budget)
+theorem megaStep_ccc : megaStep = fun (az : ℝ) (t : ℝ) (slack : ℝ) (ωm : ℝ) (ωd : ℝ) (dt : ℝ) (elSun : ℝ) (azSun : ℝ) (dni : ℝ) (rDrum : ℝ) (W : ℝ) (rcm : ℝ) (Tmax : ℝ) (rho : ℝ) (Fdrive : ℝ) (L10 : ℝ) (rodLen : ℝ) =>
+    let v27 := ((1 : ℝ) - ((2 : ℝ) - (Real.sqrt (((2 : ℝ) ^ 2) - ((0.8 : ℝ) ^ 2)))))
+    let v39 := ((1.22 : ℝ) * (0.8 : ℝ))
+    let v40 := ((0.34 : ℝ) * v27)
+    let v43 := (Real.pi / (2 : ℝ))
+    let v50 := (if (v39 ≤ v40) then v43 else (Real.arctan ((((1.22 : ℝ) * v27) + ((0.34 : ℝ) * (0.8 : ℝ))) / (v39 - v40))))
+    let v51 := (-(1.22 : ℝ))
+    let v52 := (-(0.8 : ℝ))
+    let v54 := (Real.cos (0 : ℝ))
+    let v56 := (-v27)
+    let v57 := (Real.sin (0 : ℝ))
+    let v60 := (-v52)
+    let v69 := (Real.sqrt (((((v52 * v54) + (v56 * v57)) - v51) ^ 2) + ((((v60 * v57) + (v56 * v54)) - (0.34 : ℝ)) ^ 2)))
+    let v70 := (Real.cos v50)
+    let v72 := (Real.sin v50)
+    let v83 := (Real.sqrt (((((v52 * v70) + (v56 * v72)) - v51) ^ 2) + ((((v60 * v72) + (v56 * v70)) - (0.34 : ℝ)) ^ 2)))
+    let v84 := (Real.cos t)
+    let v86 := (Real.sin t)
+    let v88 := ((v52 * v84) + (v56 * v86))
+    let v91 := ((v60 * v86) + (v56 * v84))
+    let v97 := (Real.sqrt (((v88 - v51) ^ 2) + ((v91 - (0.34 : ℝ)) ^ 2)))
+    let v99 := (ωd * rDrum)
+    let v101 := ((v97 + slack) - (v99 * dt))
+    let v102 := (v101 < v83)
+    let v103 := (v69 < v101)
+    let v105 := (if v102 then v83 else (if v103 then v69 else v101))
+    let v110 := (((0 : ℝ) + v50) / (2 : ℝ))
+    let v111 := (Real.cos v110)
+    let v113 := (Real.sin v110)
+    let v125 := (v105 < (Real.sqrt (((((v52 * v111) + (v56 * v113)) - v51) ^ 2) + ((((v60 * v113) + (v56 * v111)) - (0.34 : ℝ)) ^ 2))))
+    let v126 := (if v125 then v110 else (0 : ℝ))
+    let v127 := (if v125 then v50 else v110)
+    let v129 := ((v126 + v127) / (2 : ℝ))
+    let v130 := (Real.cos v129)
+    let v132 := (Real.sin v129)
+    let v144 := (v105 < (Real.sqrt (((((v52 * v130) + (v56 * v132)) - v51) ^ 2) + ((((v60 * v132) + (v56 * v130)) - (0.34 : ℝ)) ^ 2))))
+    let v145 := (if v144 then v129 else v126)
+    let v146 := (if v144 then v127 else v129)
+    let v148 := ((v145 + v146) / (2 : ℝ))
+    let v149 := (Real.cos v148)
+    let v151 := (Real.sin v148)
+    let v163 := (v105 < (Real.sqrt (((((v52 * v149) + (v56 * v151)) - v51) ^ 2) + ((((v60 * v151) + (v56 * v149)) - (0.34 : ℝ)) ^ 2))))
+    let v164 := (if v163 then v148 else v145)
+    let v165 := (if v163 then v146 else v148)
+    let v167 := ((v164 + v165) / (2 : ℝ))
+    let v168 := (Real.cos v167)
+    let v170 := (Real.sin v167)
+    let v182 := (v105 < (Real.sqrt (((((v52 * v168) + (v56 * v170)) - v51) ^ 2) + ((((v60 * v170) + (v56 * v168)) - (0.34 : ℝ)) ^ 2))))
+    let v183 := (if v182 then v167 else v164)
+    let v184 := (if v182 then v165 else v167)
+    let v186 := ((v183 + v184) / (2 : ℝ))
+    let v187 := (Real.cos v186)
+    let v189 := (Real.sin v186)
+    let v201 := (v105 < (Real.sqrt (((((v52 * v187) + (v56 * v189)) - v51) ^ 2) + ((((v60 * v189) + (v56 * v187)) - (0.34 : ℝ)) ^ 2))))
+    let v202 := (if v201 then v186 else v183)
+    let v203 := (if v201 then v184 else v186)
+    let v205 := ((v202 + v203) / (2 : ℝ))
+    let v206 := (Real.cos v205)
+    let v208 := (Real.sin v205)
+    let v220 := (v105 < (Real.sqrt (((((v52 * v206) + (v56 * v208)) - v51) ^ 2) + ((((v60 * v208) + (v56 * v206)) - (0.34 : ℝ)) ^ 2))))
+    let v221 := (if v220 then v205 else v202)
+    let v222 := (if v220 then v203 else v205)
+    let v224 := ((v221 + v222) / (2 : ℝ))
+    let v225 := (Real.cos v224)
+    let v227 := (Real.sin v224)
+    let v239 := (v105 < (Real.sqrt (((((v52 * v225) + (v56 * v227)) - v51) ^ 2) + ((((v60 * v227) + (v56 * v225)) - (0.34 : ℝ)) ^ 2))))
+    let v240 := (if v239 then v224 else v221)
+    let v241 := (if v239 then v222 else v224)
+    let v243 := ((v240 + v241) / (2 : ℝ))
+    let v244 := (Real.cos v243)
+    let v246 := (Real.sin v243)
+    let v258 := (v105 < (Real.sqrt (((((v52 * v244) + (v56 * v246)) - v51) ^ 2) + ((((v60 * v246) + (v56 * v244)) - (0.34 : ℝ)) ^ 2))))
+    let v259 := (if v258 then v243 else v240)
+    let v260 := (if v258 then v241 else v243)
+    let v262 := ((v259 + v260) / (2 : ℝ))
+    let v263 := (Real.cos v262)
+    let v265 := (Real.sin v262)
+    let v277 := (v105 < (Real.sqrt (((((v52 * v263) + (v56 * v265)) - v51) ^ 2) + ((((v60 * v265) + (v56 * v263)) - (0.34 : ℝ)) ^ 2))))
+    let v278 := (if v277 then v262 else v259)
+    let v279 := (if v277 then v260 else v262)
+    let v281 := ((v278 + v279) / (2 : ℝ))
+    let v282 := (Real.cos v281)
+    let v284 := (Real.sin v281)
+    let v296 := (v105 < (Real.sqrt (((((v52 * v282) + (v56 * v284)) - v51) ^ 2) + ((((v60 * v284) + (v56 * v282)) - (0.34 : ℝ)) ^ 2))))
+    let v297 := (if v296 then v281 else v278)
+    let v298 := (if v296 then v279 else v281)
+    let v300 := ((v297 + v298) / (2 : ℝ))
+    let v301 := (Real.cos v300)
+    let v303 := (Real.sin v300)
+    let v315 := (v105 < (Real.sqrt (((((v52 * v301) + (v56 * v303)) - v51) ^ 2) + ((((v60 * v303) + (v56 * v301)) - (0.34 : ℝ)) ^ 2))))
+    let v316 := (if v315 then v300 else v297)
+    let v317 := (if v315 then v298 else v300)
+    let v319 := ((v316 + v317) / (2 : ℝ))
+    let v320 := (Real.cos v319)
+    let v322 := (Real.sin v319)
+    let v334 := (v105 < (Real.sqrt (((((v52 * v320) + (v56 * v322)) - v51) ^ 2) + ((((v60 * v322) + (v56 * v320)) - (0.34 : ℝ)) ^ 2))))
+    let v335 := (if v334 then v319 else v316)
+    let v336 := (if v334 then v317 else v319)
+    let v338 := ((v335 + v336) / (2 : ℝ))
+    let v339 := (Real.cos v338)
+    let v341 := (Real.sin v338)
+    let v353 := (v105 < (Real.sqrt (((((v52 * v339) + (v56 * v341)) - v51) ^ 2) + ((((v60 * v341) + (v56 * v339)) - (0.34 : ℝ)) ^ 2))))
+    let v354 := (if v353 then v338 else v335)
+    let v355 := (if v353 then v336 else v338)
+    let v357 := ((v354 + v355) / (2 : ℝ))
+    let v358 := (Real.cos v357)
+    let v360 := (Real.sin v357)
+    let v372 := (v105 < (Real.sqrt (((((v52 * v358) + (v56 * v360)) - v51) ^ 2) + ((((v60 * v360) + (v56 * v358)) - (0.34 : ℝ)) ^ 2))))
+    let v373 := (if v372 then v357 else v354)
+    let v374 := (if v372 then v355 else v357)
+    let v376 := ((v373 + v374) / (2 : ℝ))
+    let v377 := (Real.cos v376)
+    let v379 := (Real.sin v376)
+    let v391 := (v105 < (Real.sqrt (((((v52 * v377) + (v56 * v379)) - v51) ^ 2) + ((((v60 * v379) + (v56 * v377)) - (0.34 : ℝ)) ^ 2))))
+    let v392 := (if v391 then v376 else v373)
+    let v393 := (if v391 then v374 else v376)
+    let v395 := ((v392 + v393) / (2 : ℝ))
+    let v396 := (Real.cos v395)
+    let v398 := (Real.sin v395)
+    let v410 := (v105 < (Real.sqrt (((((v52 * v396) + (v56 * v398)) - v51) ^ 2) + ((((v60 * v398) + (v56 * v396)) - (0.34 : ℝ)) ^ 2))))
+    let v411 := (if v410 then v395 else v392)
+    let v412 := (if v410 then v393 else v395)
+    let v414 := ((v411 + v412) / (2 : ℝ))
+    let v415 := (Real.cos v414)
+    let v417 := (Real.sin v414)
+    let v429 := (v105 < (Real.sqrt (((((v52 * v415) + (v56 * v417)) - v51) ^ 2) + ((((v60 * v417) + (v56 * v415)) - (0.34 : ℝ)) ^ 2))))
+    let v430 := (if v429 then v414 else v411)
+    let v431 := (if v429 then v412 else v414)
+    let v433 := ((v430 + v431) / (2 : ℝ))
+    let v434 := (Real.cos v433)
+    let v436 := (Real.sin v433)
+    let v448 := (v105 < (Real.sqrt (((((v52 * v434) + (v56 * v436)) - v51) ^ 2) + ((((v60 * v436) + (v56 * v434)) - (0.34 : ℝ)) ^ 2))))
+    let v449 := (if v448 then v433 else v430)
+    let v450 := (if v448 then v431 else v433)
+    let v452 := ((v449 + v450) / (2 : ℝ))
+    let v453 := (Real.cos v452)
+    let v455 := (Real.sin v452)
+    let v467 := (v105 < (Real.sqrt (((((v52 * v453) + (v56 * v455)) - v51) ^ 2) + ((((v60 * v455) + (v56 * v453)) - (0.34 : ℝ)) ^ 2))))
+    let v468 := (if v467 then v452 else v449)
+    let v469 := (if v467 then v450 else v452)
+    let v471 := ((v468 + v469) / (2 : ℝ))
+    let v472 := (Real.cos v471)
+    let v474 := (Real.sin v471)
+    let v486 := (v105 < (Real.sqrt (((((v52 * v472) + (v56 * v474)) - v51) ^ 2) + ((((v60 * v474) + (v56 * v472)) - (0.34 : ℝ)) ^ 2))))
+    let v487 := (if v486 then v471 else v468)
+    let v488 := (if v486 then v469 else v471)
+    let v490 := ((v487 + v488) / (2 : ℝ))
+    let v491 := (Real.cos v490)
+    let v493 := (Real.sin v490)
+    let v505 := (v105 < (Real.sqrt (((((v52 * v491) + (v56 * v493)) - v51) ^ 2) + ((((v60 * v493) + (v56 * v491)) - (0.34 : ℝ)) ^ 2))))
+    let v506 := (if v505 then v490 else v487)
+    let v507 := (if v505 then v488 else v490)
+    let v509 := ((v506 + v507) / (2 : ℝ))
+    let v510 := (Real.cos v509)
+    let v512 := (Real.sin v509)
+    let v524 := (v105 < (Real.sqrt (((((v52 * v510) + (v56 * v512)) - v51) ^ 2) + ((((v60 * v512) + (v56 * v510)) - (0.34 : ℝ)) ^ 2))))
+    let v525 := (if v524 then v509 else v506)
+    let v526 := (if v524 then v507 else v509)
+    let v528 := ((v525 + v526) / (2 : ℝ))
+    let v529 := (Real.cos v528)
+    let v531 := (Real.sin v528)
+    let v543 := (v105 < (Real.sqrt (((((v52 * v529) + (v56 * v531)) - v51) ^ 2) + ((((v60 * v531) + (v56 * v529)) - (0.34 : ℝ)) ^ 2))))
+    let v544 := (if v543 then v528 else v525)
+    let v545 := (if v543 then v526 else v528)
+    let v547 := ((v544 + v545) / (2 : ℝ))
+    let v548 := (Real.cos v547)
+    let v550 := (Real.sin v547)
+    let v562 := (v105 < (Real.sqrt (((((v52 * v548) + (v56 * v550)) - v51) ^ 2) + ((((v60 * v550) + (v56 * v548)) - (0.34 : ℝ)) ^ 2))))
+    let v567 := (if (v69 ≤ v101) then (0 : ℝ) else (((if v562 then v547 else v544) + (if v562 then v545 else v547)) / (2 : ℝ)))
+    let v568 := (W * rcm)
+    let v569 := (Real.cos v567)
+    let v571 := (Real.sin v567)
+    let v573 := ((v52 * v569) + (v56 * v571))
+    let v576 := ((v60 * v571) + (v56 * v569))
+    let v591 := ((t < v567) ∧ (¬ (v568 ≤ (Tmax * (((v51 * v576) - ((0.34 : ℝ) * v573)) / (Real.sqrt (((v573 - v51) ^ 2) + ((v576 - (0.34 : ℝ)) ^ 2))))))))
+    let v592 := (if v591 then t else v567)
+    let v602 := (Real.cos v592)
+    let v604 := (Real.sin v592)
+    let v606 := ((v52 * v602) + (v56 * v604))
+    let v609 := ((v60 * v604) + (v56 * v602))
+    let v629 := (v86 * (Real.cos az))
+    let v631 := (v86 * (Real.sin az))
+    let v632 := (Real.cos elSun)
+    let v634 := (v632 * (Real.cos azSun))
+    let v636 := (v632 * (Real.sin azSun))
+    let v637 := (Real.sin elSun)
+    let v642 := (((v629 * v634) + (v631 * v636)) + (v84 * v637))
+    let v657 := (Real.sqrt (((((v631 * v637) - (v84 * v636)) ^ 2) + (((v84 * v634) - (v629 * v637)) ^ 2)) + (((v629 * v636) - (v631 * v634)) ^ 2)))
+    let v667 := (if (v642 ≤ (0 : ℝ)) then (v43 + (Real.arctan ((-v642) / (max v657 (0.000000000001 : ℝ))))) else (Real.arctan (v657 / v642)))
+    let v669 := (v43 - v50)
+    let v670 := (v669 ≤ elSun)
+    ![(az + (((ωm * (0.05 : ℝ)) / (Real.sqrt ((((1.84 : ℝ) / (2 : ℝ)) ^ 2) + ((0.80 : ℝ) ^ 2)))) * dt)), v592, (if v103 then (v101 - v69) else (0 : ℝ)), (if v591 then v97 else v105), v50, (if (v102 ∨ v591) then (1 : ℝ) else (0 : ℝ)), (if ((if v103 then (v101 - v69) else (0 : ℝ)) = (0 : ℝ)) then (1 : ℝ) else (0 : ℝ)), (@ite _ (v568 ≤ (Tmax * (((v51 * v609) - ((0.34 : ℝ) * v606)) / (Real.sqrt (((v606 - v51) ^ 2) + ((v609 - (0.34 : ℝ)) ^ 2)))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (((v51 * v91) - ((0.34 : ℝ) * v88)) / v97), (v99 / (((v51 * v91) - ((0.34 : ℝ) * v88)) / v97)), ((ωm * (0.05 : ℝ)) / (Real.sqrt ((((1.84 : ℝ) / (2 : ℝ)) ^ 2) + ((0.80 : ℝ) ^ 2)))), v667, (v43 - t), (@ite _ v670 (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v670 ∧ ((0.03 : ℝ) < v667)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (Real.sigmoid ((elSun - v669) / (0.01 : ℝ))), ((Real.sigmoid ((elSun - v669) / (0.01 : ℝ))) * (Real.sigmoid ((v667 - (0.03 : ℝ)) / (0.01 : ℝ))))]:= by
+  funext az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
+  rw [megaStep, step]
+  lift_lets
+  intro v27 v39 v40 v43 v50 v51 v52 v54 v56 v57 v60 v69 v70 v72 v83 v84 v86 v88 v91 v97 v99 v101 v102 v103 v105 v110 v111 v113 v125 v126 v127 v129 v130 v132 v144 v145 v146 v148 v149 v151 v163 v164 v165 v167 v168 v170 v182 v183 v184 v186 v187 v189 v201 v202 v203 v205 v206 v208 v220 v221 v222 v224 v225 v227 v239 v240 v241 v243 v244 v246 v258 v259 v260 v262 v263 v265 v277 v278 v279 v281 v282 v284 v296 v297 v298 v300 v301 v303 v315 v316 v317 v319 v320 v322 v334 v335 v336 v338 v339 v341 v353 v354 v355 v357 v358 v360 v372 v373 v374 v376 v377 v379 v391 v392 v393 v395 v396 v398 v410 v411 v412 v414 v415 v417 v429 v430 v431 v433 v434 v436 v448 v449 v450 v452 v453 v455 v467 v468 v469 v471 v472 v474 v486 v487 v488 v490 v491 v493 v505 v506 v507 v509 v510 v512 v524 v525 v526 v528 v529 v531 v543 v544 v545 v547 v548 v550 v562 v567 v568 v569 v571 v573 v576 v591 v592 v602 v604 v606 v609 v629 v631 v632 v634 v636 v637 v642 v657 v667 v669 v670
+  have e0 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[1] ((0 : ℝ), v50) = (v126, v127) := rfl
+  have e1 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[2] ((0 : ℝ), v50) = (v145, v146) := by
+    rw [show (2 : ℕ) = 1 + 1 from rfl, Function.iterate_succ_apply', e0]
+    rfl
+  have e2 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[3] ((0 : ℝ), v50) = (v164, v165) := by
+    rw [show (3 : ℕ) = 2 + 1 from rfl, Function.iterate_succ_apply', e1]
+    rfl
+  have e3 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[4] ((0 : ℝ), v50) = (v183, v184) := by
+    rw [show (4 : ℕ) = 3 + 1 from rfl, Function.iterate_succ_apply', e2]
+    rfl
+  have e4 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[5] ((0 : ℝ), v50) = (v202, v203) := by
+    rw [show (5 : ℕ) = 4 + 1 from rfl, Function.iterate_succ_apply', e3]
+    rfl
+  have e5 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[6] ((0 : ℝ), v50) = (v221, v222) := by
+    rw [show (6 : ℕ) = 5 + 1 from rfl, Function.iterate_succ_apply', e4]
+    rfl
+  have e6 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[7] ((0 : ℝ), v50) = (v240, v241) := by
+    rw [show (7 : ℕ) = 6 + 1 from rfl, Function.iterate_succ_apply', e5]
+    rfl
+  have e7 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[8] ((0 : ℝ), v50) = (v259, v260) := by
+    rw [show (8 : ℕ) = 7 + 1 from rfl, Function.iterate_succ_apply', e6]
+    rfl
+  have e8 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[9] ((0 : ℝ), v50) = (v278, v279) := by
+    rw [show (9 : ℕ) = 8 + 1 from rfl, Function.iterate_succ_apply', e7]
+    rfl
+  have e9 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[10] ((0 : ℝ), v50) = (v297, v298) := by
+    rw [show (10 : ℕ) = 9 + 1 from rfl, Function.iterate_succ_apply', e8]
+    rfl
+  have e10 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[11] ((0 : ℝ), v50) = (v316, v317) := by
+    rw [show (11 : ℕ) = 10 + 1 from rfl, Function.iterate_succ_apply', e9]
+    rfl
+  have e11 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[12] ((0 : ℝ), v50) = (v335, v336) := by
+    rw [show (12 : ℕ) = 11 + 1 from rfl, Function.iterate_succ_apply', e10]
+    rfl
+  have e12 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[13] ((0 : ℝ), v50) = (v354, v355) := by
+    rw [show (13 : ℕ) = 12 + 1 from rfl, Function.iterate_succ_apply', e11]
+    rfl
+  have e13 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[14] ((0 : ℝ), v50) = (v373, v374) := by
+    rw [show (14 : ℕ) = 13 + 1 from rfl, Function.iterate_succ_apply', e12]
+    rfl
+  have e14 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[15] ((0 : ℝ), v50) = (v392, v393) := by
+    rw [show (15 : ℕ) = 14 + 1 from rfl, Function.iterate_succ_apply', e13]
+    rfl
+  have e15 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[16] ((0 : ℝ), v50) = (v411, v412) := by
+    rw [show (16 : ℕ) = 15 + 1 from rfl, Function.iterate_succ_apply', e14]
+    rfl
+  have e16 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[17] ((0 : ℝ), v50) = (v430, v431) := by
+    rw [show (17 : ℕ) = 16 + 1 from rfl, Function.iterate_succ_apply', e15]
+    rfl
+  have e17 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[18] ((0 : ℝ), v50) = (v449, v450) := by
+    rw [show (18 : ℕ) = 17 + 1 from rfl, Function.iterate_succ_apply', e16]
+    rfl
+  have e18 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[19] ((0 : ℝ), v50) = (v468, v469) := by
+    rw [show (19 : ℕ) = 18 + 1 from rfl, Function.iterate_succ_apply', e17]
+    rfl
+  have e19 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[20] ((0 : ℝ), v50) = (v487, v488) := by
+    rw [show (20 : ℕ) = 19 + 1 from rfl, Function.iterate_succ_apply', e18]
+    rfl
+  have e20 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[21] ((0 : ℝ), v50) = (v506, v507) := by
+    rw [show (21 : ℕ) = 20 + 1 from rfl, Function.iterate_succ_apply', e19]
+    rfl
+  have e21 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[22] ((0 : ℝ), v50) = (v525, v526) := by
+    rw [show (22 : ℕ) = 21 + 1 from rfl, Function.iterate_succ_apply', e20]
+    rfl
+  have e22 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[23] ((0 : ℝ), v50) = (v544, v545) := by
+    rw [show (23 : ℕ) = 22 + 1 from rfl, Function.iterate_succ_apply', e21]
+    rfl
+  have key : swingOfLength ymHashemi hpHashemi dishHalf zeHashemi v50 v105 = (((if v562 then v547 else v544) + (if v562 then v545 else v547)) / (2 : ℝ)) := by
+    show ((((bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[24] ((0 : ℝ), v50)).1 + (((bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[24] ((0 : ℝ), v50)).2)) / (2 : ℝ)) = _
+    rw [show (24 : ℕ) = 23 + 1 from rfl, Function.iterate_succ_apply', e22]
+    rfl
+  rw [show deadPoint ymHashemi hpHashemi dishHalf zeHashemi = v50 from rfl]
+  rw [show wireLen ymHashemi hpHashemi dishHalf zeHashemi 0 = v69 from rfl]
+  rw [show wireLen ymHashemi hpHashemi dishHalf zeHashemi v50 = v83 from rfl]
+  rw [show wireLen ymHashemi hpHashemi dishHalf zeHashemi t = v97 from rfl]
+  rw [show (if v97 + slack - ωd * rDrum * dt < v83 then v83 else if v69 < v97 + slack - ωd * rDrum * dt then v69 else v97 + slack - ωd * rDrum * dt) = v105 from rfl]
+  rw [key]
+  rfl
 
 theorem megaThmsClosed_ccc : megaThmsClosed = fun (az : ℝ) (t : ℝ) (slack : ℝ) (ωm : ℝ) (ωd : ℝ) (dt : ℝ) (elSun : ℝ) (azSun : ℝ) (dni : ℝ) (rDrum : ℝ) (W : ℝ) (rcm : ℝ) (Tmax : ℝ) (rho : ℝ) (Fdrive : ℝ) (L10 : ℝ) (rodLen : ℝ) =>
     let v18 := (Real.sqrt (3.36 : ℝ))
@@ -1590,7 +1863,264 @@ theorem sphereHit_ccc : sphereHit = fun (R : ℝ) (O : Fin 3 → ℝ) (d : Fin 3
 theorem spotTau_ccc : spotTau =
     (0.005 : ℝ) := rfl
 
--- step: round trip by the twins (the 24-fold bisection is beyond rfl's budget)
+theorem step_ccc : step = fun (az : ℝ) (t : ℝ) (slack : ℝ) (ωm : ℝ) (ωd : ℝ) (dt : ℝ) (rw : ℝ) (R : ℝ) (rDrum : ℝ) (ym : ℝ) (hp : ℝ) (a : ℝ) (ze : ℝ) (W : ℝ) (rcm : ℝ) (Tmax : ℝ) =>
+    let v16 := (ym * a)
+    let v17 := (hp * ze)
+    let v28 := (if (v16 ≤ v17) then (Real.pi / (2 : ℝ)) else (Real.arctan (((ym * ze) + (hp * a)) / (v16 - v17))))
+    let v29 := (-ym)
+    let v30 := (-a)
+    let v32 := (Real.cos (0 : ℝ))
+    let v34 := (-ze)
+    let v35 := (Real.sin (0 : ℝ))
+    let v38 := (-v30)
+    let v47 := (Real.sqrt (((((v30 * v32) + (v34 * v35)) - v29) ^ 2) + ((((v38 * v35) + (v34 * v32)) - hp) ^ 2)))
+    let v48 := (Real.cos v28)
+    let v50 := (Real.sin v28)
+    let v61 := (Real.sqrt (((((v30 * v48) + (v34 * v50)) - v29) ^ 2) + ((((v38 * v50) + (v34 * v48)) - hp) ^ 2)))
+    let v62 := (Real.cos t)
+    let v64 := (Real.sin t)
+    let v75 := (Real.sqrt (((((v30 * v62) + (v34 * v64)) - v29) ^ 2) + ((((v38 * v64) + (v34 * v62)) - hp) ^ 2)))
+    let v79 := ((v75 + slack) - ((ωd * rDrum) * dt))
+    let v80 := (v79 < v61)
+    let v81 := (v47 < v79)
+    let v83 := (if v80 then v61 else (if v81 then v47 else v79))
+    let v88 := (((0 : ℝ) + v28) / (2 : ℝ))
+    let v89 := (Real.cos v88)
+    let v91 := (Real.sin v88)
+    let v103 := (v83 < (Real.sqrt (((((v30 * v89) + (v34 * v91)) - v29) ^ 2) + ((((v38 * v91) + (v34 * v89)) - hp) ^ 2))))
+    let v104 := (if v103 then v88 else (0 : ℝ))
+    let v105 := (if v103 then v28 else v88)
+    let v107 := ((v104 + v105) / (2 : ℝ))
+    let v108 := (Real.cos v107)
+    let v110 := (Real.sin v107)
+    let v122 := (v83 < (Real.sqrt (((((v30 * v108) + (v34 * v110)) - v29) ^ 2) + ((((v38 * v110) + (v34 * v108)) - hp) ^ 2))))
+    let v123 := (if v122 then v107 else v104)
+    let v124 := (if v122 then v105 else v107)
+    let v126 := ((v123 + v124) / (2 : ℝ))
+    let v127 := (Real.cos v126)
+    let v129 := (Real.sin v126)
+    let v141 := (v83 < (Real.sqrt (((((v30 * v127) + (v34 * v129)) - v29) ^ 2) + ((((v38 * v129) + (v34 * v127)) - hp) ^ 2))))
+    let v142 := (if v141 then v126 else v123)
+    let v143 := (if v141 then v124 else v126)
+    let v145 := ((v142 + v143) / (2 : ℝ))
+    let v146 := (Real.cos v145)
+    let v148 := (Real.sin v145)
+    let v160 := (v83 < (Real.sqrt (((((v30 * v146) + (v34 * v148)) - v29) ^ 2) + ((((v38 * v148) + (v34 * v146)) - hp) ^ 2))))
+    let v161 := (if v160 then v145 else v142)
+    let v162 := (if v160 then v143 else v145)
+    let v164 := ((v161 + v162) / (2 : ℝ))
+    let v165 := (Real.cos v164)
+    let v167 := (Real.sin v164)
+    let v179 := (v83 < (Real.sqrt (((((v30 * v165) + (v34 * v167)) - v29) ^ 2) + ((((v38 * v167) + (v34 * v165)) - hp) ^ 2))))
+    let v180 := (if v179 then v164 else v161)
+    let v181 := (if v179 then v162 else v164)
+    let v183 := ((v180 + v181) / (2 : ℝ))
+    let v184 := (Real.cos v183)
+    let v186 := (Real.sin v183)
+    let v198 := (v83 < (Real.sqrt (((((v30 * v184) + (v34 * v186)) - v29) ^ 2) + ((((v38 * v186) + (v34 * v184)) - hp) ^ 2))))
+    let v199 := (if v198 then v183 else v180)
+    let v200 := (if v198 then v181 else v183)
+    let v202 := ((v199 + v200) / (2 : ℝ))
+    let v203 := (Real.cos v202)
+    let v205 := (Real.sin v202)
+    let v217 := (v83 < (Real.sqrt (((((v30 * v203) + (v34 * v205)) - v29) ^ 2) + ((((v38 * v205) + (v34 * v203)) - hp) ^ 2))))
+    let v218 := (if v217 then v202 else v199)
+    let v219 := (if v217 then v200 else v202)
+    let v221 := ((v218 + v219) / (2 : ℝ))
+    let v222 := (Real.cos v221)
+    let v224 := (Real.sin v221)
+    let v236 := (v83 < (Real.sqrt (((((v30 * v222) + (v34 * v224)) - v29) ^ 2) + ((((v38 * v224) + (v34 * v222)) - hp) ^ 2))))
+    let v237 := (if v236 then v221 else v218)
+    let v238 := (if v236 then v219 else v221)
+    let v240 := ((v237 + v238) / (2 : ℝ))
+    let v241 := (Real.cos v240)
+    let v243 := (Real.sin v240)
+    let v255 := (v83 < (Real.sqrt (((((v30 * v241) + (v34 * v243)) - v29) ^ 2) + ((((v38 * v243) + (v34 * v241)) - hp) ^ 2))))
+    let v256 := (if v255 then v240 else v237)
+    let v257 := (if v255 then v238 else v240)
+    let v259 := ((v256 + v257) / (2 : ℝ))
+    let v260 := (Real.cos v259)
+    let v262 := (Real.sin v259)
+    let v274 := (v83 < (Real.sqrt (((((v30 * v260) + (v34 * v262)) - v29) ^ 2) + ((((v38 * v262) + (v34 * v260)) - hp) ^ 2))))
+    let v275 := (if v274 then v259 else v256)
+    let v276 := (if v274 then v257 else v259)
+    let v278 := ((v275 + v276) / (2 : ℝ))
+    let v279 := (Real.cos v278)
+    let v281 := (Real.sin v278)
+    let v293 := (v83 < (Real.sqrt (((((v30 * v279) + (v34 * v281)) - v29) ^ 2) + ((((v38 * v281) + (v34 * v279)) - hp) ^ 2))))
+    let v294 := (if v293 then v278 else v275)
+    let v295 := (if v293 then v276 else v278)
+    let v297 := ((v294 + v295) / (2 : ℝ))
+    let v298 := (Real.cos v297)
+    let v300 := (Real.sin v297)
+    let v312 := (v83 < (Real.sqrt (((((v30 * v298) + (v34 * v300)) - v29) ^ 2) + ((((v38 * v300) + (v34 * v298)) - hp) ^ 2))))
+    let v313 := (if v312 then v297 else v294)
+    let v314 := (if v312 then v295 else v297)
+    let v316 := ((v313 + v314) / (2 : ℝ))
+    let v317 := (Real.cos v316)
+    let v319 := (Real.sin v316)
+    let v331 := (v83 < (Real.sqrt (((((v30 * v317) + (v34 * v319)) - v29) ^ 2) + ((((v38 * v319) + (v34 * v317)) - hp) ^ 2))))
+    let v332 := (if v331 then v316 else v313)
+    let v333 := (if v331 then v314 else v316)
+    let v335 := ((v332 + v333) / (2 : ℝ))
+    let v336 := (Real.cos v335)
+    let v338 := (Real.sin v335)
+    let v350 := (v83 < (Real.sqrt (((((v30 * v336) + (v34 * v338)) - v29) ^ 2) + ((((v38 * v338) + (v34 * v336)) - hp) ^ 2))))
+    let v351 := (if v350 then v335 else v332)
+    let v352 := (if v350 then v333 else v335)
+    let v354 := ((v351 + v352) / (2 : ℝ))
+    let v355 := (Real.cos v354)
+    let v357 := (Real.sin v354)
+    let v369 := (v83 < (Real.sqrt (((((v30 * v355) + (v34 * v357)) - v29) ^ 2) + ((((v38 * v357) + (v34 * v355)) - hp) ^ 2))))
+    let v370 := (if v369 then v354 else v351)
+    let v371 := (if v369 then v352 else v354)
+    let v373 := ((v370 + v371) / (2 : ℝ))
+    let v374 := (Real.cos v373)
+    let v376 := (Real.sin v373)
+    let v388 := (v83 < (Real.sqrt (((((v30 * v374) + (v34 * v376)) - v29) ^ 2) + ((((v38 * v376) + (v34 * v374)) - hp) ^ 2))))
+    let v389 := (if v388 then v373 else v370)
+    let v390 := (if v388 then v371 else v373)
+    let v392 := ((v389 + v390) / (2 : ℝ))
+    let v393 := (Real.cos v392)
+    let v395 := (Real.sin v392)
+    let v407 := (v83 < (Real.sqrt (((((v30 * v393) + (v34 * v395)) - v29) ^ 2) + ((((v38 * v395) + (v34 * v393)) - hp) ^ 2))))
+    let v408 := (if v407 then v392 else v389)
+    let v409 := (if v407 then v390 else v392)
+    let v411 := ((v408 + v409) / (2 : ℝ))
+    let v412 := (Real.cos v411)
+    let v414 := (Real.sin v411)
+    let v426 := (v83 < (Real.sqrt (((((v30 * v412) + (v34 * v414)) - v29) ^ 2) + ((((v38 * v414) + (v34 * v412)) - hp) ^ 2))))
+    let v427 := (if v426 then v411 else v408)
+    let v428 := (if v426 then v409 else v411)
+    let v430 := ((v427 + v428) / (2 : ℝ))
+    let v431 := (Real.cos v430)
+    let v433 := (Real.sin v430)
+    let v445 := (v83 < (Real.sqrt (((((v30 * v431) + (v34 * v433)) - v29) ^ 2) + ((((v38 * v433) + (v34 * v431)) - hp) ^ 2))))
+    let v446 := (if v445 then v430 else v427)
+    let v447 := (if v445 then v428 else v430)
+    let v449 := ((v446 + v447) / (2 : ℝ))
+    let v450 := (Real.cos v449)
+    let v452 := (Real.sin v449)
+    let v464 := (v83 < (Real.sqrt (((((v30 * v450) + (v34 * v452)) - v29) ^ 2) + ((((v38 * v452) + (v34 * v450)) - hp) ^ 2))))
+    let v465 := (if v464 then v449 else v446)
+    let v466 := (if v464 then v447 else v449)
+    let v468 := ((v465 + v466) / (2 : ℝ))
+    let v469 := (Real.cos v468)
+    let v471 := (Real.sin v468)
+    let v483 := (v83 < (Real.sqrt (((((v30 * v469) + (v34 * v471)) - v29) ^ 2) + ((((v38 * v471) + (v34 * v469)) - hp) ^ 2))))
+    let v484 := (if v483 then v468 else v465)
+    let v485 := (if v483 then v466 else v468)
+    let v487 := ((v484 + v485) / (2 : ℝ))
+    let v488 := (Real.cos v487)
+    let v490 := (Real.sin v487)
+    let v502 := (v83 < (Real.sqrt (((((v30 * v488) + (v34 * v490)) - v29) ^ 2) + ((((v38 * v490) + (v34 * v488)) - hp) ^ 2))))
+    let v503 := (if v502 then v487 else v484)
+    let v504 := (if v502 then v485 else v487)
+    let v506 := ((v503 + v504) / (2 : ℝ))
+    let v507 := (Real.cos v506)
+    let v509 := (Real.sin v506)
+    let v521 := (v83 < (Real.sqrt (((((v30 * v507) + (v34 * v509)) - v29) ^ 2) + ((((v38 * v509) + (v34 * v507)) - hp) ^ 2))))
+    let v522 := (if v521 then v506 else v503)
+    let v523 := (if v521 then v504 else v506)
+    let v525 := ((v522 + v523) / (2 : ℝ))
+    let v526 := (Real.cos v525)
+    let v528 := (Real.sin v525)
+    let v540 := (v83 < (Real.sqrt (((((v30 * v526) + (v34 * v528)) - v29) ^ 2) + ((((v38 * v528) + (v34 * v526)) - hp) ^ 2))))
+    let v545 := (if (v47 ≤ v79) then (0 : ℝ) else (((if v540 then v525 else v522) + (if v540 then v523 else v525)) / (2 : ℝ)))
+    let v546 := (W * rcm)
+    let v547 := (Real.cos v545)
+    let v549 := (Real.sin v545)
+    let v551 := ((v30 * v547) + (v34 * v549))
+    let v554 := ((v38 * v549) + (v34 * v547))
+    let v569 := ((t < v545) ∧ (¬ (v546 ≤ (Tmax * (((v29 * v554) - (hp * v551)) / (Real.sqrt (((v551 - v29) ^ 2) + ((v554 - hp) ^ 2))))))))
+    let v570 := (if v569 then t else v545)
+    let v581 := (Real.cos v570)
+    let v583 := (Real.sin v570)
+    let v585 := ((v30 * v581) + (v34 * v583))
+    let v588 := ((v38 * v583) + (v34 * v581))
+    ![(az + (((ωm * rw) / R) * dt)), v570, (if v81 then (v79 - v47) else (0 : ℝ)), (if v569 then v75 else v83), v28, (if (v80 ∨ v569) then (1 : ℝ) else (0 : ℝ)), (if ((if v81 then (v79 - v47) else (0 : ℝ)) = (0 : ℝ)) then (1 : ℝ) else (0 : ℝ)), (@ite _ (v546 ≤ (Tmax * (((v29 * v588) - (hp * v585)) / (Real.sqrt (((v585 - v29) ^ 2) + ((v588 - hp) ^ 2)))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))]:= by
+  funext az t slack ωm ωd dt rw R rDrum ym hp a ze W rcm Tmax
+  rw [step]
+  lift_lets
+  intro v16 v17 v28 v29 v30 v32 v34 v35 v38 v47 v48 v50 v61 v62 v64 v75 v79 v80 v81 v83 v88 v89 v91 v103 v104 v105 v107 v108 v110 v122 v123 v124 v126 v127 v129 v141 v142 v143 v145 v146 v148 v160 v161 v162 v164 v165 v167 v179 v180 v181 v183 v184 v186 v198 v199 v200 v202 v203 v205 v217 v218 v219 v221 v222 v224 v236 v237 v238 v240 v241 v243 v255 v256 v257 v259 v260 v262 v274 v275 v276 v278 v279 v281 v293 v294 v295 v297 v298 v300 v312 v313 v314 v316 v317 v319 v331 v332 v333 v335 v336 v338 v350 v351 v352 v354 v355 v357 v369 v370 v371 v373 v374 v376 v388 v389 v390 v392 v393 v395 v407 v408 v409 v411 v412 v414 v426 v427 v428 v430 v431 v433 v445 v446 v447 v449 v450 v452 v464 v465 v466 v468 v469 v471 v483 v484 v485 v487 v488 v490 v502 v503 v504 v506 v507 v509 v521 v522 v523 v525 v526 v528 v540 v545 v546 v547 v549 v551 v554 v569 v570 v581 v583 v585 v588
+  have e0 : (bisectStep ym hp a ze v83)^[1] ((0 : ℝ), v28) = (v104, v105) := rfl
+  have e1 : (bisectStep ym hp a ze v83)^[2] ((0 : ℝ), v28) = (v123, v124) := by
+    rw [show (2 : ℕ) = 1 + 1 from rfl, Function.iterate_succ_apply', e0]
+    rfl
+  have e2 : (bisectStep ym hp a ze v83)^[3] ((0 : ℝ), v28) = (v142, v143) := by
+    rw [show (3 : ℕ) = 2 + 1 from rfl, Function.iterate_succ_apply', e1]
+    rfl
+  have e3 : (bisectStep ym hp a ze v83)^[4] ((0 : ℝ), v28) = (v161, v162) := by
+    rw [show (4 : ℕ) = 3 + 1 from rfl, Function.iterate_succ_apply', e2]
+    rfl
+  have e4 : (bisectStep ym hp a ze v83)^[5] ((0 : ℝ), v28) = (v180, v181) := by
+    rw [show (5 : ℕ) = 4 + 1 from rfl, Function.iterate_succ_apply', e3]
+    rfl
+  have e5 : (bisectStep ym hp a ze v83)^[6] ((0 : ℝ), v28) = (v199, v200) := by
+    rw [show (6 : ℕ) = 5 + 1 from rfl, Function.iterate_succ_apply', e4]
+    rfl
+  have e6 : (bisectStep ym hp a ze v83)^[7] ((0 : ℝ), v28) = (v218, v219) := by
+    rw [show (7 : ℕ) = 6 + 1 from rfl, Function.iterate_succ_apply', e5]
+    rfl
+  have e7 : (bisectStep ym hp a ze v83)^[8] ((0 : ℝ), v28) = (v237, v238) := by
+    rw [show (8 : ℕ) = 7 + 1 from rfl, Function.iterate_succ_apply', e6]
+    rfl
+  have e8 : (bisectStep ym hp a ze v83)^[9] ((0 : ℝ), v28) = (v256, v257) := by
+    rw [show (9 : ℕ) = 8 + 1 from rfl, Function.iterate_succ_apply', e7]
+    rfl
+  have e9 : (bisectStep ym hp a ze v83)^[10] ((0 : ℝ), v28) = (v275, v276) := by
+    rw [show (10 : ℕ) = 9 + 1 from rfl, Function.iterate_succ_apply', e8]
+    rfl
+  have e10 : (bisectStep ym hp a ze v83)^[11] ((0 : ℝ), v28) = (v294, v295) := by
+    rw [show (11 : ℕ) = 10 + 1 from rfl, Function.iterate_succ_apply', e9]
+    rfl
+  have e11 : (bisectStep ym hp a ze v83)^[12] ((0 : ℝ), v28) = (v313, v314) := by
+    rw [show (12 : ℕ) = 11 + 1 from rfl, Function.iterate_succ_apply', e10]
+    rfl
+  have e12 : (bisectStep ym hp a ze v83)^[13] ((0 : ℝ), v28) = (v332, v333) := by
+    rw [show (13 : ℕ) = 12 + 1 from rfl, Function.iterate_succ_apply', e11]
+    rfl
+  have e13 : (bisectStep ym hp a ze v83)^[14] ((0 : ℝ), v28) = (v351, v352) := by
+    rw [show (14 : ℕ) = 13 + 1 from rfl, Function.iterate_succ_apply', e12]
+    rfl
+  have e14 : (bisectStep ym hp a ze v83)^[15] ((0 : ℝ), v28) = (v370, v371) := by
+    rw [show (15 : ℕ) = 14 + 1 from rfl, Function.iterate_succ_apply', e13]
+    rfl
+  have e15 : (bisectStep ym hp a ze v83)^[16] ((0 : ℝ), v28) = (v389, v390) := by
+    rw [show (16 : ℕ) = 15 + 1 from rfl, Function.iterate_succ_apply', e14]
+    rfl
+  have e16 : (bisectStep ym hp a ze v83)^[17] ((0 : ℝ), v28) = (v408, v409) := by
+    rw [show (17 : ℕ) = 16 + 1 from rfl, Function.iterate_succ_apply', e15]
+    rfl
+  have e17 : (bisectStep ym hp a ze v83)^[18] ((0 : ℝ), v28) = (v427, v428) := by
+    rw [show (18 : ℕ) = 17 + 1 from rfl, Function.iterate_succ_apply', e16]
+    rfl
+  have e18 : (bisectStep ym hp a ze v83)^[19] ((0 : ℝ), v28) = (v446, v447) := by
+    rw [show (19 : ℕ) = 18 + 1 from rfl, Function.iterate_succ_apply', e17]
+    rfl
+  have e19 : (bisectStep ym hp a ze v83)^[20] ((0 : ℝ), v28) = (v465, v466) := by
+    rw [show (20 : ℕ) = 19 + 1 from rfl, Function.iterate_succ_apply', e18]
+    rfl
+  have e20 : (bisectStep ym hp a ze v83)^[21] ((0 : ℝ), v28) = (v484, v485) := by
+    rw [show (21 : ℕ) = 20 + 1 from rfl, Function.iterate_succ_apply', e19]
+    rfl
+  have e21 : (bisectStep ym hp a ze v83)^[22] ((0 : ℝ), v28) = (v503, v504) := by
+    rw [show (22 : ℕ) = 21 + 1 from rfl, Function.iterate_succ_apply', e20]
+    rfl
+  have e22 : (bisectStep ym hp a ze v83)^[23] ((0 : ℝ), v28) = (v522, v523) := by
+    rw [show (23 : ℕ) = 22 + 1 from rfl, Function.iterate_succ_apply', e21]
+    rfl
+  have key : swingOfLength ym hp a ze v28 v83 = (((if v540 then v525 else v522) + (if v540 then v523 else v525)) / (2 : ℝ)) := by
+    show ((((bisectStep ym hp a ze v83)^[24] ((0 : ℝ), v28)).1 + (((bisectStep ym hp a ze v83)^[24] ((0 : ℝ), v28)).2)) / (2 : ℝ)) = _
+    rw [show (24 : ℕ) = 23 + 1 from rfl, Function.iterate_succ_apply', e22]
+    rfl
+  rw [show deadPoint ym hp a ze = v28 from rfl]
+  rw [show wireLen ym hp a ze 0 = v47 from rfl]
+  rw [show wireLen ym hp a ze v28 = v61 from rfl]
+  rw [show wireLen ym hp a ze t = v75 from rfl]
+  rw [show (if v75 + slack - ωd * rDrum * dt < v61 then v61 else if v47 < v75 + slack - ωd * rDrum * dt then v47 else v75 + slack - ωd * rDrum * dt) = v83 from rfl]
+  rw [key]
+  rfl
 
 theorem stepParams_ccc : stepParams =
     ![(0.05 : ℝ), (Real.sqrt ((((1.84 : ℝ) / (2 : ℝ)) ^ 2) + ((0.80 : ℝ) ^ 2))), (0.03 : ℝ), (1.22 : ℝ), (0.34 : ℝ), (0.8 : ℝ), ((Real.sqrt (3.36 : ℝ)) - (1 : ℝ))] := rfl
@@ -1632,7 +2162,227 @@ theorem swingFocus_ccc : swingFocus = fun (P : ℝ × ℝ) (d : ℝ) (f : ℝ) (
 theorem swingNormal_ccc : swingNormal = fun (t : ℝ) =>
     ((-(Real.sin t)), (Real.cos t)) := rfl
 
--- swingOfLength: round trip by the twins (the 24-fold bisection is beyond rfl's budget)
+theorem swingOfLength_ccc : swingOfLength = fun (ym : ℝ) (hp : ℝ) (a : ℝ) (ze : ℝ) (tDead : ℝ) (L : ℝ) =>
+    let v9 := (((0 : ℝ) + tDead) / (2 : ℝ))
+    let v10 := (-ym)
+    let v11 := (-a)
+    let v12 := (Real.cos v9)
+    let v14 := (-ze)
+    let v15 := (Real.sin v9)
+    let v18 := (-v11)
+    let v28 := (L < (Real.sqrt (((((v11 * v12) + (v14 * v15)) - v10) ^ 2) + ((((v18 * v15) + (v14 * v12)) - hp) ^ 2))))
+    let v29 := (if v28 then v9 else (0 : ℝ))
+    let v30 := (if v28 then tDead else v9)
+    let v32 := ((v29 + v30) / (2 : ℝ))
+    let v33 := (Real.cos v32)
+    let v35 := (Real.sin v32)
+    let v47 := (L < (Real.sqrt (((((v11 * v33) + (v14 * v35)) - v10) ^ 2) + ((((v18 * v35) + (v14 * v33)) - hp) ^ 2))))
+    let v48 := (if v47 then v32 else v29)
+    let v49 := (if v47 then v30 else v32)
+    let v51 := ((v48 + v49) / (2 : ℝ))
+    let v52 := (Real.cos v51)
+    let v54 := (Real.sin v51)
+    let v66 := (L < (Real.sqrt (((((v11 * v52) + (v14 * v54)) - v10) ^ 2) + ((((v18 * v54) + (v14 * v52)) - hp) ^ 2))))
+    let v67 := (if v66 then v51 else v48)
+    let v68 := (if v66 then v49 else v51)
+    let v70 := ((v67 + v68) / (2 : ℝ))
+    let v71 := (Real.cos v70)
+    let v73 := (Real.sin v70)
+    let v85 := (L < (Real.sqrt (((((v11 * v71) + (v14 * v73)) - v10) ^ 2) + ((((v18 * v73) + (v14 * v71)) - hp) ^ 2))))
+    let v86 := (if v85 then v70 else v67)
+    let v87 := (if v85 then v68 else v70)
+    let v89 := ((v86 + v87) / (2 : ℝ))
+    let v90 := (Real.cos v89)
+    let v92 := (Real.sin v89)
+    let v104 := (L < (Real.sqrt (((((v11 * v90) + (v14 * v92)) - v10) ^ 2) + ((((v18 * v92) + (v14 * v90)) - hp) ^ 2))))
+    let v105 := (if v104 then v89 else v86)
+    let v106 := (if v104 then v87 else v89)
+    let v108 := ((v105 + v106) / (2 : ℝ))
+    let v109 := (Real.cos v108)
+    let v111 := (Real.sin v108)
+    let v123 := (L < (Real.sqrt (((((v11 * v109) + (v14 * v111)) - v10) ^ 2) + ((((v18 * v111) + (v14 * v109)) - hp) ^ 2))))
+    let v124 := (if v123 then v108 else v105)
+    let v125 := (if v123 then v106 else v108)
+    let v127 := ((v124 + v125) / (2 : ℝ))
+    let v128 := (Real.cos v127)
+    let v130 := (Real.sin v127)
+    let v142 := (L < (Real.sqrt (((((v11 * v128) + (v14 * v130)) - v10) ^ 2) + ((((v18 * v130) + (v14 * v128)) - hp) ^ 2))))
+    let v143 := (if v142 then v127 else v124)
+    let v144 := (if v142 then v125 else v127)
+    let v146 := ((v143 + v144) / (2 : ℝ))
+    let v147 := (Real.cos v146)
+    let v149 := (Real.sin v146)
+    let v161 := (L < (Real.sqrt (((((v11 * v147) + (v14 * v149)) - v10) ^ 2) + ((((v18 * v149) + (v14 * v147)) - hp) ^ 2))))
+    let v162 := (if v161 then v146 else v143)
+    let v163 := (if v161 then v144 else v146)
+    let v165 := ((v162 + v163) / (2 : ℝ))
+    let v166 := (Real.cos v165)
+    let v168 := (Real.sin v165)
+    let v180 := (L < (Real.sqrt (((((v11 * v166) + (v14 * v168)) - v10) ^ 2) + ((((v18 * v168) + (v14 * v166)) - hp) ^ 2))))
+    let v181 := (if v180 then v165 else v162)
+    let v182 := (if v180 then v163 else v165)
+    let v184 := ((v181 + v182) / (2 : ℝ))
+    let v185 := (Real.cos v184)
+    let v187 := (Real.sin v184)
+    let v199 := (L < (Real.sqrt (((((v11 * v185) + (v14 * v187)) - v10) ^ 2) + ((((v18 * v187) + (v14 * v185)) - hp) ^ 2))))
+    let v200 := (if v199 then v184 else v181)
+    let v201 := (if v199 then v182 else v184)
+    let v203 := ((v200 + v201) / (2 : ℝ))
+    let v204 := (Real.cos v203)
+    let v206 := (Real.sin v203)
+    let v218 := (L < (Real.sqrt (((((v11 * v204) + (v14 * v206)) - v10) ^ 2) + ((((v18 * v206) + (v14 * v204)) - hp) ^ 2))))
+    let v219 := (if v218 then v203 else v200)
+    let v220 := (if v218 then v201 else v203)
+    let v222 := ((v219 + v220) / (2 : ℝ))
+    let v223 := (Real.cos v222)
+    let v225 := (Real.sin v222)
+    let v237 := (L < (Real.sqrt (((((v11 * v223) + (v14 * v225)) - v10) ^ 2) + ((((v18 * v225) + (v14 * v223)) - hp) ^ 2))))
+    let v238 := (if v237 then v222 else v219)
+    let v239 := (if v237 then v220 else v222)
+    let v241 := ((v238 + v239) / (2 : ℝ))
+    let v242 := (Real.cos v241)
+    let v244 := (Real.sin v241)
+    let v256 := (L < (Real.sqrt (((((v11 * v242) + (v14 * v244)) - v10) ^ 2) + ((((v18 * v244) + (v14 * v242)) - hp) ^ 2))))
+    let v257 := (if v256 then v241 else v238)
+    let v258 := (if v256 then v239 else v241)
+    let v260 := ((v257 + v258) / (2 : ℝ))
+    let v261 := (Real.cos v260)
+    let v263 := (Real.sin v260)
+    let v275 := (L < (Real.sqrt (((((v11 * v261) + (v14 * v263)) - v10) ^ 2) + ((((v18 * v263) + (v14 * v261)) - hp) ^ 2))))
+    let v276 := (if v275 then v260 else v257)
+    let v277 := (if v275 then v258 else v260)
+    let v279 := ((v276 + v277) / (2 : ℝ))
+    let v280 := (Real.cos v279)
+    let v282 := (Real.sin v279)
+    let v294 := (L < (Real.sqrt (((((v11 * v280) + (v14 * v282)) - v10) ^ 2) + ((((v18 * v282) + (v14 * v280)) - hp) ^ 2))))
+    let v295 := (if v294 then v279 else v276)
+    let v296 := (if v294 then v277 else v279)
+    let v298 := ((v295 + v296) / (2 : ℝ))
+    let v299 := (Real.cos v298)
+    let v301 := (Real.sin v298)
+    let v313 := (L < (Real.sqrt (((((v11 * v299) + (v14 * v301)) - v10) ^ 2) + ((((v18 * v301) + (v14 * v299)) - hp) ^ 2))))
+    let v314 := (if v313 then v298 else v295)
+    let v315 := (if v313 then v296 else v298)
+    let v317 := ((v314 + v315) / (2 : ℝ))
+    let v318 := (Real.cos v317)
+    let v320 := (Real.sin v317)
+    let v332 := (L < (Real.sqrt (((((v11 * v318) + (v14 * v320)) - v10) ^ 2) + ((((v18 * v320) + (v14 * v318)) - hp) ^ 2))))
+    let v333 := (if v332 then v317 else v314)
+    let v334 := (if v332 then v315 else v317)
+    let v336 := ((v333 + v334) / (2 : ℝ))
+    let v337 := (Real.cos v336)
+    let v339 := (Real.sin v336)
+    let v351 := (L < (Real.sqrt (((((v11 * v337) + (v14 * v339)) - v10) ^ 2) + ((((v18 * v339) + (v14 * v337)) - hp) ^ 2))))
+    let v352 := (if v351 then v336 else v333)
+    let v353 := (if v351 then v334 else v336)
+    let v355 := ((v352 + v353) / (2 : ℝ))
+    let v356 := (Real.cos v355)
+    let v358 := (Real.sin v355)
+    let v370 := (L < (Real.sqrt (((((v11 * v356) + (v14 * v358)) - v10) ^ 2) + ((((v18 * v358) + (v14 * v356)) - hp) ^ 2))))
+    let v371 := (if v370 then v355 else v352)
+    let v372 := (if v370 then v353 else v355)
+    let v374 := ((v371 + v372) / (2 : ℝ))
+    let v375 := (Real.cos v374)
+    let v377 := (Real.sin v374)
+    let v389 := (L < (Real.sqrt (((((v11 * v375) + (v14 * v377)) - v10) ^ 2) + ((((v18 * v377) + (v14 * v375)) - hp) ^ 2))))
+    let v390 := (if v389 then v374 else v371)
+    let v391 := (if v389 then v372 else v374)
+    let v393 := ((v390 + v391) / (2 : ℝ))
+    let v394 := (Real.cos v393)
+    let v396 := (Real.sin v393)
+    let v408 := (L < (Real.sqrt (((((v11 * v394) + (v14 * v396)) - v10) ^ 2) + ((((v18 * v396) + (v14 * v394)) - hp) ^ 2))))
+    let v409 := (if v408 then v393 else v390)
+    let v410 := (if v408 then v391 else v393)
+    let v412 := ((v409 + v410) / (2 : ℝ))
+    let v413 := (Real.cos v412)
+    let v415 := (Real.sin v412)
+    let v427 := (L < (Real.sqrt (((((v11 * v413) + (v14 * v415)) - v10) ^ 2) + ((((v18 * v415) + (v14 * v413)) - hp) ^ 2))))
+    let v428 := (if v427 then v412 else v409)
+    let v429 := (if v427 then v410 else v412)
+    let v431 := ((v428 + v429) / (2 : ℝ))
+    let v432 := (Real.cos v431)
+    let v434 := (Real.sin v431)
+    let v446 := (L < (Real.sqrt (((((v11 * v432) + (v14 * v434)) - v10) ^ 2) + ((((v18 * v434) + (v14 * v432)) - hp) ^ 2))))
+    let v447 := (if v446 then v431 else v428)
+    let v448 := (if v446 then v429 else v431)
+    let v450 := ((v447 + v448) / (2 : ℝ))
+    let v451 := (Real.cos v450)
+    let v453 := (Real.sin v450)
+    let v465 := (L < (Real.sqrt (((((v11 * v451) + (v14 * v453)) - v10) ^ 2) + ((((v18 * v453) + (v14 * v451)) - hp) ^ 2))))
+    (((if v465 then v450 else v447) + (if v465 then v448 else v450)) / (2 : ℝ)):= by
+  funext ym hp a ze tDead L
+  lift_lets
+  intro v9 v10 v11 v12 v14 v15 v18 v28 v29 v30 v32 v33 v35 v47 v48 v49 v51 v52 v54 v66 v67 v68 v70 v71 v73 v85 v86 v87 v89 v90 v92 v104 v105 v106 v108 v109 v111 v123 v124 v125 v127 v128 v130 v142 v143 v144 v146 v147 v149 v161 v162 v163 v165 v166 v168 v180 v181 v182 v184 v185 v187 v199 v200 v201 v203 v204 v206 v218 v219 v220 v222 v223 v225 v237 v238 v239 v241 v242 v244 v256 v257 v258 v260 v261 v263 v275 v276 v277 v279 v280 v282 v294 v295 v296 v298 v299 v301 v313 v314 v315 v317 v318 v320 v332 v333 v334 v336 v337 v339 v351 v352 v353 v355 v356 v358 v370 v371 v372 v374 v375 v377 v389 v390 v391 v393 v394 v396 v408 v409 v410 v412 v413 v415 v427 v428 v429 v431 v432 v434 v446 v447 v448 v450 v451 v453 v465
+  show ((((bisectStep ym hp a ze L)^[24] ((0 : ℝ), tDead)).1 + (((bisectStep ym hp a ze L)^[24] ((0 : ℝ), tDead)).2)) / (2 : ℝ)) = _
+  have e0 : (bisectStep ym hp a ze L)^[1] ((0 : ℝ), tDead) = (v29, v30) := rfl
+  have e1 : (bisectStep ym hp a ze L)^[2] ((0 : ℝ), tDead) = (v48, v49) := by
+    rw [show (2 : ℕ) = 1 + 1 from rfl, Function.iterate_succ_apply', e0]
+    rfl
+  have e2 : (bisectStep ym hp a ze L)^[3] ((0 : ℝ), tDead) = (v67, v68) := by
+    rw [show (3 : ℕ) = 2 + 1 from rfl, Function.iterate_succ_apply', e1]
+    rfl
+  have e3 : (bisectStep ym hp a ze L)^[4] ((0 : ℝ), tDead) = (v86, v87) := by
+    rw [show (4 : ℕ) = 3 + 1 from rfl, Function.iterate_succ_apply', e2]
+    rfl
+  have e4 : (bisectStep ym hp a ze L)^[5] ((0 : ℝ), tDead) = (v105, v106) := by
+    rw [show (5 : ℕ) = 4 + 1 from rfl, Function.iterate_succ_apply', e3]
+    rfl
+  have e5 : (bisectStep ym hp a ze L)^[6] ((0 : ℝ), tDead) = (v124, v125) := by
+    rw [show (6 : ℕ) = 5 + 1 from rfl, Function.iterate_succ_apply', e4]
+    rfl
+  have e6 : (bisectStep ym hp a ze L)^[7] ((0 : ℝ), tDead) = (v143, v144) := by
+    rw [show (7 : ℕ) = 6 + 1 from rfl, Function.iterate_succ_apply', e5]
+    rfl
+  have e7 : (bisectStep ym hp a ze L)^[8] ((0 : ℝ), tDead) = (v162, v163) := by
+    rw [show (8 : ℕ) = 7 + 1 from rfl, Function.iterate_succ_apply', e6]
+    rfl
+  have e8 : (bisectStep ym hp a ze L)^[9] ((0 : ℝ), tDead) = (v181, v182) := by
+    rw [show (9 : ℕ) = 8 + 1 from rfl, Function.iterate_succ_apply', e7]
+    rfl
+  have e9 : (bisectStep ym hp a ze L)^[10] ((0 : ℝ), tDead) = (v200, v201) := by
+    rw [show (10 : ℕ) = 9 + 1 from rfl, Function.iterate_succ_apply', e8]
+    rfl
+  have e10 : (bisectStep ym hp a ze L)^[11] ((0 : ℝ), tDead) = (v219, v220) := by
+    rw [show (11 : ℕ) = 10 + 1 from rfl, Function.iterate_succ_apply', e9]
+    rfl
+  have e11 : (bisectStep ym hp a ze L)^[12] ((0 : ℝ), tDead) = (v238, v239) := by
+    rw [show (12 : ℕ) = 11 + 1 from rfl, Function.iterate_succ_apply', e10]
+    rfl
+  have e12 : (bisectStep ym hp a ze L)^[13] ((0 : ℝ), tDead) = (v257, v258) := by
+    rw [show (13 : ℕ) = 12 + 1 from rfl, Function.iterate_succ_apply', e11]
+    rfl
+  have e13 : (bisectStep ym hp a ze L)^[14] ((0 : ℝ), tDead) = (v276, v277) := by
+    rw [show (14 : ℕ) = 13 + 1 from rfl, Function.iterate_succ_apply', e12]
+    rfl
+  have e14 : (bisectStep ym hp a ze L)^[15] ((0 : ℝ), tDead) = (v295, v296) := by
+    rw [show (15 : ℕ) = 14 + 1 from rfl, Function.iterate_succ_apply', e13]
+    rfl
+  have e15 : (bisectStep ym hp a ze L)^[16] ((0 : ℝ), tDead) = (v314, v315) := by
+    rw [show (16 : ℕ) = 15 + 1 from rfl, Function.iterate_succ_apply', e14]
+    rfl
+  have e16 : (bisectStep ym hp a ze L)^[17] ((0 : ℝ), tDead) = (v333, v334) := by
+    rw [show (17 : ℕ) = 16 + 1 from rfl, Function.iterate_succ_apply', e15]
+    rfl
+  have e17 : (bisectStep ym hp a ze L)^[18] ((0 : ℝ), tDead) = (v352, v353) := by
+    rw [show (18 : ℕ) = 17 + 1 from rfl, Function.iterate_succ_apply', e16]
+    rfl
+  have e18 : (bisectStep ym hp a ze L)^[19] ((0 : ℝ), tDead) = (v371, v372) := by
+    rw [show (19 : ℕ) = 18 + 1 from rfl, Function.iterate_succ_apply', e17]
+    rfl
+  have e19 : (bisectStep ym hp a ze L)^[20] ((0 : ℝ), tDead) = (v390, v391) := by
+    rw [show (20 : ℕ) = 19 + 1 from rfl, Function.iterate_succ_apply', e18]
+    rfl
+  have e20 : (bisectStep ym hp a ze L)^[21] ((0 : ℝ), tDead) = (v409, v410) := by
+    rw [show (21 : ℕ) = 20 + 1 from rfl, Function.iterate_succ_apply', e19]
+    rfl
+  have e21 : (bisectStep ym hp a ze L)^[22] ((0 : ℝ), tDead) = (v428, v429) := by
+    rw [show (22 : ℕ) = 21 + 1 from rfl, Function.iterate_succ_apply', e20]
+    rfl
+  have e22 : (bisectStep ym hp a ze L)^[23] ((0 : ℝ), tDead) = (v447, v448) := by
+    rw [show (23 : ℕ) = 22 + 1 from rfl, Function.iterate_succ_apply', e21]
+    rfl
+  rw [show (24 : ℕ) = 23 + 1 from rfl, Function.iterate_succ_apply', e22]
+  rfl
 
 theorem swingTwist_ccc : swingTwist = fun (apexH : ℝ) (zBolt : ℝ) =>
     let v8 := (apexH * (0 : ℝ))

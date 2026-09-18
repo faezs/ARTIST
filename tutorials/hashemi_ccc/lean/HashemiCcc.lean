@@ -55,6 +55,170 @@ partial def strLits (e : Expr) : Array String :=
     else if f.isConstOf ``List.nil then #[]
     else args.foldl (fun acc a => acc ++ strLits a) #[]
 
+/-! ## The staged round trip: keeping the graph's sharing in the PROOF
+
+`theorem X_ccc : X = fun bs => <printed twin> := rfl` is one `isDefEq` call, and `isDefEq`
+zeta-reduces the twin's `let`s: the hash-consed DAG becomes a tree.  For a definition that
+bisects (`swingOfLength`, and `step`/`megaStep` through it) the tree doubles at every level -
+measured on this file, 2.2x per level, so level 16 already exhausts 4M heartbeats and level 24
+would need about ten thousand times that.  Printing the twin with `let`s does not help: `let`
+against a differently-shaped term is zeta-reduced just the same (measured: identical curve).
+
+The fix keeps the sharing in the proof instead of in the term, and does NOT weaken the statement:
+
+* `funext` the binders, then `lift_lets` turns the twin's `let`s into local DEFINITIONS and
+  `intro v… v…` names them exactly as the printer did - the goal is now O(1) in the graph;
+* the composite is related to those locals by a chain of SMALL `rfl`s, one per level
+  (`e j : (bisectStep …)^[j+1] start = (v_lo j, v_hi j)`, each proved from `e (j-1)` by
+  `Function.iterate_succ_apply'`): in each of them the previous level occurs as the SAME local
+  on both sides, so defeq stops at a pointer comparison instead of unfolding;
+* a composite that only calls the bisecting definition (`step`, `megaStep`) is first unfolded
+  (`rw [step]`), its own subterms are folded onto the twin's locals by small `rfl`s
+  (`wireLen … 0 = v47`, …), the swing is replaced by the chain's last level (`rw [key]`), and
+  what is left of the graph closes by `rfl`.
+
+A sibling applies this to another composite by adding a row to `stagedCfg`: the chain detector
+below reads the PRINTED twin (`let` lines), so it needs no knowledge of the source beyond the
+names the definition gives the four mount constants and the state.
+-/
+
+/-- string helpers that return a `String` (`String.drop` and friends return a slice) -/
+def sDrop (s : String) (n : Nat) : String := String.mk (s.toList.drop n)
+def sDropR (s : String) (n : Nat) : String := String.mk ((s.toList.reverse.drop n).reverse)
+def sTrim (s : String) : String :=
+  String.mk ((s.toList.dropWhile (· == ' ')).reverse.dropWhile (· == ' ') |>.reverse)
+
+/-- a `let v… := rhs` line of a printed twin -/
+structure LetLine where
+  name : String
+  rhs  : String
+  deriving Inhabited
+
+def letLines (body : String) : Array LetLine := Id.run do
+  let mut out : Array LetLine := #[]
+  for l in body.splitOn "\n" do
+    let t := sTrim l
+    if t.startsWith "let " then
+      match (sDrop t 4).splitOn " := " with
+      | n :: rs => if !rs.isEmpty then out := out.push { name := n, rhs := " := ".intercalate rs }
+      | _ => pure ()
+  return out
+
+/-- `(if A then B else C)` split at the FIRST `then`/`else`, so a nested `if` stays inside `C` -/
+def parseIte (s : String) : Option (String × String × String) :=
+  if !s.startsWith "(if " then none else
+  let inner := sDropR (sDrop s 4) 1
+  match inner.splitOn " then " with
+  | a :: rest =>
+    if rest.isEmpty then none else
+    match (" then ".intercalate rest).splitOn " else " with
+    | b :: cs => if cs.isEmpty then none else some (a, b, " else ".intercalate cs)
+    | _ => none
+  | _ => none
+
+/-- the left operand of a printed comparison `(x < …)` -/
+def cmpLeft (rhs : String) : String :=
+  match (sDrop rhs 1).splitOn " < " with | a :: _ => a | _ => ""
+
+/-- the bisection chain of a printed twin: the `(lo, hi)` pair of every level, the level-0 start,
+and the wire length the bisection solves for.  A level is two adjacent `let`s
+`(if c then m else x)`, `(if c then y else m)` - one `bisectStep`, hash-consed. -/
+def findChain (ls : Array LetLine) :
+    Option (Array (String × String) × String × String × String) := Id.run do
+  let mut pairs : Array (String × String) := #[]
+  let mut lo0 := ""; let mut hi0 := ""; let mut c0 := ""
+  for i in [0:ls.size] do
+    if i + 1 ≥ ls.size then continue
+    match parseIte ls[i]!.rhs, parseIte ls[i+1]!.rhs with
+    | some (c, m, x), some (c', y, m') =>
+      if c == c' && m == m' then
+        if pairs.isEmpty then
+          lo0 := x; hi0 := y; c0 := c
+        pairs := pairs.push (ls[i]!.name, ls[i+1]!.name)
+    | _, _ => pure ()
+  if pairs.isEmpty then return none
+  let L := match ls.find? (fun l => l.name == c0) with | some l => cmpLeft l.rhs | none => ""
+  if L.isEmpty then return none
+  return some (pairs, lo0, hi0, L)
+
+/-- the mount constants and state a composite names, and what to unfold before folding onto the
+twin's locals.  `ym hp a ze` are the pulley/dish constants `bisectStep` takes; `t slack ωd rDrum
+dt` spell the commanded wire length. -/
+structure StagedCfg where
+  ym : String
+  hp : String
+  aa : String
+  ze : String
+  t : String
+  slack : String
+  ωd : String
+  rDrum : String
+  dt : String
+  unf : List String := []
+  deriving Inhabited
+
+def stagedCfg : String → Option StagedCfg
+  | "swingOfLength" => some { ym := "ym", hp := "hp", aa := "a", ze := "ze", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt" }
+  | "step" => some { ym := "ym", hp := "hp", aa := "a", ze := "ze", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt", unf := ["step"] }
+  | "megaStep" => some { ym := "ymHashemi", hp := "hpHashemi", aa := "dishHalf", ze := "zeHashemi", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt", unf := ["megaStep", "step"] }
+  | _ => none
+
+/-- the staged proof for `txt`, a printed `theorem X_ccc : X = fun bs => <twin> := rfl`. -/
+def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option String := Id.run do
+  let stmt := if txt.endsWith " := rfl" then txt.dropRight 7 else txt
+  let ls := letLines stmt
+  let some (pairs, lo0, hi0, L) := findChain ls | return none
+  let n := pairs.size
+  let (lastLo, lastHi) := pairs[n-1]!
+  let mid := s!"(({lastLo} + {lastHi}) / (2 : ℝ))"
+  let some mline := ls.find? (fun l => l.rhs == mid) | return none
+  let M := mline.name
+  let mut Q := ""
+  for l in ls do if l.rhs.startsWith s!"({L} < (Real.sqrt" then Q := l.name
+  if Q.isEmpty then return none
+  let fin := s!"(((if {Q} then {M} else {lastLo}) + (if {Q} then {lastHi} else {M})) / (2 : ℝ))"
+  let bs := s!"{cfg.ym} {cfg.hp} {cfg.aa} {cfg.ze}"
+  let names := " ".intercalate (ls.toList.map (·.name))
+  let mut p : Array String := #[]
+  let selfv := !(ls.any fun l => l.name == L)
+  if selfv then
+    p := #[":= by", s!"  funext {binders}", "  lift_lets", s!"  intro {names}",
+      s!"  show ((((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).1 + (((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).2)) / (2 : ℝ)) = _"]
+  else
+    p := #[":= by", s!"  funext {binders}",
+      s!"  rw [{", ".intercalate cfg.unf}]", "  lift_lets", s!"  intro {names}"]
+  for j in [0:n] do
+    let (A, B) := pairs[j]!
+    if j == 0 then
+      p := p.push s!"  have e0 : (bisectStep {bs} {L})^[1] ({lo0}, {hi0}) = ({A}, {B}) := rfl"
+    else
+      p := p.push s!"  have e{j} : (bisectStep {bs} {L})^[{j+1}] ({lo0}, {hi0}) = ({A}, {B}) := by"
+      p := p.push s!"    rw [show ({j+1} : ℕ) = {j} + 1 from rfl, Function.iterate_succ_apply', e{j-1}]"
+      p := p.push "    rfl"
+  if selfv then
+    p := p.push s!"  rw [show (24 : ℕ) = {n} + 1 from rfl, Function.iterate_succ_apply', e{n-1}]"
+    p := p.push "  rfl"
+    return some (stmt ++ "\n".intercalate p.toList)
+  -- a composite that only calls the bisecting definition: fold its subterms onto the twin's locals
+  let some lLine := ls.find? (fun l => l.name == L) | return none
+  let some (_, WT, rest) := parseIte lLine.rhs | return none
+  let some (_, W0, Lcmd) := parseIte rest | return none
+  let some cLine := ls.find? (fun l => l.name == Lcmd) | return none
+  let Wt := String.mk ((sDrop cLine.rhs 2).toList.takeWhile (· != ' '))
+  let cmd := s!"{Wt} + {cfg.slack} - {cfg.ωd} * {cfg.rDrum} * {cfg.dt}"
+  p := p.push s!"  have key : swingOfLength {bs} {hi0} {L} = {fin} := by"
+  p := p.push s!"    show ((((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).1 + (((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).2)) / (2 : ℝ)) = _"
+  p := p.push s!"    rw [show (24 : ℕ) = {n} + 1 from rfl, Function.iterate_succ_apply', e{n-1}]"
+  p := p.push "    rfl"
+  p := p.push s!"  rw [show deadPoint {bs} = {hi0} from rfl]"
+  p := p.push s!"  rw [show wireLen {bs} 0 = {W0} from rfl]"
+  p := p.push s!"  rw [show wireLen {bs} {hi0} = {WT} from rfl]"
+  p := p.push s!"  rw [show wireLen {bs} {cfg.t} = {Wt} from rfl]"
+  p := p.push s!"  rw [show (if {cmd} < {WT} then {WT} else if {W0} < {cmd} then {W0} else {cmd}) = {L} from rfl]"
+  p := p.push "  rw [key]"
+  p := p.push "  rfl"
+  return some (stmt ++ "\n".intercalate p.toList)
+
 def run : MetaM Unit := do
   let env ← getEnv
   let root := `TandoorHashemi
@@ -267,8 +431,16 @@ def run : MetaM Unit := do
         -- defeq check on a term that doubles at every level, beyond any heartbeat budget. The step
         -- itself, `bisectStep`, round-trips; the iterate rule is checked on a 3-fold instance below;
         -- the C and Float twins agree on these three at the samples
-        if ["swingOfLength", "step", "megaStep"].contains ref then
-          rt := rt.push s!"-- {ref}: round trip by the twins (the 24-fold bisection is beyond rfl's budget)" |>.push ""
+        if (stagedCfg ref).isSome then
+          -- the bisecting composites: `rfl` on the flattened twin is exponential in the 24 levels,
+          -- so the sharing is kept in the proof (see "The staged round trip" above)
+          let txt := printRoundTrip f ref (ref.replace "." "_")
+          let binders := " ".intercalate (f.binders.toList.map (·.1))
+          match stagedProof txt binders (stagedCfg ref).get! with
+          | some t => rt := rt.push t |>.push ""
+          | none =>
+            logInfo m!"staged round trip: no bisection chain found for {ref}"
+            rt := rt.push txt |>.push ""
         else if ref == "dishPower" || ref == "hashemiEnv" || ref == "hashemiLoop" || ref == "hashemiEnvBeam" || ref == "traceBeam" then
           -- the whole optical pipeline as one term: its parts (`sunInDish`, `sampleRay`,
           -- `traceRayKErr`) each round-trip by `rfl`; the composite's defeq check times out
