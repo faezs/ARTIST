@@ -214,6 +214,35 @@ def megastep_action_sensitivity(mm, rng, B=2048):
                 swing_bound_med=float(np.median(fin(oL[:, cs])) * 15.0) if fin(oL[:, cs]).size else float("inf"))
 
 
+def env_step_sensitivity(mm, rng, B=512):
+    """THE ENV STEP AS ONE MODULE: `hashemiEnv` (the mount, 64 rays, the heat) - its tangent
+    along each motor command, and its box bound, on the machine's state space with the sun in
+    reach and the dish near it. The closed loop's downstream sensitivity comes from here."""
+    from hashemi_env_kernel import pack, EIN, ECOL, N_IN
+    m = MODULES["hashemiEnv"]
+    tdead = 1.077
+    state = np.stack([rng.uniform(0, 2 * math.pi, B), rng.uniform(0.3, 1.0, B), np.zeros(B)], 1)
+    cmd = np.stack([rng.uniform(-1, 1, B), rng.uniform(-0.3, 0.3, B)], 1)
+    el = np.clip(math.pi / 2 - state[:, 1] + rng.uniform(-0.01, 0.01, B), 0.5, 1.5)
+    sun = np.stack([el, state[:, 0] + rng.uniform(-0.01, 0.01, B), np.full(B, 800.0)], 1)
+    x = pack(B, state, cmd, 15.0, sun, np.full(B, 0.95), rng.uniform(350, 500, B), rng.uniform(350, 450, B), 300.0)
+    tabs = [t32(np.concatenate([rng.random((B, 64, 6)), rng.standard_normal((B, 64, 4))], 2))]
+    out = {}
+    for head, w in (("omegam", 0.05), ("omegad", 0.02)):
+        dx = np.zeros((B, N_IN)); dx[:, EIN[head]] = 1.0
+        _, dy = mm.jvp("hashemiEnv", t32(x), t32(dx), tabs)
+        dy = np.abs(dy.cpu().numpy().astype(np.float64))
+        sc = np.zeros((B, N_IN)); sc[:, EIN[head]] = 1.0
+        wd = np.zeros((B, N_IN)); wd[:, EIN[head]] = w
+        _, _, oL = mm.box("hashemiEnv", t32(x - wd), t32(x + wd), t32(sc), tabs)
+        oL = oL.cpu().numpy().astype(np.float64)
+        fin = lambda a: np.where(np.isfinite(a) & (a < HK_INF), a, np.nan)
+        out[head] = {c: dict(meas=float(np.nanmax(dy[:, ECOL[c]])), bound=float(np.nanmedian(fin(oL[:, ECOL[c]]))),
+                             jump=float(np.mean(oL[:, ECOL[c]] >= HK_INF)))
+                     for c in ("az_next", "t_next", "swing_rate", "capture", "capture_s", "q_pot", "T_oil")}
+    return out
+
+
 def gates(mm, rng, B=4096, tau=0.01):
     """the Boolean gates jump where the smooth ones have the slope the theorems state"""
     out = {}
@@ -338,6 +367,10 @@ def main():
     print(f"   megaStep: az per unit omega_m per step measured {ms['az_per_omegam_meas']:.3g} rad (bound finite on {100 * ms['az_bound_finite']:.0f} %, median {ms['az_bound_med']:.3g})")
     print(f"     tilt per unit omega_d per step: through the bisection {ms['t_per_omegad_bisect']:.3g} (piecewise constant; box jumps on {100 * ms['t_bisect_jump_frac']:.0f} %),"
           f" through the spec's swing_rate column {ms['t_per_omegad_analytic']:.3g} rad (bound median {ms['swing_bound_med']:.3g})")
+    es = env_step_sensitivity(mm, rng)
+    print("   hashemiEnv (the step as one module): per unit command, measured tangent / box bound (median) / jump fraction")
+    for head in ("omegam", "omegad"):
+        print("     " + head + ": " + ", ".join(f"{c} {r['meas']:.3g}/{r['bound']:.3g}/{r['jump']:.0%}" for c, r in es[head].items()))
     g = gates(mm, rng)
     for name, r in g.items():
         if r["theorem_slope"] is None:
@@ -357,9 +390,10 @@ def main():
     json.dump(dict(day=args.day, lat=args.lat, dpose=args.dpose, stages=sh), open(os.path.join(HERE, "modula_sheaf.json"), "w"), indent=1)
 
     print("\n4. MODULA: the closed loop as one module; the learning-rate budget Muon distributes")
-    s_env = ms["az_per_omegam_meas"] * max(d["capS_L_meas_max"], 1e-9)   # smooth capture per unit action: pose per command x capture per rad
+    s_env = max(es["omegam"]["capture_s"]["meas"], es["omegad"]["capture_s"]["meas"], 1e-9)   # the composite's own tangent
     policy, loop = closed_loop(s_env=s_env)
-    print(f"   env sensitivity (smooth capture per unit azimuth command) = {ms['az_per_omegam_meas']:.3g} rad/cmd x {d['capS_L_meas_max']:.3g} /rad = {s_env:.3g}")
+    print(f"   env sensitivity (smooth capture per unit command, from hashemiEnv's tangent) = {s_env:.3g}"
+          f" (the parts' product would say {ms['az_per_omegam_meas']:.3g} x {d['capS_L_meas_max']:.3g} = {ms['az_per_omegam_meas'] * d['capS_L_meas_max']:.3g})")
     print(f"   policy: mass {policy.mass:.0f}, sensitivity {policy.sensitivity:.3g}; loop: mass {loop.mass:.0f}, sensitivity {loop.sensitivity:.3g}")
     print(f"   budget at eta = {args.eta} (mass share x eta / downstream sensitivity):")
     rows = loop.lr_budget(args.eta)
