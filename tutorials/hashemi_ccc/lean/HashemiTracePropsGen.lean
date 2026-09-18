@@ -8,3 +8,4 @@ import RequestProject.PropsGenCore
 #eval HashemiPropsGen.run `RequestProject.HashemiTrace
   [`RequestProject.Hashemi, `RequestProject.HashemiStep, `RequestProject.HashemiMega, `RequestProject.HashemiTrace]
   "RequestProject.HashemiTrace" "HashemiTraceProps.lean"
+  [`TandoorHashemi.dishPower_captured, `TandoorHashemi.dishPower_le]

@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(HERE, "bridge"))
 sys.path.insert(0, HERE)
 from export_scene import ini_env_kwargs               # noqa: E402
 from hashemi_tandoor_env import HashemiTandoorEnv     # noqa: E402
+from hashemi_kernel import COL                        # noqa: E402
 
 
 def main():
@@ -35,6 +36,7 @@ def main():
     t0 = time.time()
     k = 0
     rows = []
+    agree_reach = agree_lost = 0.0
     while True:
         el0, az0, _ = _m._sim.solar_position(env.lat, env.day, float(env.t_solar[0]))
         az0 = np.degrees(az0 - env._ds_azs)
@@ -51,6 +53,14 @@ def main():
         t_before = float(env.t_solar[0])
         obs, rew, term, trunc, infos = env.step(a)
         k += 1
+        # the spec's Ω-columns against the parent's flags: the sun reachable = the parent's sun up,
+        # the sun lost = the parent's lost counter (its L1 error in degrees vs the spec's angle:
+        # they can differ by the sqrt 2 of the norms, so agreement is counted, not required exact)
+        reach = env.hk_row[:, COL["sun_reachable"]] > 0.5
+        lost = env.hk_row[:, COL["lost_sun"]] > 0.5
+        lc = np.asarray(env._gpu.lost_ct.cpu() if args.gpu else env._lost_ct) > 0
+        agree_reach += float(np.mean(reach == (el0 >= env.el_min_h)))
+        agree_lost += float(np.mean(lost == lc))
         if k % 240 == 0:
             S = env._gpu if args.gpu else env            # the fused path keeps the pot on the device
             T = np.asarray(S.T.cpu() if args.gpu else S.T)
@@ -62,7 +72,8 @@ def main():
     print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis")
     for r in rows:
         print("  %5.2f  %6.2f  %6.2f  %+6.2f   %5.3f   %7.0f   %7.1f   %6.2f" % r)
-    ok = rows[-1][7] > 50 and all(r[4] > 0.9 for r in rows)
+    print(f"  spec vs parent: sun_reachable == sun up {100 * agree_reach / k:.1f} %, lost_sun == lost {100 * agree_lost / k:.1f} %")
+    ok = rows[-1][7] > 50 and all(r[4] > 0.9 for r in rows) and agree_reach / k > 0.99 and agree_lost / k > 0.97
     print("COOKS" if ok else "DOES NOT COOK")
     sys.exit(0 if ok else 1)
 

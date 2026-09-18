@@ -392,4 +392,97 @@ noncomputable def traceRayK (R f a w rc k cx cy ux uy dx dy dz : ℝ) : Fin 8 �
   ![L.1, L.2, rad, if captured then 1 else 0,
     if ¬ onPanel then 0 else if inside then 2 else 1, H 2, rr, if 0 < r 2 then 1 else 0]
 
+/-! ### The pipeline as one morphism
+
+The env's optics as one arrow, draws × pose × sun × parameters → power: the sampler is a function
+of its uniforms, the trace of the ray and its error draws, the delivery of the trace's capture.
+Ccc carries the composite to every target; the numpy path and the fused Metal path of the env
+are two interpretations of `dishPower`, not two implementations. -/
+
+/-- a vector's normalization -/
+noncomputable def unit3 (v : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  let nn := Real.sqrt (max (v 0 ^ 2 + v 1 ^ 2 + v 2 ^ 2) 1e-18)
+  ![v 0 / nn, v 1 / nn, v 2 / nn]
+
+/-- the cross product -/
+def cross3 (u v : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  ![u 1 * v 2 - u 2 * v 1, u 2 * v 0 - u 0 * v 2, u 0 * v 1 - u 1 * v 0]
+
+/-- **the sampler as a morphism of its draws**: `u₁ u₂` pick the facet on the `w`-grid within the
+`2a` panel, `u₃ u₄` the point within the facet, `u₅ u₆` a point on the sun's disc of half-angle
+`hsun` (uniform on the disc: ρ = hsun √u₅, φ = 2π u₆); `sd` is the sun in the dish's frame, the ray
+travels along its negative tilted by the disc draw. Returns `traceRayK`'s seven ray inputs. -/
+noncomputable def sampleRay (a w hsun : ℝ) (sd : Fin 3 → ℝ) (u1 u2 u3 u4 u5 u6 : ℝ) : Fin 7 → ℝ :=
+  let nSide := 2 * a / w
+  let cx := -a + w / 2 + w * ((⌊u1 * nSide⌋ : ℤ) : ℝ)
+  let cy := -a + w / 2 + w * ((⌊u2 * nSide⌋ : ℤ) : ℝ)
+  let ux := (u3 - 1 / 2) * w
+  let uy := (u4 - 1 / 2) * w
+  let s : Fin 3 → ℝ := ![-sd 0, -sd 1, -sd 2]
+  let vert := |s 2| < 9 / 10
+  let helper : Fin 3 → ℝ := ![if vert then 0 else 1, 0, if vert then 1 else 0]
+  let e1 := unit3 (cross3 s helper)
+  let e2 := cross3 s e1
+  let ρ := hsun * Real.sqrt u5
+  let φ := 2 * Real.pi * u6
+  let d : Fin 3 → ℝ := ![Real.cos ρ * s 0 + Real.sin ρ * (Real.cos φ * e1 0 + Real.sin φ * e2 0),
+                          Real.cos ρ * s 1 + Real.sin ρ * (Real.cos φ * e1 1 + Real.sin φ * e2 1),
+                          Real.cos ρ * s 2 + Real.sin ρ * (Real.cos φ * e1 2 + Real.sin φ * e2 2)]
+  ![cx, cy, ux, uy, d 0, d 1, d 2]
+
+/-- **the conic dish's ray with optical errors**: `traceRayK` with the facet's normal tilted by
+`σslope (e₁, e₂)` at the hit and the reflected direction by `σspec (s₁, s₂)` (SolTrace's
+treatment, as `traceRayErr` gives it on the sphere); the same eight outputs -/
+noncomputable def traceRayKErr (R f a w rc k σslope σspec cx cy ux uy dx dy dz e1 e2 s1 s2 : ℝ) :
+    Fin 8 → ℝ :=
+  let onPanel := |cx| ≤ a ∧ |cy| ≤ a ∧ |ux| ≤ w / 2 ∧ |uy| ≤ w / 2
+  let O : Fin 3 → ℝ := ![cx + ux, cy + uy, 2 * f]
+  let d : Fin 3 → ℝ := ![dx, dy, dz]
+  let c := 1 / R
+  let rr := Real.sqrt (max (cx ^ 2 + cy ^ 2) 1e-18)
+  let zc := conicZ c k rr
+  let g := conicSlope c k rr
+  let nn := Real.sqrt (1 + g ^ 2)
+  let n0 : Fin 3 → ℝ := ![-g * cx / rr / nn, -g * cy / rr / nn, 1 / nn]
+  let n := tilt n0 (σslope * e1) (σslope * e2)
+  let s := ((cx - O 0) * n0 0 + (cy - O 1) * n0 1 + (zc - O 2) * n0 2) / dot3 d n0
+  let H : Fin 3 → ℝ := ![O 0 + s * d 0, O 1 + s * d 1, O 2 + s * d 2]
+  let r := tilt (reflect3 n d) (σspec * s1) (σspec * s2)
+  let L := landAt H r f
+  let rad := Real.sqrt (L.1 ^ 2 + L.2 ^ 2)
+  let inside := rad ≤ rc ∧ 0 < r 2
+  let captured := onPanel ∧ inside
+  ![L.1, L.2, rad, if captured then 1 else 0,
+    if ¬ onPanel then 0 else if inside then 2 else 1, H 2, rr, if 0 < r 2 then 1 else 0]
+
+/-- **the env's optics as one morphism**: the pose's sun, one ray of the sampler, its trace on
+the conic dish with the optical errors, and the delivery: `(captured, m² of aperture per unit
+DNI this ray stands for, fate)`. The per-agent mean over the rays and the split along the
+receiver's node profile are the env's reductions. -/
+noncomputable def dishPower (R f a w rc k σslope σspec ρ hsun az t elSun azSun
+    u1 u2 u3 u4 u5 u6 e1 e2 s1 s2 : ℝ) : Fin 3 → ℝ :=
+  let sd := sunInDish az t elSun azSun
+  let ray := sampleRay a w hsun sd u1 u2 u3 u4 u5 u6
+  let out := traceRayKErr R f a w rc k σslope σspec (ray 0) (ray 1) (ray 2) (ray 3) (ray 4) (ray 5) (ray 6)
+    e1 e2 s1 s2
+  ![out 3, (2 * a) ^ 2 * ρ * out 3, out 4]
+
+/-- the capture is a Boolean -/
+theorem dishPower_captured (R f a w rc k σslope σspec ρ hsun az t elSun azSun u1 u2 u3 u4 u5 u6 e1 e2 s1 s2 : ℝ) :
+    dishPower R f a w rc k σslope σspec ρ hsun az t elSun azSun u1 u2 u3 u4 u5 u6 e1 e2 s1 s2 0 = 0 ∨
+    dishPower R f a w rc k σslope σspec ρ hsun az t elSun azSun u1 u2 u3 u4 u5 u6 e1 e2 s1 s2 0 = 1 := by
+  simp only [dishPower, traceRayKErr]
+  simp only [Matrix.cons_val]
+  split_ifs <;> simp
+
+/-- the delivered aperture is bounded by the panel's area times its reflectance -/
+theorem dishPower_le (R f a w rc k σslope σspec ρ hsun az t elSun azSun u1 u2 u3 u4 u5 u6 e1 e2 s1 s2 : ℝ)
+    (hρ : 0 ≤ ρ) :
+    dishPower R f a w rc k σslope σspec ρ hsun az t elSun azSun u1 u2 u3 u4 u5 u6 e1 e2 s1 s2 1
+      ≤ (2 * a) ^ 2 * ρ := by
+  simp only [dishPower, traceRayKErr]
+  simp only [Matrix.cons_val]
+  have h : 0 ≤ (2 * a) ^ 2 * ρ := by positivity
+  split_ifs <;> simp <;> linarith
+
 end TandoorHashemi

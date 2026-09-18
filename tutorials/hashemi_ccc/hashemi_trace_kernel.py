@@ -97,6 +97,21 @@ kernel void hashemi_conic(device const float* rays [[buffer(0)]], device const f
   for (int k = 0; k < 9; ++k) out[i*9+k] = row[k];
 }
 
+kernel void hashemi_dish(device const float* prm [[buffer(0)]], device const float* pose [[buffer(1)]],
+                         device const float* dr [[buffer(2)]], device float* out [[buffer(3)]],
+                         device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  // the env's optics as ONE compiled morphism: prm = R f a w rc k s_slope s_spec rho hsun;
+  // pose (B,4) = az t elSun azSun per agent; dr (N,10) = u1..u6 e1 e2 s1 s2 per ray; P rays per agent
+  if ((int)i >= n[0]) return;
+  const int b = (int)i / n[1];
+  float row[3];
+  hk_dishPower(prm[0], prm[1], prm[2], prm[3], prm[4], prm[5], prm[6], prm[7], prm[8], prm[9],
+               pose[b*4+0], pose[b*4+1], pose[b*4+2], pose[b*4+3],
+               dr[i*10+0], dr[i*10+1], dr[i*10+2], dr[i*10+3], dr[i*10+4], dr[i*10+5],
+               dr[i*10+6], dr[i*10+7], dr[i*10+8], dr[i*10+9], row);
+  out[i*3+0] = row[0]; out[i*3+1] = row[1]; out[i*3+2] = row[2];
+}
+
 kernel void hashemi_sphere_formulas(device const float* rh [[buffer(0)]], device const float* prm [[buffer(1)]],
                                     device float* out [[buffer(2)]], device const int* n [[buffer(3)]],
                                     uint i [[thread_position_in_grid]]) {
@@ -189,6 +204,19 @@ def capture_mc(tracer, N, sun_dish, rng, prm5, sigma_slope, sigma_spec):
     return p, np.sqrt(p * (1 - p) / N)
 
 
+DISH_PRM_W, DISH_DRAW_W, DISH_OUT_W = 10, 10, 3     # R f a w rc k s_slope s_spec rho hsun | u1..u6 e1 e2 s1 s2 | captured per fate
+
+
+def dish_numpy(prm, pose, draws, P):
+    """`dishPower` of HashemiTrace.lean from the NumPy twin: prm (10,), pose (B,4), draws (B*P,10) -> (B*P,3)"""
+    import hashemi_ccc as H
+    pr = np.asarray(prm, dtype=np.float64); po = np.repeat(np.asarray(pose, dtype=np.float64), P, axis=0)
+    dr = np.asarray(draws, dtype=np.float64); N = dr.shape[0]
+    args = [np.full(N, pr[k]) for k in range(DISH_PRM_W)] + [po[:, k] for k in range(4)] + [dr[:, k] for k in range(DISH_DRAW_W)]
+    with np.errstate(all="ignore"):
+        return np.asarray(H.hk_dishPower(*args), dtype=np.float64).reshape(N, DISH_OUT_W)
+
+
 def sun_in_dish(az, t, el_sun, az_sun):
     """`sunInDish` of HashemiTrace.lean, from the NumPy twin (the compiled definition)"""
     import hashemi_ccc as H
@@ -224,6 +252,15 @@ class HashemiTraceMetal:
             self._buf[N] = bufs
         out, nN = bufs
         self.lib.hashemi_trace(rays.contiguous(), prm.to(torch.float32).contiguous(), out, nN)
+        return out
+
+    def dish(self, prm, pose, draws, out, P):
+        """`dishPower` on the device: prm (10,), pose (B,4), draws (B*P,10) float32 mps -> out (B*P,3)"""
+        torch = self.torch
+        N = draws.shape[0]
+        # threads = N explicitly: compile_shader's default grid is the FIRST buffer's numel, the 10 params here
+        self.lib.hashemi_dish(prm.contiguous(), pose.contiguous(), draws.contiguous(), out,
+                              torch.tensor([N, P], dtype=torch.int32, device="mps"), threads=N)
         return out
 
     def capture(self, rays_np, prm_np, B, P, k=None):

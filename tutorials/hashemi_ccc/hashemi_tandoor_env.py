@@ -31,8 +31,8 @@ for _p in (ROOT, TUT, HERE):
 import torch                                        # noqa: E402
 from tandoor_hashemi_env import TandoorHashemiEnv   # noqa: E402
 from hashemi_kernel import COL, HashemiMetal, mega_numpy, mega_params_numpy   # noqa: E402
-from hashemi_trace_kernel import (HashemiTraceMetal, sample_rays_mc, sun_in_dish, trace_params_numpy,   # noqa: E402
-                                  RAY_W, OUT_W, SUN_HALF_ANGLE)
+from hashemi_trace_kernel import (HashemiTraceMetal, dish_numpy, trace_params_numpy,   # noqa: E402
+                                  DISH_OUT_W, SUN_HALF_ANGLE)
 
 
 class HashemiTandoorEnv(TandoorHashemiEnv):
@@ -48,19 +48,28 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # gpu=0: the parent's numpy step, the trace on Metal (the eval/bench path);
         # gpu=1: the parent's fused Metal step with the trace injected (the training path)
         self._fused_profile = None
+        self._prm_np = mega_params_numpy()
+        rest = mega_numpy(np.zeros((1, 3)), np.zeros((1, 2)), 0.0, np.array([[0.5, 0.0, 800.0]]), self._prm_np)
+        self.t_dead = float(rest[0, COL["t_dead"]])
+        # THE PARENT'S DAY AND CUT PULLED BACK ALONG THE SPEC'S Ω-COLUMNS: the megakernel's
+        # `sun_reachable` (SunReachable: π/2 - tDead ≤ elSun) and `lost_sun` (LostSun: reachable
+        # and the pointing error past the 1.7° budget). The parent gates its beam and its
+        # guillotine by el_min and lost_deg, its own knobs; they are set here to the spec's
+        # constants so the parent's flags coincide with the compiled columns, and the day test
+        # checks that coincidence step by step (lost_sun vs the parent's lost counter).
+        kwargs.setdefault("el_min", 90.0 - np.degrees(self.t_dead))
+        kwargs.setdefault("lost_deg", np.degrees(0.03))
         super().__init__(*args, **kwargs)
         B = self.num_agents
         self.trace_rays = int(trace_rays)
         self._hk = HashemiMetal()
         self._tr = HashemiTraceMetal()
         self._prm = torch.as_tensor(mega_params_numpy(), dtype=torch.float32, device="mps")
-        self._prm_np = mega_params_numpy()
         self._trace_prm = trace_params_numpy()
         self._st = torch.zeros(B, 3, dtype=torch.float32, device="mps")
         self.hk_state = np.zeros((B, 3))
         rest = mega_numpy(np.zeros((B, 3)), np.zeros((B, 2)), 0.0, np.array([[0.5, 0.0, 800.0]] * B), self._prm_np)
         self.hk_row = rest
-        self.t_dead = float(rest[0, COL["t_dead"]])
         self.dish_area = float(rest[0, COL["dishSide"]]) ** 2
         self._om_full = np.radians(self.RATE_AZ) * float(rest[0, COL["rollerRadius"]]) / 0.05
         self._od_full = 0.01 / float(self._prm_np[0])              # 1 cm/s of wire at full command
@@ -96,102 +105,61 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self._sync_from_motors(np.ones(self.num_agents, dtype=bool))
         return res
 
-    # --- the power into the pot: his dish's trace, on the parent's node profile
+    # ------------------------------------------------------------------ the optics: ONE morphism
+    # `dishPower` of HashemiTrace.lean is the sampler, the conic trace with the optical errors and
+    # the delivery as one arrow, draws x pose x sun x parameters -> (captured, m^2 per unit DNI,
+    # fate). Ccc carries it to the C twin (the numpy path) and to Metal (the fused path); the host
+    # supplies the draws and takes the mean over the rays. Nothing optical is written here.
+    def _dish_prm(self):
+        return np.concatenate([self._trace_prm[:5], [self.DISH_K, self.SLOPE_ERR, self.SPEC_ERR, self.RHO, SUN_HALF_ANGLE]]
+                              ).astype(np.float32)
+
+    def _profile_from(self, per0, lib):
+        """the receiver's node profile from the parent's own trace (its beam's split over the floor and belt)"""
+        tot = per0.sum(1, keepdims=True) if lib is np else per0.sum(1, keepdim=True)
+        prof = lib.where(tot > 0, per0 / (lib.maximum(tot, 1e-9) if lib is np else tot.clamp_min(1e-9)), 0.0 * per0)
+        uni = lib.zeros(per0.shape[1]) if lib is np else torch.zeros(per0.shape[1], device=per0.device)
+        uni[:self.n_nodes] = 1.0 / self.n_nodes
+        ok = (prof.sum(1, keepdims=True) if lib is np else prof.sum(1, keepdim=True)) > 0
+        return lib.where(ok, prof, uni[None, :])
+
     def _trace_power(self, p_eff, sigma_b, offset_w, soil):
-        B = self.num_agents
+        """the numpy path: the C twin of `dishPower` over numpy draws"""
+        B, P = self.num_agents, self.trace_rays
         if self._beam_profile is None:
-            per0 = super()._trace_power(p_eff, sigma_b, offset_w, soil).numpy()
-            tot = per0.sum(1, keepdims=True)
-            self._beam_profile = np.where(tot > 0, per0 / np.maximum(tot, 1e-9), 0.0)
-            if not (self._beam_profile.sum(1) > 0).all():
-                prof = np.zeros(per0.shape[1]); prof[:self.n_nodes] = 1.0 / self.n_nodes
-                self._beam_profile = np.where(self._beam_profile.sum(1, keepdims=True) > 0, self._beam_profile, prof)
+            self._beam_profile = self._profile_from(super()._trace_power(p_eff, sigma_b, offset_w, soil).numpy(), np)
         el0, az0 = self._sun()
         if el0 < self.el_min_h:
             self.cap_traced[:] = 0.0
             return torch.zeros(B, self._beam_profile.shape[1])
-        sd = sun_in_dish(self.hk_state[:, 0], self.hk_state[:, 1], np.full(B, np.radians(el0)), np.full(B, az0))
-        P = self.trace_rays
-        rays = np.concatenate([sample_rays_mc(P, sd[b], self.rng, sigma_slope=self.SLOPE_ERR, sigma_spec=self.SPEC_ERR)
-                               for b in range(B)], 0)
-        rays = self._fold_errors(rays)
-        prm = torch.as_tensor(np.concatenate([self._trace_prm[:5], [self.DISH_K]]), dtype=torch.float32, device="mps")
-        out = torch.empty(B * P, OUT_W, dtype=torch.float32, device="mps")
-        self._tr.lib.hashemi_trace_k(torch.as_tensor(rays[:, :RAY_W], device="mps").contiguous(), prm, out,
-                                     torch.tensor([B * P], dtype=torch.int32, device="mps"))
-        self.cap_traced = out[:, 3].reshape(B, P).mean(1).cpu().numpy().astype(np.float64)
-        # per unit DNI, as the parent expects: m^2 of aperture delivered, split along the beam profile
-        per = (self.dish_area * self.RHO * self.cap_traced)[:, None] * self._beam_profile
+        pose = np.stack([self.hk_state[:, 0], self.hk_state[:, 1], np.full(B, np.radians(el0)), np.full(B, az0)], 1)
+        draws = np.concatenate([self.rng.random((B * P, 6)), self.rng.standard_normal((B * P, 4))], 1)
+        out = dish_numpy(self._dish_prm(), pose, draws, P).reshape(B, P, DISH_OUT_W)
+        self.cap_traced = out[:, :, 0].mean(1)
+        per = (out[:, :, 1].mean(1) * np.asarray(soil, dtype=np.float64))[:, None] * self._beam_profile
         return torch.as_tensor(per, dtype=torch.float32)
 
-    # ------------------------------------------------------------------ the fused GPU path
-    # The parent's whole step runs in Metal (mount -> step_pre -> trace -> step_post on one
-    # packed state). Here the motors are the Lean state, written into the packed state before
-    # the step, and F.per (m^2 of aperture per unit DNI, per node) comes from his dish's trace
-    # instead of the tandoor's, delivered along the tandoor beam's own node profile (recorded
-    # from the parent's trace on the first fused step, as the numpy path records it at reset).
-    def _sample_rays_t(self, sd, P):
-        """the numpy sampler's draws on the device: the facet uniform on the grid, the point
-        uniform in it, the direction -sun tilted by a draw on the sun's disc; the slope and
-        specularity errors folded into that tilt as one Gaussian of sqrt((2 s_slope)^2 + s_spec^2)
-        (a single reflection: the mirror's slope error doubles into the ray, first order)"""
-        B = sd.shape[0]
-        dev, g = sd.device, self._gen
-        a, w = float(self._trace_prm[2]), float(self._trace_prm[3])
-        n_side = int(round(2 * a / w))
-        ci = torch.randint(0, n_side, (B, P), generator=g, device=dev).float()
-        cj = torch.randint(0, n_side, (B, P), generator=g, device=dev).float()
-        cx = -a + w / 2 + ci * w
-        cy = -a + w / 2 + cj * w
-        ux = (torch.rand(B, P, generator=g, device=dev) - 0.5) * w
-        uy = (torch.rand(B, P, generator=g, device=dev) - 0.5) * w
-        s = -sd[:, None, :].expand(B, P, 3)
-        helper = torch.where(s[..., 2:3].abs() < 0.9, torch.tensor([0.0, 0.0, 1.0], device=dev),
-                             torch.tensor([1.0, 0.0, 0.0], device=dev))
-        e1 = torch.cross(s, helper, dim=-1); e1 = e1 / e1.norm(dim=-1, keepdim=True)
-        e2 = torch.cross(s, e1, dim=-1)
-        rho = SUN_HALF_ANGLE * torch.rand(B, P, generator=g, device=dev).sqrt()
-        phi = 2 * np.pi * torch.rand(B, P, generator=g, device=dev)
-        sig = float(np.sqrt((2 * self.SLOPE_ERR) ** 2 + self.SPEC_ERR ** 2))
-        tx = rho * torch.cos(phi) + sig * torch.randn(B, P, generator=g, device=dev)
-        ty = rho * torch.sin(phi) + sig * torch.randn(B, P, generator=g, device=dev)
-        d = s + tx[..., None] * e1 + ty[..., None] * e2
-        d = d / d.norm(dim=-1, keepdim=True)
-        rays = torch.cat([cx[..., None], cy[..., None], ux[..., None], uy[..., None], d], -1)
-        return rays.reshape(B * P, RAY_W).to(torch.float32).contiguous()
-
     def _fused_power(self, F, aux, soil_eff):
-        """fills F.per from his dish's trace, on the device; called by tandoor_fused_step"""
+        """the fused path: the Metal kernel of `dishPower` over device draws; called by tandoor_fused_step"""
         B, P, dev = self.num_agents, self.trace_rays, F.per.device
         if self._fused_profile is None:
-            per0 = F.per.clone()
-            tot = per0.sum(1, keepdim=True)
-            prof = torch.where(tot > 0, per0 / tot.clamp_min(1e-9), torch.zeros_like(per0))
-            uni = torch.zeros(per0.shape[1], device=dev); uni[:self.n_nodes] = 1.0 / self.n_nodes
-            self._fused_profile = torch.where(prof.sum(1, keepdim=True) > 0, prof, uni[None, :])
+            self._fused_profile = self._profile_from(F.per.clone(), torch)
             self._cap_t = torch.zeros(B, device=dev)
-            self._sun_buf = (torch.empty(B, 4, dtype=torch.float32, device=dev),
-                             torch.empty(B, 3, dtype=torch.float32, device=dev),
-                             torch.empty(1, dtype=torch.float32, device=dev),
-                             torch.tensor([B], dtype=torch.int32, device=dev),
-                             torch.as_tensor(np.concatenate([self._trace_prm[:5], [self.DISH_K]]),
-                                             dtype=torch.float32, device=dev),
-                             torch.empty(B * P, OUT_W, dtype=torch.float32, device=dev),
-                             torch.tensor([B * P], dtype=torch.int32, device=dev))
-        pose, sd, dummy, nB, prm, out, nBP = self._sun_buf
-        # the sun in the dish's frame: `sunInDish` compiled, one thread per agent (the mount's
-        # per-agent sun: el deg, az rad)
+            self._dish_buf = (torch.as_tensor(self._dish_prm(), device=dev),
+                              torch.empty(B, 4, dtype=torch.float32, device=dev),
+                              torch.empty(B * P, DISH_OUT_W, dtype=torch.float32, device=dev))
+        prm, pose, out = self._dish_buf
         pose[:, 0] = self._st[:, 0]
         pose[:, 1] = self._st[:, 1]
-        pose[:, 2] = torch.deg2rad(aux[:, 0])
+        pose[:, 2] = torch.deg2rad(aux[:, 0])           # the mount's per-agent sun: el deg, az rad
         pose[:, 3] = aux[:, 1]
-        self._tr.lib.hashemi_sun(pose, dummy, sd, nB)
-        up = aux[:, 0] > self.el_min_h
-        rays = self._sample_rays_t(sd, P)
-        self._tr.lib.hashemi_trace_k(rays, prm, out, nBP)
-        cap = out[:, 3].reshape(B, P).mean(1) * up.float()
-        self._cap_t.copy_(cap)
-        F.per.copy_(self._fused_profile * (self.dish_area * self.RHO * cap * soil_eff)[:, None])
+        g = self._gen
+        draws = torch.cat([torch.rand(B * P, 6, generator=g, device=dev), torch.randn(B * P, 4, generator=g, device=dev)], 1)
+        self._tr.dish(prm, pose, draws, out, P)
+        o = out.reshape(B, P, DISH_OUT_W)
+        up = (aux[:, 0] > self.el_min_h).float()
+        self._cap_t.copy_(o[:, :, 0].mean(1) * up)
+        F.per.copy_(self._fused_profile * (o[:, :, 1].mean(1) * up * soil_eff)[:, None])
 
     def _gpu_full_step(self, actions):
         B = self.num_agents
@@ -209,6 +177,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         el0, az0 = self._sun()
         sun = torch.tensor([np.radians(el0), az0, 800.0], dtype=torch.float32, device=self.device).expand(B, 3)
         out = self._hk.step(self._st, cmd, float(self.dt), sun, self._prm)
+        self._hk_out = out
         self._st[:, 0] = out[:, COL["az_next"]]
         self._st[:, 1] = out[:, COL["t_next"]]
         self._st[:, 2] = out[:, COL["slack_next"]]
@@ -235,27 +204,12 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self._st[:, 2] = torch.where(mask, torch.zeros_like(t_p), self._st[:, 2])
         return res
 
-    def _fold_errors(self, rays11):
-        """the sampler's four normal draws folded into the ray's direction as one Gaussian tilt of
-        sqrt((2 s_slope)^2 + s_spec^2) - the same fold the device sampler makes (hk_traceRayK
-        takes the conic constant but no optical errors; hk_traceRayErr takes the errors on the
-        sphere only). Returns the 7-wide rays hashemi_trace_k reads."""
-        r = np.asarray(rays11, dtype=np.float64)
-        s = r[:, 4:7]
-        helper = np.where(np.abs(s[:, 2:3]) < 0.9, np.array([0.0, 0.0, 1.0]), np.array([1.0, 0.0, 0.0]))
-        e1 = np.cross(s, helper); e1 /= np.linalg.norm(e1, axis=-1, keepdims=True)
-        e2 = np.cross(s, e1)
-        sig = np.sqrt((2 * self.SLOPE_ERR) ** 2 + self.SPEC_ERR ** 2)
-        d = s + sig * (r[:, 7:8] * e1 + r[:, 8:9] * e2)
-        d /= np.linalg.norm(d, axis=-1, keepdims=True)
-        return np.concatenate([r[:, :4], d], 1).astype(np.float32)
-
-    # --- the step: the machine from the megakernel, everything else the parent's
     def step(self, actions):
         if self.gpu and self._metal is not None:
             res = super().step(actions)              # routes through _gpu_full_step above
             self.cap_traced = self._cap_t.cpu().numpy().astype(np.float64)
             self.hk_state[:] = self._st.cpu().numpy()
+            self.hk_row = self._hk_out.cpu().numpy().astype(np.float64)   # the kernel's columns (spec checks read them)
             self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])       # host mirrors for the eval path
             self.az_m = np.degrees(self.hk_state[:, 0])
             return res

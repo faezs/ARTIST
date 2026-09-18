@@ -1308,6 +1308,19 @@ digraph "TandoorHashemi.megaStep" {
   n658 -> n667 [label=c]; n664 -> n667 [label=1]; n666 -> n667 [label=0];
   n668 [label="-", shape=ellipse];
   n43 -> n668; n1 -> n668;
+  n669 [label="-", shape=ellipse];
+  n43 -> n669; n50 -> n669;
+  n670 [label="<=", shape=ellipse];
+  n669 -> n670; n6 -> n670;
+  n671 [label="if (classical)", shape=diamond];
+  n670 -> n671 [label=c]; n20 -> n671 [label=1]; n53 -> n671 [label=0];
+  n672 [label="0.03", shape=plaintext];
+  n673 [label="<", shape=ellipse];
+  n672 -> n673; n667 -> n673;
+  n674 [label="&&", shape=ellipse];
+  n670 -> n674; n673 -> n674;
+  n675 [label="if (classical)", shape=diamond];
+  n674 -> n675 [label=c]; n20 -> n675 [label=1]; n53 -> n675 [label=0];
   out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n597 -> out0;
   out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n592 -> out1;
   out2 [label="out 2", shape=box, style=filled, fillcolor=lightgrey]; n107 -> out2;
@@ -1321,4 +1334,6 @@ digraph "TandoorHashemi.megaStep" {
   out10 [label="out 10", shape=box, style=filled, fillcolor=lightgrey]; n595 -> out10;
   out11 [label="out 11", shape=box, style=filled, fillcolor=lightgrey]; n667 -> out11;
   out12 [label="out 12", shape=box, style=filled, fillcolor=lightgrey]; n668 -> out12;
+  out13 [label="out 13", shape=box, style=filled, fillcolor=lightgrey]; n671 -> out13;
+  out14 [label="out 14", shape=box, style=filled, fillcolor=lightgrey]; n675 -> out14;
 }

@@ -400,6 +400,12 @@ partial def translateApp (root : Name) (e : Expr) : TM Val := do
     | ``Nat.cast, 3 => do
       let some m := natLit? args[2]! | throwError "a cast of a non-literal"
       .s <$> emit (.lit (toString m))
+    | ``Int.cast, 3 => do
+      -- `((⌊x⌋ : ℤ) : ℝ)`: the floor as a real (the facet grid's index)
+      let inner := args[2]!.getAppFn
+      let iargs := args[2]!.getAppArgs
+      if inner.isConstOf `Int.floor && iargs.size ≥ 1 then unop root "floor" iargs.back!
+      else throwError "a cast of a non-floor integer"
     | ``Prod.mk, 4 => do
       let a ← translate root args[2]!
       let b ← translate root args[3]!
@@ -664,7 +670,7 @@ def printC (f : Fun) : String := Id.run do
           | "sin" => s!"hk_sin({av})" | "cos" => s!"hk_cos({av})" | "tan" => s!"hk_tan({av})"
           | "arctan" => s!"hk_atan({av})" | "arccos" => s!"hk_acos({av})" | "arcsin" => s!"hk_asin({av})"
           | "exp" => s!"hk_exp({av})" | "log" => s!"hk_log({av})"
-          | "abs" => s!"hk_fabs({av})" | o => s!"/* ? {o} */ {av}")
+          | "abs" => s!"hk_fabs({av})" | "floor" => s!"hk_floor({av})" | o => s!"/* ? {o} */ {av}")
       | .bin op a b =>
         some (match op with
           | "min" => s!"hk_min(t{a}, t{b})" | "max" => s!"hk_max(t{a}, t{b})"
@@ -755,6 +761,7 @@ partial def leanExpr (g : Graph) (real : Bool) (i : Nat) : String :=
     | "exp" => if real then s!"(Real.exp {r a})" else s!"(Float.exp {r a})"
     | "log" => if real then s!"(Real.log {r a})" else s!"(Float.log {r a})"
     | "abs" => if real then s!"|{r a}|" else s!"(Float.abs {r a})"
+    | "floor" => if real then s!"((⌊{r a}⌋ : ℤ) : ℝ)" else s!"(Float.floor {r a})"
     | o => s!"?{o}"
   | .bin op a b =>
     match op with
@@ -815,6 +822,7 @@ partial def leanBody (g : Graph) (real : Bool) (outs : Array Nat) (v : Val) (ind
       | "exp" => if real then s!"(Real.exp {r a})" else s!"(Float.exp {r a})"
       | "log" => if real then s!"(Real.log {r a})" else s!"(Float.log {r a})"
       | "abs" => if real then s!"|{r a}|" else s!"(Float.abs {r a})"
+      | "floor" => if real then s!"((⌊{r a}⌋ : ℤ) : ℝ)" else s!"(Float.floor {r a})"
       | o => s!"?{o}"
     | .bin op a b =>
       match op with
@@ -863,7 +871,7 @@ def printNumpy (f : Fun) (fname : String) : String := Id.run do
           | "sin" => s!"np.sin({av})" | "cos" => s!"np.cos({av})" | "tan" => s!"np.tan({av})"
           | "arctan" => s!"np.arctan({av})" | "arccos" => s!"np.arccos({av})" | "arcsin" => s!"np.arcsin({av})"
           | "exp" => s!"np.exp({av})" | "log" => s!"np.log({av})"
-          | "abs" => s!"np.abs({av})" | o => s!"None  # ? {o}")
+          | "abs" => s!"np.abs({av})" | "floor" => s!"np.floor({av})" | o => s!"None  # ? {o}")
       | .bin op a b =>
         some (match op with
           | "min" => s!"np.minimum(t{a}, t{b})" | "max" => s!"np.maximum(t{a}, t{b})"

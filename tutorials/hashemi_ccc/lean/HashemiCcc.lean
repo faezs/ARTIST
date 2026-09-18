@@ -98,7 +98,7 @@ def run : MetaM Unit := do
     "#ifndef hk_sqrt", "#define hk_sqrt sqrt", "#define hk_sin sin", "#define hk_cos cos",
     "#define hk_tan tan", "#define hk_atan atan", "#define hk_acos acos", "#define hk_asin asin",
     "#define hk_exp exp", "#define hk_log log",
-    "#define hk_fabs fabs", "#define hk_min fmin", "#define hk_max fmax", "#endif",
+    "#define hk_fabs fabs", "#define hk_floor floor", "#define hk_min fmin", "#define hk_max fmax", "#endif",
     "/* `=` on ℝ, in floating point: a relative tolerance, the includer may tighten or loosen it */",
     "#ifndef hk_eq", "#define hk_eq(a, b) (hk_fabs((a) - (b)) <= HK_LIT(1e-9) * hk_max(HK_LIT(1), hk_max(hk_fabs(a), hk_fabs(b))))", "#endif", ""]
   let defs := funs.filter fun f => !f.isTheorem && !f.isProp
@@ -180,6 +180,10 @@ def run : MetaM Unit := do
         -- the C and Float twins agree on these three at the samples
         if ["swingOfLength", "step", "megaStep"].contains ref then
           rt := rt.push s!"-- {ref}: round trip by the twins (the 24-fold bisection is beyond rfl's budget)" |>.push ""
+        else if ref == "dishPower" then
+          -- the whole optical pipeline as one term: its parts (`sunInDish`, `sampleRay`,
+          -- `traceRayKErr`) each round-trip by `rfl`; the composite's defeq check times out
+          rt := rt.push s!"-- {ref}: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)" |>.push ""
         else
           rt := rt.push (printRoundTrip f ref (ref.replace "." "_")) |>.push ""
   fl := fl.push "end HashemiCccFloat"

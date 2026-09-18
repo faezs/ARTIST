@@ -82,12 +82,30 @@ noncomputable def pointingError (az t elSun azSun : ℝ) : ℝ :=
   let s := Real.sqrt ((ny * uz - nz * uy) ^ 2 + (nz * ux - nx * uz) ^ 2 + (nx * uy - ny * ux) ^ 2)
   if c ≤ 0 then Real.pi / 2 + Real.arctan (-c / max s 1e-12) else Real.arctan (s / c)
 
-/-- **the state, the wire, the pointing** (13): `0..7` the step's outputs (az', t', slack', the
+/-- **the sun within the winch's reach**: the wire holds the dish no lower than `π/2 - tDead`
+(`HoldsDish` at the dead point), so a sun under that elevation is not the machine's to track -/
+def SunReachable (tDead elSun : ℝ) : Prop := Real.pi / 2 - tDead ≤ elSun
+
+/-- **the sun lost**: reachable, and the pointing error beyond the tracker's budget `ε` -/
+noncomputable def LostSun (tDead az t elSun azSun ε : ℝ) : Prop :=
+  SunReachable tDead elSun ∧ ε < pointingError az t elSun azSun
+
+/-- a sun the winch cannot reach is never lost: the cook is not charged for the machine's reach -/
+theorem lostSun_unreachable (tDead az t elSun azSun ε : ℝ) (h : ¬ SunReachable tDead elSun) :
+    ¬ LostSun tDead az t elSun azSun ε := fun hl => h hl.1
+
+/-- within the budget the sun is not lost -/
+theorem lostSun_within_budget (tDead az t elSun azSun ε : ℝ) (h : pointingError az t elSun azSun ≤ ε) :
+    ¬ LostSun tDead az t elSun azSun ε := fun hl => absurd hl.2 (not_lt.mpr h)
+
+/-- **the state, the wire, the pointing** (15): `0..7` the step's outputs (az', t', slack', the
 wire's length, the dead point, stalled, taut, holds), `8` the wire's lever arm at `t` (`leverAt`),
 `9` the swing rate the winch imposes (`elRate` on the arm), `10` the azimuth rate (`azRate`),
-`11` the pointing error, `12` the elevation the dish faces -/
+`11` the pointing error, `12` the elevation the dish faces, `13` the sun within the winch's reach
+(`SunReachable`), `14` the sun lost (`LostSun` at the 1.7° budget) - the two Ω-columns the env's
+day and cut are pulled back along -/
 noncomputable def megaStep (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10
-    rodLen : ℝ) : Fin 13 → ℝ :=
+    rodLen : ℝ) : Fin 15 → ℝ :=
   let ym := ymHashemi
   let hp := hpHashemi
   let a := dishHalf
@@ -97,7 +115,8 @@ noncomputable def megaStep (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tm
   let s := step az t slack ωm ωd dt rw R rDrum ym hp a ze W rcm Tmax
   let arm := leverAt ym hp a ze t
   ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, arm, elRate ωd rDrum arm, azRate ωm rw R,
-    pointingError az t elSun azSun, Real.pi / 2 - t]
+    pointingError az t elSun azSun, Real.pi / 2 - t,
+    b2r (SunReachable (s 4) elSun), b2r (LostSun (s 4) az t elSun azSun 0.03)]
 
 /-- **the geometry, the optics, the loads, the electrics** (60): the machine's numbers from the
 file's definitions, and the quantities of sections 5-15 at the state -/
@@ -309,7 +328,7 @@ noncomputable def megaThmsState (az t slack ωm ωd dt elSun azSun dni rDrum W r
 def megaNames : Array String := #[
   -- megaStep
   "az_next", "t_next", "slack_next", "wire_len", "t_dead", "stalled", "taut", "wire_holds", "arm",
-  "swing_rate", "az_rate", "pointing_err", "el_dish",
+  "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun",
   -- megaGeom
   "dishR", "dishF", "dishHalf", "dishSide", "sag", "ze", "screwLength", "hangerLength", "rodTan",
   "cosTubeCut", "rollerRadius", "chord", "apexH", "zRail", "zBearing", "footLong", "braceHeight",
@@ -359,6 +378,6 @@ def megaNames : Array String := #[
   "bearing_life_state"]
 
 set_option maxRecDepth 20000 in
-theorem megaNames_size : megaNames.size = 13 + 60 + 40 + 7 + 56 + 50 := by rfl
+theorem megaNames_size : megaNames.size = 15 + 60 + 40 + 7 + 56 + 50 := by rfl
 
 end TandoorHashemi

@@ -22,7 +22,8 @@ def autoNames : List String :=
 
 /-- the theorems of one module of the namespace, as predicates, into `outFile` importing `imp`;
 the round-trip simp set unfolds the definitions of `defModules` (what `imp` brings into scope) -/
-def run (module : Name) (defModules : List Name) (imp : String) (outFile : String) : MetaM Unit := do
+def run (module : Name) (defModules : List Name) (imp : String) (outFile : String)
+    (excluded : List Name := []) : MetaM Unit := do
   let env ← getEnv
   let root := `TandoorHashemi
   let some modIdx := env.header.moduleNames.findIdx? (· == module)
@@ -69,10 +70,13 @@ def run (module : Name) (defModules : List Name) (imp : String) (outFile : Strin
     "   Every theorem's statement as a predicate on its data binders (hypotheses as implications),",
     "   each proved by the theorem it came from: the round trip of the theorem compiler. -/",
     s!"import {imp}", "", "namespace TandoorHashemi", "open Classical",
-    "set_option maxHeartbeats 1000000", "set_option linter.unusedVariables false", ""]
+    "set_option maxHeartbeats 1000000", "set_option maxRecDepth 100000", "set_option linter.unusedVariables false", ""]
   let mut ok : Array Name := #[]
   let mut skipped : Array (Name × String) := #[]
   for n in sorted do
+    if excluded.contains n then
+      skipped := skipped.push (n, "excluded: proved in its module, its statement too large for the generic round-trip proof")
+      continue
     match ← compileDef root n with
     | .error msg => skipped := skipped.push (n, msg)
     | .ok f =>

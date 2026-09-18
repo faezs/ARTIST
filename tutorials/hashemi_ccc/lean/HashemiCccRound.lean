@@ -16,6 +16,20 @@ theorem HoldsDish_ccc : HoldsDish = fun (Tmax : ℝ) (W : ℝ) (rcm : ℝ) (rw :
 theorem Leg_footLong_ccc : Leg.footLong = fun (l : TandoorHashemi.Leg) =>
     (l.foot - l.footShort) := rfl
 
+theorem LostSun_ccc : LostSun = fun (tDead : ℝ) (az : ℝ) (t : ℝ) (elSun : ℝ) (azSun : ℝ) (ε : ℝ) =>
+    let v8 := (Real.pi / (2 : ℝ))
+    let v11 := (Real.sin t)
+    let v13 := (v11 * (Real.cos az))
+    let v15 := (v11 * (Real.sin az))
+    let v16 := (Real.cos t)
+    let v17 := (Real.cos elSun)
+    let v19 := (v17 * (Real.cos azSun))
+    let v21 := (v17 * (Real.sin azSun))
+    let v22 := (Real.sin elSun)
+    let v27 := (((v13 * v19) + (v15 * v21)) + (v16 * v22))
+    let v42 := (Real.sqrt (((((v15 * v22) - (v16 * v21)) ^ 2) + (((v16 * v19) - (v13 * v22)) ^ 2)) + (((v13 * v21) - (v15 * v19)) ^ 2)))
+    (((v8 - tDead) ≤ elSun) ∧ (ε < (if (v27 ≤ (0 : ℝ)) then (v8 + (Real.arctan ((-v27) / (max v42 (0.000000000001 : ℝ))))) else (Real.arctan (v42 / v27))))) := rfl
+
 theorem MastClears_ccc : MastClears = fun (ym : ℝ) (a : ℝ) (ze : ℝ) =>
     ((Real.sqrt ((a ^ 2) + (ze ^ 2))) < ym) := rfl
 
@@ -24,6 +38,9 @@ theorem ReachesVertical_ccc : ReachesVertical = fun (ym : ℝ) (hp : ℝ) (a : �
 
 theorem SlackHarmless_ccc : SlackHarmless = fun (f : ℝ) (ε : ℝ) (δ : ℝ) (h : ℝ) =>
     (((f * (Real.tan ε)) + δ) ≤ h) := rfl
+
+theorem SunReachable_ccc : SunReachable = fun (tDead : ℝ) (elSun : ℝ) =>
+    (((Real.pi / (2 : ℝ)) - tDead) ≤ elSun) := rfl
 
 theorem TrackerBudget_ccc : TrackerBudget = fun (f : ℝ) (ε : ℝ) (h : ℝ) =>
     ((f * (Real.tan ε)) ≤ h) := rfl
@@ -104,6 +121,9 @@ theorem cosTubeCut_ccc : cosTubeCut =
     let v2 := (Real.sqrt (3.2 : ℝ))
     (((3.36 : ℝ) - v2) / ((2 : ℝ) * (Real.sqrt ((4.36 : ℝ) - ((2 : ℝ) * v2))))) := rfl
 
+theorem cross3_ccc : cross3 = fun (u : Fin 3 → ℝ) (v : Fin 3 → ℝ) =>
+    ![(((u 1) * (v 2)) - ((u 2) * (v 1))), (((u 2) * (v 0)) - ((u 0) * (v 2))), (((u 0) * (v 1)) - ((u 1) * (v 0)))] := rfl
+
 theorem deadPoint_ccc : deadPoint = fun (ym : ℝ) (hp : ℝ) (a : ℝ) (ze : ℝ) =>
     let v4 := (ym * a)
     let v5 := (hp * ze)
@@ -126,6 +146,8 @@ theorem dishF_ccc : dishF =
 
 theorem dishHalf_ccc : dishHalf =
     (0.8 : ℝ) := rfl
+
+-- dishPower: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)
 
 theorem dishR_ccc : dishR =
     (2 : ℝ) := rfl
@@ -1258,6 +1280,31 @@ theorem rotz_ccc : rotz = fun (δ : ℝ) (v : Fin 3 → ℝ) =>
     let v6 := (Real.sin δ)
     ![((v4 * (v 0)) - (v6 * (v 1))), ((v6 * (v 0)) + (v4 * (v 1))), (v 2)] := rfl
 
+theorem sampleRay_ccc : sampleRay = fun (a : ℝ) (w : ℝ) (hsun : ℝ) (sd : Fin 3 → ℝ) (u1 : ℝ) (u2 : ℝ) (u3 : ℝ) (u4 : ℝ) (u5 : ℝ) (u6 : ℝ) =>
+    let v14 := (((2 : ℝ) * a) / w)
+    let v17 := ((-a) + (w / (2 : ℝ)))
+    let v27 := ((1 : ℝ) / (2 : ℝ))
+    let v32 := (-(sd 0))
+    let v33 := (-(sd 1))
+    let v34 := (-(sd 2))
+    let v39 := (|v34| < ((9 : ℝ) / (10 : ℝ)))
+    let v41 := (if v39 then (0 : ℝ) else (1 : ℝ))
+    let v42 := (if v39 then (1 : ℝ) else (0 : ℝ))
+    let v45 := ((v33 * v42) - (v34 * (0 : ℝ)))
+    let v48 := ((v34 * v41) - (v32 * v42))
+    let v51 := ((v32 * (0 : ℝ)) - (v33 * v41))
+    let v59 := (Real.sqrt (max (((v45 ^ 2) + (v48 ^ 2)) + (v51 ^ 2)) (0.000000000000000001 : ℝ)))
+    let v60 := (v45 / v59)
+    let v61 := (v48 / v59)
+    let v62 := (v51 / v59)
+    let v73 := (hsun * (Real.sqrt u5))
+    let v76 := (((2 : ℝ) * Real.pi) * u6)
+    let v77 := (Real.cos v73)
+    let v79 := (Real.sin v73)
+    let v80 := (Real.cos v76)
+    let v82 := (Real.sin v76)
+    ![(v17 + (w * ((⌊(u1 * v14)⌋ : ℤ) : ℝ))), (v17 + (w * ((⌊(u2 * v14)⌋ : ℤ) : ℝ))), ((u3 - v27) * w), ((u4 - v27) * w), ((v77 * v32) + (v79 * ((v80 * v60) + (v82 * ((v33 * v62) - (v34 * v61)))))), ((v77 * v33) + (v79 * ((v80 * v61) + (v82 * ((v34 * v60) - (v32 * v62)))))), ((v77 * v34) + (v79 * ((v80 * v62) + (v82 * ((v32 * v61) - (v33 * v60))))))] := rfl
+
 theorem screwLength_ccc : screwLength = fun (R : ℝ) (a : ℝ) =>
     ((R / (2 : ℝ)) - (R - (Real.sqrt ((R ^ 2) - (a ^ 2))))) := rfl
 
@@ -1453,6 +1500,65 @@ theorem traceRayErr_ccc : traceRayErr = fun (R : ℝ) (f : ℝ) (a : ℝ) (w : �
     let v120 := (((Real.sqrt ((((v31 + (v75 * dx)) + (v108 * (v95 / v103))) ^ 2) + (((v32 + (v75 * dy)) + (v108 * (v97 / v103))) ^ 2))) ≤ rc) ∧ v119)
     ![((v31 + (v75 * dx)) + (v108 * (v95 / v103))), ((v32 + (v75 * dy)) + (v108 * (v97 / v103))), (Real.sqrt ((((v31 + (v75 * dx)) + (v108 * (v95 / v103))) ^ 2) + (((v32 + (v75 * dy)) + (v108 * (v97 / v103))) ^ 2))), (if (v30 ∧ v120) then (1 : ℝ) else (0 : ℝ)), (if (¬ v30) then (0 : ℝ) else (if v120 then (2 : ℝ) else (1 : ℝ))), (v33 + (v75 * dz)), (Real.sqrt ((cx ^ 2) + (cy ^ 2))), (if v119 then (1 : ℝ) else (0 : ℝ))] := rfl
 
+theorem traceRayK_ccc : traceRayK = fun (R : ℝ) (f : ℝ) (a : ℝ) (w : ℝ) (rc : ℝ) (k : ℝ) (cx : ℝ) (cy : ℝ) (ux : ℝ) (uy : ℝ) (dx : ℝ) (dy : ℝ) (dz : ℝ) =>
+    let v19 := (w / (2 : ℝ))
+    let v25 := ((|cx| ≤ a) ∧ ((|cy| ≤ a) ∧ ((|ux| ≤ v19) ∧ (|uy| ≤ v19))))
+    let v26 := (cx + ux)
+    let v27 := (cy + uy)
+    let v28 := ((2 : ℝ) * f)
+    let v30 := ((1 : ℝ) / R)
+    let v36 := (Real.sqrt (max ((cx ^ 2) + (cy ^ 2)) (0.000000000000000001 : ℝ)))
+    let v37 := (v36 ^ 2)
+    let v43 := ((1 : ℝ) - ((((1 : ℝ) + k) * (v30 ^ 2)) * v37))
+    let v52 := ((v30 * v36) / (Real.sqrt (max v43 (0.000000000000000001 : ℝ))))
+    let v55 := (Real.sqrt ((1 : ℝ) + (v52 ^ 2)))
+    let v56 := (-v52)
+    let v59 := (((v56 * cx) / v36) / v55)
+    let v62 := (((v56 * cy) / v36) / v55)
+    let v63 := ((1 : ℝ) / v55)
+    let v76 := (((dx * v59) + (dy * v62)) + (dz * v63))
+    let v77 := (((((cx - v26) * v59) + ((cy - v27) * v62)) + ((((v30 * v37) / ((1 : ℝ) + (Real.sqrt (max v43 (0 : ℝ))))) - v28) * v63)) / v76)
+    let v84 := ((2 : ℝ) * v76)
+    let v90 := (dz - (v84 * v63))
+    let v92 := ((f - (v28 + (v77 * dz))) / v90)
+    let v102 := ((0 : ℝ) < v90)
+    let v103 := (((Real.sqrt ((((v26 + (v77 * dx)) + (v92 * (dx - (v84 * v59)))) ^ 2) + (((v27 + (v77 * dy)) + (v92 * (dy - (v84 * v62)))) ^ 2))) ≤ rc) ∧ v102)
+    ![((v26 + (v77 * dx)) + (v92 * (dx - (v84 * v59)))), ((v27 + (v77 * dy)) + (v92 * (dy - (v84 * v62)))), (Real.sqrt ((((v26 + (v77 * dx)) + (v92 * (dx - (v84 * v59)))) ^ 2) + (((v27 + (v77 * dy)) + (v92 * (dy - (v84 * v62)))) ^ 2))), (if (v25 ∧ v103) then (1 : ℝ) else (0 : ℝ)), (if (¬ v25) then (0 : ℝ) else (if v103 then (2 : ℝ) else (1 : ℝ))), (v28 + (v77 * dz)), v36, (if v102 then (1 : ℝ) else (0 : ℝ))] := rfl
+
+theorem traceRayKErr_ccc : traceRayKErr = fun (R : ℝ) (f : ℝ) (a : ℝ) (w : ℝ) (rc : ℝ) (k : ℝ) (σslope : ℝ) (σspec : ℝ) (cx : ℝ) (cy : ℝ) (ux : ℝ) (uy : ℝ) (dx : ℝ) (dy : ℝ) (dz : ℝ) (e1 : ℝ) (e2 : ℝ) (s1 : ℝ) (s2 : ℝ) =>
+    let v25 := (w / (2 : ℝ))
+    let v31 := ((|cx| ≤ a) ∧ ((|cy| ≤ a) ∧ ((|ux| ≤ v25) ∧ (|uy| ≤ v25))))
+    let v32 := (cx + ux)
+    let v33 := (cy + uy)
+    let v34 := ((2 : ℝ) * f)
+    let v36 := ((1 : ℝ) / R)
+    let v42 := (Real.sqrt (max ((cx ^ 2) + (cy ^ 2)) (0.000000000000000001 : ℝ)))
+    let v43 := (v42 ^ 2)
+    let v49 := ((1 : ℝ) - ((((1 : ℝ) + k) * (v36 ^ 2)) * v43))
+    let v58 := ((v36 * v42) / (Real.sqrt (max v49 (0.000000000000000001 : ℝ))))
+    let v61 := (Real.sqrt ((1 : ℝ) + (v58 ^ 2)))
+    let v62 := (-v58)
+    let v65 := (((v62 * cx) / v42) / v61)
+    let v68 := (((v62 * cy) / v42) / v61)
+    let v69 := ((1 : ℝ) / v61)
+    let v71 := (v65 + (σslope * e1))
+    let v73 := (v68 + (σslope * e2))
+    let v79 := (Real.sqrt (((v71 ^ 2) + (v73 ^ 2)) + (v69 ^ 2)))
+    let v80 := (v71 / v79)
+    let v81 := (v73 / v79)
+    let v82 := (v69 / v79)
+    let v96 := (((((cx - v32) * v65) + ((cy - v33) * v68)) + ((((v36 * v43) / ((1 : ℝ) + (Real.sqrt (max v49 (0 : ℝ))))) - v34) * v69)) / (((dx * v65) + (dy * v68)) + (dz * v69)))
+    let v108 := ((2 : ℝ) * (((dx * v80) + (dy * v81)) + (dz * v82)))
+    let v114 := (dz - (v108 * v82))
+    let v116 := ((dx - (v108 * v80)) + (σspec * s1))
+    let v118 := ((dy - (v108 * v81)) + (σspec * s2))
+    let v124 := (Real.sqrt (((v116 ^ 2) + (v118 ^ 2)) + (v114 ^ 2)))
+    let v127 := (v114 / v124)
+    let v129 := ((f - (v34 + (v96 * dz))) / v127)
+    let v139 := ((0 : ℝ) < v127)
+    let v140 := (((Real.sqrt ((((v32 + (v96 * dx)) + (v129 * (v116 / v124))) ^ 2) + (((v33 + (v96 * dy)) + (v129 * (v118 / v124))) ^ 2))) ≤ rc) ∧ v139)
+    ![((v32 + (v96 * dx)) + (v129 * (v116 / v124))), ((v33 + (v96 * dy)) + (v129 * (v118 / v124))), (Real.sqrt ((((v32 + (v96 * dx)) + (v129 * (v116 / v124))) ^ 2) + (((v33 + (v96 * dy)) + (v129 * (v118 / v124))) ^ 2))), (if (v31 ∧ v140) then (1 : ℝ) else (0 : ℝ)), (if (¬ v31) then (0 : ℝ) else (if v140 then (2 : ℝ) else (1 : ℝ))), (v34 + (v96 * dz)), v42, (if v139 then (1 : ℝ) else (0 : ℝ))] := rfl
+
 theorem traceSphere_ccc : traceSphere = fun (R : ℝ) (p : ℝ) (O : Fin 3 → ℝ) (d : Fin 3 → ℝ) =>
     let v8 := ((O 2) - R)
     let v13 := ((((d 0) * (O 0)) + ((d 1) * (O 1))) + ((d 2) * v8))
@@ -1467,6 +1573,10 @@ theorem traceSphere_ccc : traceSphere = fun (R : ℝ) (p : ℝ) (O : Fin 3 → �
     let v50 := ((d 2) - (v44 * v37))
     let v52 := ((p - v31) / v50)
     ![(v27 + (v52 * ((d 0) - (v44 * v33)))), (v29 + (v52 * ((d 1) - (v44 * v35)))), (Real.sqrt (((v27 + (v52 * ((d 0) - (v44 * v33)))) ^ 2) + ((v29 + (v52 * ((d 1) - (v44 * v35)))) ^ 2))), v31, (if ((0 : ℝ) < v50) then (1 : ℝ) else (0 : ℝ))] := rfl
+
+theorem unit3_ccc : unit3 = fun (v : Fin 3 → ℝ) =>
+    let v10 := (Real.sqrt (max ((((v 0) ^ 2) + ((v 1) ^ 2)) + ((v 2) ^ 2)) (0.000000000000000001 : ℝ)))
+    ![((v 0) / v10), ((v 1) / v10), ((v 2) / v10)] := rfl
 
 theorem wBearX_ccc : wBearX = fun (b : TandoorHashemi.FixedBase) =>
     let v8 := ((0 : ℝ) * (0 : ℝ))

@@ -291,3 +291,22 @@ on both paths (the k-trace takes no error inputs; the error trace is sphere-only
 Day 172, 16 agents, the naive cook: numpy 99 rotis at 4.8 ms/step, fused 92 at 7.3 ms/step;
 capture 0.96-0.97 on both. Fused at the ini's 8192 agents: ~7.5 ms/step (numpy: 526).
 `test_tandoor_env.py --gpu 1` runs the fused day.
+
+## The optics as one morphism, the conditions as Ω-columns
+
+`dishPower` (HashemiTrace.lean) is the sampler (`sampleRay`, a function of six uniforms), the
+conic trace with the optical errors at the surface (`traceRayKErr`, SolTrace's treatment) and the
+delivery, composed: draws × pose × sun × parameters → (captured, m² per unit DNI, fate). Ccc
+carries it to the C twin (`dish_numpy`, the env's numpy path) and to Metal (`hashemi_dish`, the
+fused path); the env supplies the draws and takes the mean over the rays. The translator learned
+`⌊·⌋` for the facet grid. Its parts round-trip by `rfl`; the composite by the twins (1083/1083).
+
+`SunReachable` (π/2 − tDead ≤ elSun) and `LostSun` (reachable and the pointing error past the
+1.7° budget) are two Ω-valued columns of the megakernel (`sun_reachable`, `lost_sun`, 228 columns
+now), with `lostSun_unreachable` and `lostSun_within_budget` proved. The parent's day and cut are
+pulled back along them: its `el_min` and `lost_deg` are set to the spec's constants, and the day
+test counts the parent's flags against the columns (100 % on day 172, both paths).
+
+Day 172, 16 agents: numpy 95 rotis, fused 94; fused at 8192 agents 5.5 ms/step. Day 355 (the sun
+under the winch's reach until mid-morning and again by 14:00): no cut, no bake - three hours of
+1.4 kW do not bring the cold pit to temperature.
