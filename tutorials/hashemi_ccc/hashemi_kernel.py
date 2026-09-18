@@ -147,7 +147,10 @@ def mega_numpy(state, cmd, dt, sun, params):
     pr = np.broadcast_to(np.asarray(params, dtype=np.float64), (B, PRM_W))
     args = [st[:, 0], st[:, 1], st[:, 2], cm[:, 0], cm[:, 1], np.full(B, float(dt)),
             su[:, 0], su[:, 1], su[:, 2]] + [pr[:, k] for k in range(PRM_W)]
-    parts = [np.asarray(getattr(H, f["c"])(*args), dtype=np.float64).reshape(B, f["n_out"]) for f in MEGA_FNS]
+    # the twin evaluates BOTH branches of every ite (the C does too); a dead
+    # branch may go NaN, and pufferlib promotes RuntimeWarnings to errors
+    with np.errstate(all="ignore"):
+        parts = [np.asarray(getattr(H, f["c"])(*args), dtype=np.float64).reshape(B, f["n_out"]) for f in MEGA_FNS]
     return np.concatenate(parts, axis=1)
 
 

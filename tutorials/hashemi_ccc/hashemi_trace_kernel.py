@@ -203,7 +203,8 @@ def trace_numpy(rays, prm):
     r = np.asarray(rays, dtype=np.float64)
     pr = np.broadcast_to(np.asarray(prm, dtype=np.float64), (r.shape[0], PRM_W))
     args = [pr[:, k] for k in range(PRM_W)] + [r[:, k] for k in range(RAY_W)]
-    return np.asarray(H.hk_traceRay(*args), dtype=np.float64).reshape(r.shape[0], OUT_W)
+    with np.errstate(all="ignore"):     # both ite branches are evaluated; dead ones may NaN
+        return np.asarray(H.hk_traceRay(*args), dtype=np.float64).reshape(r.shape[0], OUT_W)
 
 
 class HashemiTraceMetal:
