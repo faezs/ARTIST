@@ -98,14 +98,83 @@ theorem lostSun_unreachable (tDead az t elSun azSun ε : ℝ) (h : ¬ SunReachab
 theorem lostSun_within_budget (tDead az t elSun azSun ε : ℝ) (h : pointingError az t elSun azSun ≤ ε) :
     ¬ LostSun tDead az t elSun azSun ε := fun hl => absurd hl.2 (not_lt.mpr h)
 
-/-- **the state, the wire, the pointing** (15): `0..7` the step's outputs (az', t', slack', the
+/-! ### The gates, smoothly
+
+The constructive content of a condition is its modulus. `SunReachable` and `LostSun` are
+subobjects, decided classically; here they are Lipschitz gates with a slope, so the cook sees a
+gradient where the guillotine had a jump. `gateTau` is the band (rad) over which a gate turns. -/
+
+/-- the gates' temperature: 0.01 rad (0.57°) of elevation deficit or pointing excess -/
+noncomputable def gateTau : ℝ := 0.01
+
+/-- **the sun's reach, smoothly** -/
+noncomputable def sunReachableS (tDead elSun : ℝ) : ℝ :=
+  Real.sigmoid ((elSun - (Real.pi / 2 - tDead)) / gateTau)
+
+/-- **the sun lost, smoothly**: the reach gate times the budget gate on the pointing error -/
+noncomputable def lostSunS (tDead az t elSun azSun ε : ℝ) : ℝ :=
+  sunReachableS tDead elSun * Real.sigmoid ((pointingError az t elSun azSun - ε) / gateTau)
+
+/-- the sigmoid's slope is at most a quarter -/
+theorem sigmoid_slope_le (x : ℝ) : Real.sigmoid x * (1 - Real.sigmoid x) ≤ 1 / 4 := by
+  nlinarith [sq_nonneg (Real.sigmoid x - 1 / 2)]
+
+/-- the sigmoid is 1/4-Lipschitz -/
+theorem sigmoid_lipschitz : LipschitzWith (1 / 4 : NNReal) Real.sigmoid := by
+  refine lipschitzWith_of_nnnorm_deriv_le differentiable_sigmoid fun x => ?_
+  rw [Real.deriv_sigmoid]
+  have h0 : 0 ≤ Real.sigmoid x * (1 - Real.sigmoid x) := by
+    have := Real.sigmoid_pos x; have := Real.sigmoid_lt_one x; nlinarith
+  rw [← NNReal.coe_le_coe, coe_nnnorm, Real.norm_of_nonneg h0]
+  simpa using sigmoid_slope_le x
+
+/-- the slope of the reach gate: `1 / (4 τ)` per radian of elevation -/
+theorem sunReachableS_slope (tDead e1 e2 : ℝ) :
+    |sunReachableS tDead e1 - sunReachableS tDead e2| ≤ |e1 - e2| / (4 * gateTau) := by
+  unfold sunReachableS
+  have h := sigmoid_lipschitz.dist_le_mul ((e1 - (Real.pi / 2 - tDead)) / gateTau) ((e2 - (Real.pi / 2 - tDead)) / gateTau)
+  rw [Real.dist_eq, Real.dist_eq] at h
+  have hτ : (0 : ℝ) < gateTau := by unfold gateTau; norm_num
+  have : (e1 - (Real.pi / 2 - tDead)) / gateTau - (e2 - (Real.pi / 2 - tDead)) / gateTau = (e1 - e2) / gateTau := by ring
+  rw [this, abs_div, abs_of_pos hτ] at h
+  simp only [NNReal.coe_div, NNReal.coe_one, NNReal.coe_ofNat] at h
+  calc |Real.sigmoid ((e1 - (Real.pi / 2 - tDead)) / gateTau) - Real.sigmoid ((e2 - (Real.pi / 2 - tDead)) / gateTau)|
+      ≤ 1 / 4 * (|e1 - e2| / gateTau) := h
+    _ = |e1 - e2| / (4 * gateTau) := by field_simp
+
+/-- the gate takes values in [0, 1] (strictly inside, by `Real.sigmoid_pos` and `sigmoid_lt_one`;
+the closed bounds are what a float can witness, a far-off sun saturating the gate at 1.0 exactly) -/
+theorem sunReachableS_mem (tDead elSun : ℝ) : 0 ≤ sunReachableS tDead elSun ∧ sunReachableS tDead elSun ≤ 1 :=
+  ⟨Real.sigmoid_nonneg _, Real.sigmoid_le_one _⟩
+
+/-- lost implies reachable, smoothly: `lostSunS ≤ sunReachableS` -/
+theorem lostSunS_le_reach (tDead az t elSun azSun ε : ℝ) :
+    lostSunS tDead az t elSun azSun ε ≤ sunReachableS tDead elSun := by
+  unfold lostSunS
+  have h0 : 0 < sunReachableS tDead elSun := Real.sigmoid_pos _
+  have h1 := Real.sigmoid_le_one ((pointingError az t elSun azSun - ε) / gateTau)
+  nlinarith
+
+/-- the smooth gate agrees with the Boolean one outside its band: `x` bands above the floor
+give at least `1 - 1 / (2 + x)` -/
+theorem sigmoid_ge_of_nonneg (x : ℝ) (hx : 0 ≤ x) : 1 - 1 / (2 + x) ≤ Real.sigmoid x := by
+  rw [Real.sigmoid_def, Real.exp_neg]
+  have he : 1 + x ≤ Real.exp x := by linarith [Real.add_one_le_exp x]
+  have hpos : 0 < 1 + x := by linarith
+  have h1 : (Real.exp x)⁻¹ ≤ (1 + x)⁻¹ := inv_anti₀ hpos he
+  have h2 : (1 + (1 + x)⁻¹)⁻¹ ≤ (1 + (Real.exp x)⁻¹)⁻¹ := by
+    apply inv_anti₀ (by positivity); linarith
+  calc 1 - 1 / (2 + x) = (1 + (1 + x)⁻¹)⁻¹ := by field_simp; ring
+    _ ≤ (1 + (Real.exp x)⁻¹)⁻¹ := h2
+
+/-- **the state, the wire, the pointing** (17): `0..7` the step's outputs (az', t', slack', the
 wire's length, the dead point, stalled, taut, holds), `8` the wire's lever arm at `t` (`leverAt`),
 `9` the swing rate the winch imposes (`elRate` on the arm), `10` the azimuth rate (`azRate`),
 `11` the pointing error, `12` the elevation the dish faces, `13` the sun within the winch's reach
 (`SunReachable`), `14` the sun lost (`LostSun` at the 1.7° budget) - the two Ω-columns the env's
-day and cut are pulled back along -/
+day and cut are pulled back along; `15`, `16` the same gates smoothly (`sunReachableS`, `lostSunS`) -/
 noncomputable def megaStep (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10
-    rodLen : ℝ) : Fin 15 → ℝ :=
+    rodLen : ℝ) : Fin 17 → ℝ :=
   let ym := ymHashemi
   let hp := hpHashemi
   let a := dishHalf
@@ -116,7 +185,8 @@ noncomputable def megaStep (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tm
   let arm := leverAt ym hp a ze t
   ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, arm, elRate ωd rDrum arm, azRate ωm rw R,
     pointingError az t elSun azSun, Real.pi / 2 - t,
-    b2r (SunReachable (s 4) elSun), b2r (LostSun (s 4) az t elSun azSun 0.03)]
+    b2r (SunReachable (s 4) elSun), b2r (LostSun (s 4) az t elSun azSun 0.03),
+    sunReachableS (s 4) elSun, lostSunS (s 4) az t elSun azSun 0.03]
 
 /-- **the geometry, the optics, the loads, the electrics** (60): the machine's numbers from the
 file's definitions, and the quantities of sections 5-15 at the state -/
@@ -328,7 +398,7 @@ noncomputable def megaThmsState (az t slack ωm ωd dt elSun azSun dni rDrum W r
 def megaNames : Array String := #[
   -- megaStep
   "az_next", "t_next", "slack_next", "wire_len", "t_dead", "stalled", "taut", "wire_holds", "arm",
-  "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun",
+  "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun", "sun_reachable_s", "lost_sun_s",
   -- megaGeom
   "dishR", "dishF", "dishHalf", "dishSide", "sag", "ze", "screwLength", "hangerLength", "rodTan",
   "cosTubeCut", "rollerRadius", "chord", "apexH", "zRail", "zBearing", "footLong", "braceHeight",
@@ -378,6 +448,6 @@ def megaNames : Array String := #[
   "bearing_life_state"]
 
 set_option maxRecDepth 20000 in
-theorem megaNames_size : megaNames.size = 15 + 60 + 40 + 7 + 56 + 50 := by rfl
+theorem megaNames_size : megaNames.size = 17 + 60 + 40 + 7 + 56 + 50 := by rfl
 
 end TandoorHashemi

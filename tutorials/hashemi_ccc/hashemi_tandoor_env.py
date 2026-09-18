@@ -44,7 +44,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     RHO = 0.85               # the mosaic's reflectance (megaParams)
     RC_INLET = 0.06          # the pot's aperture at F, his 12 cm coil's size
 
-    def __init__(self, *args, trace_rays=64, **kwargs):
+    def __init__(self, *args, trace_rays=64, lost_shaping=0.02, **kwargs):
         # gpu=0: the parent's numpy step, the trace on Metal (the eval/bench path);
         # gpu=1: the parent's fused Metal step with the trace injected (the training path)
         self._fused_profile = None
@@ -59,6 +59,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # checks that coincidence step by step (lost_sun vs the parent's lost counter).
         kwargs.setdefault("el_min", 90.0 - np.degrees(self.t_dead))
         kwargs.setdefault("lost_deg", np.degrees(0.03))
+        # THE GATE AS A GRADIENT: `lost_sun_s` (lostSunS, the smooth gate with the slope the
+        # theorems state: 1/(4 tau) per radian) charged per step at `lost_shaping`, so the cook
+        # feels the sun slipping before the parent's guillotine falls (40 steps lost -> a cut).
+        # 0.02/step over a 1921-step day is the order of the parent's cut penalty (40) spread out.
+        self.lost_shaping = float(lost_shaping)
         super().__init__(*args, **kwargs)
         B = self.num_agents
         self.trace_rays = int(trace_rays)
@@ -191,7 +196,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         neutral[:, 2] = 6          # the jam head held on (the parent gates the beam by `jammed`)
         t_before = float(self.t_solar[0])
         from tandoor_fused_step import fused_full_step
-        res = fused_full_step(self, neutral)
+        obs_t, rew_t, infos = fused_full_step(self, neutral)
+        if self.lost_shaping:
+            rew_t = rew_t - self.lost_shaping * self._hk_out[:, COL["lost_sun_s"]]
+        res = (obs_t, rew_t, infos)
         # a cut agent's motors were re-parked by step_post, every agent's at day over: the
         # Lean state follows the parent's motors there, as on the numpy path
         mask = F.trunc > 0.5
@@ -237,6 +245,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         neutral[:, 2] = 6
         t_before = float(self.t_solar[0])
         res = super().step(neutral)
+        if self.lost_shaping:
+            self.rewards[:] = self.rewards - self.lost_shaping * self.hk_row[:, COL["lost_sun_s"]]
         wrapped = float(self.t_solar[0]) < t_before - 1.0
         resync = np.asarray(self.truncations, dtype=bool).copy()
         if wrapped:

@@ -715,11 +715,115 @@ def mcChecks (src : String) : IO (Array Check) := do
 end TraceCheck
 
 open TraceCheck in
+/-! ## H. The Modula layer from Lean: the gates' slopes through the generated box kernels
+
+Ccc prints every definition's tangent (`hk_<f>_jvp`) and box (`hk_<f>_box`: interval + Lipschitz
+abstract interpretation) and wraps them as Metal kernels; here Lean runs them and measures what
+the theorems say: the smooth reach gate's bound never exceeds `1 / (4 τ)` (`sunReachableS_slope`),
+the Boolean gate is a subobject (its bound jumps to `HK_INF` exactly on the boxes straddling the
+floor, in the megakernel's own column), and `lostSunS ≤ sunReachableS` (`lostSunS_le_reach`). -/
+
+def modulaSource : IO String := do
+  let pre ← IO.FS.readFile (bridgeDir ++ "/msl_prelude.metal")
+  let hdr ← IO.FS.readFile (cccDir ++ "/hashemi_ccc.h")
+  let mh ← IO.FS.readFile (cccDir ++ "/hashemi_modula.h")
+  let mk ← IO.FS.readFile (cccDir ++ "/hashemi_modula.metal")
+  pure (pre ++ hdr ++ mh ++ mk)
+
+/-- a box kernel `mk_<f>_box`: lo / hi / sc rows, the three output rows of width `nout` -/
+def runBox (src kernel : String) (lo hi sc : Array (Array Float)) (nout : Nat) :
+    IO (Array (Array Float) × Array (Array Float) × Array (Array Float)) := do
+  let n := lo.size
+  let out ← MetalBridge.run src kernel
+    #[flat lo, flat hi, flat sc, MetalBridge.const (n * nout) 0.0, MetalBridge.const (n * nout) 0.0,
+      MetalBridge.const (n * nout) 0.0, ⟨#[n.toFloat]⟩] #[0, 0, 0, 0, 0, 0, 1] n.toUSize 0
+  pure (rowsOf out[3]! nout, rowsOf out[4]! nout, rowsOf out[5]! nout)
+
+/-- a tangent kernel `mk_<f>_jvp`: x / dx rows, the value and tangent rows of width `nout` -/
+def runJvp (src kernel : String) (x dx : Array (Array Float)) (nout : Nat) :
+    IO (Array (Array Float) × Array (Array Float)) := do
+  let n := x.size
+  let out ← MetalBridge.run src kernel
+    #[flat x, flat dx, MetalBridge.const (n * nout) 0.0, MetalBridge.const (n * nout) 0.0, ⟨#[n.toFloat]⟩]
+    #[0, 0, 0, 0, 1] n.toUSize 0
+  pure (rowsOf out[2]! nout, rowsOf out[3]! nout)
+
+def modulaChecks : IO (Array Check) := do
+  let src ← modulaSource
+  let mut cs : Array Check := #[]
+  let tau : Float := 0.01
+  let megaPrm : Array Float := #[0.03, 300.0, 0.9, 2000.0, 0.85, 10.0, 1000000.0, 1.0]
+  let megaRow := fun (el : Float) => #[1.0, 0.5, 0.0, 0.0, 0.0, 15.0, el, 1.0, 800.0] ++ megaPrm
+  -- the dead point from the megakernel itself (column 4 of megaStep), so the floor is the kernel's
+  let (y0, _) ← runJvp src "mk_megaStep_jvp" #[megaRow 1.0] #[Array.replicate 17 0.0] 17
+  let tDead := y0[0]![4]!
+  let floor := 3.14159265358979 / 2.0 - tDead
+  -- H1. boxes of elevation 0.01 rad wide across the reach floor: the smooth gate's bound vs the theorem
+  let n := 400
+  let mut lo : Array (Array Float) := #[]
+  let mut hi : Array (Array Float) := #[]
+  let mut sc : Array (Array Float) := #[]
+  for i in [0:n] do
+    let c := floor - 0.2 + 0.4 * i.toFloat / n.toFloat
+    lo := lo.push #[tDead, c - 0.005]; hi := hi.push #[tDead, c + 0.005]; sc := sc.push #[0.0, 1.0]
+  let (_, _, ls) ← runBox src "mk_sunReachableS_box" lo hi sc 1
+  let lmax := maxOf (ls.map (·[0]!))
+  cs := cs.push ⟨"gate: the smooth reach gate's box bound never exceeds the theorem's slope 1/(4 tau) (sunReachableS_slope)",
+    lmax <= 1.0 / (4.0 * tau) * 1.001, s!"max L over {n} boxes {fmt lmax} per rad, the theorem's {fmt (1.0 / (4.0 * tau))}; the dead point from the kernel {fmt tDead}"⟩
+  -- H2. the same boxes through the megakernel: column 13 (the Boolean gate) jumps exactly where the
+  -- box straddles the floor; column 15 (the smooth gate) keeps the theorem's slope there
+  let mut mlo : Array (Array Float) := #[]
+  let mut mhi : Array (Array Float) := #[]
+  let mut msc : Array (Array Float) := #[]
+  for i in [0:n] do
+    let c := floor - 0.2 + 0.4 * i.toFloat / n.toFloat
+    mlo := mlo.push (megaRow (c - 0.005)); mhi := mhi.push (megaRow (c + 0.005))
+    msc := msc.push ((Array.replicate 17 0.0).set! 6 1.0)
+  let (_, _, mL) ← runBox src "mk_megaStep_box" mlo mhi msc 17
+  let mut jumpsOk := true
+  let mut nJump := 0
+  let mut smoothMax := 0.0
+  for i in [0:n] do
+    let straddles := mlo[i]![6]! <= floor && floor <= mhi[i]![6]!
+    let lb := mL[i]![13]!
+    let lsm := mL[i]![15]!
+    if straddles then nJump := nJump + 1
+    if straddles && lb < 1e29 then jumpsOk := false
+    if !straddles && lb != 0.0 then jumpsOk := false
+    if lsm > smoothMax then smoothMax := lsm
+  cs := cs.push ⟨"gate: in the megakernel the Boolean reach column jumps exactly on the boxes straddling the floor (SunReachable, a subobject: L = inf) and is flat elsewhere",
+    jumpsOk, s!"{nJump} straddling boxes of {n} jump, the rest have L = 0"⟩
+  cs := cs.push ⟨"gate: the megakernel's smooth reach column keeps the theorem's slope on the same boxes",
+    smoothMax <= 1.0 / (4.0 * tau) * 1.001, s!"max L {fmt smoothMax} per rad vs {fmt (1.0 / (4.0 * tau))}"⟩
+  -- H3. lostSunS <= sunReachableS at sampled poses, both values from the tangent kernels
+  let m := 256
+  let mut xs : Array (Array Float) := #[]
+  let mut xr : Array (Array Float) := #[]
+  for i in [0:m] do
+    let az := 6.283 * i.toFloat / m.toFloat
+    let t := 0.3 + 0.6 * ((i * 7919 % 1000).toFloat / 1000.0)
+    let el := floor - 0.1 + 0.5 * ((i * 104729 % 1000).toFloat / 1000.0)
+    let azs := az + 0.05 * ((i * 15485863 % 1000).toFloat / 1000.0 - 0.5)
+    xs := xs.push #[tDead, az, t, el, azs, 0.03]
+    xr := xr.push #[tDead, el]
+  let (yl, _) ← runJvp src "mk_lostSunS_jvp" xs (xs.map fun r => Array.replicate r.size 0.0) 1
+  let (yr, _) ← runJvp src "mk_sunReachableS_jvp" xr (xr.map fun r => Array.replicate r.size 0.0) 1
+  let mut leOk := true
+  let mut worst := -1.0
+  for i in [0:m] do
+    let d := yl[i]![0]! - yr[i]![0]!
+    if d > worst then worst := d
+    if d > 1e-6 then leOk := false
+  cs := cs.push ⟨"gate: lostSunS <= sunReachableS at every sampled pose (lostSunS_le_reach: the implication as an inequality of gates)",
+    leOk, s!"max (lost - reach) {fmt worst} over {m} poses"⟩
+  pure cs
+
 def main : IO Unit := do
   let src ← dishSource
   let a0 ← dishChecks src
   let a ← (a0 ++ ·) <$> mcChecks src
-  let b ← sceneChecks
+  let b0 ← sceneChecks
+  let b ← (b0 ++ ·) <$> modulaChecks
   let mut bad := 0
   for c in a ++ b do
     IO.println s!"{if c.ok then "ok  " else "FAIL"} {c.name}\n      {c.note}"

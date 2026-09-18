@@ -2481,6 +2481,10 @@ def hk_check_focus_on_axis(psi, p_1, p_2):
     t21 = np.logical_or(np.logical_not(t3), t20)
     return t21
 
+def hk_gateTau():
+    t0 = 0.01
+    return t0
+
 def hk_check_grooved_reciprocal_yaw(c_chord, c_apexH, c_aBase, c_cross, c_barW, c_rDrive, b_rRail, b_zRail, b_zTube, b_zBearing, b_dPipe, b_nSpokes):
     t0 = c_chord
     t1 = c_apexH
@@ -3422,6 +3426,135 @@ def hk_leverAt(ym, hp, a, ze, t):
     t25 = np.sqrt(t24)
     t26 = (t19 / t25)
     return t26
+
+def hk_lostSunS(tDead, az, t, elSun, azSun, eps):
+    t0 = tDead
+    t1 = az
+    t2 = t
+    t3 = elSun
+    t4 = azSun
+    t5 = eps
+    t6 = np.pi
+    t7 = 2
+    t8 = (t6 / t7)
+    t9 = (t8 - t0)
+    t10 = (t3 - t9)
+    t11 = 0.01
+    t12 = (t10 / t11)
+    t13 = (1.0 / (1.0 + np.exp(-t12)))
+    t14 = np.sin(t2)
+    t15 = np.cos(t1)
+    t16 = (t14 * t15)
+    t17 = np.sin(t1)
+    t18 = (t14 * t17)
+    t19 = np.cos(t2)
+    t20 = np.cos(t3)
+    t21 = np.cos(t4)
+    t22 = (t20 * t21)
+    t23 = np.sin(t4)
+    t24 = (t20 * t23)
+    t25 = np.sin(t3)
+    t26 = (t16 * t22)
+    t27 = (t18 * t24)
+    t28 = (t26 + t27)
+    t29 = (t19 * t25)
+    t30 = (t28 + t29)
+    t31 = (t18 * t25)
+    t32 = (t19 * t24)
+    t33 = (t31 - t32)
+    t34 = (t33 ** 2)
+    t35 = (t19 * t22)
+    t36 = (t16 * t25)
+    t37 = (t35 - t36)
+    t38 = (t37 ** 2)
+    t39 = (t34 + t38)
+    t40 = (t16 * t24)
+    t41 = (t18 * t22)
+    t42 = (t40 - t41)
+    t43 = (t42 ** 2)
+    t44 = (t39 + t43)
+    t45 = np.sqrt(t44)
+    t46 = 0
+    t47 = (t30 <= t46)
+    t48 = (-t30)
+    t49 = 0.000000000001
+    t50 = np.maximum(t45, t49)
+    t51 = (t48 / t50)
+    t52 = np.arctan(t51)
+    t53 = (t8 + t52)
+    t54 = (t45 / t30)
+    t55 = np.arctan(t54)
+    t56 = np.where(t47, t53, t55)
+    t57 = (t56 - t5)
+    t58 = (t57 / t11)
+    t59 = (1.0 / (1.0 + np.exp(-t58)))
+    t60 = (t13 * t59)
+    return t60
+
+def hk_check_lostSunS_le_reach(tDead, az, t, elSun, azSun, eps):
+    t0 = tDead
+    t1 = az
+    t2 = t
+    t3 = elSun
+    t4 = azSun
+    t5 = eps
+    t6 = np.pi
+    t7 = 2
+    t8 = (t6 / t7)
+    t9 = (t8 - t0)
+    t10 = (t3 - t9)
+    t11 = 0.01
+    t12 = (t10 / t11)
+    t13 = (1.0 / (1.0 + np.exp(-t12)))
+    t14 = np.sin(t2)
+    t15 = np.cos(t1)
+    t16 = (t14 * t15)
+    t17 = np.sin(t1)
+    t18 = (t14 * t17)
+    t19 = np.cos(t2)
+    t20 = np.cos(t3)
+    t21 = np.cos(t4)
+    t22 = (t20 * t21)
+    t23 = np.sin(t4)
+    t24 = (t20 * t23)
+    t25 = np.sin(t3)
+    t26 = (t16 * t22)
+    t27 = (t18 * t24)
+    t28 = (t26 + t27)
+    t29 = (t19 * t25)
+    t30 = (t28 + t29)
+    t31 = (t18 * t25)
+    t32 = (t19 * t24)
+    t33 = (t31 - t32)
+    t34 = (t33 ** 2)
+    t35 = (t19 * t22)
+    t36 = (t16 * t25)
+    t37 = (t35 - t36)
+    t38 = (t37 ** 2)
+    t39 = (t34 + t38)
+    t40 = (t16 * t24)
+    t41 = (t18 * t22)
+    t42 = (t40 - t41)
+    t43 = (t42 ** 2)
+    t44 = (t39 + t43)
+    t45 = np.sqrt(t44)
+    t46 = 0
+    t47 = (t30 <= t46)
+    t48 = (-t30)
+    t49 = 0.000000000001
+    t50 = np.maximum(t45, t49)
+    t51 = (t48 / t50)
+    t52 = np.arctan(t51)
+    t53 = (t8 + t52)
+    t54 = (t45 / t30)
+    t55 = np.arctan(t54)
+    t56 = np.where(t47, t53, t55)
+    t57 = (t56 - t5)
+    t58 = (t57 / t11)
+    t59 = (1.0 / (1.0 + np.exp(-t58)))
+    t60 = (t13 * t59)
+    t61 = (t60 <= t13)
+    return t61
 
 def hk_check_lostSun_unreachable(tDead, az, t, elSun, azSun, eps):
     t0 = tDead
@@ -5233,7 +5366,15 @@ def hk_megaStep(az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, r
     t673 = (t672 < t667)
     t674 = np.logical_and(t670, t673)
     t675 = np.where(t674, t20, t53)
-    return np.stack([np.broadcast_to(np.asarray(t597, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t597, dtype=float), np.broadcast_to(np.asarray(t592, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t592, dtype=float), np.broadcast_to(np.asarray(t107, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t107, dtype=float), np.broadcast_to(np.asarray(t593, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t593, dtype=float), np.broadcast_to(np.asarray(t50, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t50, dtype=float), np.broadcast_to(np.asarray(t599, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t599, dtype=float), np.broadcast_to(np.asarray(t601, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t601, dtype=float), np.broadcast_to(np.asarray(t622, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t622, dtype=float), np.broadcast_to(np.asarray(t626, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t626, dtype=float), np.broadcast_to(np.asarray(t627, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t627, dtype=float), np.broadcast_to(np.asarray(t595, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t595, dtype=float), np.broadcast_to(np.asarray(t667, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t667, dtype=float), np.broadcast_to(np.asarray(t668, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t668, dtype=float), np.broadcast_to(np.asarray(t671, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t671, dtype=float), np.broadcast_to(np.asarray(t675, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t675, dtype=float)], axis=-1)
+    t676 = (t6 - t669)
+    t677 = 0.01
+    t678 = (t676 / t677)
+    t679 = (1.0 / (1.0 + np.exp(-t678)))
+    t680 = (t667 - t672)
+    t681 = (t680 / t677)
+    t682 = (1.0 / (1.0 + np.exp(-t681)))
+    t683 = (t679 * t682)
+    return np.stack([np.broadcast_to(np.asarray(t597, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t597, dtype=float), np.broadcast_to(np.asarray(t592, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t592, dtype=float), np.broadcast_to(np.asarray(t107, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t107, dtype=float), np.broadcast_to(np.asarray(t593, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t593, dtype=float), np.broadcast_to(np.asarray(t50, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t50, dtype=float), np.broadcast_to(np.asarray(t599, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t599, dtype=float), np.broadcast_to(np.asarray(t601, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t601, dtype=float), np.broadcast_to(np.asarray(t622, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t622, dtype=float), np.broadcast_to(np.asarray(t626, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t626, dtype=float), np.broadcast_to(np.asarray(t627, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t627, dtype=float), np.broadcast_to(np.asarray(t595, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t595, dtype=float), np.broadcast_to(np.asarray(t667, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t667, dtype=float), np.broadcast_to(np.asarray(t668, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t668, dtype=float), np.broadcast_to(np.asarray(t671, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t671, dtype=float), np.broadcast_to(np.asarray(t675, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t675, dtype=float), np.broadcast_to(np.asarray(t679, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t679, dtype=float), np.broadcast_to(np.asarray(t683, dtype=float), np.broadcast(*[np.asarray(x) for x in [az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]]).shape) if len([az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen]) else np.asarray(t683, dtype=float)], axis=-1)
 
 def hk_megaThmsClosed(az, t, slack, omegam, omegad, dt, elSun, azSun, dni, rDrum, W, rcm, Tmax, rho, Fdrive, L10, rodLen):
     t0 = az
@@ -10803,6 +10944,31 @@ def hk_check_sideGap_eq():
     t12 = hk_eq(t10, t11)
     return t12
 
+def hk_check_sigmoid_ge_of_nonneg(x):
+    t0 = x
+    t1 = 0
+    t2 = (t1 <= t0)
+    t3 = 1
+    t4 = 2
+    t5 = (t4 + t0)
+    t6 = (t3 / t5)
+    t7 = (t3 - t6)
+    t8 = (1.0 / (1.0 + np.exp(-t0)))
+    t9 = (t7 <= t8)
+    t10 = np.logical_or(np.logical_not(t2), t9)
+    return t10
+
+def hk_check_sigmoid_slope_le(x):
+    t0 = x
+    t1 = (1.0 / (1.0 + np.exp(-t0)))
+    t2 = 1
+    t3 = (t2 - t1)
+    t4 = (t1 * t3)
+    t5 = 4
+    t6 = (t2 / t5)
+    t7 = (t4 <= t6)
+    return t7
+
 def hk_check_sixty_reachable():
     t0 = np.pi
     t1 = 3
@@ -11887,6 +12053,62 @@ def hk_check_sunInDish_equivariant(az, t, elSun, azSun, delta):
     t81 = np.logical_and(t79, t80)
     t82 = np.logical_and(t78, t81)
     return t82
+
+def hk_sunReachableS(tDead, elSun):
+    t0 = tDead
+    t1 = elSun
+    t2 = np.pi
+    t3 = 2
+    t4 = (t2 / t3)
+    t5 = (t4 - t0)
+    t6 = (t1 - t5)
+    t7 = 0.01
+    t8 = (t6 / t7)
+    t9 = (1.0 / (1.0 + np.exp(-t8)))
+    return t9
+
+def hk_check_sunReachableS_mem(tDead, elSun):
+    t0 = tDead
+    t1 = elSun
+    t2 = 0
+    t3 = np.pi
+    t4 = 2
+    t5 = (t3 / t4)
+    t6 = (t5 - t0)
+    t7 = (t1 - t6)
+    t8 = 0.01
+    t9 = (t7 / t8)
+    t10 = (1.0 / (1.0 + np.exp(-t9)))
+    t11 = (t2 <= t10)
+    t12 = 1
+    t13 = (t10 <= t12)
+    t14 = np.logical_and(t11, t13)
+    return t14
+
+def hk_check_sunReachableS_slope(tDead, e1, e2):
+    t0 = tDead
+    t1 = e1
+    t2 = e2
+    t3 = np.pi
+    t4 = 2
+    t5 = (t3 / t4)
+    t6 = (t5 - t0)
+    t7 = (t1 - t6)
+    t8 = 0.01
+    t9 = (t7 / t8)
+    t10 = (1.0 / (1.0 + np.exp(-t9)))
+    t11 = (t2 - t6)
+    t12 = (t11 / t8)
+    t13 = (1.0 / (1.0 + np.exp(-t12)))
+    t14 = (t10 - t13)
+    t15 = np.abs(t14)
+    t16 = (t1 - t2)
+    t17 = np.abs(t16)
+    t18 = 4
+    t19 = (t18 * t8)
+    t20 = (t17 / t19)
+    t21 = (t15 <= t20)
+    return t21
 
 def hk_swingFocus(P_1, P_2, d, f, t):
     t0 = P_1

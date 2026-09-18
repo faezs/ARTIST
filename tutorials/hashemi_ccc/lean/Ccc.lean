@@ -385,6 +385,7 @@ partial def translateApp (root : Name) (e : Expr) : TM Val := do
     | `Real.arcsin, 1 => unop root "arcsin" args[0]!
     | `Real.exp, 1 => unop root "exp" args[0]!
     | `Real.log, 1 => unop root "log" args[0]!
+    | `Real.sigmoid, 1 => unop root "sigmoid" args[0]!
     | `Real.pi, 0 => .s <$> emit .pi
     | `abs, _ => unop root "abs" args.back!
     | ``Min.min, 4 => binop root "min" args[2]! args[3]!
@@ -670,7 +671,8 @@ def printC (f : Fun) : String := Id.run do
           | "sin" => s!"hk_sin({av})" | "cos" => s!"hk_cos({av})" | "tan" => s!"hk_tan({av})"
           | "arctan" => s!"hk_atan({av})" | "arccos" => s!"hk_acos({av})" | "arcsin" => s!"hk_asin({av})"
           | "exp" => s!"hk_exp({av})" | "log" => s!"hk_log({av})"
-          | "abs" => s!"hk_fabs({av})" | "floor" => s!"hk_floor({av})" | o => s!"/* ? {o} */ {av}")
+          | "abs" => s!"hk_fabs({av})" | "floor" => s!"hk_floor({av})" | "sigmoid" => s!"hk_sigmoid({av})"
+          | o => s!"/* ? {o} */ {av}")
       | .bin op a b =>
         some (match op with
           | "min" => s!"hk_min(t{a}, t{b})" | "max" => s!"hk_max(t{a}, t{b})"
@@ -694,6 +696,281 @@ def printC (f : Fun) : String := Id.run do
   | _ =>
     for k in [0:outs.size] do
       lines := lines.push s!"  out[{k}] = t{outs[k]!};"
+  lines := lines.push "}"
+  return "\n".intercalate lines.toList
+
+/-! ## The tangent functor: the graph's forward-mode derivative -/
+
+/-- C99: the function and its Jacobian-vector product along `dx` (one tangent per input in binder
+order; boolean inputs carry none). `out` and `dout` are the flattened outputs. The derivative of
+each node is written next to its value: the tangent functor on the graph category. -/
+def printCJvp (f : Fun) : String := Id.run do
+  let g := f.graph
+  let outs := f.output.flatten
+  let mut lines : Array String := #[]
+  let params := f.inputs.map fun (nm, i) => (if g.isBool i then "bool " else "hk_real ") ++ nm
+  let params := params ++ #["const hk_real HK_ADDR* hk_dx", "hk_real HK_ADDR* hk_out", "hk_real HK_ADDR* hk_dout"]
+  lines := lines.push s!"HK_STATIC void {cName f.name}_jvp({", ".intercalate params.toList}) \{"
+  let live := liveNodes g outs
+  let mut inIdx : Std.HashMap Nat Nat := {}
+  for k in [0:f.inputs.size] do inIdx := inIdx.insert (f.inputs[k]!).2 k
+  for i in [0:g.nodes.size] do
+    if !live.contains i then continue
+    let node := g.nodes[i]!
+    let ty := if g.isBool i then "bool" else "hk_real"
+    let t := fun (j : Nat) => s!"t{j}"
+    let d := fun (j : Nat) => if g.isBool j then "HK_LIT(0)" else s!"d{j}"
+    let rhs : Option String := match node with
+      | .input _ _ => none
+      | .lit s => some s!"HK_LIT({s})"
+      | .bconst b => some (if b then "true" else "false")
+      | .pi => some "HK_PI"
+      | .un op a =>
+        let av := t a
+        some (match op with
+          | "neg" => s!"(-{av})" | "not" => s!"(!{av})" | "sqrt" => s!"hk_sqrt({av})"
+          | "sin" => s!"hk_sin({av})" | "cos" => s!"hk_cos({av})" | "tan" => s!"hk_tan({av})"
+          | "arctan" => s!"hk_atan({av})" | "arccos" => s!"hk_acos({av})" | "arcsin" => s!"hk_asin({av})"
+          | "exp" => s!"hk_exp({av})" | "log" => s!"hk_log({av})"
+          | "abs" => s!"hk_fabs({av})" | "floor" => s!"hk_floor({av})" | "sigmoid" => s!"hk_sigmoid({av})"
+          | o => s!"/* ? {o} */ {av}")
+      | .bin op a b =>
+        some (match op with
+          | "min" => s!"hk_min({t a}, {t b})" | "max" => s!"hk_max({t a}, {t b})"
+          | "==" => if g.isBool a then s!"({t a} == {t b})" else s!"hk_eq({t a}, {t b})"
+          | "!=" => if g.isBool a then s!"({t a} != {t b})" else s!"(!hk_eq({t a}, {t b}))"
+          | "->" => s!"(!{t a} || {t b})"
+          | o => s!"({t a} {o} {t b})")
+      | .pow a n => some (if n == 0 then "HK_LIT(1)" else " * ".intercalate (List.replicate n (t a)))
+      | .ite c a b => some s!"({t c} ? {t a} : {t b})"
+      | .iteC c a b => some s!"({t c} ? {t a} : {t b})"
+    -- the tangent of a real node
+    let drhs : Option String := if g.isBool i then none else match node with
+      | .input _ _ => some s!"hk_dx[{inIdx.getD i 0}]"
+      | .lit _ => some "HK_LIT(0)"
+      | .pi => some "HK_LIT(0)"
+      | .bconst _ => none
+      | .un op a =>
+        let av := t a
+        let da := d a
+        some (match op with
+          | "neg" => s!"(-{da})"
+          | "sqrt" => s!"({da} / (HK_LIT(2) * {t i}))"
+          | "sin" => s!"(hk_cos({av}) * {da})"
+          | "cos" => s!"(-hk_sin({av}) * {da})"
+          | "tan" => s!"({da} * (HK_LIT(1) + {t i} * {t i}))"
+          | "arctan" => s!"({da} / (HK_LIT(1) + {av} * {av}))"
+          | "arccos" => s!"(-{da} / hk_sqrt(HK_LIT(1) - {av} * {av}))"
+          | "arcsin" => s!"({da} / hk_sqrt(HK_LIT(1) - {av} * {av}))"
+          | "exp" => s!"({t i} * {da})"
+          | "log" => s!"({da} / {av})"
+          | "abs" => s!"({av} < HK_LIT(0) ? -{da} : {da})"
+          | "floor" => "HK_LIT(0)"
+          | "sigmoid" => s!"({t i} * (HK_LIT(1) - {t i}) * {da})"
+          | _ => "HK_LIT(0)")
+      | .bin op a b =>
+        some (match op with
+          | "+" => s!"({d a} + {d b})"
+          | "-" => s!"({d a} - {d b})"
+          | "*" => s!"({d a} * {t b} + {t a} * {d b})"
+          | "/" => s!"(({d a} * {t b} - {t a} * {d b}) / ({t b} * {t b}))"
+          | "min" => s!"({t a} <= {t b} ? {d a} : {d b})"
+          | "max" => s!"({t a} >= {t b} ? {d a} : {d b})"
+          | _ => "HK_LIT(0)")
+      | .pow a n =>
+        some (if n == 0 then "HK_LIT(0)"
+              else if n == 1 then d a
+              else s!"(HK_LIT({n}) * {" * ".intercalate (List.replicate (n - 1) (t a))} * {d a})")
+      | .ite c a b => some s!"({t c} ? {d a} : {d b})"
+      | .iteC c a b => some s!"({t c} ? {d a} : {d b})"
+    match node, rhs with
+    | .input nm _, _ => lines := lines.push s!"  const {ty} t{i} = {nm};"
+    | _, some r => lines := lines.push s!"  const {ty} t{i} = {r};"
+    | _, none => pure ()
+    match drhs with
+    | some r => lines := lines.push s!"  const hk_real d{i} = {r};"
+    | none => pure ()
+  for k in [0:outs.size] do
+    let o := outs[k]!
+    lines := lines.push s!"  hk_out[{k}] = t{o};"
+    lines := lines.push s!"  hk_dout[{k}] = {if g.isBool o then "HK_LIT(0)" else s!"d{o}"};"
+  lines := lines.push "}"
+  return "\n".intercalate lines.toList
+
+/-! ## The box functor: interval and Lipschitz abstract interpretation of the graph -/
+
+/-- the runtime the box printer's code calls: every node rule as a C99 function on
+`(lo, hi, L)` triples. `L` is a Lipschitz bound of the node with respect to the inputs' scaled
+∞-norm; `HK_INF` marks a jump (a gate the box straddles, a pole, a floor across an integer).
+Booleans are three-valued: `lo = hi = 1` true, `lo = hi = 0` false, `[0, 1]` unknown. -/
+def boxRuntime : String := "
+#ifndef HK_INF
+#define HK_INF HK_LIT(1e30)
+#endif
+HK_STATIC hk_real hk_bx_cap(hk_real x) { return (x != x || x >= HK_INF) ? HK_INF : (x < HK_LIT(0) ? HK_LIT(0) : x); }
+HK_STATIC hk_real hk_bx_mag(hk_real lo, hk_real hi) { return hk_max(hk_fabs(lo), hk_fabs(hi)); }
+HK_STATIC hk_real hk_bx_mig(hk_real lo, hk_real hi) { return (lo <= HK_LIT(0) && hi >= HK_LIT(0)) ? HK_LIT(0) : hk_min(hk_fabs(lo), hk_fabs(hi)); }
+HK_STATIC void hk_bx_neg(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) { *lo = -ahi; *hi = -alo; *L = aL; }
+HK_STATIC void hk_bx_add(hk_real alo, hk_real ahi, hk_real aL, hk_real blo, hk_real bhi, hk_real bL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) { *lo = alo + blo; *hi = ahi + bhi; *L = hk_bx_cap(aL + bL); }
+HK_STATIC void hk_bx_sub(hk_real alo, hk_real ahi, hk_real aL, hk_real blo, hk_real bhi, hk_real bL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) { *lo = alo - bhi; *hi = ahi - blo; *L = hk_bx_cap(aL + bL); }
+HK_STATIC void hk_bx_mul(hk_real alo, hk_real ahi, hk_real aL, hk_real blo, hk_real bhi, hk_real bL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  const hk_real p1 = alo * blo, p2 = alo * bhi, p3 = ahi * blo, p4 = ahi * bhi;
+  *lo = hk_min(hk_min(p1, p2), hk_min(p3, p4)); *hi = hk_max(hk_max(p1, p2), hk_max(p3, p4));
+  *L = hk_bx_cap(hk_bx_mag(alo, ahi) * bL + hk_bx_mag(blo, bhi) * aL);
+}
+HK_STATIC void hk_bx_div(hk_real alo, hk_real ahi, hk_real aL, hk_real blo, hk_real bhi, hk_real bL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  if (blo <= HK_LIT(0) && bhi >= HK_LIT(0)) { *lo = -HK_INF; *hi = HK_INF; *L = HK_INF; return; }
+  const hk_real p1 = alo / blo, p2 = alo / bhi, p3 = ahi / blo, p4 = ahi / bhi;
+  *lo = hk_min(hk_min(p1, p2), hk_min(p3, p4)); *hi = hk_max(hk_max(p1, p2), hk_max(p3, p4));
+  const hk_real mb = hk_bx_mig(blo, bhi);
+  *L = hk_bx_cap(aL / mb + hk_bx_mag(alo, ahi) * bL / (mb * mb));
+}
+HK_STATIC void hk_bx_sqrt(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  const hk_real l0 = hk_max(alo, HK_LIT(0)), h0 = hk_max(ahi, HK_LIT(0));
+  *lo = hk_sqrt(l0); *hi = hk_sqrt(h0);
+  *L = (l0 > HK_LIT(0)) ? hk_bx_cap(aL / (HK_LIT(2) * hk_sqrt(l0))) : (aL > HK_LIT(0) ? HK_INF : HK_LIT(0));
+}
+HK_STATIC void hk_bx_trig(int isSin, hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  const hk_real twoPi = HK_LIT(2) * HK_PI;
+  *L = aL;
+  if (ahi - alo >= twoPi) { *lo = HK_LIT(-1); *hi = HK_LIT(1); return; }
+  const hk_real fa = isSin ? hk_sin(alo) : hk_cos(alo), fb = isSin ? hk_sin(ahi) : hk_cos(ahi);
+  *lo = hk_min(fa, fb); *hi = hk_max(fa, fb);
+  const hk_real cmax = isSin ? HK_PI / HK_LIT(2) : HK_LIT(0);   /* the maxima: cmax + 2k pi */
+  const hk_real cmin = cmax + HK_PI;                            /* the minima */
+  hk_real k = hk_floor((alo - cmax) / twoPi) + HK_LIT(1);
+  if (cmax + k * twoPi <= ahi) *hi = HK_LIT(1);
+  k = hk_floor((alo - cmin) / twoPi) + HK_LIT(1);
+  if (cmin + k * twoPi <= ahi) *lo = HK_LIT(-1);
+}
+HK_STATIC void hk_bx_tan(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  const hk_real c0 = HK_PI / HK_LIT(2);
+  const hk_real k = hk_floor((alo - c0) / HK_PI) + HK_LIT(1);
+  if (c0 + k * HK_PI <= ahi) { *lo = -HK_INF; *hi = HK_INF; *L = HK_INF; return; }
+  *lo = hk_tan(alo); *hi = hk_tan(ahi);
+  const hk_real m = hk_bx_mag(*lo, *hi);
+  *L = hk_bx_cap(aL * (HK_LIT(1) + m * m));
+}
+HK_STATIC void hk_bx_atan(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  *lo = hk_atan(alo); *hi = hk_atan(ahi); const hk_real m = hk_bx_mig(alo, ahi); *L = hk_bx_cap(aL / (HK_LIT(1) + m * m));
+}
+HK_STATIC void hk_bx_acos(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  const hk_real l0 = hk_max(alo, HK_LIT(-1)), h0 = hk_min(ahi, HK_LIT(1));
+  *lo = hk_acos(h0); *hi = hk_acos(l0); const hk_real m = hk_bx_mag(l0, h0);
+  *L = (m < HK_LIT(1)) ? hk_bx_cap(aL / hk_sqrt(HK_LIT(1) - m * m)) : (aL > HK_LIT(0) ? HK_INF : HK_LIT(0));
+}
+HK_STATIC void hk_bx_asin(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  const hk_real l0 = hk_max(alo, HK_LIT(-1)), h0 = hk_min(ahi, HK_LIT(1));
+  *lo = hk_asin(l0); *hi = hk_asin(h0); const hk_real m = hk_bx_mag(l0, h0);
+  *L = (m < HK_LIT(1)) ? hk_bx_cap(aL / hk_sqrt(HK_LIT(1) - m * m)) : (aL > HK_LIT(0) ? HK_INF : HK_LIT(0));
+}
+HK_STATIC void hk_bx_exp(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) { *lo = hk_exp(alo); *hi = hk_exp(ahi); *L = hk_bx_cap(aL * (*hi)); }
+HK_STATIC void hk_bx_log(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  if (alo <= HK_LIT(0)) { *lo = -HK_INF; *hi = (ahi > HK_LIT(0)) ? hk_log(ahi) : -HK_INF; *L = (aL > HK_LIT(0)) ? HK_INF : HK_LIT(0); return; }
+  *lo = hk_log(alo); *hi = hk_log(ahi); *L = hk_bx_cap(aL / alo);
+}
+HK_STATIC void hk_bx_abs(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  if (alo >= HK_LIT(0)) { *lo = alo; *hi = ahi; } else if (ahi <= HK_LIT(0)) { *lo = -ahi; *hi = -alo; } else { *lo = HK_LIT(0); *hi = hk_max(-alo, ahi); }
+  *L = aL;
+}
+HK_STATIC void hk_bx_floor(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) { *lo = hk_floor(alo); *hi = hk_floor(ahi); *L = (*lo == *hi || aL == HK_LIT(0)) ? HK_LIT(0) : HK_INF; }
+HK_STATIC void hk_bx_sigmoid(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  *lo = hk_sigmoid(alo); *hi = hk_sigmoid(ahi); const hk_real m = hk_bx_mig(alo, ahi); const hk_real sm = hk_sigmoid(m);
+  *L = hk_bx_cap(aL * sm * (HK_LIT(1) - sm));
+}
+HK_STATIC void hk_bx_pow(hk_real alo, hk_real ahi, hk_real aL, int n, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  if (n == 0) { *lo = HK_LIT(1); *hi = HK_LIT(1); *L = HK_LIT(0); return; }
+  const hk_real m = hk_bx_mag(alo, ahi), mg = hk_bx_mig(alo, ahi);
+  hk_real pm = HK_LIT(1), pmg = HK_LIT(1), pl = HK_LIT(1), ph = HK_LIT(1), pm1 = HK_LIT(1);
+  for (int k = 0; k < n; ++k) { pm *= m; pmg *= mg; pl *= alo; ph *= ahi; if (k < n - 1) pm1 *= m; }
+  if (n % 2 == 0) { *lo = pmg; *hi = pm; } else { *lo = pl; *hi = ph; }
+  *L = hk_bx_cap(HK_LIT(n) * pm1 * aL);
+}
+HK_STATIC void hk_bx_min(hk_real alo, hk_real ahi, hk_real aL, hk_real blo, hk_real bhi, hk_real bL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) { *lo = hk_min(alo, blo); *hi = hk_min(ahi, bhi); *L = hk_max(aL, bL); }
+HK_STATIC void hk_bx_max(hk_real alo, hk_real ahi, hk_real aL, hk_real blo, hk_real bhi, hk_real bL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) { *lo = hk_max(alo, blo); *hi = hk_max(ahi, bhi); *L = hk_max(aL, bL); }
+/* three-valued comparisons and connectives */
+HK_STATIC void hk_bx_lt(hk_real alo, hk_real ahi, hk_real blo, hk_real bhi, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi) { if (ahi < blo) { *lo = HK_LIT(1); *hi = HK_LIT(1); } else if (alo >= bhi) { *lo = HK_LIT(0); *hi = HK_LIT(0); } else { *lo = HK_LIT(0); *hi = HK_LIT(1); } }
+HK_STATIC void hk_bx_le(hk_real alo, hk_real ahi, hk_real blo, hk_real bhi, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi) { if (ahi <= blo) { *lo = HK_LIT(1); *hi = HK_LIT(1); } else if (alo > bhi) { *lo = HK_LIT(0); *hi = HK_LIT(0); } else { *lo = HK_LIT(0); *hi = HK_LIT(1); } }
+HK_STATIC void hk_bx_eq(hk_real alo, hk_real ahi, hk_real blo, hk_real bhi, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi) { if (alo == ahi && blo == bhi && alo == blo) { *lo = HK_LIT(1); *hi = HK_LIT(1); } else if (ahi < blo || bhi < alo) { *lo = HK_LIT(0); *hi = HK_LIT(0); } else { *lo = HK_LIT(0); *hi = HK_LIT(1); } }
+HK_STATIC void hk_bx_not(hk_real alo, hk_real ahi, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi) { *lo = HK_LIT(1) - ahi; *hi = HK_LIT(1) - alo; }
+HK_STATIC void hk_bx_and(hk_real alo, hk_real ahi, hk_real blo, hk_real bhi, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi) { *lo = hk_min(alo, blo); *hi = hk_min(ahi, bhi); }
+HK_STATIC void hk_bx_or(hk_real alo, hk_real ahi, hk_real blo, hk_real bhi, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi) { *lo = hk_max(alo, blo); *hi = hk_max(ahi, bhi); }
+HK_STATIC void hk_bx_ite(hk_real clo, hk_real chi, hk_real alo, hk_real ahi, hk_real aL, hk_real blo, hk_real bhi, hk_real bL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  if (clo >= HK_LIT(1)) { *lo = alo; *hi = ahi; *L = aL; return; }
+  if (chi <= HK_LIT(0)) { *lo = blo; *hi = bhi; *L = bL; return; }
+  *lo = hk_min(alo, blo); *hi = hk_max(ahi, bhi);
+  *L = (alo == ahi && blo == bhi && alo == blo && aL == HK_LIT(0) && bL == HK_LIT(0)) ? HK_LIT(0) : HK_INF;   /* the gate straddled: a jump */
+}
+"
+
+/-- C99: the box functor on the graph. Inputs as boxes `[lo, hi]` with a scale `sc` (the input's
+own Lipschitz constant: 1 for a signal per unit, 0 for a held draw or a constant); outputs as
+boxes with a Lipschitz bound `oL` in the inputs' scaled ∞-norm. Composition of nodes is the
+composition of these bounds, so a composite definition's sensitivity is assembled from its parts'
+rules without anyone writing it. -/
+def printCBox (f : Fun) : String := Id.run do
+  let g := f.graph
+  let outs := f.output.flatten
+  let mut lines : Array String := #[]
+  lines := lines.push s!"HK_STATIC void {cName f.name}_box(const hk_real HK_ADDR* hk_lo, const hk_real HK_ADDR* hk_hi, const hk_real HK_ADDR* hk_sc, hk_real HK_ADDR* hk_olo, hk_real HK_ADDR* hk_ohi, hk_real HK_ADDR* hk_oL) \{"
+  let live := liveNodes g outs
+  let mut inIdx : Std.HashMap Nat Nat := {}
+  for k in [0:f.inputs.size] do inIdx := inIdx.insert (f.inputs[k]!).2 k
+  let tri := fun (j : Nat) => s!"lo{j}, hi{j}"                      -- a boolean's pair
+  let tr := fun (j : Nat) => s!"lo{j}, hi{j}, L{j}"                 -- a real's triple
+  let outp := fun (j : Nat) => s!"&lo{j}, &hi{j}, &L{j}"
+  let outb := fun (j : Nat) => s!"&lo{j}, &hi{j}"
+  for i in [0:g.nodes.size] do
+    if !live.contains i then continue
+    let node := g.nodes[i]!
+    lines := lines.push s!"  hk_real lo{i}, hi{i}, L{i};"
+    let stmt : String := match node with
+      | .input _ _ => let k := inIdx.getD i 0; s!"lo{i} = hk_lo[{k}]; hi{i} = hk_hi[{k}]; L{i} = hk_sc[{k}];"
+      | .lit s => s!"lo{i} = HK_LIT({s}); hi{i} = HK_LIT({s}); L{i} = HK_LIT(0);"
+      | .bconst b => let v := if b then "1" else "0"; s!"lo{i} = HK_LIT({v}); hi{i} = HK_LIT({v}); L{i} = HK_LIT(0);"
+      | .pi => s!"lo{i} = HK_PI; hi{i} = HK_PI; L{i} = HK_LIT(0);"
+      | .un op a =>
+        match op with
+        | "neg" => s!"hk_bx_neg({tr a}, {outp i});"
+        | "not" => s!"hk_bx_not({tri a}, {outb i}); L{i} = HK_LIT(0);"
+        | "sqrt" => s!"hk_bx_sqrt({tr a}, {outp i});"
+        | "sin" => s!"hk_bx_trig(1, {tr a}, {outp i});"
+        | "cos" => s!"hk_bx_trig(0, {tr a}, {outp i});"
+        | "tan" => s!"hk_bx_tan({tr a}, {outp i});"
+        | "arctan" => s!"hk_bx_atan({tr a}, {outp i});"
+        | "arccos" => s!"hk_bx_acos({tr a}, {outp i});"
+        | "arcsin" => s!"hk_bx_asin({tr a}, {outp i});"
+        | "exp" => s!"hk_bx_exp({tr a}, {outp i});"
+        | "log" => s!"hk_bx_log({tr a}, {outp i});"
+        | "abs" => s!"hk_bx_abs({tr a}, {outp i});"
+        | "floor" => s!"hk_bx_floor({tr a}, {outp i});"
+        | "sigmoid" => s!"hk_bx_sigmoid({tr a}, {outp i});"
+        | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF; L{i} = HK_INF;"
+      | .bin op a b =>
+        match op with
+        | "+" => s!"hk_bx_add({tr a}, {tr b}, {outp i});"
+        | "-" => s!"hk_bx_sub({tr a}, {tr b}, {outp i});"
+        | "*" => s!"hk_bx_mul({tr a}, {tr b}, {outp i});"
+        | "/" => s!"hk_bx_div({tr a}, {tr b}, {outp i});"
+        | "min" => s!"hk_bx_min({tr a}, {tr b}, {outp i});"
+        | "max" => s!"hk_bx_max({tr a}, {tr b}, {outp i});"
+        | "<" => s!"hk_bx_lt({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+        | "<=" => s!"hk_bx_le({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+        | ">" => s!"hk_bx_lt({tri b}, {tri a}, {outb i}); L{i} = HK_LIT(0);"
+        | ">=" => s!"hk_bx_le({tri b}, {tri a}, {outb i}); L{i} = HK_LIT(0);"
+        | "==" => s!"hk_bx_eq({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+        | "!=" => s!"\{ hk_real e0, e1; hk_bx_eq({tri a}, {tri b}, &e0, &e1); hk_bx_not(e0, e1, {outb i}); } L{i} = HK_LIT(0);"
+        | "&&" => s!"hk_bx_and({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+        | "||" => s!"hk_bx_or({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+        | "->" => s!"\{ hk_real n0, n1; hk_bx_not({tri a}, &n0, &n1); hk_bx_or(n0, n1, {tri b}, {outb i}); } L{i} = HK_LIT(0);"
+        | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF; L{i} = HK_INF;"
+      | .pow a n => s!"hk_bx_pow({tr a}, {n}, {outp i});"
+      | .ite c a b => s!"hk_bx_ite({tri c}, {tr a}, {tr b}, {outp i});"
+      | .iteC c a b => s!"hk_bx_ite({tri c}, {tr a}, {tr b}, {outp i});"
+    lines := lines.push ("  " ++ stmt)
+  for k in [0:outs.size] do
+    let o := outs[k]!
+    lines := lines.push s!"  hk_olo[{k}] = lo{o}; hk_ohi[{k}] = hi{o}; hk_oL[{k}] = L{o};"
   lines := lines.push "}"
   return "\n".intercalate lines.toList
 
@@ -762,6 +1039,7 @@ partial def leanExpr (g : Graph) (real : Bool) (i : Nat) : String :=
     | "log" => if real then s!"(Real.log {r a})" else s!"(Float.log {r a})"
     | "abs" => if real then s!"|{r a}|" else s!"(Float.abs {r a})"
     | "floor" => if real then s!"((⌊{r a}⌋ : ℤ) : ℝ)" else s!"(Float.floor {r a})"
+    | "sigmoid" => if real then s!"(Real.sigmoid {r a})" else s!"(1.0 / (1.0 + Float.exp (-{r a})))"
     | o => s!"?{o}"
   | .bin op a b =>
     match op with
@@ -823,6 +1101,7 @@ partial def leanBody (g : Graph) (real : Bool) (outs : Array Nat) (v : Val) (ind
       | "log" => if real then s!"(Real.log {r a})" else s!"(Float.log {r a})"
       | "abs" => if real then s!"|{r a}|" else s!"(Float.abs {r a})"
       | "floor" => if real then s!"((⌊{r a}⌋ : ℤ) : ℝ)" else s!"(Float.floor {r a})"
+      | "sigmoid" => if real then s!"(Real.sigmoid {r a})" else s!"(1.0 / (1.0 + Float.exp (-{r a})))"
       | o => s!"?{o}"
     | .bin op a b =>
       match op with
@@ -871,7 +1150,8 @@ def printNumpy (f : Fun) (fname : String) : String := Id.run do
           | "sin" => s!"np.sin({av})" | "cos" => s!"np.cos({av})" | "tan" => s!"np.tan({av})"
           | "arctan" => s!"np.arctan({av})" | "arccos" => s!"np.arccos({av})" | "arcsin" => s!"np.arcsin({av})"
           | "exp" => s!"np.exp({av})" | "log" => s!"np.log({av})"
-          | "abs" => s!"np.abs({av})" | "floor" => s!"np.floor({av})" | o => s!"None  # ? {o}")
+          | "abs" => s!"np.abs({av})" | "floor" => s!"np.floor({av})" | "sigmoid" => s!"(1.0 / (1.0 + np.exp(-{av})))"
+          | o => s!"None  # ? {o}")
       | .bin op a b =>
         some (match op with
           | "min" => s!"np.minimum(t{a}, t{b})" | "max" => s!"np.maximum(t{a}, t{b})"

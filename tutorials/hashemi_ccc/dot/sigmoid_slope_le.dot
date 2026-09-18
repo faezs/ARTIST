@@ -1,0 +1,18 @@
+digraph "TandoorHashemi.sigmoid_slope_le" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="x", shape=box];
+  n1 [label="sigmoid", shape=ellipse];
+  n0 -> n1;
+  n2 [label="1", shape=plaintext];
+  n3 [label="-", shape=ellipse];
+  n2 -> n3; n1 -> n3;
+  n4 [label="*", shape=ellipse];
+  n1 -> n4; n3 -> n4;
+  n5 [label="4", shape=plaintext];
+  n6 [label="/", shape=ellipse];
+  n2 -> n6; n5 -> n6;
+  n7 [label="<=", shape=ellipse];
+  n4 -> n7; n6 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}
