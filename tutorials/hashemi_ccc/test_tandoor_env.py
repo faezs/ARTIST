@@ -24,6 +24,7 @@ def main():
     ap.add_argument("--agents", type=int, default=16)
     ap.add_argument("--day", type=int, default=172)
     ap.add_argument("--gpu", type=int, default=0, help="1: the parent's fused Metal step with the trace injected")
+    ap.add_argument("--discrete", type=int, default=1, help="1: the sensor loop's commands rounded to the seven head values (the policy's space)")
     args = ap.parse_args()
     kw = ini_env_kwargs(os.path.join(os.path.dirname(HERE), "puffer_tandoor", "hashemi_ccc.ini"))
     kw["day_random"] = 0
@@ -50,7 +51,9 @@ def main():
         d_az = env.az_m - az0
         d_az -= 360 * np.round(d_az / 360)
         a[:, 3] = 3 + 3 * -np.clip(d_az / (env.RATE_AZ * env.dt), -1, 1)
-        a[:, 4] = 3 + 3 * -np.clip(e_el / (np.degrees(0.01 / max(float(env.hk_row[:, 8].mean()), 0.05)) * env.dt), -1, 1)
+        a[:, 4] = 3 + 3 * -np.clip(e_el / (env.RATE_EL * env.dt), -1, 1)
+        if args.discrete:
+            a[:, 3] = np.round(a[:, 3]); a[:, 4] = np.round(a[:, 4])
         t_before = float(env.t_solar[0])
         obs, rew, term, trunc, infos = env.step(a)
         k += 1
@@ -61,7 +64,7 @@ def main():
         lost = env.hk_row[:, COL["lost_sun"]] > 0.5
         lc = np.asarray(env._gpu.lost_ct.cpu() if args.gpu else env._lost_ct) > 0
         agree_reach += float(np.mean(reach == (el0 >= env.el_min_h)))
-        agree_lost += float(np.mean(lost == lc))
+        agree_lost += float(np.mean(np.logical_or(~lc, lost)))     # the parent's lost (5 deg) implies the spec's (1.7 deg)
         if k % 240 == 0:
             S = env._gpu if args.gpu else env            # the fused path keeps the pot on the device
             T = np.asarray(S.T.cpu() if args.gpu else S.T)
@@ -70,11 +73,11 @@ def main():
                          float(np.mean(env.t_oil)), float(np.mean(env.row[:, ECOL["q_pot"]]))))
         if float(env.t_solar[0]) < t_before - 1.0 or k > 4000:
             break
-    print(f"day {args.day} gpu={args.gpu}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}")
+    print(f"day {args.day} gpu={args.gpu} discrete={args.discrete}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}")
     print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis   T_oil[K]  q_pot[W]")
     for r in rows:
         print("  %5.2f  %6.2f  %6.2f  %+6.2f   %5.3f   %7.0f   %7.1f   %6.2f   %7.1f   %7.0f" % r)
-    print(f"  spec vs parent: sun_reachable == sun up {100 * agree_reach / k:.1f} %, lost_sun == lost {100 * agree_lost / k:.1f} %")
+    print(f"  spec vs parent: sun_reachable == sun up {100 * agree_reach / k:.1f} %, parent lost => spec lost {100 * agree_lost / k:.1f} %; discrete heads {args.discrete}")
     ok = rows[-1][7] > 50 and all(r[4] > 0.9 for r in rows) and agree_reach / k > 0.99 and agree_lost / k > 0.97
     print("COOKS" if ok else "DOES NOT COOK")
     sys.exit(0 if ok else 1)

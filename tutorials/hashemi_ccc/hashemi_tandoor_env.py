@@ -65,7 +65,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # lost_deg, its own knobs; set to the spec's constants so its flags coincide with the
         # compiled columns (the day test counts that coincidence step by step)
         kwargs.setdefault("el_min", 90.0 - np.degrees(self.t_dead))
-        kwargs.setdefault("lost_deg", np.degrees(0.03))
+        # lost_deg stays the parent's (the ini's 5 deg): the guillotine is the cook's training
+        # device; the receiver's 1.7 deg budget is the spec's `lost_sun` column, felt through the
+        # capture itself and the smooth gate's shaping. (Set to 1.7 deg once: with a discrete
+        # policy no episode survived the day.)
         # THE GATE AS A GRADIENT: `lost_sun_s` (the smooth gate, slope 1/(4 tau) per radian by
         # theorem) charged per step, so the cook feels the sun slipping before the guillotine
         self.lost_shaping = float(lost_shaping)
@@ -79,8 +82,14 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self.hk_row = self.row
         self.cap_traced = np.zeros(B)
         self._q_pot = np.zeros(B)
+        # THE HEADS MEAN WHAT THE PARENT'S MEAN: full command = RATE_AZ / RATE_EL deg/s of the dish.
+        # Azimuth: the roller's rate that gives azRate = RATE_AZ. Elevation: the drum's rate that
+        # gives elRate = omega_d rDrum / arm = RATE_EL at the wire's CURRENT lever arm (the
+        # kernel's `arm` column, 1.03 m at rest, 0.38 m at 60 deg). (Set to 1 cm/s of wire once:
+        # 22x the parent's rate, 2.8 deg per finest step - untrackable for a seven-valued head.)
         self._om_full = np.radians(self.RATE_AZ) * float(rest[0, COL["rollerRadius"]]) / 0.05
-        self._od_full = 0.01 / float(self._prm_np[0])              # 1 cm/s of wire at full command
+        self._el_full = np.radians(self.RATE_EL) / float(self._prm_np[0])   # x arm = omega_d at full command
+        self._arm0 = 1.03
         self._env = None
         if self.gpu and self._metal is not None:
             self._env = HashemiEnvMetal()
@@ -152,7 +161,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         B = self.num_agents
         c_az = (np.clip(a[:, 3], 0, 6) - 3) / 3.0
         c_el = (np.clip(a[:, 4], 0, 6) - 3) / 3.0
-        cmd = np.stack([c_az * self._om_full, -c_el * self._od_full], 1)
+        arm = np.maximum(self.row[:, ECOL["arm"]], 0.05) if self.row[:, ECOL["arm"]].any() else np.full(B, self._arm0)
+        cmd = np.stack([c_az * self._om_full, -c_el * self._el_full * arm], 1)
         el, az = self._sun()
         sun = np.stack([np.full(B, el), np.full(B, az), np.asarray(self.dni, dtype=np.float64)], 1)
         if self._beam_profile is None:
@@ -207,7 +217,9 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         x = self._x
         x[:, EIN["az"]] = self._st[:, 0]; x[:, EIN["t"]] = self._st[:, 1]; x[:, EIN["slack"]] = self._st[:, 2]
         x[:, EIN["omegam"]] = (a[:, 3].float().clamp(0, 6) - 3) / 3.0 * self._om_full
-        x[:, EIN["omegad"]] = -(a[:, 4].float().clamp(0, 6) - 3) / 3.0 * self._od_full
+        arm = self._hk_out[:, ECOL["arm"]].clamp_min(0.05)
+        arm = torch.where(arm > 0.05, arm, torch.full_like(arm, self._arm0))
+        x[:, EIN["omegad"]] = -(a[:, 4].float().clamp(0, 6) - 3) / 3.0 * self._el_full * arm
         el, az = self._sun()
         x[:, EIN["elSun"]] = el; x[:, EIN["azSun"]] = az
         x[:, EIN["dni"]] = F.dni                     # the parent's draw (last step's until step_pre)
