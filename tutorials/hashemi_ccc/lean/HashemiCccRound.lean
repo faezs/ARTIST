@@ -1,4 +1,5 @@
 import RequestProject.HashemiTraceProps
+import RequestProject.HashemiEnv
 namespace TandoorHashemi
 open Classical
 set_option maxHeartbeats 4000000
@@ -68,6 +69,9 @@ theorem cableArea_ccc : cableArea =
 
 theorem cableDrop_ccc : cableDrop = fun (L : ℝ) (I : ℝ) =>
     ((((0.0000000172 : ℝ) * ((2 : ℝ) * L)) * I) / (0.0000015 : ℝ)) := rfl
+
+theorem captureS_ccc : captureS = fun (rc : ℝ) (rad : ℝ) =>
+    (Real.sigmoid ((rc - rad) / (0.005 : ℝ))) := rfl
 
 theorem clearance_ccc : clearance = fun (l : TandoorHashemi.Leg) (holeDown : ℝ) (reach : ℝ) =>
     ((l.upright - holeDown) - reach) := rfl
@@ -180,12 +184,24 @@ theorem facetSpot_ccc : facetSpot = fun (w : ℝ) (f : ℝ) =>
 theorem focusShift_ccc : focusShift = fun (h : ℝ) (ε : ℝ) =>
     (h * (Real.sin ε)) := rfl
 
+theorem gateTau_ccc : gateTau =
+    (0.01 : ℝ) := rfl
+
 theorem hM12_ccc : hM12 =
     ((0.00175 : ℝ) / ((2 : ℝ) * Real.pi)) := rfl
 
 theorem hangerLength_ccc : hangerLength = fun (R : ℝ) (a : ℝ) (yr : ℝ) (dx : ℝ) =>
     let v5 := (yr ^ 2)
     (Real.sqrt (((dx ^ 2) + v5) + (((R / (2 : ℝ)) - (R - (Real.sqrt ((R ^ 2) - ((Real.sqrt ((a ^ 2) + v5)) ^ 2))))) ^ 2))) := rfl
+
+-- hashemiEnv: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)
+
+theorem heatParams_ccc : heatParams =
+    ![(0.9 : ℝ), (0.8 : ℝ), (0.03 : ℝ), (15 : ℝ), (0.92 : ℝ), (15 : ℝ), (6300 : ℝ), (593 : ℝ)] := rfl
+
+theorem heatStep_ccc : heatStep = fun (α : ℝ) (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Upipe : ℝ) (UAx : ℝ) (Coil : ℝ) (ToilMax : ℝ) (Pin : ℝ) (Toil : ℝ) (Twall : ℝ) (Ta : ℝ) (dt : ℝ) =>
+    let v22 := (Toil - Ta)
+    ![(min ToilMax (Toil + ((dt * ((((α * Pin) - ((((ε * (0.0000000567 : ℝ)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v22))) - (Upipe * v22)) - (max (0 : ℝ) (UAx * (Toil - Twall))))) / Coil))), (α * Pin), ((((ε * (0.0000000567 : ℝ)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v22)), (Upipe * v22), (max (0 : ℝ) (UAx * (Toil - Twall))), ((((α * Pin) - ((((ε * (0.0000000567 : ℝ)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v22))) - (Upipe * v22)) - (max (0 : ℝ) (UAx * (Toil - Twall))))] := rfl
 
 theorem helixAdvance_ccc : helixAdvance = fun (pitch : ℝ) (φ : ℝ) =>
     ((pitch * φ) / ((2 : ℝ) * Real.pi)) := rfl
@@ -215,6 +231,20 @@ theorem leverAt_ccc : leverAt = fun (ym : ℝ) (hp : ℝ) (a : ℝ) (ze : ℝ) (
     let v12 := ((v6 * v7) + (v9 * v10))
     let v16 := (((-v6) * v10) + (v9 * v7))
     (((v5 * v16) - (hp * v12)) / (Real.sqrt (((v12 - v5) ^ 2) + ((v16 - hp) ^ 2)))) := rfl
+
+theorem lostSunS_ccc : lostSunS = fun (tDead : ℝ) (az : ℝ) (t : ℝ) (elSun : ℝ) (azSun : ℝ) (ε : ℝ) =>
+    let v8 := (Real.pi / (2 : ℝ))
+    let v14 := (Real.sin t)
+    let v16 := (v14 * (Real.cos az))
+    let v18 := (v14 * (Real.sin az))
+    let v19 := (Real.cos t)
+    let v20 := (Real.cos elSun)
+    let v22 := (v20 * (Real.cos azSun))
+    let v24 := (v20 * (Real.sin azSun))
+    let v25 := (Real.sin elSun)
+    let v30 := (((v16 * v22) + (v18 * v24)) + (v19 * v25))
+    let v45 := (Real.sqrt (((((v18 * v25) - (v19 * v24)) ^ 2) + (((v19 * v22) - (v16 * v25)) ^ 2)) + (((v16 * v24) - (v18 * v22)) ^ 2)))
+    ((Real.sigmoid ((elSun - (v8 - tDead)) / (0.01 : ℝ))) * (Real.sigmoid (((if (v30 ≤ (0 : ℝ)) then (v8 + (Real.arctan ((-v30) / (max v45 (0.000000000001 : ℝ))))) else (Real.arctan (v45 / v30))) - ε) / (0.01 : ℝ)))) := rfl
 
 theorem megaGeom_ccc : megaGeom = fun (az : ℝ) (t : ℝ) (slack : ℝ) (ωm : ℝ) (ωd : ℝ) (dt : ℝ) (elSun : ℝ) (azSun : ℝ) (dni : ℝ) (rDrum : ℝ) (W : ℝ) (rcm : ℝ) (Tmax : ℝ) (rho : ℝ) (Fdrive : ℝ) (L10 : ℝ) (rodLen : ℝ) =>
     let v21 := ((2 : ℝ) ^ 2)
@@ -597,6 +627,10 @@ theorem megaThmsState_ccc : megaThmsState = fun (az : ℝ) (t : ℝ) (slack : �
     let v798 := ((0 : ℝ) * v142)
     ![(@ite _ (((0 : ℝ) < ωm) → (((0 : ℝ) < (0.05 : ℝ)) → (v152 → ((0 : ℝ) < ((ωm * (0.05 : ℝ)) / v106))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v182 = (Fdrive * v106)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((Fdrive ≠ (0 : ℝ)) → (v182 ≠ (0 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v42 = v198) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((v35 ^ 2) + (v39 ^ 2)) = v205) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (|v35| ≤ (Real.sqrt v205)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((v27 * v212) + ((0.8 : ℝ) * v214)) = (0.8 : ℝ)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((v27 * (Real.sin v95)) + ((0.8 : ℝ) * (Real.cos v95))) ≤ (Real.sqrt (v204 + v22))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((v27 * (Real.sin v85)) + ((0.8 : ℝ) * (Real.cos v85))) = v27) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((v236 = v237) → (v42 = (0 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v242 → (v243 ↔ (v236 < v237))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((v49 ≠ (0 : ℝ)) → ((v133 * (v49 * v51)) = v251)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v255 → (v256 → (v257 → (v251 ≤ (v131 * v51))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((v52 ≠ (1 : ℝ)) → (((((v52 * (0.80 : ℝ)) - (v54 * (0 : ℝ))) = (0.80 : ℝ)) ∧ (((v54 * (0.80 : ℝ)) + (v52 * (0 : ℝ))) = (0 : ℝ))) → (((0.80 : ℝ) = (0 : ℝ)) ∧ v275))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((((((0.80 : ℝ) + (0.80 : ℝ)) - (v285 * (1 : ℝ))) + v294) = (0 : ℝ)) ∧ (((((v102 + v282) - v287) + v294) = (0 : ℝ)) ∧ ((((v284 - v287) + (v288 * (((1 : ℝ) + (1 : ℝ)) - v306))) = (0 : ℝ)) ∧ (((((v312 + v314) - (v285 * (v120 - v286))) + (v288 * ((v320 + v322) - ((2 : ℝ) * (v126 - v286))))) = (0 : ℝ)) ∧ (((((v281 + v281) - (v285 * (v331 - v120))) + (v288 * ((v291 + v291) - ((2 : ℝ) * (v286 - v126))))) = (0 : ℝ)) ∧ ((((v344 + v347) - (v285 * (v120 - v126))) + (v288 * ((v352 + v353) - ((2 : ℝ) * (v120 - v120))))) = (0 : ℝ))))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((((((0.80 : ℝ) - (0.80 : ℝ)) - v368) - v370) = (0 : ℝ)) ∧ (((((v102 - v282) - ((1.84 : ℝ) * (1 : ℝ))) - v370) = (0 : ℝ)) ∧ ((((v367 - v368) - (v369 * v381)) = (0 : ℝ)) ∧ (((((v312 - v314) - ((1.84 : ℝ) * (v120 - v331))) - (v369 * (v320 - v322))) = (0 : ℝ)) ∧ (((((v281 - v281) - ((1.84 : ℝ) * (v286 - v120))) - (v369 * (v291 - v291))) = (0 : ℝ)) ∧ ((((v344 - v347) - ((1.84 : ℝ) * (v126 - v120))) - (v369 * (v352 - v353))) = (0 : ℝ))))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v474 → (v275 ∧ (v275 ∧ ((v122 = (0 : ℝ)) ∧ ((v125 = v476) ∧ (v127 = (0 : ℝ))))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v474 → (((1 : ℝ) = ((1 : ℝ) * (1 : ℝ))) ∧ (v487 ∧ (v487 ∧ ((v122 = v421) ∧ ((v125 = ((1 : ℝ) * v125)) ∧ (v127 = ((1 : ℝ) * v127)))))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v503 → (v505 → (v506 → ((v507 < (0.34 : ℝ)) → (((0.34 : ℝ) < v509) → (((0 : ℝ) ≤ v507) → (((v502 * v509) < v500) ∧ (v500 < (v504 * v507))))))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((v525 < (0.8 : ℝ)) → (((0.8 : ℝ) < v527) → (((0 : ℝ) ≤ v525) → ((v530 < v27) → ((v27 < v532) → (((0 : ℝ) ≤ v530) → (((v525 * v530) < v524) ∧ (v524 < (v527 * v532))))))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((v548 ≤ ((0.03 : ℝ) - v550)) → ((v548 + v550) ≤ (0.03 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((v557 = (1 : ℝ)) → ((v104 + (v144 ^ 2)) = v561)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((v144 - ((-(1 : ℝ)) * v143)) = ((1.84 : ℝ) - v292)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((1.30 : ℝ) = (1.30 : ℝ)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((0.80 : ℝ) = (0.80 : ℝ)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v575 → ((v195 ≤ v194) ↔ ((v195 / v27) ≤ (0.34 : ℝ)))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v575 → (((0 : ℝ) < v30) → (((v583 + v34) = (0 : ℝ)) ↔ ((Real.tan t) = ((0.8 : ℝ) / v27))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ v152 (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v561 = v105) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((((2 : ℝ) / (2 : ℝ)) - v25) = (((2 : ℝ) - ((2 : ℝ) / ((2 : ℝ) * (Real.cos (Real.arcsin ((0 : ℝ) / (2 : ℝ))))))) - v25)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((1 : ℝ) = (1 : ℝ)) ∧ (v275 ∧ (v275 ∧ (((0 : ℝ) = v122) ∧ ((v117 = v125) ∧ ((0 : ℝ) = v127)))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((((((v440 + v617) + v123) + v120) = (0 : ℝ)) ∧ (((((v453 + v617) + v121) + v126) = (0 : ℝ)) ∧ (((((v460 + v617) + v121) + v120) = (0 : ℝ)) ∧ (((((v466 + v617) + v121) + v120) = (0 : ℝ)) ∧ ((((((((1 : ℝ) * (-v130)) + ((0 : ℝ) * v117)) + v120) + (v130 * (1 : ℝ))) + v121) + v120) = (0 : ℝ)))))) → (v275 ∧ (v275 ∧ ((v130 = ((1 : ℝ) * v130)) ∧ ((v117 = v476) ∧ v275))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((v548 ≤ ((0.03 : ℝ) - v550)) → ((v548 + v550) ≤ (0.03 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((v548 ≤ ((0.03 : ℝ) - v550)) → ((v548 + v550) ≤ (0.03 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v503 → (v505 → (v506 → (((v504 ^ 2) < v657) ∧ (v657 < (v502 ^ 2)))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((0 : ℝ) < (0.0005 : ℝ)) → ((v147 < (0.80 : ℝ)) → ((v149 = v149) → (v275 → (v275 → ((((((0.80 : ℝ) - v147) * v149) + ((v144 - (0 : ℝ)) * (0 : ℝ))) + (((1.30 : ℝ) - (0 : ℝ)) * (0 : ℝ))) < (0 : ℝ))))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((((v689 + ((1 : ℝ) * v690)) - (0 : ℝ)) ^ 2) + (((v696 + v695) - (0 : ℝ)) ^ 2)) = (v381 ^ 2)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((v690 ^ 2) + (v687 ^ 2)) = (1 : ℝ)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((((v689 - (0 : ℝ)) ^ 2) + ((v696 - (0 : ℝ)) ^ 2)) = v557) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((v420 - v716) + v127) = (0 : ℝ)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v255 → (v256 → (v243 → ((v131 ≤ (Tmax * v49)) → (v133 ≤ Tmax))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((0 : ℝ) < (1 : ℝ)) → ((v548 ≤ (0.03 : ℝ)) ↔ (v547 ≤ ((0.03 : ℝ) / (1 : ℝ))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v255 → ((W ≤ (1000 : ℝ)) → (v256 → ((rcm ≤ (1 : ℝ)) → (v257 → ((v51 ≤ (0.000073 : ℝ)) → ((v251 ≤ (0.073 : ℝ)) ∧ ((0.073 : ℝ) < ((0.015 : ℝ) * (5 : ℝ)))))))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v49 = (v198 / (Real.sqrt (((((1.22 : ℝ) - v583) - (v27 * v33)) ^ 2) + (((((0.8 : ℝ) * v33) - (v27 * v30)) - (0.34 : ℝ)) ^ 2))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v242 → (v243 ↔ ((0 : ℝ) < v42))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((((v28 * v778) - ((0.34 : ℝ) * v775)) / (Real.sqrt (((v775 - v28) ^ 2) + ((v778 - (0.34 : ℝ)) ^ 2)))) = (v192 / (Real.sqrt ((((1.22 : ℝ) - (0.8 : ℝ)) ^ 2) + (((0.34 : ℝ) + v27) ^ 2))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((((((((1 : ℝ) * (v798 - (v135 * (0 : ℝ)))) + ((0 : ℝ) * ((v135 * v139) - (v134 * v142)))) + ((0 : ℝ) * ((v134 * (0 : ℝ)) - ((0 : ℝ) * v139)))) + (v122 * v139)) + v417) + (v127 * v142)) = (v798 - ((v135 - v117) * (0 : ℝ)))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((0 : ℝ) < W) → (((0 : ℝ) < rcm) → (v243 → (((0 : ℝ) ≤ v133) ↔ ((0 : ℝ) ≤ v33))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (((v120 - v716) + (0 : ℝ)) = (0 : ℝ)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ ((((10 : ℝ) ^ 6) ≤ L10) → (((100 : ℝ) * ((20 : ℝ) * (365.25 : ℝ))) < L10)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))] := rfl
 
+theorem oilStep_ccc : oilStep = fun (α : ℝ) (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Upipe : ℝ) (UAx : ℝ) (Coil : ℝ) (ToilMax : ℝ) (Pin : ℝ) (Toil : ℝ) (Twall : ℝ) (Ta : ℝ) (dt : ℝ) =>
+    let v22 := (Toil - Ta)
+    (min ToilMax (Toil + ((dt * ((((α * Pin) - ((((ε * (0.0000000567 : ℝ)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v22))) - (Upipe * v22)) - (max (0 : ℝ) (UAx * (Toil - Twall))))) / Coil))) := rfl
+
 theorem pointVel_ccc : pointVel = fun (t : TandoorHashemi.Screw) (p : Fin 3 → ℝ) =>
     ![((((t 1) * (p 2)) - ((t 2) * (p 1))) + (t 3)), ((((t 2) * (p 0)) - ((t 0) * (p 2))) + (t 4)), ((((t 0) * (p 1)) - ((t 1) * (p 0))) + (t 5))] := rfl
 
@@ -660,6 +694,9 @@ theorem prop_brace_stiffens_ccc : prop_brace_stiffens =
 
 theorem prop_cable_drop_small_ccc : prop_cable_drop_small = fun (L : ℝ) (I : ℝ) =>
     ((L ≤ (4 : ℝ)) → (((0 : ℝ) ≤ I) → ((I ≤ (1 : ℝ)) → (((((0.0000000172 : ℝ) * ((2 : ℝ) * L)) * I) / (0.0000015 : ℝ)) < (0.1 : ℝ))))) := rfl
+
+theorem prop_captureS_slope_ccc : prop_captureS_slope = fun (rc : ℝ) (r1 : ℝ) (r2 : ℝ) =>
+    (|((Real.sigmoid ((rc - r1) / (0.005 : ℝ))) - (Real.sigmoid ((rc - r2) / (0.005 : ℝ))))| ≤ (|(r1 - r2)| / ((4 : ℝ) * (0.005 : ℝ)))) := rfl
 
 theorem prop_clearance_hashemi_ccc : prop_clearance_hashemi = fun (holeDown : ℝ) =>
     let v10 := (((1.30 : ℝ) - holeDown) - (Real.sqrt ((5 : ℝ) - ((2 : ℝ) * (Real.sqrt (3.36 : ℝ))))))
@@ -1250,6 +1287,22 @@ theorem prop_ym_is_standStation_ccc : prop_ym_is_standStation =
 theorem pulleyAt_ccc : pulleyAt = fun (ym : ℝ) (hp : ℝ) =>
     ((-ym), hp) := rfl
 
+theorem qAbs_ccc : qAbs = fun (α : ℝ) (Pin : ℝ) =>
+    (α * Pin) := rfl
+
+theorem qCoilLoss_ccc : qCoilLoss = fun (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Toil : ℝ) (Ta : ℝ) =>
+    ((((ε * (0.0000000567 : ℝ)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * (Toil - Ta))) := rfl
+
+theorem qNet_ccc : qNet = fun (α : ℝ) (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Upipe : ℝ) (UAx : ℝ) (Pin : ℝ) (Toil : ℝ) (Twall : ℝ) (Ta : ℝ) =>
+    let v19 := (Toil - Ta)
+    ((((α * Pin) - ((((ε * (0.0000000567 : ℝ)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v19))) - (Upipe * v19)) - (max (0 : ℝ) (UAx * (Toil - Twall)))) := rfl
+
+theorem qPipe_ccc : qPipe = fun (Upipe : ℝ) (Toil : ℝ) (Ta : ℝ) =>
+    (Upipe * (Toil - Ta)) := rfl
+
+theorem qPot_ccc : qPot = fun (UAx : ℝ) (Toil : ℝ) (Twall : ℝ) =>
+    (max (0 : ℝ) (UAx * (Toil - Twall))) := rfl
+
 theorem recip_ccc : recip = fun (t : TandoorHashemi.Screw) (w : TandoorHashemi.Screw) =>
     (((((((t 0) * (w 3)) + ((t 1) * (w 4))) + ((t 2) * (w 5))) + ((t 3) * (w 0))) + ((t 4) * (w 1))) + ((t 5) * (w 2))) := rfl
 
@@ -1324,6 +1377,9 @@ theorem setLength_ccc : setLength = fun (rod : ℝ) (excess : ℝ) =>
 theorem sideGap_ccc : sideGap =
     (((1.84 : ℝ) - ((2 : ℝ) * (0.8 : ℝ))) / (2 : ℝ)) := rfl
 
+theorem sigmaSB_ccc : sigmaSB =
+    (0.0000000567 : ℝ) := rfl
+
 theorem slackSpot_ccc : slackSpot = fun (f : ℝ) (δ : ℝ) (rw : ℝ) =>
     ((((2 : ℝ) * f) * δ) / rw) := rfl
 
@@ -1353,6 +1409,9 @@ theorem sphereHit_ccc : sphereHit = fun (R : ℝ) (O : Fin 3 → ℝ) (d : Fin 3
     let v24 := ((-v12) + (Real.sqrt ((v12 ^ 2) - (((((O 0) ^ 2) + ((O 1) ^ 2)) + (v7 ^ 2)) - (R ^ 2)))))
     (![((O 0) + (v24 * (d 0))), ((O 1) + (v24 * (d 1))), ((O 2) + (v24 * (d 2)))], ![((-((O 0) + (v24 * (d 0)))) / R), ((-((O 1) + (v24 * (d 1)))) / R), ((R - ((O 2) + (v24 * (d 2)))) / R)]) := rfl
 
+theorem spotTau_ccc : spotTau =
+    (0.005 : ℝ) := rfl
+
 -- step: round trip by the twins (the 24-fold bisection is beyond rfl's budget)
 
 theorem stepParams_ccc : stepParams =
@@ -1380,6 +1439,9 @@ theorem sunInDish_ccc : sunInDish = fun (az : ℝ) (t : ℝ) (elSun : ℝ) (azSu
     let v26 := (v22 * (Real.sin azSun))
     let v27 := (Real.sin elSun)
     ![(((((v11 * v9) - (v12 * v8)) * v24) + (((v12 * v6) - (v10 * v9)) * v26)) + (((v10 * v8) - (v11 * v6)) * v27)), (((v10 * v24) + (v11 * v26)) + (v12 * v27)), (((v6 * v24) + (v8 * v26)) + (v9 * v27))] := rfl
+
+theorem sunReachableS_ccc : sunReachableS = fun (tDead : ℝ) (elSun : ℝ) =>
+    (Real.sigmoid ((elSun - ((Real.pi / (2 : ℝ)) - tDead)) / (0.01 : ℝ))) := rfl
 
 theorem swingFocus_ccc : swingFocus = fun (P : ℝ × ℝ) (d : ℝ) (f : ℝ) (t : ℝ) =>
     let v5 := (Real.sin t)

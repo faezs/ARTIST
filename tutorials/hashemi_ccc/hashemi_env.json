@@ -1,0 +1,7 @@
+{
+"kernel": "hashemi_env", "c": "hk_hashemiEnv",
+"columns": ["az_next", "t_next", "slack_next", "wire_len", "t_dead", "stalled", "taut", "wire_holds", "arm", "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun", "sun_reachable_s", "lost_sun_s", "capture", "capture_s", "per_dni", "p_in", "T_oil", "q_abs", "q_coil_loss", "q_pipe", "q_pot", "q_net"],
+"inputs": ["az", "t", "slack", "omegam", "omegad", "dt", "elSun", "azSun", "dni", "rDrum", "W", "rcm", "Tmax", "rho", "Fdrive", "L10", "rodLen", "R", "f", "a", "w", "rc", "k", "sigmaslope", "sigmaspec", "hsun", "soil", "alpha", "eps", "Ac", "hC", "Upipe", "UAx", "Coil", "ToilMax", "Toil", "Twall", "Ta"],
+"arrays": [{"name": "dr", "P": 64, "m": 10}],
+"n_columns": 27, "rays": 64, "n_nodes": 1630, "ray_nodes": 169, "sums": 2
+}

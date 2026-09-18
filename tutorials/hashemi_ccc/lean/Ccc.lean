@@ -38,6 +38,8 @@ inductive Node where
   | pow (a : Nat) (n : Nat)       -- a literal natural exponent, kept for the Lean round trip
   | ite (c a b : Nat)
   | iteC (c a b : Nat)            -- an `if` whose Decidable instance is `Classical.propDecidable` (an opaque Prop)
+  | rayIn (base : String) (k : Nat)  -- the current ray's k-th entry of the ray table `base` (ray-level)
+  | sum (P : Nat) (a : Nat)       -- the sum of node `a` over the P rays (the reduction; agent-level)
   deriving BEq, Hashable, Repr, Inhabited
 
 structure Graph where
@@ -62,6 +64,16 @@ partial def Graph.isBool (g : Graph) (i : Nat) : Bool :=
   | .iteC _ a _ => g.isBool a
   | _ => false
 
+/-- the operands of a node -/
+def Node.deps : Node → Array Nat
+  | .un _ a => #[a]
+  | .bin _ a b => #[a, b]
+  | .pow a _ => #[a]
+  | .ite c a b => #[c, a, b]
+  | .iteC c a b => #[c, a, b]
+  | .sum _ a => #[a]
+  | _ => #[]
+
 /-- a value with shape: reals, booleans, pairs, vectors, structures -/
 inductive Val where
   | s (id : Nat)
@@ -69,11 +81,13 @@ inductive Val where
   | pair (a b : Val)
   | vec (xs : Array Val)
   | struct (name : Name) (fields : Array (Name × Val))
+  | rayIdx                        -- the bound index of a `∑ i : Fin P` while its body is translated
   deriving Repr, Inhabited
 
 partial def Val.flatten : Val → Array Nat
   | Val.s i => #[i]
   | Val.b i => #[i]
+  | .rayIdx => #[]
   | .pair x y => x.flatten ++ y.flatten
   | .vec xs => xs.foldl (fun acc v => acc ++ v.flatten) #[]
   | .struct _ fs => fs.foldl (fun acc (_, v) => acc ++ v.flatten) #[]
@@ -81,6 +95,7 @@ partial def Val.flatten : Val → Array Nat
 partial def Val.shape : Val → String
   | Val.s _ => "real"
   | Val.b _ => "bool"
+  | .rayIdx => "ray index"
   | .pair x y => s!"({x.shape}, {y.shape})"
   | .vec xs => s!"vec{xs.size}[{if h : 0 < xs.size then (xs[0]'h).shape else "?"}]"
   | .struct n _ => s!"{n}"
@@ -90,8 +105,16 @@ partial def Val.shape : Val → String
 structure TState where
   g : Graph := {}
   env : Std.HashMap FVarId Val := {}
-  inputs : Array (String × Nat) := #[]      -- flattened inputs, in binder order
+  inputs : Array (String × Nat) := #[]      -- flattened scalar inputs, in binder order
   binders : Array (String × String) := #[]  -- (binder name, pretty type) for the Lean printers
+  /-- ray tables: a binder `Fin P → Fin m → ℝ` (or `Fin P → ℝ`, P ≥ 16) is one buffer, (base, P, m) -/
+  arrays : Array (String × Nat × Nat) := #[]
+  /-- a ray table's entry read at a literal index: input node ↦ (base, j, k) -/
+  arrayScalar : Std.HashMap Nat (String × Nat × Nat) := {}
+  /-- the first flattened node of each ray table ↦ (base, P, m), to recognise a symbolic index -/
+  vecBase : Std.HashMap Nat (String × Nat × Nat) := {}
+  /-- inside a `∑ i : Fin P`: the P -/
+  inSum : Option Nat := none
 
 abbrev TM := StateT TState MetaM
 
@@ -180,6 +203,7 @@ partial def constVal (z : Nat) : Val → TM Val
   | .pair a b => do pure (.pair (← constVal z a) (← constVal z b))
   | .vec xs => do pure (.vec (← xs.mapM (constVal z)))
   | .struct n fs => do pure (.struct n (← fs.mapM fun (f, v) => do pure (f, ← constVal z v)))
+  | .rayIdx => throwError "a ray index where a value was expected"
 
 /-- an elementwise binary operation over two values of the same shape -/
 partial def zipVal (op : String) : Val → Val → TM Val
@@ -324,9 +348,25 @@ partial def applyArgs (v : Val) (args : Array Expr) : TM Val := do
   for a in args do
     match v with
     | .vec xs =>
-      let some j := natLit? a | throwError "a vector indexed by a non-literal {a}"
-      unless j < xs.size do throwError "index {j} out of range {xs.size}"
-      v := xs[j]!
+      match natLit? a with
+      | some j =>
+        unless j < xs.size do throwError "index {j} out of range {xs.size}"
+        v := xs[j]!
+      | none =>
+        -- the index of a `∑ i : Fin P` on a ray table: the current ray's row
+        let iv ← translate `_ a
+        match iv with
+        | .rayIdx =>
+          let st ← get
+          let some (base, P, m) := (do let x0 ← xs[0]?; let f0 ← x0.flatten[0]?; st.vecBase[f0]?)
+            | throwError "a symbolic index into a vector that is not a ray table"
+          unless st.inSum == some P do throwError "the ray index of a ∑ over {st.inSum} on a table of {P} rays"
+          if m == 0 then v := .s (← emit (.rayIn base 0))
+          else
+            let mut ys := #[]
+            for k in [0:m] do ys := ys.push (.s (← emit (.rayIn base k)))
+            v := .vec ys
+        | w => throwError "a vector indexed by a {w.shape}"
     | w => throwError "applying a {w.shape} to an argument"
   pure v
 
@@ -376,6 +416,27 @@ partial def translateApp (root : Name) (e : Expr) : TM Val := do
       let some m := natLit? args[5]! | throwError "a power with a non-literal exponent"
       let x ← scalar (← translate root args[4]!)
       .s <$> emit (.pow x m)
+    | `Finset.sum, 5 => do
+      -- `∑ i : Fin P, body i`: the body once, against the ray index; the reduction as one node
+      let some P := (if args[0]!.getAppFn.isConstOf ``Fin then natLit? args[0]!.getAppArgs[0]! else none)
+        | throwError "a ∑ over {args[0]!} cannot be compiled (only Fin P with a literal P)"
+      unless args[3]!.getAppFn.isConstOf `Finset.univ do throwError "a ∑ over a finset that is not univ"
+      let st0 ← get
+      if st0.inSum.isSome then throwError "a ∑ inside a ∑: one reduction layer"
+      let (r, st') ← withLocalDeclD `i args[0]! fun i => do
+        (translate root (mkApp args[4]! i).headBeta).run
+          { st0 with env := st0.env.insert i.fvarId! .rayIdx, inSum := some P }
+      set { st' with inSum := none }
+      match r with
+      | .s a => .s <$> emit (.sum P a)
+      | .vec xs =>
+        let mut ys := #[]
+        for x in xs do
+          match x with
+          | .s a => ys := ys.push (.s (← emit (.sum P a)))
+          | w => throwError "a ∑ of a {w.shape}"
+        pure (.vec ys)
+      | w => throwError "a ∑ of a {w.shape}"
     | `Real.sqrt, 1 => unop root "sqrt" args[0]!
     | `Real.sin, 1 => unop root "sin" args[0]!
     | `Real.cos, 1 => unop root "cos" args[0]!
@@ -517,6 +578,34 @@ partial def bindInput (root : Name) (name lean : String) (t : Expr) : TM Val := 
   if let .forallE _ dom cod _ := t then
     if dom.getAppFn.isConstOf ``Fin then
       if let some n := natLit? dom.getAppArgs[0]! then
+        -- a ray table: `Fin P → Fin m → ℝ`, or `Fin P → ℝ` with P ≥ 16 - one buffer, read at a
+        -- literal index or at the index of a `∑ i : Fin P` (a ray-level read)
+        let cod' ← whnfR cod
+        let m? : Option Nat := if isRealTy cod' then (if n ≥ 16 then some 0 else none) else
+          match cod' with
+          | .forallE _ d2 c2 _ =>
+            if d2.getAppFn.isConstOf ``Fin && isRealTy c2 then natLit? d2.getAppArgs[0]! else none
+          | _ => none
+        if let some m := m? then
+          let mut xs := #[]
+          let mut first : Option Nat := none
+          for j in [0:n] do
+            if m == 0 then
+              let i ← emit (.input s!"{name}_{j}" s!"({lean} {j})")
+              modify fun st => { st with arrayScalar := st.arrayScalar.insert i (name, j, 0) }
+              if first.isNone then first := some i
+              xs := xs.push (.s i)
+            else
+              let mut ys := #[]
+              for k in [0:m] do
+                let i ← emit (.input s!"{name}_{j}_{k}" s!"({lean} {j} {k})")
+                modify fun st => { st with arrayScalar := st.arrayScalar.insert i (name, j, k) }
+                if first.isNone then first := some i
+                ys := ys.push (.s i)
+              xs := xs.push (.vec ys)
+          modify fun st => { st with arrays := st.arrays.push (name, n, m),
+                                     vecBase := st.vecBase.insert first.get! (name, n, m) }
+          return .vec xs
         let mut xs := #[]
         for j in [0:n] do
           xs := xs.push (← bindInput root (name ++ "_" ++ toString j) s!"({lean} {j})" cod)
@@ -548,6 +637,10 @@ structure Fun where
   thmArgs : Array String := #[]
   /-- how many hypotheses the theorem has -/
   nHyps : Nat := 0
+  /-- ray tables (base, P, m) -/
+  arrays : Array (String × Nat × Nat) := #[]
+  /-- a ray table's entry at a literal index: input node ↦ (base, j, k) -/
+  arrayScalar : Std.HashMap Nat (String × Nat × Nat) := {}
 
 /-- bind a data binder (a lambda's or a ∀'s) as inputs, recording it for the printers -/
 def bindBinder (root : Name) (x : Expr) (k : Nat) : TM String := do
@@ -604,7 +697,8 @@ def compileDef (root : Name) (n : Name) : MetaM (Except String Fun) := do
         act.run {}
       let (v, order, nh) := out
       pure (Except.ok { name := n, inputs := st.inputs, binders := st.binders, output := v,
-                        graph := st.g, isProp := true, isTheorem := true, thmArgs := order, nHyps := nh })
+                        graph := st.g, isProp := true, isTheorem := true, thmArgs := order, nHyps := nh,
+                        arrays := st.arrays, arrayScalar := st.arrayScalar })
     | .defnInfo d =>
       let v ← instantiateMVars d.value
       let ty ← instantiateMVars d.type
@@ -616,7 +710,7 @@ def compileDef (root : Name) (n : Name) : MetaM (Except String Fun) := do
           translate root body
         act.run {}
       pure (Except.ok { name := n, inputs := st.inputs, binders := st.binders, output := out,
-                        graph := st.g, isProp := isP })
+                        graph := st.g, isProp := isP, arrays := st.arrays, arrayScalar := st.arrayScalar })
     | _ => pure (Except.error "not a definition or theorem")
   catch ex =>
     pure (Except.error (← ex.toMessageData.toString))
@@ -633,63 +727,285 @@ def liveNodes (g : Graph) (outs : Array Nat) : Std.HashSet Nat := Id.run do
   for k in [0:n] do
     let i := n - 1 - k
     if !live.contains i then continue
-    match g.nodes[i]! with
-    | .un _ a => live := live.insert a
-    | .bin _ a b => live := live.insert a |>.insert b
-    | .pow a _ => live := live.insert a
-    | .ite c a b => live := live.insert c |>.insert a |>.insert b
-    | .iteC c a b => live := live.insert c |>.insert a |>.insert b
-    | _ => pure ()
+    for d in g.nodes[i]!.deps do live := live.insert d
   return live
 
-/-- C99, target-neutral: `hk_real`, `HK_LIT`, `hk_sqrt` ... are macros the includer sets -/
+/-! ## The reduction layer
+
+A graph with `∑ i : Fin P` has three layers: the nodes before the reduction (agent-level), the
+ray-level nodes (those reading a ray table's row - one thread per ray in the megakernel, a loop
+in C), and the nodes after a sum. The rays are the tensor power of one morphism; the sum is the
+monoidal reduction; everything else is composition. -/
+
+structure Layers where
+  ray : Array Bool
+  post : Array Bool
+  sums : Array Nat
+  P : Nat
+  err : String
+
+def layers (g : Graph) : Layers := Id.run do
+  let n := g.nodes.size
+  let mut ray := Array.replicate n false
+  let mut post := Array.replicate n false
+  let mut sums : Array Nat := #[]
+  let mut P := 0
+  let mut err := ""
+  for i in [0:n] do
+    match g.nodes[i]! with
+    | .rayIn .. => ray := ray.set! i true
+    | .sum p _ =>
+      sums := sums.push i
+      if P != 0 && P != p then err := "sums over different ray counts"
+      P := p
+      post := post.set! i true
+    | node =>
+      let r := node.deps.any (ray[·]!)
+      let q := node.deps.any (post[·]!)
+      if r && q then err := "a ray-level node depends on a reduction (one layer only)"
+      ray := ray.set! i r
+      post := post.set! i q
+  return { ray, post, sums, P, err }
+
+/-- the width of a ray table -/
+def Fun.tableM (f : Fun) (base : String) : Nat :=
+  match f.arrays.find? (·.1 == base) with
+  | some (_, _, m) => m
+  | none => 0
+
+/-- a ray table read: at a literal row `j` or at the ray index `ridx` -/
+def Fun.tableRead (f : Fun) (base : String) (row : String) (k : Nat) : String :=
+  let m := f.tableM base
+  if m == 0 then s!"{base}[{row}]" else s!"{base}[({row}) * {m} + {k}]"
+
+/-- the C right-hand side of a node. Scalar inputs are given by `inputRef`; ray reads use the
+row `ridx`; a `sum` is handled by the phases and has none -/
+def cRhs (f : Fun) (inputRef : Nat → String) (ridx : String) (i : Nat) : Option String :=
+  let g := f.graph
+  let t := fun (j : Nat) => s!"t{j}"
+  match g.nodes[i]! with
+  | .input _ _ =>
+    match f.arrayScalar[i]? with
+    | some (b, j, k) => some (f.tableRead b (toString j) k)
+    | none => some (inputRef i)
+  | .rayIn b k => some (f.tableRead b ridx k)
+  | .sum .. => none
+  | .lit s => some s!"HK_LIT({s})"
+  | .bconst b => some (if b then "true" else "false")
+  | .pi => some "HK_PI"
+  | .un op a =>
+    let av := t a
+    some (match op with
+      | "neg" => s!"(-{av})" | "not" => s!"(!{av})" | "sqrt" => s!"hk_sqrt({av})"
+      | "sin" => s!"hk_sin({av})" | "cos" => s!"hk_cos({av})" | "tan" => s!"hk_tan({av})"
+      | "arctan" => s!"hk_atan({av})" | "arccos" => s!"hk_acos({av})" | "arcsin" => s!"hk_asin({av})"
+      | "exp" => s!"hk_exp({av})" | "log" => s!"hk_log({av})"
+      | "abs" => s!"hk_fabs({av})" | "floor" => s!"hk_floor({av})" | "sigmoid" => s!"hk_sigmoid({av})"
+      | o => s!"/* ? {o} */ {av}")
+  | .bin op a b =>
+    some (match op with
+      | "min" => s!"hk_min({t a}, {t b})" | "max" => s!"hk_max({t a}, {t b})"
+      | "==" => if g.isBool a then s!"({t a} == {t b})" else s!"hk_eq({t a}, {t b})"
+      | "!=" => if g.isBool a then s!"({t a} != {t b})" else s!"(!hk_eq({t a}, {t b}))"
+      | "->" => s!"(!{t a} || {t b})"
+      | o => s!"({t a} {o} {t b})")
+  | .pow a n => some (if n == 0 then "HK_LIT(1)" else " * ".intercalate (List.replicate n (t a)))
+  | .ite c a b => some s!"({t c} ? {t a} : {t b})"
+  | .iteC c a b => some s!"({t c} ? {t a} : {t b})"
+
+/-- the tangent of a real node (`d{j}` for operands, `HK_LIT(0)` for booleans and ray reads);
+`dxRef` names a scalar input's tangent -/
+def cDRhs (f : Fun) (dxRef : Nat → String) (i : Nat) : Option String :=
+  let g := f.graph
+  if g.isBool i then none else
+  let t := fun (j : Nat) => s!"t{j}"
+  let d := fun (j : Nat) => if g.isBool j then "HK_LIT(0)" else s!"d{j}"
+  match g.nodes[i]! with
+  | .input _ _ => some (if f.arrayScalar.contains i then "HK_LIT(0)" else dxRef i)
+  | .rayIn .. => some "HK_LIT(0)"
+  | .sum .. => none
+  | .lit _ => some "HK_LIT(0)"
+  | .pi => some "HK_LIT(0)"
+  | .bconst _ => none
+  | .un op a =>
+    let av := t a
+    let da := d a
+    some (match op with
+      | "neg" => s!"(-{da})"
+      | "sqrt" => s!"({da} / (HK_LIT(2) * {t i}))"
+      | "sin" => s!"(hk_cos({av}) * {da})"
+      | "cos" => s!"(-hk_sin({av}) * {da})"
+      | "tan" => s!"({da} * (HK_LIT(1) + {t i} * {t i}))"
+      | "arctan" => s!"({da} / (HK_LIT(1) + {av} * {av}))"
+      | "arccos" => s!"(-{da} / hk_sqrt(HK_LIT(1) - {av} * {av}))"
+      | "arcsin" => s!"({da} / hk_sqrt(HK_LIT(1) - {av} * {av}))"
+      | "exp" => s!"({t i} * {da})"
+      | "log" => s!"({da} / {av})"
+      | "abs" => s!"({av} < HK_LIT(0) ? -{da} : {da})"
+      | "floor" => "HK_LIT(0)"
+      | "sigmoid" => s!"({t i} * (HK_LIT(1) - {t i}) * {da})"
+      | _ => "HK_LIT(0)")
+  | .bin op a b =>
+    some (match op with
+      | "+" => s!"({d a} + {d b})"
+      | "-" => s!"({d a} - {d b})"
+      | "*" => s!"({d a} * {t b} + {t a} * {d b})"
+      | "/" => s!"(({d a} * {t b} - {t a} * {d b}) / ({t b} * {t b}))"
+      | "min" => s!"({t a} <= {t b} ? {d a} : {d b})"
+      | "max" => s!"({t a} >= {t b} ? {d a} : {d b})"
+      | _ => "HK_LIT(0)")
+  | .pow a n =>
+    some (if n == 0 then "HK_LIT(0)" else if n == 1 then d a
+          else s!"(HK_LIT({n}) * {" * ".intercalate (List.replicate (n - 1) (t a))} * {d a})")
+  | .ite c a b => some s!"({t c} ? {d a} : {d b})"
+  | .iteC c a b => some s!"({t c} ? {d a} : {d b})"
+
+/-- the box statement of a node (`lo{j}, hi{j}, L{j}` for operands); `boxRef` gives a scalar
+input's `(lo, hi, sc)` reads; a ray read is a point with no scale -/
+def cBoxStmt (f : Fun) (boxRef : Nat → String × String × String) (ridx : String) (i : Nat) : Option String :=
+  let g := f.graph
+  let tri := fun (j : Nat) => s!"lo{j}, hi{j}"
+  let tr := fun (j : Nat) => s!"lo{j}, hi{j}, L{j}"
+  let outp := fun (j : Nat) => s!"&lo{j}, &hi{j}, &L{j}"
+  let outb := fun (j : Nat) => s!"&lo{j}, &hi{j}"
+  match g.nodes[i]! with
+  | .input _ _ =>
+    match f.arrayScalar[i]? with
+    | some (b, j, k) => let v := f.tableRead b (toString j) k; some s!"lo{i} = {v}; hi{i} = {v}; L{i} = HK_LIT(0);"
+    | none => let (lo, hi, sc) := boxRef i; some s!"lo{i} = {lo}; hi{i} = {hi}; L{i} = {sc};"
+  | .rayIn b k => let v := f.tableRead b ridx k; some s!"lo{i} = {v}; hi{i} = {v}; L{i} = HK_LIT(0);"
+  | .sum .. => none
+  | .lit s => some s!"lo{i} = HK_LIT({s}); hi{i} = HK_LIT({s}); L{i} = HK_LIT(0);"
+  | .bconst b => let v := if b then "1" else "0"; some s!"lo{i} = HK_LIT({v}); hi{i} = HK_LIT({v}); L{i} = HK_LIT(0);"
+  | .pi => some s!"lo{i} = HK_PI; hi{i} = HK_PI; L{i} = HK_LIT(0);"
+  | .un op a =>
+    some (match op with
+    | "neg" => s!"hk_bx_neg({tr a}, {outp i});"
+    | "not" => s!"hk_bx_not({tri a}, {outb i}); L{i} = HK_LIT(0);"
+    | "sqrt" => s!"hk_bx_sqrt({tr a}, {outp i});"
+    | "sin" => s!"hk_bx_trig(1, {tr a}, {outp i});"
+    | "cos" => s!"hk_bx_trig(0, {tr a}, {outp i});"
+    | "tan" => s!"hk_bx_tan({tr a}, {outp i});"
+    | "arctan" => s!"hk_bx_atan({tr a}, {outp i});"
+    | "arccos" => s!"hk_bx_acos({tr a}, {outp i});"
+    | "arcsin" => s!"hk_bx_asin({tr a}, {outp i});"
+    | "exp" => s!"hk_bx_exp({tr a}, {outp i});"
+    | "log" => s!"hk_bx_log({tr a}, {outp i});"
+    | "abs" => s!"hk_bx_abs({tr a}, {outp i});"
+    | "floor" => s!"hk_bx_floor({tr a}, {outp i});"
+    | "sigmoid" => s!"hk_bx_sigmoid({tr a}, {outp i});"
+    | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF; L{i} = HK_INF;")
+  | .bin op a b =>
+    some (match op with
+    | "+" => s!"hk_bx_add({tr a}, {tr b}, {outp i});"
+    | "-" => s!"hk_bx_sub({tr a}, {tr b}, {outp i});"
+    | "*" => s!"hk_bx_mul({tr a}, {tr b}, {outp i});"
+    | "/" => s!"hk_bx_div({tr a}, {tr b}, {outp i});"
+    | "min" => s!"hk_bx_min({tr a}, {tr b}, {outp i});"
+    | "max" => s!"hk_bx_max({tr a}, {tr b}, {outp i});"
+    | "<" => s!"hk_bx_lt({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+    | "<=" => s!"hk_bx_le({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+    | ">" => s!"hk_bx_lt({tri b}, {tri a}, {outb i}); L{i} = HK_LIT(0);"
+    | ">=" => s!"hk_bx_le({tri b}, {tri a}, {outb i}); L{i} = HK_LIT(0);"
+    | "==" => s!"hk_bx_eq({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+    | "!=" => s!"\{ hk_real e0, e1; hk_bx_eq({tri a}, {tri b}, &e0, &e1); hk_bx_not(e0, e1, {outb i}); } L{i} = HK_LIT(0);"
+    | "&&" => s!"hk_bx_and({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+    | "||" => s!"hk_bx_or({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
+    | "->" => s!"\{ hk_real n0, n1; hk_bx_not({tri a}, &n0, &n1); hk_bx_or(n0, n1, {tri b}, {outb i}); } L{i} = HK_LIT(0);"
+    | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF; L{i} = HK_INF;")
+  | .pow a n => some s!"hk_bx_pow({tr a}, {n}, {outp i});"
+  | .ite c a b => some s!"hk_bx_ite({tri c}, {tr a}, {tr b}, {outp i});"
+  | .iteC c a b => some s!"hk_bx_ite({tri c}, {tr a}, {tr b}, {outp i});"
+
+/-- what a C printer emits per node: the declaration (value, or value and tangent, or the box
+triple) as lines -/
+inductive CKind | value | jvp | box
+
+/-- the lines for one node under a kind -/
+def cNodeLines (f : Fun) (kind : CKind) (inputRef dxRef : Nat → String)
+    (boxRef : Nat → String × String × String) (ridx : String) (i : Nat) : Array String :=
+  let g := f.graph
+  let ty := if g.isBool i then "bool" else "hk_real"
+  match kind with
+  | .value => match cRhs f inputRef ridx i with
+    | some r => #[s!"const {ty} t{i} = {r};"]
+    | none => #[]
+  | .jvp =>
+    let v := match cRhs f inputRef ridx i with
+      | some r => #[s!"const {ty} t{i} = {r};"]
+      | none => #[]
+    match cDRhs f dxRef i with
+    | some r => v.push s!"const hk_real d{i} = {r};"
+    | none => v
+  | .box => match cBoxStmt f boxRef ridx i with
+    | some st => #[s!"hk_real lo{i}, hi{i}, L{i};", st]
+    | none => #[]
+
+/-- the body in phases, loop form: before the reduction; the loop over the rays accumulating
+each sum (its value, tangent, or box); after it. Returns the lines or the layering error -/
+def cBodyLoop (f : Fun) (kind : CKind) (inputRef dxRef : Nat → String)
+    (boxRef : Nat → String × String × String) : Except String (Array String) := Id.run do
+  let g := f.graph
+  let L := layers g
+  if !L.err.isEmpty then return .error L.err
+  let live := liveNodes g f.output.flatten
+  let sums := L.sums.filter live.contains          -- a sum the outputs do not need is not accumulated
+  let mut lines : Array String := #[]
+  let node := fun (i : Nat) (ind : String) =>
+    (cNodeLines f kind inputRef dxRef boxRef "hk_i" i).map (ind ++ ·)
+  for i in [0:g.nodes.size] do
+    if live.contains i && !L.ray[i]! && !L.post[i]! then lines := lines ++ node i "  "
+  if !sums.isEmpty then
+    for s in sums do
+      match kind with
+      | .value => lines := lines.push s!"  hk_real acc{s} = HK_LIT(0);"
+      | .jvp => lines := lines.push s!"  hk_real acc{s} = HK_LIT(0); hk_real dacc{s} = HK_LIT(0);"
+      | .box => lines := lines.push s!"  hk_real acclo{s} = HK_LIT(0), acchi{s} = HK_LIT(0), accL{s} = HK_LIT(0);"
+    lines := lines.push s!"  for (int hk_i = 0; hk_i < {L.P}; ++hk_i) \{"
+    for i in [0:g.nodes.size] do
+      if live.contains i && L.ray[i]! then lines := lines ++ node i "    "
+    for s in sums do
+      match g.nodes[s]! with
+      | .sum _ a =>
+        match kind with
+        | .value => lines := lines.push s!"    acc{s} += t{a};"
+        | .jvp => lines := lines.push s!"    acc{s} += t{a}; dacc{s} += {if g.isBool a then "HK_LIT(0)" else s!"d{a}"};"
+        | .box => lines := lines.push s!"    acclo{s} += lo{a}; acchi{s} += hi{a}; accL{s} = hk_bx_cap(accL{s} + L{a});"
+      | _ => pure ()
+    lines := lines.push "  }"
+  for i in [0:g.nodes.size] do
+    if live.contains i && L.post[i]! then
+      match g.nodes[i]! with
+      | .sum _ _ =>
+        match kind with
+        | .value => lines := lines.push s!"  const hk_real t{i} = acc{i};"
+        | .jvp => lines := lines.push s!"  const hk_real t{i} = acc{i}; const hk_real d{i} = dacc{i};"
+        | .box => lines := lines.push s!"  hk_real lo{i} = acclo{i}, hi{i} = acchi{i}, L{i} = accL{i};"
+      | _ => lines := lines ++ node i "  "
+  return .ok lines
+
+/-- the scalar parameters of a C function, then its ray tables -/
+def cParams (f : Fun) : Array String :=
+  let g := f.graph
+  (f.inputs.map fun (nm, i) => (if g.isBool i then "bool " else "hk_real ") ++ nm)
+    ++ (f.arrays.map fun (b, _, _) => s!"const hk_real HK_RADDR* {b}")
+
+/-- C99, target-neutral: `hk_real`, `HK_LIT`, `hk_sqrt` ... are macros the includer sets; a ray
+table is a pointer parameter (`HK_RADDR`: `device` in Metal, nothing in C) -/
 def printC (f : Fun) : String := Id.run do
   let g := f.graph
-  let mut lines : Array String := #[]
   let outs := f.output.flatten
   let retTy := match f.output with
     | Val.s _ => "hk_real" | Val.b _ => "bool" | _ => "void"
-  let params := f.inputs.map fun (nm, i) => (if g.isBool i then "bool " else "hk_real ") ++ nm
+  let params := cParams f
   let params := if retTy == "void" then params.push "hk_real HK_ADDR* out" else params
   let paramStr := if params.isEmpty then "void" else ", ".intercalate params.toList
-  lines := lines.push s!"HK_STATIC {retTy} {cName f.name}({paramStr}) \{"
-  let live := liveNodes g outs
-  let mut usedInput : Std.HashSet Nat := {}
-  for i in [0:g.nodes.size] do
-    if !live.contains i then continue
-    let node := g.nodes[i]!
-    let ty := if g.isBool i then "bool" else "hk_real"
-    let rhs : Option String := match node with
-      | .input _ _ => none
-      | .lit s => some s!"HK_LIT({s})"
-      | .bconst b => some (if b then "true" else "false")
-      | .pi => some "HK_PI"
-      | .un op a =>
-        let av := s!"t{a}"
-        some (match op with
-          | "neg" => s!"(-{av})" | "not" => s!"(!{av})" | "sqrt" => s!"hk_sqrt({av})"
-          | "sin" => s!"hk_sin({av})" | "cos" => s!"hk_cos({av})" | "tan" => s!"hk_tan({av})"
-          | "arctan" => s!"hk_atan({av})" | "arccos" => s!"hk_acos({av})" | "arcsin" => s!"hk_asin({av})"
-          | "exp" => s!"hk_exp({av})" | "log" => s!"hk_log({av})"
-          | "abs" => s!"hk_fabs({av})" | "floor" => s!"hk_floor({av})" | "sigmoid" => s!"hk_sigmoid({av})"
-          | o => s!"/* ? {o} */ {av}")
-      | .bin op a b =>
-        some (match op with
-          | "min" => s!"hk_min(t{a}, t{b})" | "max" => s!"hk_max(t{a}, t{b})"
-          | "==" => if g.isBool a then s!"(t{a} == t{b})" else s!"hk_eq(t{a}, t{b})"
-          | "!=" => if g.isBool a then s!"(t{a} != t{b})" else s!"(!hk_eq(t{a}, t{b}))"
-          | "->" => s!"(!t{a} || t{b})"
-          | o => s!"(t{a} {o} t{b})")
-      | .pow a n =>
-        some (if n == 0 then "HK_LIT(1)" else " * ".intercalate (List.replicate n s!"t{a}"))
-      | .ite c a b => some s!"(t{c} ? t{a} : t{b})"
-      | .iteC c a b => some s!"(t{c} ? t{a} : t{b})"
-    match node, rhs with
-    | .input nm _, _ =>
-      usedInput := usedInput.insert i
-      lines := lines.push s!"  const {ty} t{i} = {nm};"
-    | _, some r => lines := lines.push s!"  const {ty} t{i} = {r};"
-    | _, none => pure ()
+  let nameOf := fun (i : Nat) => ((f.inputs.find? (·.2 == i)).map (·.1)).getD "?"
+  let body := match cBodyLoop f .value nameOf (fun _ => "0") (fun _ => ("0", "0", "0")) with
+    | .ok ls => ls
+    | .error e => #[s!"#error \"{e}\""]
+  let mut lines : Array String := #[s!"HK_STATIC {retTy} {cName f.name}({paramStr}) \{"]
+  lines := lines ++ body
   match f.output with
   | Val.s i => lines := lines.push s!"  return t{i};"
   | Val.b i => lines := lines.push s!"  return t{i};"
@@ -697,99 +1013,27 @@ def printC (f : Fun) : String := Id.run do
     for k in [0:outs.size] do
       lines := lines.push s!"  out[{k}] = t{outs[k]!};"
   lines := lines.push "}"
+  let _ := g
   return "\n".intercalate lines.toList
 
 /-! ## The tangent functor: the graph's forward-mode derivative -/
 
-/-- C99: the function and its Jacobian-vector product along `dx` (one tangent per input in binder
-order; boolean inputs carry none). `out` and `dout` are the flattened outputs. The derivative of
-each node is written next to its value: the tangent functor on the graph category. -/
+/-- C99: the function and its Jacobian-vector product along `hk_dx` (one tangent per scalar input
+in binder order; booleans and ray tables carry none). The derivative of each node is written
+next to its value: the tangent functor on the graph category. -/
 def printCJvp (f : Fun) : String := Id.run do
-  let g := f.graph
   let outs := f.output.flatten
-  let mut lines : Array String := #[]
-  let params := f.inputs.map fun (nm, i) => (if g.isBool i then "bool " else "hk_real ") ++ nm
-  let params := params ++ #["const hk_real HK_ADDR* hk_dx", "hk_real HK_ADDR* hk_out", "hk_real HK_ADDR* hk_dout"]
-  lines := lines.push s!"HK_STATIC void {cName f.name}_jvp({", ".intercalate params.toList}) \{"
-  let live := liveNodes g outs
+  let g := f.graph
+  let params := cParams f ++ #["const hk_real HK_ADDR* hk_dx", "hk_real HK_ADDR* hk_out", "hk_real HK_ADDR* hk_dout"]
   let mut inIdx : Std.HashMap Nat Nat := {}
   for k in [0:f.inputs.size] do inIdx := inIdx.insert (f.inputs[k]!).2 k
-  for i in [0:g.nodes.size] do
-    if !live.contains i then continue
-    let node := g.nodes[i]!
-    let ty := if g.isBool i then "bool" else "hk_real"
-    let t := fun (j : Nat) => s!"t{j}"
-    let d := fun (j : Nat) => if g.isBool j then "HK_LIT(0)" else s!"d{j}"
-    let rhs : Option String := match node with
-      | .input _ _ => none
-      | .lit s => some s!"HK_LIT({s})"
-      | .bconst b => some (if b then "true" else "false")
-      | .pi => some "HK_PI"
-      | .un op a =>
-        let av := t a
-        some (match op with
-          | "neg" => s!"(-{av})" | "not" => s!"(!{av})" | "sqrt" => s!"hk_sqrt({av})"
-          | "sin" => s!"hk_sin({av})" | "cos" => s!"hk_cos({av})" | "tan" => s!"hk_tan({av})"
-          | "arctan" => s!"hk_atan({av})" | "arccos" => s!"hk_acos({av})" | "arcsin" => s!"hk_asin({av})"
-          | "exp" => s!"hk_exp({av})" | "log" => s!"hk_log({av})"
-          | "abs" => s!"hk_fabs({av})" | "floor" => s!"hk_floor({av})" | "sigmoid" => s!"hk_sigmoid({av})"
-          | o => s!"/* ? {o} */ {av}")
-      | .bin op a b =>
-        some (match op with
-          | "min" => s!"hk_min({t a}, {t b})" | "max" => s!"hk_max({t a}, {t b})"
-          | "==" => if g.isBool a then s!"({t a} == {t b})" else s!"hk_eq({t a}, {t b})"
-          | "!=" => if g.isBool a then s!"({t a} != {t b})" else s!"(!hk_eq({t a}, {t b}))"
-          | "->" => s!"(!{t a} || {t b})"
-          | o => s!"({t a} {o} {t b})")
-      | .pow a n => some (if n == 0 then "HK_LIT(1)" else " * ".intercalate (List.replicate n (t a)))
-      | .ite c a b => some s!"({t c} ? {t a} : {t b})"
-      | .iteC c a b => some s!"({t c} ? {t a} : {t b})"
-    -- the tangent of a real node
-    let drhs : Option String := if g.isBool i then none else match node with
-      | .input _ _ => some s!"hk_dx[{inIdx.getD i 0}]"
-      | .lit _ => some "HK_LIT(0)"
-      | .pi => some "HK_LIT(0)"
-      | .bconst _ => none
-      | .un op a =>
-        let av := t a
-        let da := d a
-        some (match op with
-          | "neg" => s!"(-{da})"
-          | "sqrt" => s!"({da} / (HK_LIT(2) * {t i}))"
-          | "sin" => s!"(hk_cos({av}) * {da})"
-          | "cos" => s!"(-hk_sin({av}) * {da})"
-          | "tan" => s!"({da} * (HK_LIT(1) + {t i} * {t i}))"
-          | "arctan" => s!"({da} / (HK_LIT(1) + {av} * {av}))"
-          | "arccos" => s!"(-{da} / hk_sqrt(HK_LIT(1) - {av} * {av}))"
-          | "arcsin" => s!"({da} / hk_sqrt(HK_LIT(1) - {av} * {av}))"
-          | "exp" => s!"({t i} * {da})"
-          | "log" => s!"({da} / {av})"
-          | "abs" => s!"({av} < HK_LIT(0) ? -{da} : {da})"
-          | "floor" => "HK_LIT(0)"
-          | "sigmoid" => s!"({t i} * (HK_LIT(1) - {t i}) * {da})"
-          | _ => "HK_LIT(0)")
-      | .bin op a b =>
-        some (match op with
-          | "+" => s!"({d a} + {d b})"
-          | "-" => s!"({d a} - {d b})"
-          | "*" => s!"({d a} * {t b} + {t a} * {d b})"
-          | "/" => s!"(({d a} * {t b} - {t a} * {d b}) / ({t b} * {t b}))"
-          | "min" => s!"({t a} <= {t b} ? {d a} : {d b})"
-          | "max" => s!"({t a} >= {t b} ? {d a} : {d b})"
-          | _ => "HK_LIT(0)")
-      | .pow a n =>
-        some (if n == 0 then "HK_LIT(0)"
-              else if n == 1 then d a
-              else s!"(HK_LIT({n}) * {" * ".intercalate (List.replicate (n - 1) (t a))} * {d a})")
-      | .ite c a b => some s!"({t c} ? {d a} : {d b})"
-      | .iteC c a b => some s!"({t c} ? {d a} : {d b})"
-    match node, rhs with
-    | .input nm _, _ => lines := lines.push s!"  const {ty} t{i} = {nm};"
-    | _, some r => lines := lines.push s!"  const {ty} t{i} = {r};"
-    | _, none => pure ()
-    match drhs with
-    | some r => lines := lines.push s!"  const hk_real d{i} = {r};"
-    | none => pure ()
+  let nameOf := fun (i : Nat) => ((f.inputs.find? (·.2 == i)).map (·.1)).getD "?"
+  let dxOf := fun (i : Nat) => s!"hk_dx[{inIdx.getD i 0}]"
+  let body := match cBodyLoop f .jvp nameOf dxOf (fun _ => ("0", "0", "0")) with
+    | .ok ls => ls
+    | .error e => #[s!"#error \"{e}\""]
+  let mut lines : Array String := #[s!"HK_STATIC void {cName f.name}_jvp({", ".intercalate params.toList}) \{"]
+  lines := lines ++ body
   for k in [0:outs.size] do
     let o := outs[k]!
     lines := lines.push s!"  hk_out[{k}] = t{o};"
@@ -903,74 +1147,91 @@ HK_STATIC void hk_bx_ite(hk_real clo, hk_real chi, hk_real alo, hk_real ahi, hk_
 }
 "
 
-/-- C99: the box functor on the graph. Inputs as boxes `[lo, hi]` with a scale `sc` (the input's
-own Lipschitz constant: 1 for a signal per unit, 0 for a held draw or a constant); outputs as
-boxes with a Lipschitz bound `oL` in the inputs' scaled ∞-norm. Composition of nodes is the
-composition of these bounds, so a composite definition's sensitivity is assembled from its parts'
-rules without anyone writing it. -/
+/-- C99: the box functor on the graph. Scalar inputs as boxes `[lo, hi]` with a scale `sc` (the
+input's own Lipschitz constant: 1 for a signal per unit, 0 for a held draw or a constant); ray
+tables as points; outputs as boxes with a Lipschitz bound `oL` in the inputs' scaled ∞-norm.
+Composition of nodes is the composition of these bounds, so a composite definition's sensitivity
+is assembled from its parts' rules without anyone writing it; a sum's box is the sum of its
+rays' boxes. -/
 def printCBox (f : Fun) : String := Id.run do
-  let g := f.graph
   let outs := f.output.flatten
-  let mut lines : Array String := #[]
-  lines := lines.push s!"HK_STATIC void {cName f.name}_box(const hk_real HK_ADDR* hk_lo, const hk_real HK_ADDR* hk_hi, const hk_real HK_ADDR* hk_sc, hk_real HK_ADDR* hk_olo, hk_real HK_ADDR* hk_ohi, hk_real HK_ADDR* hk_oL) \{"
-  let live := liveNodes g outs
+  let params := (f.arrays.map fun (b, _, _) => s!"const hk_real HK_RADDR* {b}")
+    ++ #["const hk_real HK_ADDR* hk_lo", "const hk_real HK_ADDR* hk_hi", "const hk_real HK_ADDR* hk_sc",
+         "hk_real HK_ADDR* hk_olo", "hk_real HK_ADDR* hk_ohi", "hk_real HK_ADDR* hk_oL"]
   let mut inIdx : Std.HashMap Nat Nat := {}
   for k in [0:f.inputs.size] do inIdx := inIdx.insert (f.inputs[k]!).2 k
-  let tri := fun (j : Nat) => s!"lo{j}, hi{j}"                      -- a boolean's pair
-  let tr := fun (j : Nat) => s!"lo{j}, hi{j}, L{j}"                 -- a real's triple
-  let outp := fun (j : Nat) => s!"&lo{j}, &hi{j}, &L{j}"
-  let outb := fun (j : Nat) => s!"&lo{j}, &hi{j}"
-  for i in [0:g.nodes.size] do
-    if !live.contains i then continue
-    let node := g.nodes[i]!
-    lines := lines.push s!"  hk_real lo{i}, hi{i}, L{i};"
-    let stmt : String := match node with
-      | .input _ _ => let k := inIdx.getD i 0; s!"lo{i} = hk_lo[{k}]; hi{i} = hk_hi[{k}]; L{i} = hk_sc[{k}];"
-      | .lit s => s!"lo{i} = HK_LIT({s}); hi{i} = HK_LIT({s}); L{i} = HK_LIT(0);"
-      | .bconst b => let v := if b then "1" else "0"; s!"lo{i} = HK_LIT({v}); hi{i} = HK_LIT({v}); L{i} = HK_LIT(0);"
-      | .pi => s!"lo{i} = HK_PI; hi{i} = HK_PI; L{i} = HK_LIT(0);"
-      | .un op a =>
-        match op with
-        | "neg" => s!"hk_bx_neg({tr a}, {outp i});"
-        | "not" => s!"hk_bx_not({tri a}, {outb i}); L{i} = HK_LIT(0);"
-        | "sqrt" => s!"hk_bx_sqrt({tr a}, {outp i});"
-        | "sin" => s!"hk_bx_trig(1, {tr a}, {outp i});"
-        | "cos" => s!"hk_bx_trig(0, {tr a}, {outp i});"
-        | "tan" => s!"hk_bx_tan({tr a}, {outp i});"
-        | "arctan" => s!"hk_bx_atan({tr a}, {outp i});"
-        | "arccos" => s!"hk_bx_acos({tr a}, {outp i});"
-        | "arcsin" => s!"hk_bx_asin({tr a}, {outp i});"
-        | "exp" => s!"hk_bx_exp({tr a}, {outp i});"
-        | "log" => s!"hk_bx_log({tr a}, {outp i});"
-        | "abs" => s!"hk_bx_abs({tr a}, {outp i});"
-        | "floor" => s!"hk_bx_floor({tr a}, {outp i});"
-        | "sigmoid" => s!"hk_bx_sigmoid({tr a}, {outp i});"
-        | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF; L{i} = HK_INF;"
-      | .bin op a b =>
-        match op with
-        | "+" => s!"hk_bx_add({tr a}, {tr b}, {outp i});"
-        | "-" => s!"hk_bx_sub({tr a}, {tr b}, {outp i});"
-        | "*" => s!"hk_bx_mul({tr a}, {tr b}, {outp i});"
-        | "/" => s!"hk_bx_div({tr a}, {tr b}, {outp i});"
-        | "min" => s!"hk_bx_min({tr a}, {tr b}, {outp i});"
-        | "max" => s!"hk_bx_max({tr a}, {tr b}, {outp i});"
-        | "<" => s!"hk_bx_lt({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-        | "<=" => s!"hk_bx_le({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-        | ">" => s!"hk_bx_lt({tri b}, {tri a}, {outb i}); L{i} = HK_LIT(0);"
-        | ">=" => s!"hk_bx_le({tri b}, {tri a}, {outb i}); L{i} = HK_LIT(0);"
-        | "==" => s!"hk_bx_eq({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-        | "!=" => s!"\{ hk_real e0, e1; hk_bx_eq({tri a}, {tri b}, &e0, &e1); hk_bx_not(e0, e1, {outb i}); } L{i} = HK_LIT(0);"
-        | "&&" => s!"hk_bx_and({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-        | "||" => s!"hk_bx_or({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-        | "->" => s!"\{ hk_real n0, n1; hk_bx_not({tri a}, &n0, &n1); hk_bx_or(n0, n1, {tri b}, {outb i}); } L{i} = HK_LIT(0);"
-        | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF; L{i} = HK_INF;"
-      | .pow a n => s!"hk_bx_pow({tr a}, {n}, {outp i});"
-      | .ite c a b => s!"hk_bx_ite({tri c}, {tr a}, {tr b}, {outp i});"
-      | .iteC c a b => s!"hk_bx_ite({tri c}, {tr a}, {tr b}, {outp i});"
-    lines := lines.push ("  " ++ stmt)
+  let boxOf := fun (i : Nat) => let k := inIdx.getD i 0; (s!"hk_lo[{k}]", s!"hk_hi[{k}]", s!"hk_sc[{k}]")
+  let body := match cBodyLoop f .box (fun _ => "0") (fun _ => "0") boxOf with
+    | .ok ls => ls
+    | .error e => #[s!"#error \"{e}\""]
+  let mut lines : Array String := #[s!"HK_STATIC void {cName f.name}_box({", ".intercalate params.toList}) \{"]
+  lines := lines ++ body
   for k in [0:outs.size] do
     let o := outs[k]!
     lines := lines.push s!"  hk_olo[{k}] = lo{o}; hk_ohi[{k}] = hi{o}; hk_oL[{k}] = L{o};"
+  lines := lines.push "}"
+  return "\n".intercalate lines.toList
+
+/-! ## The megakernel: one threadgroup per agent, one thread per ray, the reduction in shared memory -/
+
+/-- Metal: the whole definition as ONE kernel. Buffer 0 holds the scalar inputs `(B, n_in)`,
+then one buffer per ray table `(B, P, m)`, then the outputs `(B, n_out)`, then the count. A
+threadgroup of P threads is one agent: every thread evaluates the agent-level prelude, its own
+ray, writes its ray's summands to threadgroup memory; thread 0 reduces; every thread reads the
+sums and evaluates what follows; thread 0 writes the outputs. -/
+def printMslMega (f : Fun) (kname : String) : String := Id.run do
+  let g := f.graph
+  let L := layers g
+  let outs := f.output.flatten
+  let nin := f.inputs.size
+  let nout := outs.size
+  let P := if L.P == 0 then 1 else L.P
+  let mut params : Array String := #["device const float* hk_x [[buffer(0)]]"]
+  let mut bi := 1
+  for (b, _, _) in f.arrays do
+    params := params.push s!"device const float* {b}_all [[buffer({bi})]]"
+    bi := bi + 1
+  params := params.push s!"device float* hk_y [[buffer({bi})]]"
+  params := params.push s!"device const int* hk_n [[buffer({bi + 1})]]"
+  let mut lines : Array String := #[]
+  lines := lines.push s!"kernel void {kname}({", ".intercalate params.toList}, uint hk_b [[threadgroup_position_in_grid]], uint hk_i [[thread_position_in_threadgroup]]) \{"
+  lines := lines.push "  if ((int)hk_b >= hk_n[0]) return;"
+  for s in L.sums.filter (liveNodes g outs).contains do lines := lines.push s!"  threadgroup float hk_sh{s}[{P}];"
+  lines := lines.push s!"  device const float* hk_xb = hk_x + hk_b * {nin};"
+  for (b, p, m) in f.arrays do
+    lines := lines.push s!"  device const float* {b} = {b}_all + hk_b * {p * (if m == 0 then 1 else m)};"
+  let mut inIdx : Std.HashMap Nat Nat := {}
+  for k in [0:nin] do inIdx := inIdx.insert (f.inputs[k]!).2 k
+  let inRef := fun (i : Nat) => if g.isBool i then s!"(hk_xb[{inIdx.getD i 0}] != 0.0f)" else s!"hk_xb[{inIdx.getD i 0}]"
+  let live := liveNodes g outs
+  let sums := L.sums.filter live.contains
+  let node := fun (i : Nat) (ind : String) =>
+    (cNodeLines f .value inRef (fun _ => "0") (fun _ => ("0", "0", "0")) "hk_i" i).map (ind ++ ·)
+  if !L.err.isEmpty then lines := lines.push s!"#error \"{L.err}\""
+  for i in [0:g.nodes.size] do
+    if live.contains i && !L.ray[i]! && !L.post[i]! then lines := lines ++ node i "  "
+  if !sums.isEmpty then
+    for i in [0:g.nodes.size] do
+      if live.contains i && L.ray[i]! then lines := lines ++ node i "  "
+    for s in sums do
+      match g.nodes[s]! with
+      | .sum _ a => lines := lines.push s!"  hk_sh{s}[hk_i] = t{a};"
+      | _ => pure ()
+    lines := lines.push "  threadgroup_barrier(mem_flags::mem_threadgroup);"
+    lines := lines.push "  if (hk_i == 0) {"
+    for s in sums do
+      lines := lines.push s!"    \{ float acc = 0.0f; for (int j = 0; j < {P}; ++j) acc += hk_sh{s}[j]; hk_sh{s}[0] = acc; }"
+    lines := lines.push "  }"
+    lines := lines.push "  threadgroup_barrier(mem_flags::mem_threadgroup);"
+  for i in [0:g.nodes.size] do
+    if live.contains i && L.post[i]! then
+      match g.nodes[i]! with
+      | .sum _ _ => lines := lines.push s!"  const hk_real t{i} = hk_sh{i}[0];"
+      | _ => lines := lines ++ node i "  "
+  lines := lines.push "  if (hk_i == 0) {"
+  for k in [0:nout] do
+    lines := lines.push s!"    hk_y[hk_b * {nout} + {k}] = t{outs[k]!};"
+  lines := lines.push "  }"
   lines := lines.push "}"
   return "\n".intercalate lines.toList
 
@@ -989,6 +1250,8 @@ def printDot (f : Fun) : String := Id.run do
       | .pow _ n => (s!"^{n}", "ellipse")
       | .ite .. => ("if", "diamond")
       | .iteC .. => ("if (classical)", "diamond")
+      | .rayIn b k => (s!"{b}[i][{k}]", "box")
+      | .sum P _ => (s!"Σ over {P} rays", "hexagon")
     lines := lines.push s!"  n{i} [label=\"{label}\", shape={shape}];"
     match g.nodes[i]! with
     | .un _ a => lines := lines.push s!"  n{a} -> n{i};"
@@ -996,6 +1259,7 @@ def printDot (f : Fun) : String := Id.run do
     | .pow a _ => lines := lines.push s!"  n{a} -> n{i};"
     | .ite c a b => lines := lines.push s!"  n{c} -> n{i} [label=c]; n{a} -> n{i} [label=1]; n{b} -> n{i} [label=0];"
     | .iteC c a b => lines := lines.push s!"  n{c} -> n{i} [label=c]; n{a} -> n{i} [label=1]; n{b} -> n{i} [label=0];"
+    | .sum _ a => lines := lines.push s!"  n{a} -> n{i} [label=Σ];"
     | _ => pure ()
   let outs := f.output.flatten
   for k in [0:outs.size] do
@@ -1007,13 +1271,7 @@ def printDot (f : Fun) : String := Id.run do
 def useCounts (g : Graph) : Array Nat := Id.run do
   let mut c := Array.replicate g.nodes.size 0
   for node in g.nodes do
-    match node with
-    | .un _ a => c := c.modify a (· + 1)
-    | .bin _ a b => c := c.modify a (· + 1); c := c.modify b (· + 1)
-    | .pow a _ => c := c.modify a (· + 1)
-    | .ite x a b => c := c.modify x (· + 1); c := c.modify a (· + 1); c := c.modify b (· + 1)
-    | .iteC x a b => c := c.modify x (· + 1); c := c.modify a (· + 1); c := c.modify b (· + 1)
-    | _ => pure ()
+    for d in node.deps do c := c.modify d (· + 1)
   return c
 
 /-- the Lean printers: `real` selects `ℝ` (the round trip) or `Float` (the twin) -/
@@ -1056,6 +1314,8 @@ partial def leanExpr (g : Graph) (real : Bool) (i : Nat) : String :=
   | .pow a n => s!"({r a} ^ {n})"
   | .ite c a b => s!"(if {r c} then {r a} else {r b})"
   | .iteC c a b => if real then s!"(@ite _ {r c} (Classical.propDecidable _) {r a} {r b})" else s!"(if {r c} then {r a} else {r b})"
+  | .rayIn b k => s!"({b} i {k})"          -- the inline printer has no binder: leanBody prints sums
+  | .sum P a => s!"(∑ i : Fin {P}, {r a})"
 
 partial def leanVal (g : Graph) (real : Bool) : Val → String
   | Val.s i => leanExpr g real i
@@ -1063,26 +1323,49 @@ partial def leanVal (g : Graph) (real : Bool) : Val → String
   | .pair a b => s!"({leanVal g real a}, {leanVal g real b})"
   | .vec xs => "![" ++ ", ".intercalate (xs.toList.map (leanVal g real)) ++ "]"
   | .struct n fs => "{ " ++ ", ".intercalate (fs.toList.map fun (f, v) => s!"{f} := {leanVal g real v}") ++ s!" : {n} }"
+  | .rayIdx => "i"
 
 /-- the Lean printers with `let`s: every non-leaf node used more than once (or costly) is bound
 once, in graph order, so a shared subgraph prints once; the printed expression stays linear in
-the graph. `leanExprL` prints a node against those bindings. -/
-partial def leanBody (g : Graph) (real : Bool) (outs : Array Nat) (v : Val) (indent : String) : String := Id.run do
+the graph. A sum prints as `∑ i : Fin P, (…)` (ℝ) or a fold (Float), its ray-level nodes bound
+inside. -/
+partial def leanBody (f : Fun) (real : Bool) (outs : Array Nat) (v : Val) (indent : String) : String := Id.run do
+  let g := f.graph
   let counts := useCounts g
   let live := liveNodes g outs
+  let L := layers g
   -- the nodes bound by a let: shared, non-leaf
   let mut bound : Std.HashSet Nat := {}
   for i in [0:g.nodes.size] do
     if !live.contains i then continue
     match g.nodes[i]! with
-    | .input .. | .lit _ | .bconst _ | .pi => pure ()
+    | .input .. | .lit _ | .bconst _ | .pi | .rayIn .. => pure ()
+    | .sum .. => bound := bound.insert i
     | _ => if counts[i]! > 1 then bound := bound.insert i
+  let tableRead := fun (b : String) (row : String) (k : Nat) =>
+    let m := f.tableM b
+    if real then (if m == 0 then s!"({b} {row})" else s!"({b} {row} {k})")
+    else (if m == 0 then s!"{b}[{row}]!" else s!"{b}[{row} * {m} + {k}]!")
   -- print a node: a bound node by its name, otherwise inline (recursively)
   let rec pr (i : Nat) (top : Bool) : String :=
     if bound.contains i && !top then s!"v{i}" else
     let r := fun j => pr j false
     match g.nodes[i]! with
-    | .input nm ln => if real then ln else nm
+    | .input nm ln =>
+      match f.arrayScalar[i]? with
+      | some (b, j, k) => if real then ln else tableRead b (toString j) k
+      | none => if real then ln else nm
+    | .rayIn b k => tableRead b "i" k
+    | .sum P a =>
+      -- the ray-level bound nodes, in order, inside the binder
+      let inner := Id.run do
+        let mut ls : Array String := #[]
+        for j in [0:g.nodes.size] do
+          if bound.contains j && L.ray[j]! && live.contains j then
+            ls := ls.push s!"let v{j} := {pr j true}; "
+        return String.join ls.toList
+      if real then s!"(∑ i : Fin {P}, ({inner}{r a}))"
+      else s!"((List.range {P}).foldl (fun acc i => acc + ({inner}{r a})) 0.0)"
     | .lit s => if real then s!"({s} : ℝ)" else s!"({s} : Float)"
     | .bconst b => if b then "True" else "False"
     | .pi => if real then "Real.pi" else "(3.141592653589793 : Float)"
@@ -1124,27 +1407,47 @@ partial def leanBody (g : Graph) (real : Bool) (outs : Array Nat) (v : Val) (ind
     | .pair a b => s!"({prVal a}, {prVal b})"
     | .vec xs => "![" ++ ", ".intercalate (xs.toList.map prVal) ++ "]"
     | .struct n fs => "{ " ++ ", ".intercalate (fs.toList.map fun (f, w) => s!"{f} := {prVal w}") ++ s!" : {n} }"
+    | .rayIdx => "i"
   let mut lines : Array String := #[]
   for i in [0:g.nodes.size] do
-    if bound.contains i then
+    if bound.contains i && !L.ray[i]! then
       lines := lines.push s!"{indent}let v{i} := {pr i true}"
   lines := lines.push (indent ++ prVal v)
   return "\n".intercalate lines.toList
 
-/-- NumPy, vectorised: every input an array (or a float), every op elementwise, `if` as `np.where` -/
+/-- NumPy, vectorised over agents: every scalar input an array `(B,)` (or a float), ray tables
+`(B, P, m)`, every op elementwise; ray-level nodes are `(B, P)` and read agent-level operands
+through a new axis; a sum is `np.sum(…, axis=-1)`; `if` as `np.where` -/
 def printNumpy (f : Fun) (fname : String) : String := Id.run do
   let g := f.graph
+  let L := layers g
   let mut lines : Array String := #[]
-  let params := f.inputs.map (·.1)
+  let scalars := f.inputs.map (·.1)
+  let params := scalars ++ (f.arrays.map (·.1))
   lines := lines.push s!"def {fname}({", ".intercalate params.toList}):"
+  if !L.err.isEmpty then lines := lines.push s!"    raise ValueError({("\"" ++ L.err ++ "\"")})"
+  let tableRead := fun (b : String) (row : Option Nat) (k : Nat) =>
+    let m := f.tableM b
+    match row with
+    | some j => if m == 0 then s!"{b}[:, {j}]" else s!"{b}[:, {j}, {k}]"
+    | none => if m == 0 then s!"{b}" else s!"{b}[:, :, {k}]"
   for i in [0:g.nodes.size] do
+    let isLeaf := fun (j : Nat) => match g.nodes[j]! with | .lit _ | .bconst _ | .pi => true | _ => false
+    -- an agent-level operand read at ray level gets the ray axis
+    let t := fun (j : Nat) =>
+      if L.ray[i]! && !L.ray[j]! && !isLeaf j then s!"np.asarray(t{j})[..., None]" else s!"t{j}"
     let rhs : Option String := match g.nodes[i]! with
-      | .input nm _ => some nm
+      | .input nm _ =>
+        match f.arrayScalar[i]? with
+        | some (b, j, k) => some (tableRead b (some j) k)
+        | none => some nm
+      | .rayIn b k => some (tableRead b none k)
+      | .sum P a => some (if L.ray[a]! then s!"np.sum(t{a}, axis=-1)" else s!"({P} * t{a})")
       | .lit s => some s
       | .bconst b => some (if b then "True" else "False")
       | .pi => some "np.pi"
       | .un op a =>
-        let av := s!"t{a}"
+        let av := t a
         some (match op with
           | "neg" => s!"(-{av})" | "not" => s!"np.logical_not({av})" | "sqrt" => s!"np.sqrt({av})"
           | "sin" => s!"np.sin({av})" | "cos" => s!"np.cos({av})" | "tan" => s!"np.tan({av})"
@@ -1154,24 +1457,27 @@ def printNumpy (f : Fun) (fname : String) : String := Id.run do
           | o => s!"None  # ? {o}")
       | .bin op a b =>
         some (match op with
-          | "min" => s!"np.minimum(t{a}, t{b})" | "max" => s!"np.maximum(t{a}, t{b})"
-          | "==" => if g.isBool a then s!"(t{a} == t{b})" else s!"hk_eq(t{a}, t{b})"
-          | "!=" => if g.isBool a then s!"(t{a} != t{b})" else s!"np.logical_not(hk_eq(t{a}, t{b}))"
-          | "&&" => s!"np.logical_and(t{a}, t{b})" | "||" => s!"np.logical_or(t{a}, t{b})"
-          | "->" => s!"np.logical_or(np.logical_not(t{a}), t{b})"
-          | o => s!"(t{a} {o} t{b})")
-      | .pow a n => some s!"(t{a} ** {n})"
-      | .ite c a b => some s!"np.where(t{c}, t{a}, t{b})"
-      | .iteC c a b => some s!"np.where(t{c}, t{a}, t{b})"
+          | "min" => s!"np.minimum({t a}, {t b})" | "max" => s!"np.maximum({t a}, {t b})"
+          | "==" => if g.isBool a then s!"({t a} == {t b})" else s!"hk_eq({t a}, {t b})"
+          | "!=" => if g.isBool a then s!"({t a} != {t b})" else s!"np.logical_not(hk_eq({t a}, {t b}))"
+          | "&&" => s!"np.logical_and({t a}, {t b})" | "||" => s!"np.logical_or({t a}, {t b})"
+          | "->" => s!"np.logical_or(np.logical_not({t a}), {t b})"
+          | o => s!"({t a} {o} {t b})")
+      | .pow a n => some s!"({t a} ** {n})"
+      | .ite c a b => some s!"np.where({t c}, {t a}, {t b})"
+      | .iteC c a b => some s!"np.where({t c}, {t a}, {t b})"
     match rhs with
     | some r => lines := lines.push s!"    t{i} = {r}"
     | none => pure ()
+  let shapeOf := if scalars.isEmpty then
+      (if f.arrays.isEmpty then "()" else s!"({(f.arrays[0]!).1}.shape[0],)")
+    else s!"np.broadcast(*[np.asarray(x) for x in [{", ".intercalate scalars.toList}]]).shape"
   match f.output with
   | Val.s i => lines := lines.push s!"    return t{i}"
   | Val.b i => lines := lines.push s!"    return t{i}"
   | v =>
     let outs := v.flatten
-    lines := lines.push ("    return np.stack([" ++ ", ".intercalate (outs.toList.map fun i => s!"np.broadcast_to(np.asarray(t{i}, dtype=float), np.broadcast(*[np.asarray(x) for x in [{", ".intercalate params.toList}]]).shape) if len([{", ".intercalate params.toList}]) else np.asarray(t{i}, dtype=float)") ++ "], axis=-1)")
+    lines := lines.push ("    return np.stack([" ++ ", ".intercalate (outs.toList.map fun i => s!"np.broadcast_to(np.asarray(t{i}, dtype=float), {shapeOf})") ++ "], axis=-1)")
   return "\n".intercalate lines.toList
 
 /-- the round trip. A definition: `theorem f_ccc : f = fun binders => printed := rfl`. A theorem:
@@ -1179,7 +1485,7 @@ its statement printed back, `∀ (data binders), h₁ → … → conclusion`, P
 ITSELF - Lean checks the printed statement is the original one, up to definitional unfolding. -/
 def printRoundTrip (f : Fun) (ref : String := f.name.getString!) (thm : String := ref) : String :=
   let binders := " ".intercalate (f.binders.toList.map fun (nm, ty) => s!"({nm} : {ty})")
-  let body := leanBody f.graph true f.output.flatten f.output "    "
+  let body := leanBody f true f.output.flatten f.output "    "
   let nm := ref
   let _ := thm
   if f.isTheorem then

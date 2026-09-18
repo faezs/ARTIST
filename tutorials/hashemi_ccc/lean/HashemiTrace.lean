@@ -455,17 +455,39 @@ noncomputable def traceRayKErr (R f a w rc k σslope σspec cx cy ux uy dx dy dz
   ![L.1, L.2, rad, if captured then 1 else 0,
     if ¬ onPanel then 0 else if inside then 2 else 1, H 2, rr, if 0 < r 2 then 1 else 0]
 
+/-- the capture's smoothing scale: the sun's disc imaged at f (4.65 mrad x 1 m), 5 mm -/
+noncomputable def spotTau : ℝ := 0.005
+
+/-- **the capture, smoothly**: the landing radius against the aperture through a sigmoid of the
+disc's width; the per-ray step `rad ≤ rc` has no tangent, this has the slope `1 / (4 spotTau)` -/
+noncomputable def captureS (rc rad : ℝ) : ℝ := Real.sigmoid ((rc - rad) / spotTau)
+
+/-- the slope of the smooth capture: `1 / (4 spotTau)` per metre of landing radius -/
+theorem captureS_slope (rc r1 r2 : ℝ) : |captureS rc r1 - captureS rc r2| ≤ |r1 - r2| / (4 * spotTau) := by
+  unfold captureS
+  have h := sigmoid_lipschitz.dist_le_mul ((rc - r1) / spotTau) ((rc - r2) / spotTau)
+  rw [Real.dist_eq, Real.dist_eq] at h
+  have hτ : (0 : ℝ) < spotTau := by unfold spotTau; norm_num
+  have : (rc - r1) / spotTau - (rc - r2) / spotTau = (r2 - r1) / spotTau := by ring
+  rw [this, abs_div, abs_of_pos hτ, abs_sub_comm r2 r1] at h
+  simp only [NNReal.coe_div, NNReal.coe_one, NNReal.coe_ofNat] at h
+  calc |Real.sigmoid ((rc - r1) / spotTau) - Real.sigmoid ((rc - r2) / spotTau)|
+      ≤ 1 / 4 * (|r1 - r2| / spotTau) := h
+    _ = |r1 - r2| / (4 * spotTau) := by field_simp
+
 /-- **the env's optics as one morphism**: the pose's sun, one ray of the sampler, its trace on
 the conic dish with the optical errors, and the delivery: `(captured, m² of aperture per unit
-DNI this ray stands for, fate)`. The per-agent mean over the rays and the split along the
-receiver's node profile are the env's reductions. -/
+DNI this ray stands for, fate, the landing radius, the capture smoothly)`. The per-agent mean
+over the rays and the split along the receiver's node profile are the env's reductions. The
+landing radius is the smooth quantity the capture is a step of: its sensitivity (m per rad of
+pose) is the physics' modulus; the smooth capture carries it with the slope `captureS_slope`. -/
 noncomputable def dishPower (R f a w rc k σslope σspec ρ hsun az t elSun azSun
-    u1 u2 u3 u4 u5 u6 e1 e2 s1 s2 : ℝ) : Fin 3 → ℝ :=
+    u1 u2 u3 u4 u5 u6 e1 e2 s1 s2 : ℝ) : Fin 5 → ℝ :=
   let sd := sunInDish az t elSun azSun
   let ray := sampleRay a w hsun sd u1 u2 u3 u4 u5 u6
   let out := traceRayKErr R f a w rc k σslope σspec (ray 0) (ray 1) (ray 2) (ray 3) (ray 4) (ray 5) (ray 6)
     e1 e2 s1 s2
-  ![out 3, (2 * a) ^ 2 * ρ * out 3, out 4]
+  ![out 3, (2 * a) ^ 2 * ρ * out 3, out 4, out 2, captureS rc (out 2)]
 
 /-- the capture is a Boolean -/
 theorem dishPower_captured (R f a w rc k σslope σspec ρ hsun az t elSun azSun u1 u2 u3 u4 u5 u6 e1 e2 s1 s2 : ℝ) :

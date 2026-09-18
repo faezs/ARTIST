@@ -84,6 +84,20 @@ kernel void mk_cableDrop_box(device const float* lo [[buffer(0)]], device const 
   hk_cableDrop_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
+kernel void mk_captureS_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_captureS_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_captureS_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_captureS_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_clearance_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[7], tdx[7], ty[1], tdy[1];
@@ -226,17 +240,17 @@ kernel void mk_dishAxes_box(device const float* lo [[buffer(0)]], device const f
 }
 kernel void mk_dishPower_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tx[24], tdx[24], ty[3], tdy[3];
+  float tx[24], tdx[24], ty[5], tdy[5];
   for (int k = 0; k < 24; ++k) { tx[k] = x[i*24+k]; tdx[k] = dx[i*24+k]; }
   hk_dishPower_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tx[13], tx[14], tx[15], tx[16], tx[17], tx[18], tx[19], tx[20], tx[21], tx[22], tx[23], tdx, ty, tdy);
-  for (int k = 0; k < 3; ++k) { y[i*3+k] = ty[k]; dy[i*3+k] = tdy[k]; }
+  for (int k = 0; k < 5; ++k) { y[i*5+k] = ty[k]; dy[i*5+k] = tdy[k]; }
 }
 kernel void mk_dishPower_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tlo[24], thi[24], tsc[24], rlo[3], rhi[3], rL[3];
+  float tlo[24], thi[24], tsc[24], rlo[5], rhi[5], rL[5];
   for (int k = 0; k < 24; ++k) { tlo[k] = lo[i*24+k]; thi[k] = hi[i*24+k]; tsc[k] = sc[i*24+k]; }
   hk_dishPower_box(tlo, thi, tsc, rlo, rhi, rL);
-  for (int k = 0; k < 3; ++k) { olo[i*3+k] = rlo[k]; ohi[i*3+k] = rhi[k]; oL[i*3+k] = rL[k]; }
+  for (int k = 0; k < 5; ++k) { olo[i*5+k] = rlo[k]; ohi[i*5+k] = rhi[k]; oL[i*5+k] = rL[k]; }
 }
 kernel void mk_dot3_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -349,6 +363,34 @@ kernel void mk_hangerLength_box(device const float* lo [[buffer(0)]], device con
   for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
   hk_hangerLength_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_hashemiEnv_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device const float* dr_all [[buffer(2)]], device float* y [[buffer(3)]], device float* dy [[buffer(4)]], device const int* n [[buffer(5)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[38], tdx[38], ty[27], tdy[27];
+  for (int k = 0; k < 38; ++k) { tx[k] = x[i*38+k]; tdx[k] = dx[i*38+k]; }
+  hk_hashemiEnv_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tx[13], tx[14], tx[15], tx[16], tx[17], tx[18], tx[19], tx[20], tx[21], tx[22], tx[23], tx[24], tx[25], tx[26], tx[27], tx[28], tx[29], tx[30], tx[31], tx[32], tx[33], tx[34], tx[35], tx[36], tx[37], dr_all + i * 640, tdx, ty, tdy);
+  for (int k = 0; k < 27; ++k) { y[i*27+k] = ty[k]; dy[i*27+k] = tdy[k]; }
+}
+kernel void mk_hashemiEnv_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device const float* dr_all [[buffer(3)]], device float* olo [[buffer(4)]], device float* ohi [[buffer(5)]], device float* oL [[buffer(6)]], device const int* n [[buffer(7)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[38], thi[38], tsc[38], rlo[27], rhi[27], rL[27];
+  for (int k = 0; k < 38; ++k) { tlo[k] = lo[i*38+k]; thi[k] = hi[i*38+k]; tsc[k] = sc[i*38+k]; }
+  hk_hashemiEnv_box(dr_all + i * 640, tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 27; ++k) { olo[i*27+k] = rlo[k]; ohi[i*27+k] = rhi[k]; oL[i*27+k] = rL[k]; }
+}
+kernel void mk_heatStep_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[13], tdx[13], ty[6], tdy[6];
+  for (int k = 0; k < 13; ++k) { tx[k] = x[i*13+k]; tdx[k] = dx[i*13+k]; }
+  hk_heatStep_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tdx, ty, tdy);
+  for (int k = 0; k < 6; ++k) { y[i*6+k] = ty[k]; dy[i*6+k] = tdy[k]; }
+}
+kernel void mk_heatStep_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[13], thi[13], tsc[13], rlo[6], rhi[6], rL[6];
+  for (int k = 0; k < 13; ++k) { tlo[k] = lo[i*13+k]; thi[k] = hi[i*13+k]; tsc[k] = sc[i*13+k]; }
+  hk_heatStep_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 6; ++k) { olo[i*6+k] = rlo[k]; ohi[i*6+k] = rhi[k]; oL[i*6+k] = rL[k]; }
 }
 kernel void mk_helixAdvance_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -518,6 +560,20 @@ kernel void mk_megaThmsState_box(device const float* lo [[buffer(0)]], device co
   hk_megaThmsState_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 50; ++k) { olo[i*50+k] = rlo[k]; ohi[i*50+k] = rhi[k]; oL[i*50+k] = rL[k]; }
 }
+kernel void mk_oilStep_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[13], tdx[13], ty[1], tdy[1];
+  for (int k = 0; k < 13; ++k) { tx[k] = x[i*13+k]; tdx[k] = dx[i*13+k]; }
+  hk_oilStep_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_oilStep_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[13], thi[13], tsc[13], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 13; ++k) { tlo[k] = lo[i*13+k]; thi[k] = hi[i*13+k]; tsc[k] = sc[i*13+k]; }
+  hk_oilStep_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_pointVel_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[9], tdx[9], ty[3], tdy[3];
@@ -573,6 +629,76 @@ kernel void mk_pulleyAt_box(device const float* lo [[buffer(0)]], device const f
   for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
   hk_pulleyAt_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 2; ++k) { olo[i*2+k] = rlo[k]; ohi[i*2+k] = rhi[k]; oL[i*2+k] = rL[k]; }
+}
+kernel void mk_qAbs_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_qAbs_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_qAbs_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_qAbs_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_qCoilLoss_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_qCoilLoss_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_qCoilLoss_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_qCoilLoss_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_qNet_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[10], tdx[10], ty[1], tdy[1];
+  for (int k = 0; k < 10; ++k) { tx[k] = x[i*10+k]; tdx[k] = dx[i*10+k]; }
+  hk_qNet_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_qNet_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[10], thi[10], tsc[10], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 10; ++k) { tlo[k] = lo[i*10+k]; thi[k] = hi[i*10+k]; tsc[k] = sc[i*10+k]; }
+  hk_qNet_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_qPipe_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_qPipe_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_qPipe_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_qPipe_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_qPot_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_qPot_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_qPot_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_qPot_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_recip_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -1301,4 +1427,1082 @@ kernel void mk_wrenchAt_box(device const float* lo [[buffer(0)]], device const f
   for (int k = 0; k < 6; ++k) { tlo[k] = lo[i*6+k]; thi[k] = hi[i*6+k]; tsc[k] = sc[i*6+k]; }
   hk_wrenchAt_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 6; ++k) { olo[i*6+k] = rlo[k]; ohi[i*6+k] = rhi[k]; oL[i*6+k] = rL[k]; }
+}
+kernel void mk_Fits_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[12], tdx[12], ty[1], tdy[1];
+  for (int k = 0; k < 12; ++k) { tx[k] = x[i*12+k]; tdx[k] = dx[i*12+k]; }
+  hk_Fits_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_Fits_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[12], thi[12], tsc[12], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 12; ++k) { tlo[k] = lo[i*12+k]; thi[k] = hi[i*12+k]; tsc[k] = sc[i*12+k]; }
+  hk_Fits_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_HangerClearsPost_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_HangerClearsPost_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_HangerClearsPost_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_HangerClearsPost_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_HoldsDish_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_HoldsDish_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_HoldsDish_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_HoldsDish_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_LostSun_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[6], tdx[6], ty[1], tdy[1];
+  for (int k = 0; k < 6; ++k) { tx[k] = x[i*6+k]; tdx[k] = dx[i*6+k]; }
+  hk_LostSun_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_LostSun_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[6], thi[6], tsc[6], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 6; ++k) { tlo[k] = lo[i*6+k]; thi[k] = hi[i*6+k]; tsc[k] = sc[i*6+k]; }
+  hk_LostSun_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_MastClears_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_MastClears_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_MastClears_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_MastClears_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_ReachesVertical_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_ReachesVertical_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_ReachesVertical_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_ReachesVertical_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_SlackHarmless_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_SlackHarmless_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_SlackHarmless_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_SlackHarmless_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_SunReachable_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_SunReachable_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_SunReachable_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_SunReachable_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_TrackerBudget_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_TrackerBudget_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_TrackerBudget_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_TrackerBudget_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_azRate_pos_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_azRate_pos_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_azRate_pos_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_azRate_pos_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_bearing_life_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_prop_bearing_life_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_bearing_life_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_prop_bearing_life_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_cable_drop_small_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_prop_cable_drop_small_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_cable_drop_small_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_prop_cable_drop_small_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_captureS_slope_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_captureS_slope_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_captureS_slope_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_captureS_slope_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_clearance_hashemi_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_prop_clearance_hashemi_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_clearance_hashemi_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_prop_clearance_hashemi_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_conicZ_paraboloid_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_prop_conicZ_paraboloid_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_conicZ_paraboloid_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_prop_conicZ_paraboloid_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_conicZ_sphere_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_prop_conicZ_sphere_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_conicZ_sphere_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_prop_conicZ_sphere_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_constraints_reciprocal_yaw_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[12], tdx[12], ty[1], tdy[1];
+  for (int k = 0; k < 12; ++k) { tx[k] = x[i*12+k]; tdx[k] = dx[i*12+k]; }
+  hk_prop_constraints_reciprocal_yaw_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_constraints_reciprocal_yaw_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[12], thi[12], tsc[12], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 12; ++k) { tlo[k] = lo[i*12+k]; thi[k] = hi[i*12+k]; tsc[k] = sc[i*12+k]; }
+  hk_prop_constraints_reciprocal_yaw_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_dishAxes_rot_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_dishAxes_rot_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_dishAxes_rot_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_dishAxes_rot_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_drive_recip_yaw_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[13], tdx[13], ty[1], tdy[1];
+  for (int k = 0; k < 13; ++k) { tx[k] = x[i*13+k]; tdx[k] = dx[i*13+k]; }
+  hk_prop_drive_recip_yaw_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_drive_recip_yaw_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[13], thi[13], tsc[13], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 13; ++k) { tlo[k] = lo[i*13+k]; thi[k] = hi[i*13+k]; tsc[k] = sc[i*13+k]; }
+  hk_prop_drive_recip_yaw_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_drive_works_on_yaw_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[13], tdx[13], ty[1], tdy[1];
+  for (int k = 0; k < 13; ++k) { tx[k] = x[i*13+k]; tdx[k] = dx[i*13+k]; }
+  hk_prop_drive_works_on_yaw_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_drive_works_on_yaw_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[13], thi[13], tsc[13], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 13; ++k) { tlo[k] = lo[i*13+k]; thi[k] = hi[i*13+k]; tsc[k] = sc[i*13+k]; }
+  hk_prop_drive_works_on_yaw_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_edgeClip_cross_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_edgeClip_cross_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_edgeClip_cross_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_edgeClip_cross_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_edgeClip_radius_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_edgeClip_radius_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_edgeClip_radius_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_edgeClip_radius_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_edgeClip_radius_hashemi_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_prop_edgeClip_radius_hashemi_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_edgeClip_radius_hashemi_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_prop_edgeClip_radius_hashemi_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_edgeClip_reach_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_edgeClip_reach_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_edgeClip_reach_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_edgeClip_reach_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_edgeDepth_horizon_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_edgeDepth_horizon_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_edgeDepth_horizon_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_edgeDepth_horizon_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_edgeDepth_le_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_edgeDepth_le_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_edgeDepth_le_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_edgeDepth_le_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_edgeDepth_noon_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_edgeDepth_noon_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_edgeDepth_noon_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_edgeDepth_noon_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_edgeLever_dead_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_edgeLever_dead_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_edgeLever_dead_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_edgeLever_dead_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_edgeLever_pos_iff_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_edgeLever_pos_iff_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_edgeLever_pos_iff_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_edgeLever_pos_iff_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_elPower_eq_wire_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_elPower_eq_wire_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_elPower_eq_wire_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_elPower_eq_wire_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_elPower_le_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_elPower_le_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_elPower_le_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_elPower_le_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_focus_on_axis_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_focus_on_axis_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_focus_on_axis_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_focus_on_axis_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_grooved_reciprocal_yaw_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[12], tdx[12], ty[1], tdy[1];
+  for (int k = 0; k < 12; ++k) { tx[k] = x[i*12+k]; tdx[k] = dx[i*12+k]; }
+  hk_prop_grooved_reciprocal_yaw_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_grooved_reciprocal_yaw_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[12], thi[12], tsc[12], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 12; ++k) { tlo[k] = lo[i*12+k]; thi[k] = hi[i*12+k]; tsc[k] = sc[i*12+k]; }
+  hk_prop_grooved_reciprocal_yaw_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_grooved_relation_x_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[12], tdx[12], ty[1], tdy[1];
+  for (int k = 0; k < 12; ++k) { tx[k] = x[i*12+k]; tdx[k] = dx[i*12+k]; }
+  hk_prop_grooved_relation_x_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_grooved_relation_x_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[12], thi[12], tsc[12], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 12; ++k) { tlo[k] = lo[i*12+k]; thi[k] = hi[i*12+k]; tsc[k] = sc[i*12+k]; }
+  hk_prop_grooved_relation_x_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_grooved_relation_y_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[12], tdx[12], ty[1], tdy[1];
+  for (int k = 0; k < 12; ++k) { tx[k] = x[i*12+k]; tdx[k] = dx[i*12+k]; }
+  hk_prop_grooved_relation_y_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_grooved_relation_y_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[12], thi[12], tsc[12], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 12; ++k) { tlo[k] = lo[i*12+k]; thi[k] = hi[i*12+k]; tsc[k] = sc[i*12+k]; }
+  hk_prop_grooved_relation_y_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_hinge_freedom_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[8], tdx[8], ty[1], tdy[1];
+  for (int k = 0; k < 8; ++k) { tx[k] = x[i*8+k]; tdx[k] = dx[i*8+k]; }
+  hk_prop_hinge_freedom_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_hinge_freedom_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[8], thi[8], tsc[8], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 8; ++k) { tlo[k] = lo[i*8+k]; thi[k] = hi[i*8+k]; tsc[k] = sc[i*8+k]; }
+  hk_prop_hinge_freedom_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_hinge_freedom_smul_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[9], tdx[9], ty[1], tdy[1];
+  for (int k = 0; k < 9; ++k) { tx[k] = x[i*9+k]; tdx[k] = dx[i*9+k]; }
+  hk_prop_hinge_freedom_smul_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_hinge_freedom_smul_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[9], thi[9], tsc[9], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 9; ++k) { tlo[k] = lo[i*9+k]; thi[k] = hi[i*9+k]; tsc[k] = sc[i*9+k]; }
+  hk_prop_hinge_freedom_smul_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_hinge_reciprocal_swing_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_hinge_reciprocal_swing_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_hinge_reciprocal_swing_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_hinge_reciprocal_swing_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_m12_carries_dish_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_prop_m12_carries_dish_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_m12_carries_dish_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_prop_m12_carries_dish_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_mastClears_hashemi_iff_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_prop_mastClears_hashemi_iff_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_mastClears_hashemi_iff_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_prop_mastClears_hashemi_iff_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_mul_bounds_neg_pos_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[6], tdx[6], ty[1], tdy[1];
+  for (int k = 0; k < 6; ++k) { tx[k] = x[i*6+k]; tdx[k] = dx[i*6+k]; }
+  hk_prop_mul_bounds_neg_pos_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_mul_bounds_neg_pos_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[6], thi[6], tsc[6], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 6; ++k) { tlo[k] = lo[i*6+k]; thi[k] = hi[i*6+k]; tsc[k] = sc[i*6+k]; }
+  hk_prop_mul_bounds_neg_pos_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_mul_bounds_pos_pos_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[6], tdx[6], ty[1], tdy[1];
+  for (int k = 0; k < 6; ++k) { tx[k] = x[i*6+k]; tdx[k] = dx[i*6+k]; }
+  hk_prop_mul_bounds_pos_pos_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_mul_bounds_pos_pos_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[6], thi[6], tsc[6], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 6; ++k) { tlo[k] = lo[i*6+k]; thi[k] = hi[i*6+k]; tsc[k] = sc[i*6+k]; }
+  hk_prop_mul_bounds_pos_pos_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_play_budget_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_play_budget_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_play_budget_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_play_budget_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_plumbed_shift_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_prop_plumbed_shift_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_plumbed_shift_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_prop_plumbed_shift_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_postTop_on_rail_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[12], tdx[12], ty[1], tdy[1];
+  for (int k = 0; k < 12; ++k) { tx[k] = x[i*12+k]; tdx[k] = dx[i*12+k]; }
+  hk_prop_postTop_on_rail_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_postTop_on_rail_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[12], thi[12], tsc[12], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 12; ++k) { tlo[k] = lo[i*12+k]; thi[k] = hi[i*12+k]; tsc[k] = sc[i*12+k]; }
+  hk_prop_postTop_on_rail_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_postTops_apart_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[12], tdx[12], ty[1], tdy[1];
+  for (int k = 0; k < 12; ++k) { tx[k] = x[i*12+k]; tdx[k] = dx[i*12+k]; }
+  hk_prop_postTops_apart_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_postTops_apart_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[12], thi[12], tsc[12], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 12; ++k) { tlo[k] = lo[i*12+k]; thi[k] = hi[i*12+k]; tsc[k] = sc[i*12+k]; }
+  hk_prop_postTops_apart_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_postTops_level_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[12], tdx[12], ty[1], tdy[1];
+  for (int k = 0; k < 12; ++k) { tx[k] = x[i*12+k]; tdx[k] = dx[i*12+k]; }
+  hk_prop_postTops_level_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_postTops_level_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[12], thi[12], tsc[12], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 12; ++k) { tlo[k] = lo[i*12+k]; thi[k] = hi[i*12+k]; tsc[k] = sc[i*12+k]; }
+  hk_prop_postTops_level_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_postTops_offAxis_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[13], tdx[13], ty[1], tdy[1];
+  for (int k = 0; k < 13; ++k) { tx[k] = x[i*13+k]; tdx[k] = dx[i*13+k]; }
+  hk_prop_postTops_offAxis_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_postTops_offAxis_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[13], thi[13], tsc[13], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 13; ++k) { tlo[k] = lo[i*13+k]; thi[k] = hi[i*13+k]; tsc[k] = sc[i*13+k]; }
+  hk_prop_postTops_offAxis_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_reachesVertical_iff_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_reachesVertical_iff_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_reachesVertical_iff_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_reachesVertical_iff_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_rim_under_F_iff_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_rim_under_F_iff_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_rim_under_F_iff_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_rim_under_F_iff_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_rollerRadius_pos_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[6], tdx[6], ty[1], tdy[1];
+  for (int k = 0; k < 6; ++k) { tx[k] = x[i*6+k]; tdx[k] = dx[i*6+k]; }
+  hk_prop_rollerRadius_pos_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_rollerRadius_pos_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[6], thi[6], tsc[6], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 6; ++k) { tlo[k] = lo[i*6+k]; thi[k] = hi[i*6+k]; tsc[k] = sc[i*6+k]; }
+  hk_prop_rollerRadius_pos_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_rollerRadius_sq_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[6], tdx[6], ty[1], tdy[1];
+  for (int k = 0; k < 6; ++k) { tx[k] = x[i*6+k]; tdx[k] = dx[i*6+k]; }
+  hk_prop_rollerRadius_sq_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_rollerRadius_sq_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[6], thi[6], tsc[6], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 6; ++k) { tlo[k] = lo[i*6+k]; thi[k] = hi[i*6+k]; tsc[k] = sc[i*6+k]; }
+  hk_prop_rollerRadius_sq_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_rotz_dot_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[7], tdx[7], ty[1], tdy[1];
+  for (int k = 0; k < 7; ++k) { tx[k] = x[i*7+k]; tdx[k] = dx[i*7+k]; }
+  hk_prop_rotz_dot_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_rotz_dot_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[7], thi[7], tsc[7], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 7; ++k) { tlo[k] = lo[i*7+k]; thi[k] = hi[i*7+k]; tsc[k] = sc[i*7+k]; }
+  hk_prop_rotz_dot_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_screwLength_eq_focal_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_prop_screwLength_eq_focal_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_screwLength_eq_focal_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_prop_screwLength_eq_focal_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_screwTwist_zero_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_prop_screwTwist_zero_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_screwTwist_zero_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_prop_screwTwist_zero_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_screw_freedom_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[9], tdx[9], ty[1], tdy[1];
+  for (int k = 0; k < 9; ++k) { tx[k] = x[i*9+k]; tdx[k] = dx[i*9+k]; }
+  hk_prop_screw_freedom_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_screw_freedom_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[9], thi[9], tsc[9], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 9; ++k) { tlo[k] = lo[i*9+k]; thi[k] = hi[i*9+k]; tsc[k] = sc[i*9+k]; }
+  hk_prop_screw_freedom_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_screw_reciprocal_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_screw_reciprocal_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_screw_reciprocal_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_screw_reciprocal_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_slackHarmless_of_budget_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_slackHarmless_of_budget_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_slackHarmless_of_budget_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_slackHarmless_of_budget_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_slackHarmless_of_lever_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_slackHarmless_of_lever_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_slackHarmless_of_lever_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_slackHarmless_of_lever_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_sq_bounds_neg_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_sq_bounds_neg_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_sq_bounds_neg_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_sq_bounds_neg_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_strut_resists_lean_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[10], tdx[10], ty[1], tdy[1];
+  for (int k = 0; k < 10; ++k) { tx[k] = x[i*10+k]; tdx[k] = dx[i*10+k]; }
+  hk_prop_strut_resists_lean_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_strut_resists_lean_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[10], thi[10], tsc[10], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 10; ++k) { tlo[k] = lo[i*10+k]; thi[k] = hi[i*10+k]; tsc[k] = sc[i*10+k]; }
+  hk_prop_strut_resists_lean_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_sunDir_rot_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_sunDir_rot_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_sunDir_rot_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_sunDir_rot_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_sunInDish_equivariant_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_sunInDish_equivariant_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_sunInDish_equivariant_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_sunInDish_equivariant_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_swingFocus_circle_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_swingFocus_circle_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_swingFocus_circle_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_swingFocus_circle_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_swingNormal_unit_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_prop_swingNormal_unit_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_swingNormal_unit_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_prop_swingNormal_unit_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_swing_focusCircle_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_swing_focusCircle_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_swing_focusCircle_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_swing_focusCircle_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_swing_lift_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_swing_lift_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_swing_lift_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_swing_lift_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_tension_le_of_holds_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_tension_le_of_holds_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_tension_le_of_holds_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_tension_le_of_holds_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_trackerBudget_iff_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_trackerBudget_iff_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_trackerBudget_iff_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_trackerBudget_iff_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_tracker_margin_hashemi_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_prop_tracker_margin_hashemi_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_tracker_margin_hashemi_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_prop_tracker_margin_hashemi_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_tracking_power_tiny_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_tracking_power_tiny_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_tracking_power_tiny_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_tracking_power_tiny_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_wireLever_edge_formula_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_prop_wireLever_edge_formula_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_wireLever_edge_formula_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_prop_wireLever_edge_formula_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_wireLever_pos_iff_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_wireLever_pos_iff_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_wireLever_pos_iff_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_wireLever_pos_iff_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_wireLever_rest_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_wireLever_rest_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_wireLever_rest_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_wireLever_rest_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_wire_recip_swing_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[8], tdx[8], ty[1], tdy[1];
+  for (int k = 0; k < 8; ++k) { tx[k] = x[i*8+k]; tdx[k] = dx[i*8+k]; }
+  hk_prop_wire_recip_swing_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_wire_recip_swing_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[8], thi[8], tsc[8], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 8; ++k) { tlo[k] = lo[i*8+k]; thi[k] = hi[i*8+k]; tsc[k] = sc[i*8+k]; }
+  hk_prop_wire_recip_swing_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_wire_taut_iff_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_prop_wire_taut_iff_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_wire_taut_iff_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_prop_wire_taut_iff_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_prop_yaw_lifts_nothing_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_prop_yaw_lifts_nothing_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prop_yaw_lifts_nothing_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_prop_yaw_lifts_nothing_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }

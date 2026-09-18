@@ -51,21 +51,24 @@ def parse_twin(s):
     return [bits_to_float(s)]
 
 
-def call_c(lib, fn, inputs, n_out, shape):
+def call_c(lib, fn, inputs, n_out, shape, tables=()):
+    """scalars by value, then each ray table as a pointer to its flat doubles"""
     f = getattr(lib, fn["c"])
     args = [ctypes.c_double(x) for x in inputs]
+    tabs = [(ctypes.c_double * len(t))(*t) for t in tables]
+    ptr = [ctypes.POINTER(ctypes.c_double)] * len(tabs)
     if shape == "real":
         f.restype = ctypes.c_double
-        f.argtypes = [ctypes.c_double] * len(inputs)
-        return [f(*args)]
+        f.argtypes = [ctypes.c_double] * len(inputs) + ptr
+        return [f(*args, *tabs)]
     if shape == "bool":
         f.restype = ctypes.c_bool
-        f.argtypes = [ctypes.c_double] * len(inputs)
-        return [1.0 if f(*args) else 0.0]
+        f.argtypes = [ctypes.c_double] * len(inputs) + ptr
+        return [1.0 if f(*args, *tabs) else 0.0]
     f.restype = None
-    f.argtypes = [ctypes.c_double] * len(inputs) + [ctypes.POINTER(ctypes.c_double)]
+    f.argtypes = [ctypes.c_double] * len(inputs) + ptr + [ctypes.POINTER(ctypes.c_double)]
     out = (ctypes.c_double * n_out)()
-    f(*args, out)
+    f(*args, *tabs, out)
     return list(out)
 
 
@@ -92,9 +95,11 @@ def main():
             print(f"MISSING twin output for {key}")
             continue
         n_fn += 1
-        for sample, tv in zip(fn["samples"], got):
+        tabs_all = fn.get("array_samples", [[] for _ in fn["samples"]])
+        for sample, tv, tabs in zip(fn["samples"], got, tabs_all):
             tvals = parse_twin(tv)
-            cvals = call_c(lib, fn, [float(x) for x in sample], fn["n_out"], fn["shape"])
+            cvals = call_c(lib, fn, [float(x) for x in sample], fn["n_out"], fn["shape"],
+                           tables=[[float(v) for v in t] for t in tabs])
             if len(tvals) != len(cvals) or not all(same(a, b) for a, b in zip(tvals, cvals)):
                 n_bad += 1
                 print(f"DISAGREE {key} {sample}: twin {tvals} C {cvals}")

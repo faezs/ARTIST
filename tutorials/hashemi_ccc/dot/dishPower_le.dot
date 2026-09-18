@@ -524,9 +524,16 @@ digraph "TandoorHashemi.dishPower_le" {
   n274 -> n275; n8 -> n275;
   n276 [label="*", shape=ellipse];
   n275 -> n276; n269 -> n276;
-  n277 [label="<=", shape=ellipse];
-  n276 -> n277; n275 -> n277;
-  n278 [label="->", shape=ellipse];
-  n25 -> n278; n277 -> n278;
-  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n278 -> out0;
+  n277 [label="-", shape=ellipse];
+  n4 -> n277; n264 -> n277;
+  n278 [label="0.005", shape=plaintext];
+  n279 [label="/", shape=ellipse];
+  n277 -> n279; n278 -> n279;
+  n280 [label="sigmoid", shape=ellipse];
+  n279 -> n280;
+  n281 [label="<=", shape=ellipse];
+  n276 -> n281; n275 -> n281;
+  n282 [label="->", shape=ellipse];
+  n25 -> n282; n281 -> n282;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n282 -> out0;
 }

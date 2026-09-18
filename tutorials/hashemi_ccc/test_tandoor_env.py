@@ -16,6 +16,7 @@ sys.path.insert(0, HERE)
 from export_scene import ini_env_kwargs               # noqa: E402
 from hashemi_tandoor_env import HashemiTandoorEnv     # noqa: E402
 from hashemi_kernel import COL                        # noqa: E402
+from hashemi_env_kernel import ECOL                   # noqa: E402
 
 
 def main():
@@ -49,7 +50,7 @@ def main():
         d_az = env.az_m - az0
         d_az -= 360 * np.round(d_az / 360)
         a[:, 3] = 3 + 3 * -np.clip(d_az / (env.RATE_AZ * env.dt), -1, 1)
-        a[:, 4] = 3 + 3 * -np.clip(e_el / (np.degrees(0.01 / max(float(env.hk_row[:, 7].mean()), 0.05)) * env.dt), -1, 1)
+        a[:, 4] = 3 + 3 * -np.clip(e_el / (np.degrees(0.01 / max(float(env.hk_row[:, 8].mean()), 0.05)) * env.dt), -1, 1)
         t_before = float(env.t_solar[0])
         obs, rew, term, trunc, infos = env.step(a)
         k += 1
@@ -65,13 +66,14 @@ def main():
             S = env._gpu if args.gpu else env            # the fused path keeps the pot on the device
             T = np.asarray(S.T.cpu() if args.gpu else S.T)
             rows.append((float(env.t_solar[0]), el0, float(env.el_m.mean()), float(e_el.mean()), float(env.cap_traced.mean()),
-                         float(np.mean(env.p_in)), float(np.mean(T[:, :env.n_belt].max(1))), float(np.asarray(S.ep_rotis.cpu() if args.gpu else S.ep_rotis).mean())))
+                         float(np.mean(env.p_in)), float(np.mean(T[:, :env.n_belt].max(1))), float(np.asarray(S.ep_rotis.cpu() if args.gpu else S.ep_rotis).mean()),
+                         float(np.mean(env.t_oil)), float(np.mean(env.row[:, ECOL["q_pot"]]))))
         if float(env.t_solar[0]) < t_before - 1.0 or k > 4000:
             break
     print(f"day {args.day} gpu={args.gpu}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}")
-    print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis")
+    print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis   T_oil[K]  q_pot[W]")
     for r in rows:
-        print("  %5.2f  %6.2f  %6.2f  %+6.2f   %5.3f   %7.0f   %7.1f   %6.2f" % r)
+        print("  %5.2f  %6.2f  %6.2f  %+6.2f   %5.3f   %7.0f   %7.1f   %6.2f   %7.1f   %7.0f" % r)
     print(f"  spec vs parent: sun_reachable == sun up {100 * agree_reach / k:.1f} %, lost_sun == lost {100 * agree_lost / k:.1f} %")
     ok = rows[-1][7] > 50 and all(r[4] > 0.9 for r in rows) and agree_reach / k > 0.99 and agree_lost / k > 0.97
     print("COOKS" if ok else "DOES NOT COOK")

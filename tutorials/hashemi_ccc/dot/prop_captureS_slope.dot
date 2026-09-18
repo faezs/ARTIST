@@ -1,0 +1,36 @@
+digraph "TandoorHashemi.prop_captureS_slope" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="rc", shape=box];
+  n1 [label="r1", shape=box];
+  n2 [label="r2", shape=box];
+  n3 [label="-", shape=ellipse];
+  n0 -> n3; n1 -> n3;
+  n4 [label="0.005", shape=plaintext];
+  n5 [label="/", shape=ellipse];
+  n3 -> n5; n4 -> n5;
+  n6 [label="sigmoid", shape=ellipse];
+  n5 -> n6;
+  n7 [label="-", shape=ellipse];
+  n0 -> n7; n2 -> n7;
+  n8 [label="/", shape=ellipse];
+  n7 -> n8; n4 -> n8;
+  n9 [label="sigmoid", shape=ellipse];
+  n8 -> n9;
+  n10 [label="-", shape=ellipse];
+  n6 -> n10; n9 -> n10;
+  n11 [label="abs", shape=ellipse];
+  n10 -> n11;
+  n12 [label="-", shape=ellipse];
+  n1 -> n12; n2 -> n12;
+  n13 [label="abs", shape=ellipse];
+  n12 -> n13;
+  n14 [label="4", shape=plaintext];
+  n15 [label="*", shape=ellipse];
+  n14 -> n15; n4 -> n15;
+  n16 [label="/", shape=ellipse];
+  n13 -> n16; n15 -> n16;
+  n17 [label="<=", shape=ellipse];
+  n11 -> n17; n16 -> n17;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n17 -> out0;
+}

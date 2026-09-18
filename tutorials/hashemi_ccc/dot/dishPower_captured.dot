@@ -522,11 +522,18 @@ digraph "TandoorHashemi.dishPower_captured" {
   n273 -> n274; n8 -> n274;
   n275 [label="*", shape=ellipse];
   n274 -> n275; n268 -> n275;
-  n276 [label="==", shape=ellipse];
-  n268 -> n276; n91 -> n276;
-  n277 [label="==", shape=ellipse];
-  n268 -> n277; n77 -> n277;
-  n278 [label="||", shape=ellipse];
+  n276 [label="-", shape=ellipse];
+  n4 -> n276; n263 -> n276;
+  n277 [label="0.005", shape=plaintext];
+  n278 [label="/", shape=ellipse];
   n276 -> n278; n277 -> n278;
-  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n278 -> out0;
+  n279 [label="sigmoid", shape=ellipse];
+  n278 -> n279;
+  n280 [label="==", shape=ellipse];
+  n268 -> n280; n91 -> n280;
+  n281 [label="==", shape=ellipse];
+  n268 -> n281; n77 -> n281;
+  n282 [label="||", shape=ellipse];
+  n280 -> n282; n281 -> n282;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n282 -> out0;
 }
