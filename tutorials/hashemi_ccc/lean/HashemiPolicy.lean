@@ -177,32 +177,40 @@ theorem mlpPolicy_bounded (W1 : Fin 16 → Fin 8 → ℝ) (b1 : Fin 16 → ℝ) 
 /-! ## The closed loop as one morphism -/
 
 /-- **the closed loop**: the observation of the state, the policy, the two drives (the wire's
-lever arm at the current swing), the env's step. Outputs the env's 27 columns, the eight
-observations and the two commands. -/
+lever arm at the current swing), the env's step. Outputs the env's 83 columns, the eight
+observations the policy acted on and its two commands. -/
 noncomputable def hashemiLoop (az t slack dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-    R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx Coil ToilMax Toil Twall Ta
+    R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta
     tautPrev holdsPrev tDead : ℝ)
     (W1 : Fin 16 → Fin 8 → ℝ) (b1 : Fin 16 → ℝ) (W2 : Fin 2 → Fin 16 → ℝ) (b2 : Fin 2 → ℝ)
-    (dr : Fin 64 → Fin 10 → ℝ) : Fin 45 → ℝ :=
-  let o := obsOf az t elSun azSun tautPrev holdsPrev Toil tDead
+    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 93 → ℝ :=
+  let o := obsOf az t elSun azSun tautPrev holdsPrev (hist 0) tDead
   let u := mlpPolicy W1 b1 W2 b2 o
   let arm := leverAt ymHashemi hpHashemi dishHalf zeHashemi t
   let ωm := driveAz (u 0) hashemi.rDrive (rollerRadius hashemi)
   let ωd := driveEl (u 1) arm rDrum
   let s := hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-    R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx Coil ToilMax Toil Twall Ta dr
-  ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9, s 10, s 11, s 12, s 13, s 14, s 15, s 16,
-    s 17, s 18, s 19, s 20, s 21, s 22, s 23, s 24, s 25, s 26,
-    s 27, s 28, s 29, s 30, s 31, s 32, s 33, s 34,
-    o 0, o 1, o 2, o 3, o 4, o 5, o 6, o 7, u 0, u 1]
+    R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta hist ret dr
+  ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9, s 10, s 11, s 12, s 13, s 14, s 15,
+    s 16, s 17, s 18, s 19, s 20, s 21, s 22, s 23, s 24, s 25, s 26, s 27, s 28, s 29, s 30, s 31,
+    s 32, s 33, s 34, s 35, s 36, s 37, s 38, s 39, s 40, s 41, s 42, s 43, s 44, s 45, s 46, s 47,
+    s 48, s 49, s 50, s 51, s 52, s 53, s 54, s 55, s 56, s 57, s 58, s 59, s 60, s 61, s 62, s 63,
+    s 64, s 65, s 66, s 67, s 68, s 69, s 70, s 71, s 72, s 73, s 74, s 75, s 76, s 77, s 78, s 79,
+    s 80, s 81, s 82, o 0, o 1, o 2, o 3, o 4, o 5, o 6, o 7, u 0, u 1]
 
 def loopNames : Array String := #[
   "az_next", "t_next", "slack_next", "wire_len", "t_dead", "stalled", "taut", "wire_holds", "arm",
   "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun", "sun_reachable_s", "lost_sun_s",
   "capture", "capture_s", "per_dni", "p_in", "T_oil", "q_abs", "q_coil_loss", "q_pipe", "q_pot", "q_net",
   "obs_e_az", "obs_e_el", "obs_swing", "obs_taut", "obs_holds", "obs_oil", "obs_reach_s", "obs_lost_s",
+  "flux_0", "flux_1", "flux_2", "flux_3", "flux_4", "flux_5", "flux_6", "flux_7",
+  "coil_0", "coil_1", "coil_2", "coil_3", "coil_4", "coil_5", "coil_6", "coil_7",
+  "hist_0", "hist_1", "hist_2", "hist_3", "hist_4", "hist_5", "hist_6", "hist_7",
+  "hist_8", "hist_9", "hist_10", "hist_11", "hist_12", "hist_13", "hist_14", "hist_15",
+  "ret_0", "ret_1", "ret_2", "ret_3", "ret_4", "ret_5", "ret_6", "ret_7",
+  "ret_8", "ret_9", "ret_10", "ret_11", "ret_12", "ret_13", "ret_14", "ret_15",
   "e_az", "e_el", "swing", "taut_obs", "holds_obs", "oil", "reach_s", "lost_s", "u_az", "u_el"]
 
-theorem loopNames_size : loopNames.size = 45 := by rfl
+theorem loopNames_size : loopNames.size = 93 := by rfl
 
 end TandoorHashemi

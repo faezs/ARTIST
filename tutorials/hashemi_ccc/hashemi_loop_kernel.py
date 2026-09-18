@@ -17,7 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 from hashemi_kernel import MSL_PRELUDE, header_text   # noqa: E402
-from hashemi_env_kernel import env_params, draws, P as RAYS  # noqa: E402
+from hashemi_env_kernel import env_params, draws, P as RAYS, N_HIST  # noqa: E402
 
 POL = json.load(open(os.path.join(HERE, "hashemi_policy.json")))
 LCOL = {n: i for i, n in enumerate(POL["columns"])}
@@ -47,7 +47,7 @@ def weights_follower(gain=109.0):
     return dict(W1=W1, b1=b1, W2=W2, b2=b2)
 
 
-def pack_loop(B, state, dt, sun, soil, toil, twall, ta, taut, holds, tdead, b2, params=None):
+def pack_loop(B, state, dt, sun, soil, twall, ta, taut, holds, tdead, b2, params=None):
     prm = env_params() if params is None else params
     x = np.zeros((B, N_IN))
     for k, v in prm.items():
@@ -56,16 +56,16 @@ def pack_loop(B, state, dt, sun, soil, toil, twall, ta, taut, holds, tdead, b2, 
     x[:, LIN["az"]], x[:, LIN["t"]], x[:, LIN["slack"]] = state[:, 0], state[:, 1], state[:, 2]
     x[:, LIN["dt"]] = dt
     x[:, LIN["elSun"]], x[:, LIN["azSun"]], x[:, LIN["dni"]] = sun[:, 0], sun[:, 1], sun[:, 2]
-    x[:, LIN["soil"]], x[:, LIN["Toil"]], x[:, LIN["Twall"]], x[:, LIN["Ta"]] = soil, toil, twall, ta
+    x[:, LIN["soil"]], x[:, LIN["Twall"]], x[:, LIN["Ta"]] = soil, twall, ta
     x[:, LIN["tautPrev"]], x[:, LIN["holdsPrev"]], x[:, LIN["tDead"]] = taut, holds, tdead
     x[:, LIN["b2_0"]], x[:, LIN["b2_1"]] = b2[0], b2[1]
     return x
 
 
-def loop_numpy(x, W, dr):
+def loop_numpy(x, W, hist, ret, dr):
     import hashemi_ccc as H
     B = x.shape[0]
-    tabs = [W["W1"], W["b1"], W["W2"], dr]          # the manifest's order: W1 b1 W2 dr
+    tabs = [W["W1"], W["b1"], W["W2"], hist, ret, dr]   # the manifest's order: W1 b1 W2 hist ret dr
     with np.errstate(all="ignore"):
         return np.asarray(H.hk_hashemiLoop(*[x[:, k] for k in range(N_IN)], *tabs), dtype=np.float64).reshape(B, N_OUT)
 
@@ -77,7 +77,7 @@ class HashemiLoopMetal:
         self.lib = torch.mps.compile_shader(loop_source())
         self._buf = {}
 
-    def step(self, x, W1, b1, W2, dr):
+    def step(self, x, W1, b1, W2, hist, ret, dr):
         torch = self.torch
         B = x.shape[0]
         bufs = self._buf.get(B)
@@ -86,8 +86,8 @@ class HashemiLoopMetal:
                     torch.tensor([B], dtype=torch.int32, device="mps"))
             self._buf[B] = bufs
         out, nB = bufs
-        self.lib.hashemi_loop(x.contiguous(), W1.contiguous(), b1.contiguous(), W2.contiguous(), dr.contiguous(),
-                              out, nB, threads=B * RAYS, group_size=RAYS)
+        self.lib.hashemi_loop(x.contiguous(), W1.contiguous(), b1.contiguous(), W2.contiguous(),
+                              hist.contiguous(), ret.contiguous(), dr.contiguous(), out, nB, threads=B * RAYS, group_size=RAYS)
         return out
 
 
@@ -101,16 +101,18 @@ if __name__ == "__main__":
     el = np.clip(np.pi / 2 - state[:, 1] + rng.uniform(-0.05, 0.05, B), 0.5, 1.5)
     sun = np.stack([el, state[:, 0] + rng.uniform(-0.05, 0.05, B), np.full(B, 800.0)], 1)
     W = weights_random(rng)
-    x = pack_loop(B, state, 15.0, sun, np.full(B, 0.95), rng.uniform(300, 500, B), rng.uniform(350, 450, B), 300.0,
+    x = pack_loop(B, state, 15.0, sun, np.full(B, 0.95), rng.uniform(350, 450, B), 300.0,
                   np.ones(B), np.ones(B), tdead, W["b2"])
     dr = draws(rng, B)
-    ref = loop_numpy(x, W, dr)
+    hist = rng.uniform(300, 500, (B, N_HIST)); ret = rng.uniform(300, 450, (B, N_HIST))
+    ref = loop_numpy(x, W, hist, ret, dr)
     k = HashemiLoopMetal()
     f32 = lambda a: torch.as_tensor(np.asarray(a, dtype=np.float32), device="mps")
-    out = k.step(f32(x), f32(W["W1"]), f32(W["b1"]), f32(W["W2"]), f32(dr)).cpu().numpy().astype(np.float64)
+    args = (f32(x), f32(W["W1"]), f32(W["b1"]), f32(W["W2"]), f32(hist), f32(ret), f32(dr))
+    out = k.step(*args).cpu().numpy().astype(np.float64)
     torch.mps.synchronize(); t0 = time.perf_counter()
     for _ in range(20):
-        k.step(f32(x), f32(W["W1"]), f32(W["b1"]), f32(W["W2"]), f32(dr))
+        k.step(*args)
     torch.mps.synchronize(); ms = (time.perf_counter() - t0) / 20 * 1e3
     print(f"hashemi_loop: {N_OUT} columns, {POL['n_nodes']} nodes; {ms:.2f} ms/step at B={B}")
     bad = 0
@@ -124,7 +126,8 @@ if __name__ == "__main__":
             if name in ("obs_e_az", "e_az"):
                 a = np.where(fin, ((a - b + np.pi) % (2 * np.pi)) - np.pi + b, a)   # a wrapped angle: modulo 2 pi
             err = np.max(np.abs(a[fin] - b[fin]) / np.maximum(1.0, np.abs(b[fin]))) if fin.any() else 0.0
-            tol = 1e-2 if name in ("capture", "capture_s", "per_dni", "p_in", "q_abs", "q_pot", "q_net", "T_oil", "e_az") else 2e-3
+            tol = 1e-2 if (name in ("capture", "capture_s", "per_dni", "p_in", "q_abs", "q_pot", "q_net", "q_coil_loss", "q_pipe", "T_oil", "obs_oil", "oil", "e_az")
+                           or name.startswith(("flux_", "coil_"))) else 2e-3
             if err > tol:
                 bad += 1
                 print(f"  mismatch {name}: {err:.2e}")
@@ -135,14 +138,15 @@ if __name__ == "__main__":
     Wf = weights_follower()
     sunf = np.stack([np.clip(np.pi / 2 - state[:, 1] + rng.uniform(-0.004, 0.004, B), 0.5, 1.5),
                      state[:, 0] + rng.uniform(-0.004, 0.004, B), np.full(B, 800.0)], 1)
-    xf = pack_loop(B, state, 15.0, sunf, np.full(B, 0.95), np.full(B, 400.0), np.full(B, 400.0), 300.0,
+    xf = pack_loop(B, state, 15.0, sunf, np.full(B, 0.95), np.full(B, 400.0), 300.0,
                    np.ones(B), np.ones(B), tdead, Wf["b2"])
-    o1 = loop_numpy(xf, Wf, dr)
+    h0 = np.full((B, N_HIST), 400.0)
+    o1 = loop_numpy(xf, Wf, h0, h0, dr)
     e_az0, e_el0 = o1[:, LCOL["e_az"]], o1[:, LCOL["e_el"]]
     st1 = o1[:, [LCOL["az_next"], LCOL["t_next"], LCOL["slack_next"]]]
-    x2 = pack_loop(B, st1, 15.0, sunf, np.full(B, 0.95), np.full(B, 400.0), np.full(B, 400.0), 300.0,
+    x2 = pack_loop(B, st1, 15.0, sunf, np.full(B, 0.95), np.full(B, 400.0), 300.0,
                    o1[:, LCOL["taut"]], o1[:, LCOL["wire_holds"]], tdead, Wf["b2"])
-    o2 = loop_numpy(x2, Wf, dr)
+    o2 = loop_numpy(x2, Wf, h0, h0, dr)
     e_az1, e_el1 = o2[:, LCOL["e_az"]], o2[:, LCOL["e_el"]]
     print(f"  follower policy: |e_az| {np.mean(np.abs(e_az0)):.4f} -> {np.mean(np.abs(e_az1)):.4f} rad, |e_el| {np.mean(np.abs(e_el0)):.4f} -> {np.mean(np.abs(e_el1)):.4f} rad after one step (commands u {np.mean(np.abs(o1[:, LCOL['u_az']])):.2f}, {np.mean(np.abs(o1[:, LCOL['u_el']])):.2f})")
     sys.exit(0 if bad == 0 else 1)

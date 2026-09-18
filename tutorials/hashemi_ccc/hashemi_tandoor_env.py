@@ -41,7 +41,7 @@ import torch                                        # noqa: E402
 from tandoor_hashemi_env import TandoorHashemiEnv   # noqa: E402
 from hashemi_kernel import COL, mega_numpy, mega_params_numpy                       # noqa: E402
 from hashemi_env_kernel import (HashemiEnvMetal, env_numpy, env_params, pack, draws,   # noqa: E402
-                                ECOL, EIN, N_IN, N_OUT, P as ENV_RAYS, M as ENV_M)
+                                ECOL, EIN, N_IN, N_OUT, P as ENV_RAYS, M as ENV_M, N_HIST, HIST_COLS, RET_COLS)
 import json                                         # noqa: E402
 # THE POLICY DESCRIPTION IS THE SPEC'S (HashemiPolicy.lean, written out by the driver): which
 # heads are the motors, how many levels, and the drives a head's value means (headToDriveAz /
@@ -93,6 +93,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self._params = env_params()
         self.hk_state = np.zeros((B, 3))
         self.t_oil = np.full(B, self.t_amb)
+        # THE OIL'S STATE IS THE FIELD ALONG THE PIPE: the coil's outlet and the exchanger's outlet
+        # over the last 16 steps (HashemiField.lean `shift`, the plug-flow kernel on the grid)
+        self.hist = np.full((B, N_HIST), self.t_amb)
+        self.ret = np.full((B, N_HIST), self.t_amb)
         self.row = np.zeros((B, N_OUT))              # the last step's 27 columns (host mirror)
         self.hk_row = self.row
         self.cap_traced = np.zeros(B)
@@ -119,10 +123,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             self._env = HashemiEnvMetal()
             dev = "mps"
             x = pack(B, np.zeros((B, 3)), np.zeros((B, 2)), float(self.dt), np.zeros((B, 3)), np.ones(B),
-                     np.full(B, self.t_amb), np.full(B, self.t_amb), self.t_amb, self._params)
+                     np.full(B, self.t_amb), self.t_amb, self._params)
             self._x = torch.as_tensor(x.astype(np.float32), device=dev)
             self._st = torch.zeros(B, 3, dtype=torch.float32, device=dev)
-            self._toil = torch.full((B,), self.t_amb, dtype=torch.float32, device=dev)
+            self._hist = torch.full((B, N_HIST), self.t_amb, dtype=torch.float32, device=dev)
+            self._ret = torch.full((B, N_HIST), self.t_amb, dtype=torch.float32, device=dev)
             self._q_pot_t = torch.zeros(B, dtype=torch.float32, device=dev)
             self._cap_t = torch.zeros(B, dtype=torch.float32, device=dev)
             self._hk_out = torch.zeros(B, N_OUT, dtype=torch.float32, device=dev)
@@ -159,8 +164,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         res = super().reset(*args, **kwargs)
         self._sync_from_motors(np.ones(self.num_agents, dtype=bool))
         self.t_oil[:] = self.t_amb
+        self.hist[:] = self.t_amb
+        self.ret[:] = self.t_amb
         if self._env is not None:
-            self._toil.fill_(self.t_amb)
+            self._hist.fill_(self.t_amb)
+            self._ret.fill_(self.t_amb)
         return res
 
     # --- the beam's node profile: where the parent's own trace puts the pot's power
@@ -195,10 +203,12 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             pn = self._beam_profile[:, :self.n_nodes]
             twall = (self.T[:, :self.n_nodes] * pn).sum(1) / np.maximum(pn.sum(1), 1e-9)
         x = pack(B, self.hk_state, cmd, float(self.dt), sun, np.asarray(self.soil, dtype=np.float64),
-                 self.t_oil, twall, self.t_amb, self._params)
+                 twall, self.t_amb, self._params)
         x[:, EIN["UAx"]] *= (self._valve_np() > 0)            # the exchanger opens with the beam gate
         dr = draws(self.rng, B)
-        self.row = env_numpy(x, dr)
+        self.row = env_numpy(x, self.hist, self.ret, dr)
+        self.hist = self.row[:, HIST_COLS].copy()
+        self.ret = self.row[:, RET_COLS].copy()
         self.hk_row = self.row
         self.hk_state[:, 0] = self.row[:, ECOL["az_next"]]
         self.hk_state[:, 1] = self.row[:, ECOL["t_next"]]
@@ -250,7 +260,6 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         x[:, EIN["elSun"]] = el; x[:, EIN["azSun"]] = az
         x[:, EIN["dni"]] = F.dni                     # the parent's draw (last step's until step_pre)
         x[:, EIN["soil"]] = F.soil
-        x[:, EIN["Toil"]] = self._toil
         prof = self._fused_profile[:, :self.n_nodes] if self._fused_profile is not None else None
         x[:, EIN["Twall"]] = F.T[:, :self.n_nodes].mean(1) if prof is None else \
             (F.T[:, :self.n_nodes] * prof).sum(1) / prof.sum(1).clamp_min(1e-9)
@@ -258,12 +267,13 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         g = self._gen
         dr = torch.cat([torch.rand(B, ENV_RAYS, 6, generator=g, device=self.device),
                         torch.randn(B, ENV_RAYS, 4, generator=g, device=self.device)], 2)
-        out = self._env.step(x, dr)
+        out = self._env.step(x, self._hist, self._ret, dr)
         self._hk_out = out
         self._st[:, 0] = out[:, ECOL["az_next"]]
         self._st[:, 1] = out[:, ECOL["t_next"]]
         self._st[:, 2] = out[:, ECOL["slack_next"]]
-        self._toil.copy_(out[:, ECOL["T_oil"]])
+        self._hist.copy_(out[:, HIST_COLS])
+        self._ret.copy_(out[:, RET_COLS])
         self._q_pot_t.copy_(out[:, ECOL["q_pot"]])
         self._cap_t.copy_(out[:, ECOL["capture"]])
         F.el_m.copy_(90.0 - torch.rad2deg(self._st[:, 1]))
@@ -283,7 +293,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             rew_t = rew_t - self.pointing_shaping * out[:, ECOL["pointing_err"]].clamp(max=0.5) * out[:, ECOL["sun_reachable"]]
         res = (obs_t, rew_t, infos)
         # a cut agent's motors were re-parked by step_post, every agent's at day over: the Lean
-        # state follows the parent's motors there; the oil keeps its temperature
+        # state follows the parent's motors there; the oil keeps its field
         mask = F.trunc > 0.5
         if float(self.t_solar[0]) < t_before - 1.0:
             mask = torch.ones_like(mask, dtype=torch.bool)
@@ -303,6 +313,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             self.cap_traced = self.row[:, ECOL["capture"]]
             self.hk_state[:] = self._st.cpu().numpy()
             self.t_oil = self.row[:, ECOL["T_oil"]]
+            self.hist = self.row[:, HIST_COLS]; self.ret = self.row[:, RET_COLS]
             self.machine_obs = self.row[:, OBS_COLS].astype(np.float32)
             self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])
             self.az_m = np.degrees(self.hk_state[:, 0])

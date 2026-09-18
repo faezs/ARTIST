@@ -1,0 +1,21 @@
+digraph "TandoorHashemi.delivered" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="Upipe", shape=box];
+  n1 [label="mcp", shape=box];
+  n2 [label="Ta", shape=box];
+  n3 [label="Tin", shape=box];
+  n4 [label="-", shape=ellipse];
+  n3 -> n4; n2 -> n4;
+  n5 [label="neg", shape=ellipse];
+  n0 -> n5;
+  n6 [label="/", shape=ellipse];
+  n5 -> n6; n1 -> n6;
+  n7 [label="exp", shape=ellipse];
+  n6 -> n7;
+  n8 [label="*", shape=ellipse];
+  n4 -> n8; n7 -> n8;
+  n9 [label="+", shape=ellipse];
+  n2 -> n9; n8 -> n9;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out0;
+}

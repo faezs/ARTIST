@@ -1,0 +1,24 @@
+digraph "TandoorHashemi.shift_head" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="x", shape=box];
+  n1 [label="h_0", shape=box];
+  n2 [label="h_1", shape=box];
+  n3 [label="h_2", shape=box];
+  n4 [label="h_3", shape=box];
+  n5 [label="h_4", shape=box];
+  n6 [label="h_5", shape=box];
+  n7 [label="h_6", shape=box];
+  n8 [label="h_7", shape=box];
+  n9 [label="h_8", shape=box];
+  n10 [label="h_9", shape=box];
+  n11 [label="h_10", shape=box];
+  n12 [label="h_11", shape=box];
+  n13 [label="h_12", shape=box];
+  n14 [label="h_13", shape=box];
+  n15 [label="h_14", shape=box];
+  n16 [label="h_15", shape=box];
+  n17 [label="==", shape=ellipse];
+  n0 -> n17; n0 -> n17;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n17 -> out0;
+}

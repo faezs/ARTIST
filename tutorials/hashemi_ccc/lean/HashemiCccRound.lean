@@ -87,6 +87,20 @@ theorem coilCapture_ccc : coilCapture = fun (rs : ℝ) (rc : ℝ) (d : ℝ) =>
     let v30 := (d + rs)
     (if ((rs + rc) ≤ d) then (0 : ℝ) else (if (d ≤ (rc - rs)) then (1 : ℝ) else ((((v9 * (Real.arccos (((v10 + v9) - v12) / (v15 * rs)))) + (v12 * (Real.arccos (((v10 + v12) - v9) / (v15 * rc))))) - ((Real.sqrt ((((((-d) + rs) + rc) * (v30 - rc)) * ((d - rs) + rc)) * (v30 + rc))) / (2 : ℝ))) / (Real.pi * v9)))) := rfl
 
+theorem coilProfile_ccc : coilProfile = fun (α : ℝ) (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Ta : ℝ) (mcp : ℝ) (Tin : ℝ) (P : Fin 8 → ℝ) =>
+    let v19 := (Ac / (8 : ℝ))
+    let v20 := ((ε * (0.0000000567 : ℝ)) * v19)
+    let v22 := (Ta ^ 4)
+    let v25 := (hC * v19)
+    let v31 := (Tin + (((α * (P 0)) - ((v20 * ((Tin ^ 4) - v22)) + (v25 * (Tin - Ta)))) / mcp))
+    let v41 := (v31 + (((α * (P 1)) - ((v20 * ((v31 ^ 4) - v22)) + (v25 * (v31 - Ta)))) / mcp))
+    let v51 := (v41 + (((α * (P 2)) - ((v20 * ((v41 ^ 4) - v22)) + (v25 * (v41 - Ta)))) / mcp))
+    let v61 := (v51 + (((α * (P 3)) - ((v20 * ((v51 ^ 4) - v22)) + (v25 * (v51 - Ta)))) / mcp))
+    let v71 := (v61 + (((α * (P 4)) - ((v20 * ((v61 ^ 4) - v22)) + (v25 * (v61 - Ta)))) / mcp))
+    let v81 := (v71 + (((α * (P 5)) - ((v20 * ((v71 ^ 4) - v22)) + (v25 * (v71 - Ta)))) / mcp))
+    let v91 := (v81 + (((α * (P 6)) - ((v20 * ((v81 ^ 4) - v22)) + (v25 * (v81 - Ta)))) / mcp))
+    ![v31, v41, v51, v61, v71, v81, v91, (v91 + (((α * (P 7)) - ((v20 * ((v91 ^ 4) - v22)) + (v25 * (v91 - Ta)))) / mcp))] := rfl
+
 theorem conicHitS_ccc : conicHitS = fun (c : ℝ) (k : ℝ) (O : Fin 3 → ℝ) (d : Fin 3 → ℝ) =>
     let v9 := ((1 : ℝ) + k)
     let v27 := ((((2 : ℝ) * c) * ((((O 0) * (d 0)) + ((O 1) * (d 1))) + ((v9 * (O 2)) * (d 2)))) - ((2 : ℝ) * (d 2)))
@@ -135,6 +149,12 @@ theorem deadPoint_ccc : deadPoint = fun (ym : ℝ) (hp : ℝ) (a : ℝ) (ze : �
     let v4 := (ym * a)
     let v5 := (hp * ze)
     (if (v4 ≤ v5) then (Real.pi / (2 : ℝ)) else (Real.arctan (((ym * ze) + (hp * a)) / (v4 - v5)))) := rfl
+
+theorem delaySteps_ccc : delaySteps =
+    (2 : ℝ) := rfl
+
+theorem delivered_ccc : delivered = fun (Upipe : ℝ) (mcp : ℝ) (Ta : ℝ) (Tin : ℝ) =>
+    (Ta + ((Tin - Ta) * (Real.exp ((-Upipe) / mcp)))) := rfl
 
 theorem dishAxes_ccc : dishAxes = fun (az : ℝ) (t : ℝ) =>
     let v2 := (Real.sin t)
@@ -696,6 +716,9 @@ theorem obsOf_ccc : obsOf = fun (az : ℝ) (t : ℝ) (elSun : ℝ) (azSun : ℝ)
 theorem oilStep_ccc : oilStep = fun (α : ℝ) (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Upipe : ℝ) (UAx : ℝ) (Coil : ℝ) (ToilMax : ℝ) (Pin : ℝ) (Toil : ℝ) (Twall : ℝ) (Ta : ℝ) (dt : ℝ) =>
     let v22 := (Toil - Ta)
     (min ToilMax (Toil + ((dt * ((((α * Pin) - ((((ε * (0.0000000567 : ℝ)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v22))) - (Upipe * v22)) - (max (0 : ℝ) (UAx * (Toil - Twall))))) / Coil))) := rfl
+
+theorem pipeGreen_ccc : pipeGreen = fun (Upipe : ℝ) (mcp : ℝ) =>
+    (Real.exp ((-Upipe) / mcp)) := rfl
 
 theorem pointVel_ccc : pointVel = fun (t : TandoorHashemi.Screw) (p : Fin 3 → ℝ) =>
     ![((((t 1) * (p 2)) - ((t 2) * (p 1))) + (t 3)), ((((t 2) * (p 0)) - ((t 0) * (p 2))) + (t 4)), ((((t 0) * (p 1)) - ((t 1) * (p 0))) + (t 5))] := rfl
@@ -1440,6 +1463,9 @@ theorem screwWrench_ccc : screwWrench = fun (xh : ℝ) (zBolt : ℝ) (h : ℝ) =
 theorem setLength_ccc : setLength = fun (rod : ℝ) (excess : ℝ) =>
     (rod - excess) := rfl
 
+theorem shift_ccc : shift = fun (x : ℝ) (h : Fin 16 → ℝ) =>
+    ![x, (h 0), (h 1), (h 2), (h 3), (h 4), (h 5), (h 6), (h 7), (h 8), (h 9), (h 10), (h 11), (h 12), (h 13), (h 14)] := rfl
+
 theorem sideGap_ccc : sideGap =
     (((1.84 : ℝ) - ((2 : ℝ) * (0.8 : ℝ))) / (2 : ℝ)) := rfl
 
@@ -1704,6 +1730,14 @@ theorem traceSphere_ccc : traceSphere = fun (R : ℝ) (p : ℝ) (O : Fin 3 → �
     let v50 := ((d 2) - (v44 * v37))
     let v52 := ((p - v31) / v50)
     ![(v27 + (v52 * ((d 0) - (v44 * v33)))), (v29 + (v52 * ((d 1) - (v44 * v35)))), (Real.sqrt (((v27 + (v52 * ((d 0) - (v44 * v33)))) ^ 2) + ((v29 + (v52 * ((d 1) - (v44 * v35)))) ^ 2))), v31, (if ((0 : ℝ) < v50) then (1 : ℝ) else (0 : ℝ))] := rfl
+
+theorem turnLoss_ccc : turnLoss = fun (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Ta : ℝ) (Tin : ℝ) =>
+    let v8 := (Ac / (8 : ℝ))
+    ((((ε * (0.0000000567 : ℝ)) * v8) * ((Tin ^ 4) - (Ta ^ 4))) + ((hC * v8) * (Tin - Ta))) := rfl
+
+theorem turnOut_ccc : turnOut = fun (α : ℝ) (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Ta : ℝ) (mcp : ℝ) (P : ℝ) (Tin : ℝ) =>
+    let v12 := (Ac / (8 : ℝ))
+    (Tin + (((α * P) - ((((ε * (0.0000000567 : ℝ)) * v12) * ((Tin ^ 4) - (Ta ^ 4))) + ((hC * v12) * (Tin - Ta)))) / mcp)) := rfl
 
 theorem unit3_ccc : unit3 = fun (v : Fin 3 → ℝ) =>
     let v10 := (Real.sqrt (max ((((v 0) ^ 2) + ((v 1) ^ 2)) + ((v 2) ^ 2)) (0.000000000000000001 : ℝ)))
