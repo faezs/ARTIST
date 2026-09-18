@@ -55,7 +55,15 @@ OBS_COLS = [ECOL["obs_" + n] for n in machine_policy.OBS_NAMES]
 class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
 
-    def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.5, t_amb=300.0, trace_rays=None, **kwargs):
+    def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.5, t_amb=300.0, trace_rays=None,
+                 machine_receiver="oil", beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
+        # THE MACHINE'S RECEIVER (the parent's `receiver` - its tri chain - passes through untouched):
+        # "oil" - the coil at F, hot oil in insulated pipes, the exchanger in the pot's wall
+        # (HashemiHeat/HashemiField.lean); "beam" - a hyperboloid inside the coil's envelope sending
+        # the beam down through the slot into the tunnel to the pot (HashemiBeamdown.lean): the
+        # parent's pot takes the beam directly, per unit DNI, as its own tri chain would
+        self.machine_receiver = str(machine_receiver)
+        self.beam_design = dict(L=beam_L, dm=beam_dm, rm=beam_rm, rt=beam_rt, slotW=beam_slot, beta=beam_beta)
         # trace_rays: accepted for the ini's sake; the rays are the spec's (HashemiEnv.lean `envRays`, 64)
         if trace_rays is not None and int(trace_rays) != ENV_RAYS:
             print(f"  [hashemi_ccc] trace_rays={trace_rays} ignored: the megakernel's rays are the spec's {ENV_RAYS}")
@@ -119,11 +127,18 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self.machine_action_space = machine_policy.action_space()
         self.machine_obs = np.zeros((B, machine_policy.N_OBS), dtype=np.float32)
         self._env = None
+        if self.machine_receiver == "beam":
+            import hashemi_beam_kernel as _bk
+            self._bk = _bk
         if self.gpu and self._metal is not None:
-            self._env = HashemiEnvMetal()
             dev = "mps"
-            x = pack(B, np.zeros((B, 3)), np.zeros((B, 2)), float(self.dt), np.zeros((B, 3)), np.ones(B),
-                     np.full(B, self.t_amb), self.t_amb, self._params)
+            if self.machine_receiver == "beam":
+                self._env = self._bk.HashemiBeamMetal()
+                x = self._bk.pack_beam(B, np.zeros((B, 3)), np.zeros((B, 2)), float(self.dt), np.zeros((B, 3)), np.ones(B), self.beam_design)
+            else:
+                self._env = HashemiEnvMetal()
+                x = pack(B, np.zeros((B, 3)), np.zeros((B, 2)), float(self.dt), np.zeros((B, 3)), np.ones(B),
+                         np.full(B, self.t_amb), self.t_amb, self._params)
             self._x = torch.as_tensor(x.astype(np.float32), device=dev)
             self._st = torch.zeros(B, 3, dtype=torch.float32, device=dev)
             self._hist = torch.full((B, N_HIST), self.t_amb, dtype=torch.float32, device=dev)
@@ -202,21 +217,29 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         else:
             pn = self._beam_profile[:, :self.n_nodes]
             twall = (self.T[:, :self.n_nodes] * pn).sum(1) / np.maximum(pn.sum(1), 1e-9)
-        x = pack(B, self.hk_state, cmd, float(self.dt), sun, np.asarray(self.soil, dtype=np.float64),
-                 twall, self.t_amb, self._params)
-        x[:, EIN["UAx"]] *= (self._valve_np() > 0)            # the exchanger opens with the beam gate
         dr = draws(self.rng, B)
-        self.row = env_numpy(x, self.hist, self.ret, dr)
-        self.hist = self.row[:, HIST_COLS].copy()
-        self.ret = self.row[:, RET_COLS].copy()
+        if self.machine_receiver == "beam":
+            x = self._bk.pack_beam(B, self.hk_state, cmd, float(self.dt), sun, np.asarray(self.soil, dtype=np.float64), self.beam_design)
+            self.row = self._bk.beam_numpy(x, dr)
+        else:
+            x = pack(B, self.hk_state, cmd, float(self.dt), sun, np.asarray(self.soil, dtype=np.float64),
+                     twall, self.t_amb, self._params)
+            x[:, EIN["UAx"]] *= (self._valve_np() > 0)            # the exchanger opens with the beam gate
+            self.row = env_numpy(x, self.hist, self.ret, dr)
+            self.hist = self.row[:, HIST_COLS].copy()
+            self.ret = self.row[:, RET_COLS].copy()
         self.hk_row = self.row
-        self.hk_state[:, 0] = self.row[:, ECOL["az_next"]]
-        self.hk_state[:, 1] = self.row[:, ECOL["t_next"]]
-        self.hk_state[:, 2] = self.row[:, ECOL["slack_next"]]
-        self.t_oil = self.row[:, ECOL["T_oil"]].copy()
-        self.cap_traced = self.row[:, ECOL["capture"]].copy()
-        self._q_pot = self.row[:, ECOL["q_pot"]].copy()
-        self.machine_obs = self.row[:, OBS_COLS].astype(np.float32)
+        C = self._bk.BCOL if self.machine_receiver == "beam" else ECOL
+        self.hk_state[:, 0] = self.row[:, C["az_next"]]
+        self.hk_state[:, 1] = self.row[:, C["t_next"]]
+        self.hk_state[:, 2] = self.row[:, C["slack_next"]]
+        self.cap_traced = self.row[:, C["capture"]].copy()
+        if self.machine_receiver == "beam":
+            self._per_beam = self.row[:, C["per_dni"]].copy()
+        else:
+            self.t_oil = self.row[:, C["T_oil"]].copy()
+            self._q_pot = self.row[:, C["q_pot"]].copy()
+        self.machine_obs = self.row[:, [C["obs_" + n] for n in machine_policy.OBS_NAMES]].astype(np.float32)
         self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])
         self.az_m = np.degrees(self.hk_state[:, 0])
 
@@ -225,6 +248,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         B = self.num_agents
         if self._beam_profile is None:
             self._beam_profile = self._profile_from(super()._trace_power(p_eff, sigma_b, offset_w, soil).numpy(), np)
+        if self.machine_receiver == "beam":                            # the beam itself: aperture per unit DNI
+            return torch.as_tensor(self._per_beam[:, None] * self._beam_profile, dtype=torch.float32)
         gate = self._valve_np()
         per = np.where(gate > 0, self._q_pot / np.maximum(gate * 0.85, 1e-9), 0.0)[:, None] * self._beam_profile
         return torch.as_tensor(per, dtype=torch.float32)
@@ -234,6 +259,9 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         """after the parent's step_pre (its gate is current): F.per from the exchanger's power"""
         if self._fused_profile is None:
             self._fused_profile = self._profile_from(F.per.clone(), torch)
+        if self.machine_receiver == "beam":
+            F.per.copy_(self._fused_profile * self._per_beam_t[:, None])
+            return
         gate = F.gate
         per = torch.where(gate > 0, self._q_pot_t / (gate * 0.85).clamp_min(1e-9), torch.zeros_like(gate))
         F.per.copy_(self._fused_profile * per[:, None])
@@ -248,18 +276,29 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             raise RuntimeError("HashemiTandoorEnv gpu=1 needs the fused Metal step (MPS)")
         a = actions if torch.is_tensor(actions) else torch.as_tensor(np.asarray(actions, dtype=np.float32), device=self.device)
         a = a.reshape(B, self.N_HEADS)
-        # ---- ONE launch: the mount, the optics, the heat
+        # ---- ONE launch: the mount, the optics, the receiver
         x = self._x
-        x[:, EIN["az"]] = self._st[:, 0]; x[:, EIN["t"]] = self._st[:, 1]; x[:, EIN["slack"]] = self._st[:, 2]
+        IN = self._bk.BIN if self.machine_receiver == "beam" else EIN
+        C = self._bk.BCOL if self.machine_receiver == "beam" else ECOL
+        x[:, IN["az"]] = self._st[:, 0]; x[:, IN["t"]] = self._st[:, 1]; x[:, IN["slack"]] = self._st[:, 2]
         # headToCmd / driveAz / driveEl of HashemiPolicy.lean, on the device
-        x[:, EIN["omegam"]] = (a[:, HEAD_AZ].float().clamp(0, 6) - 3) / 3.0 * self._om_full
-        arm = self._hk_out[:, ECOL["arm"]].clamp_min(0.05)
+        x[:, IN["omegam"]] = (a[:, HEAD_AZ].float().clamp(0, 6) - 3) / 3.0 * self._om_full
+        arm = self._hk_out[:, C["arm"]].clamp_min(0.05)
         arm = torch.where(arm > 0.05, arm, torch.full_like(arm, self._arm0))
-        x[:, EIN["omegad"]] = -(a[:, HEAD_EL].float().clamp(0, 6) - 3) / 3.0 * self._el_full * arm
+        x[:, IN["omegad"]] = -(a[:, HEAD_EL].float().clamp(0, 6) - 3) / 3.0 * self._el_full * arm
         el, az = self._sun()
-        x[:, EIN["elSun"]] = el; x[:, EIN["azSun"]] = az
-        x[:, EIN["dni"]] = F.dni                     # the parent's draw (last step's until step_pre)
-        x[:, EIN["soil"]] = F.soil
+        x[:, IN["elSun"]] = el; x[:, IN["azSun"]] = az
+        x[:, IN["dni"]] = F.dni                      # the parent's draw (last step's until step_pre)
+        x[:, IN["soil"]] = F.soil
+        if self.machine_receiver == "beam":
+            dr = torch.cat([torch.rand(B, ENV_RAYS, 6, generator=self._gen, device=self.device),
+                            torch.randn(B, ENV_RAYS, 4, generator=self._gen, device=self.device)], 2)
+            out = self._env.step(x, dr)
+            self._hk_out = out
+            self._st[:, 0] = out[:, C["az_next"]]; self._st[:, 1] = out[:, C["t_next"]]; self._st[:, 2] = out[:, C["slack_next"]]
+            self._per_beam_t = out[:, C["per_dni"]]
+            self._cap_t.copy_(out[:, C["capture"]])
+            return self._finish_step(F, a, out, C, t_before=float(self.t_solar[0]))
         prof = self._fused_profile[:, :self.n_nodes] if self._fused_profile is not None else None
         x[:, EIN["Twall"]] = F.T[:, :self.n_nodes].mean(1) if prof is None else \
             (F.T[:, :self.n_nodes] * prof).sum(1) / prof.sum(1).clamp_min(1e-9)
@@ -276,6 +315,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self._ret.copy_(out[:, RET_COLS])
         self._q_pot_t.copy_(out[:, ECOL["q_pot"]])
         self._cap_t.copy_(out[:, ECOL["capture"]])
+        return self._finish_step(F, a, out, ECOL, t_before=float(self.t_solar[0]))
+
+    def _finish_step(self, F, a, out, C, t_before):
+        """the parent's fused step after the machine's: the motors into the packed state, the
+        neutralised heads, the shaping, the resync of cut and day-over agents"""
         F.el_m.copy_(90.0 - torch.rad2deg(self._st[:, 1]))
         F.az_m.copy_(torch.rad2deg(self._st[:, 0]))
         F.el_dish.copy_(F.el_m)
@@ -284,13 +328,12 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         neutral[:, 4] = 3
         neutral[:, 0] = 4          # the level head pinned (his dish has no membrane)
         neutral[:, 2] = 6          # the jam head held on (the parent gates the beam by `jammed`)
-        t_before = float(self.t_solar[0])
         from tandoor_fused_step import fused_full_step
         obs_t, rew_t, infos = fused_full_step(self, neutral)
         if self.lost_shaping:
-            rew_t = rew_t - self.lost_shaping * out[:, ECOL["lost_sun_s"]]
+            rew_t = rew_t - self.lost_shaping * out[:, C["lost_sun_s"]]
         if self.pointing_shaping:
-            rew_t = rew_t - self.pointing_shaping * out[:, ECOL["pointing_err"]].clamp(max=0.5) * out[:, ECOL["sun_reachable"]]
+            rew_t = rew_t - self.pointing_shaping * out[:, C["pointing_err"]].clamp(max=0.5) * out[:, C["sun_reachable"]]
         res = (obs_t, rew_t, infos)
         # a cut agent's motors were re-parked by step_post, every agent's at day over: the Lean
         # state follows the parent's motors there; the oil keeps its field
@@ -310,11 +353,13 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             res = super().step(actions)              # routes through _gpu_full_step above
             self.row = self._hk_out.cpu().numpy().astype(np.float64)   # host mirrors for the eval path
             self.hk_row = self.row
-            self.cap_traced = self.row[:, ECOL["capture"]]
+            C = self._bk.BCOL if self.machine_receiver == "beam" else ECOL
+            self.cap_traced = self.row[:, C["capture"]]
             self.hk_state[:] = self._st.cpu().numpy()
-            self.t_oil = self.row[:, ECOL["T_oil"]]
-            self.hist = self.row[:, HIST_COLS]; self.ret = self.row[:, RET_COLS]
-            self.machine_obs = self.row[:, OBS_COLS].astype(np.float32)
+            if self.machine_receiver != "beam":
+                self.t_oil = self.row[:, C["T_oil"]]
+                self.hist = self.row[:, HIST_COLS]; self.ret = self.row[:, RET_COLS]
+            self.machine_obs = self.row[:, [C["obs_" + n] for n in machine_policy.OBS_NAMES]].astype(np.float32)
             self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])
             self.az_m = np.degrees(self.hk_state[:, 0])
             return res
@@ -328,10 +373,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         neutral[:, 2] = 6
         t_before = float(self.t_solar[0])
         res = super().step(neutral)
+        C = self._bk.BCOL if self.machine_receiver == "beam" else ECOL
         if self.lost_shaping:
-            self.rewards[:] = self.rewards - self.lost_shaping * self.row[:, ECOL["lost_sun_s"]]
+            self.rewards[:] = self.rewards - self.lost_shaping * self.row[:, C["lost_sun_s"]]
         if self.pointing_shaping:
-            self.rewards[:] = self.rewards - self.pointing_shaping * np.minimum(self.row[:, ECOL["pointing_err"]], 0.5) * self.row[:, ECOL["sun_reachable"]]
+            self.rewards[:] = self.rewards - self.pointing_shaping * np.minimum(self.row[:, C["pointing_err"]], 0.5) * self.row[:, C["sun_reachable"]]
         wrapped = float(self.t_solar[0]) < t_before - 1.0
         resync = np.asarray(self.truncations, dtype=bool).copy()
         if wrapped:

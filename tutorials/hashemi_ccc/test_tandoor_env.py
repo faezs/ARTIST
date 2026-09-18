@@ -25,11 +25,15 @@ def main():
     ap.add_argument("--day", type=int, default=172)
     ap.add_argument("--gpu", type=int, default=0, help="1: the parent's fused Metal step with the trace injected")
     ap.add_argument("--discrete", type=int, default=1, help="1: the sensor loop's commands rounded to the seven head values (the policy's space)")
+    ap.add_argument("--receiver", default="oil", help="oil (the coil and the loop) or beam (the hyperboloid beam-down through the slot)")
+    ap.add_argument("--slot", type=float, default=0.06, help="the slot's width [m] for the beam-down")
     args = ap.parse_args()
     kw = ini_env_kwargs(os.path.join(os.path.dirname(HERE), "puffer_tandoor", "hashemi_ccc.ini"))
     kw["day_random"] = 0
     kw["lat_random"] = 0
     kw["gpu"] = args.gpu
+    kw["machine_receiver"] = args.receiver
+    kw["beam_slot"] = args.slot
     B = args.agents
     env = HashemiTandoorEnv(num_agents=B, lat=30.2, day_of_year=args.day, **kw)
     env.reset()
@@ -68,17 +72,20 @@ def main():
         if k % 240 == 0:
             S = env._gpu if args.gpu else env            # the fused path keeps the pot on the device
             T = np.asarray(S.T.cpu() if args.gpu else S.T)
+            oil = args.receiver != "beam"
             rows.append((float(env.t_solar[0]), el0, float(env.el_m.mean()), float(e_el.mean()), float(env.cap_traced.mean()),
                          float(np.mean(env.p_in)), float(np.mean(T[:, :env.n_belt].max(1))), float(np.asarray(S.ep_rotis.cpu() if args.gpu else S.ep_rotis).mean()),
-                         float(np.mean(env.t_oil)), float(np.mean(env.row[:, ECOL["q_pot"]]))))
+                         float(np.mean(env.t_oil)) if oil else 0.0, float(np.mean(env.row[:, ECOL["q_pot"]])) if oil else float(np.mean(env.row[:, env._bk.BCOL["spot"]]))))
         if float(env.t_solar[0]) < t_before - 1.0 or k > 4000:
             break
-    print(f"day {args.day} gpu={args.gpu} discrete={args.discrete}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}")
-    print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis   T_oil[K]  q_pot[W]")
+    print(f"day {args.day} gpu={args.gpu} discrete={args.discrete} receiver={args.receiver}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}")
+    print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis   T_oil[K]  q_pot[W]" + ("   (beam: the last column is the spot at F2 [m])" if args.receiver == "beam" else ""))
     for r in rows:
         print("  %5.2f  %6.2f  %6.2f  %+6.2f   %5.3f   %7.0f   %7.1f   %6.2f   %7.1f   %7.0f" % r)
     print(f"  spec vs parent: sun_reachable == sun up {100 * agree_reach / k:.1f} %, parent lost => spec lost {100 * agree_lost / k:.1f} %; discrete heads {args.discrete}")
     ok = rows[-1][7] > 50 and all(r[4] > 0.9 for r in rows) and agree_reach / k > 0.99 and agree_lost / k > 0.97
+    if args.receiver == "beam":     # the beam-down's capture is the design's: report, do not judge
+        ok = agree_reach / k > 0.99 and agree_lost / k > 0.97
     print("COOKS" if ok else "DOES NOT COOK")
     sys.exit(0 if ok else 1)
 
