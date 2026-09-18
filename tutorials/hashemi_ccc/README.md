@@ -259,3 +259,18 @@ the capture 1.00 and the power 1.65-2.06 kW on the coil while the sun is in reac
 dish waits at the reach and the capture falls through 0.44 at 3.5 deg of error to 0 - the video's
 closing shot, the dish pulled up and the sun on the horizon. The winch's power `elPower` is under
 0.02 W while tracking (`tracking_power_tiny`).
+
+## Running it from the stock CLI
+
+`puffer train puffer_hashemi_ccc` needs two symlinks in the venv's pufferlib, both pinned to THIS worktree
+(the user's `tandoor` package symlink points at the main checkout, which has no `hashemi_ccc/`):
+
+```bash
+SP=$(tutorials/puffer_tandoor/.venv/bin/python -c "import pufferlib,os;print(os.path.dirname(pufferlib.__file__))")
+ln -sfn $PWD/tutorials/puffer_tandoor $SP/environments/tandoor_ccc
+ln -sfn $PWD/tutorials/puffer_tandoor/hashemi_ccc.ini $SP/config/hashemi_ccc.ini
+```
+
+The ini says `package = tandoor_ccc`. pufferlib promotes RuntimeWarnings to errors, so the NumPy twins run
+under `np.errstate`. The numpy path costs ~0.5 s/step at the ini's 8192 agents (the parent's numpy step);
+lower `num_envs`/agents for a first run, or wait for the fused gpu path with the traced power injected.
