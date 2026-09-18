@@ -821,6 +821,109 @@ def modulaChecks : IO (Array Check) := do
     leOk, s!"max (lost - reach) {fmt worst} over {m} poses"⟩
   pure cs
 
+/-! ## I. The beam-down from Lean: the focal property in three dimensions, the chain's order
+
+`hyperbola_reflects` certifies the meridional plane; here the compiled `hyperHit` (its tangent
+kernel's value output) reflects 256 rays aimed at F from points of the dish, and every reflected
+line passes within a millimetre of F₂. And over the day's hours the env's beam step keeps the
+chain's order, captured ≤ passed ≤ hit the secondary, hour by hour. -/
+
+def beamSource : IO String := do
+  let pre ← IO.FS.readFile (bridgeDir ++ "/msl_prelude.metal")
+  let hdr ← IO.FS.readFile (cccDir ++ "/hashemi_ccc.h")
+  let ker ← IO.FS.readFile (cccDir ++ "/hashemi_beam.metal")
+  pure (pre ++ hdr ++ ker)
+
+def beamChecks : IO (Array Check) := do
+  let msrc ← modulaSource
+  let mut cs : Array Check := #[]
+  -- I1. the focal property in 3D: rays aimed at F = (0, 0, 1) from the dish reflect through F₂
+  let f : Float := 1.0
+  let L : Float := 1.25
+  let dm : Float := 0.06
+  let t : Float := 0.4
+  let β : Float := 0.0
+  let n := 256
+  let mut xs : Array (Array Float) := #[]
+  for i in [0:n] do
+    let ang := 6.283185 * i.toFloat / n.toFloat
+    let rad := 0.1 + 0.6 * ((i * 7919 % 1000).toFloat / 1000.0)
+    let ox := rad * Float.cos ang
+    let oy := rad * Float.sin ang
+    let oz := (ox * ox + oy * oy) / 4.0                      -- the paraboloid z = r² / (2 R), R = 2
+    let dx := -ox; let dy := -oy; let dz := f - oz
+    let nn := Float.sqrt (dx * dx + dy * dy + dz * dz)
+    xs := xs.push #[f, L, dm, t, β, ox, oy, oz, dx / nn, dy / nn, dz / nn]
+  let (y, _) ← runJvp msrc "mk_hyperHit_jvp" xs (xs.map fun r => Array.replicate r.size 0.0) 8
+  -- the axis u = (sin(t+β), 0, -cos(t+β)); F₂ = F + L u
+  let ux := Float.sin (t + β); let uz := -(Float.cos (t + β))
+  let f2x := ux * L; let f2y := 0.0; let f2z := f + uz * L
+  let mut worst := 0.0
+  let mut nhit := 0
+  for i in [0:n] do
+    let r := y[i]!
+    if r[3]! > 0.0 then
+      nhit := nhit + 1
+      let d := xs[i]!
+      let dx := d[8]!; let dy := d[9]!; let dz := d[10]!
+      let nx := r[5]!; let ny := r[6]!; let nz := r[7]!
+      let k := 2.0 * (dx * nx + dy * ny + dz * nz)
+      let rx := dx - k * nx; let ry := dy - k * ny; let rz := dz - k * nz
+      -- the distance from F₂ to the reflected line through the hit
+      let vx := f2x - r[0]!; let vy := f2y - r[1]!; let vz := f2z - r[2]!
+      let s := (vx * rx + vy * ry + vz * rz) / (rx * rx + ry * ry + rz * rz)
+      let ex := vx - s * rx; let ey := vy - s * ry; let ez := vz - s * rz
+      let dist := Float.sqrt (ex * ex + ey * ey + ez * ez)
+      if dist > worst then worst := dist
+  cs := cs.push ⟨"beam-down: every ray aimed at F reflects off the compiled hyperboloid through F₂ (hyperbola_reflects, here in 3D and float32)",
+    nhit > 0 && worst < 1e-3, s!"{nhit} of {n} rays hit the sheet, the reflected line misses F₂ by at most {fmt worst} m"⟩
+  -- I2. the chain's order over the day: captured ≤ passed ≤ hit, hour by hour, in the env's beam step
+  let bsrc ← beamSource
+  let bman ← IO.FS.readFile (cccDir ++ "/hashemi_beam.json")
+  let mut orderOk := true
+  let mut note := ""
+  match Json.parse bman with
+  | .error e => cs := cs.push ⟨"beam-down: the manifest", false, e⟩
+  | .ok j =>
+    let inputs := ((j.getObjVal? "inputs").toOption.bind (·.getArr?.toOption)).getD #[]
+    let names := inputs.map fun v => (v.getStr?.toOption).getD ""
+    let cols := ((j.getObjVal? "columns").toOption.bind (·.getArr?.toOption)).getD #[] |>.map fun v => (v.getStr?.toOption).getD ""
+    let idx := fun (nm : String) => (names.findIdx? (· == nm)).getD 0
+    let col := fun (nm : String) => (cols.findIdx? (· == nm)).getD 0
+    let nin := names.size
+    let nout := cols.size
+    let B := 128
+    let P := 64
+    let base : Array Float := Array.replicate nin 0.0
+    -- the constants: the machine's, the optics', the design's default shape
+    let set := fun (a : Array Float) (nm : String) (v : Float) => a.set! (idx nm) v
+    let mut row := base
+    for (nm, v) in [("rDrum", 0.03), ("W", 300.0), ("rcm", 0.9), ("Tmax", 2000.0), ("rho", 0.85), ("Fdrive", 10.0), ("L10", 1000000.0), ("rodLen", 1.0),
+                    ("R", 2.0), ("f", 1.0), ("a", 0.8), ("w", 0.05), ("rc", 0.06), ("k", -1.0), ("sigmaslope", 0.002), ("sigmaspec", 0.001), ("hsun", 0.00465),
+                    ("soil", 0.95), ("dni", 800.0), ("dt", 15.0), ("L", 1.25), ("dm", 0.06), ("rm", 0.06), ("rt", 0.55), ("slotW", 0.06), ("beta", 0.0)] do
+      row := set row nm v
+    for hour in [8, 10, 12, 14, 16] do
+      -- Quetta, day 172: the sun's elevation by the hour (the tandoor's solar model, read here as a table)
+      let el : Float := match hour with | 8 => 0.639 | 10 => 1.09 | 12 => 1.453 | 14 => 1.091 | _ => 0.640
+      let tt := Float.max 0.0 (Float.min 1.077 (1.5707963 - el))
+      let mut x : Array (Array Float) := #[]
+      let mut dr : Array (Array Float) := #[]
+      for b in [0:B] do
+        x := x.push (set (set (set (set row "az" 1.0) "t" tt) "elSun" el) "azSun" 1.0)
+        let mut d := #[]
+        for k in [0:P * 10] do
+          let v := ((b * 131 + k * 7919 + hour * 104729) % 100000).toFloat / 100000.0
+          d := d.push (if k % 10 < 6 then v else 2.0 * v - 1.0)     -- uniforms, then crude normals in [-1, 1]
+        dr := dr.push d
+      let out ← MetalBridge.run bsrc "hashemi_beam" #[flat x, flat dr, MetalBridge.const (B * nout) 0.0, ⟨#[B.toFloat]⟩] #[0, 0, 0, 1] (B * P).toUSize P.toUSize
+      let rows := rowsOf out[2]! nout
+      let mean := fun (c : Nat) => (rows.foldl (fun acc r => acc + r[c]!) 0.0) / B.toFloat
+      let cap := mean (col "capture"); let pas := mean (col "passes_dish"); let hit := mean (col "hit_secondary")
+      if !(cap <= pas + 1e-6 && pas <= hit + 1e-6) then orderOk := false
+      note := note ++ s!"{hour}h cap {fmt cap} ≤ passed {fmt pas} ≤ hit {fmt hit}; "
+    cs := cs.push ⟨"beam-down: over the day the chain keeps its order, captured ≤ passed the dish ≤ hit the secondary (the env's beam step, the default shape)", orderOk, note⟩
+  pure cs
+
 end TraceCheck
 
 open TraceCheck in
@@ -829,7 +932,8 @@ def main : IO Unit := do
   let a0 ← dishChecks src
   let a ← (a0 ++ ·) <$> mcChecks src
   let b0 ← sceneChecks
-  let b ← (b0 ++ ·) <$> modulaChecks
+  let b1 ← (b0 ++ ·) <$> modulaChecks
+  let b ← (b1 ++ ·) <$> beamChecks
   let mut bad := 0
   for c in a ++ b do
     IO.println s!"{if c.ok then "ok  " else "FAIL"} {c.name}\n      {c.note}"

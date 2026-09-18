@@ -403,3 +403,21 @@ transports are linear with closed Green's functions and the kernel carries them:
 `hashemiEnv` carries all of it as columns: `flux_0..7` (W per annulus), `coil_0..7` (K along the
 turns), `hist_0..15` and `ret_0..15` (the two histories, K). The pot wall's Green's function
 (Duhamel's half-order integral of the flux) is the parent oven's physics and stays there.
+
+## The beam-down receiver (HashemiBeamdown.lean)
+
+The coil at F gives way to a hyperboloidal secondary inside the coil's envelope: far focus F, near
+focus F₂ below, the return beam through the slot into the tunnel; the tri chain is dish,
+hyperboloid, tunnel. `hyperbola_reflects` certifies the focal property (a polynomial identity,
+sympy's certificate in `linear_combination`); `traceBeam` is one ray from the dish's reflection to
+the secondary, the slot test at the dish crossing, the landing at F₂; `FitsReceiver` the cap's
+volume; `hashemiEnvBeam` the env's step with it (`hashemi_beam` kernel, 31 columns). The env runs
+it with `machine_receiver = beam` (`beam_dm`, `beam_rm`, `beam_slot`, `beam_rt`, `beam_L`,
+`beam_beta`).
+
+What the trace says (`beam_design.py`, day 172): inside the coil's volume the cap is 6 cm at 6 cm
+from F, the magnification `(L - dm)/dm` is 20, a third of the dish's cone misses the cap because
+the facets' blur at F is 6 cm; the day's capture is 0.14 through the 6 cm slot, 0.41 through a
+60 cm slot, 0.46 with no dish in the way; tilting the axis to the azimuth tube halves the hit. In
+the env: 2.5 rotis a day through the 6 cm slot, 36 through 60 cm, against the oil loop's 79. The
+shape is exact; the facets and the slot are what decide the chain.
