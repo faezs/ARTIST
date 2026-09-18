@@ -3,8 +3,8 @@
 "obs": ["e_az", "e_el", "swing", "taut", "holds", "oil", "reach_s", "lost_s"],
 "actions": ["u_az", "u_el"],
 "action_levels": 7, "motor_heads": [3, 4],
-"columns": ["az_next", "t_next", "slack_next", "wire_len", "t_dead", "stalled", "taut", "wire_holds", "arm", "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun", "sun_reachable_s", "lost_sun_s", "capture", "capture_s", "per_dni", "p_in", "T_oil", "q_abs", "q_coil_loss", "q_pipe", "q_pot", "q_net", "e_az", "e_el", "swing", "taut_obs", "holds_obs", "oil", "reach_s", "lost_s", "u_az", "u_el"],
+"columns": ["az_next", "t_next", "slack_next", "wire_len", "t_dead", "stalled", "taut", "wire_holds", "arm", "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun", "sun_reachable_s", "lost_sun_s", "capture", "capture_s", "per_dni", "p_in", "T_oil", "q_abs", "q_coil_loss", "q_pipe", "q_pot", "q_net", "obs_e_az", "obs_e_el", "obs_swing", "obs_taut", "obs_holds", "obs_oil", "obs_reach_s", "obs_lost_s", "e_az", "e_el", "swing", "taut_obs", "holds_obs", "oil", "reach_s", "lost_s", "u_az", "u_el"],
 "inputs": ["az", "t", "slack", "dt", "elSun", "azSun", "dni", "rDrum", "W", "rcm", "Tmax", "rho", "Fdrive", "L10", "rodLen", "R", "f", "a", "w", "rc", "k", "sigmaslope", "sigmaspec", "hsun", "soil", "alpha", "eps", "Ac", "hC", "Upipe", "UAx", "Coil", "ToilMax", "Toil", "Twall", "Ta", "tautPrev", "holdsPrev", "tDead", "b2_0", "b2_1"],
 "arrays": [{"name": "W1", "P": 16, "m": 8, "shared": true}, {"name": "b1", "P": 16, "m": 0, "shared": true}, {"name": "W2", "P": 2, "m": 16, "shared": true}, {"name": "dr", "P": 64, "m": 10, "shared": false}],
-"n_columns": 37, "rays": 64, "n_nodes": 2193, "ray_nodes": 169, "sums": 2
+"n_columns": 45, "rays": 64, "n_nodes": 2203, "ray_nodes": 169, "sums": 2
 }

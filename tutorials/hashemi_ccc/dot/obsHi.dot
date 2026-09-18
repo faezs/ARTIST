@@ -1,0 +1,21 @@
+digraph "TandoorHashemi.obsHi" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="π", shape=plaintext];
+  n1 [label="2", shape=plaintext];
+  n2 [label="/", shape=ellipse];
+  n0 -> n2; n1 -> n2;
+  n3 [label="1", shape=plaintext];
+  n4 [label="293", shape=plaintext];
+  n5 [label="300", shape=plaintext];
+  n6 [label="/", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n0 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n2 -> out1;
+  out2 [label="out 2", shape=box, style=filled, fillcolor=lightgrey]; n2 -> out2;
+  out3 [label="out 3", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out3;
+  out4 [label="out 4", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out4;
+  out5 [label="out 5", shape=box, style=filled, fillcolor=lightgrey]; n6 -> out5;
+  out6 [label="out 6", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out6;
+  out7 [label="out 7", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out7;
+}

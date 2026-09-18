@@ -5026,6 +5026,24 @@ HK_STATIC void hk_hashemiEnv_jvp(hk_real az, hk_real t, hk_real slack, hk_real o
   const hk_real d1623 = (d32 * t1622 + t32 * d1622);
   const hk_real t1624 = hk_max(t714, t1623);
   const hk_real d1624 = (t714 >= t1623 ? d714 : d1623);
+  const hk_real t1630 = (t7 - t1258);
+  const hk_real d1630 = (d7 - d1258);
+  const hk_real t1631 = (t1630 + t703);
+  const hk_real d1631 = (d1630 + d703);
+  const hk_real t1632 = (t1631 / t1445);
+  const hk_real d1632 = ((d1631 * t1445 - t1631 * d1445) / (t1445 * t1445));
+  const hk_real t1633 = hk_floor(t1632);
+  const hk_real d1633 = HK_LIT(0);
+  const hk_real t1634 = (t1445 * t1633);
+  const hk_real d1634 = (d1445 * t1633 + t1445 * d1633);
+  const hk_real t1635 = (t1630 - t1634);
+  const hk_real d1635 = (d1630 - d1634);
+  const hk_real t1636 = (t704 - t1253);
+  const hk_real d1636 = (d704 - d1253);
+  const hk_real t1637 = (t1636 - t6);
+  const hk_real d1637 = (d1636 - d6);
+  const hk_real t1638 = HK_LIT(300);
+  const hk_real d1638 = HK_LIT(0);
   hk_real acc1599 = HK_LIT(0); hk_real dacc1599 = HK_LIT(0);
   hk_real acc1602 = HK_LIT(0); hk_real dacc1602 = HK_LIT(0);
   for (int hk_i = 0; hk_i < 64; ++hk_i) {
@@ -5377,6 +5395,10 @@ HK_STATIC void hk_hashemiEnv_jvp(hk_real az, hk_real t, hk_real slack, hk_real o
   const hk_real d1628 = (d35 + d1627);
   const hk_real t1629 = hk_min(t34, t1628);
   const hk_real d1629 = (t34 <= t1628 ? d34 : d1628);
+  const hk_real t1639 = (t1629 - t1638);
+  const hk_real d1639 = (d1629 - d1638);
+  const hk_real t1640 = (t1639 / t1638);
+  const hk_real d1640 = ((d1639 * t1638 - t1639 * d1638) / (t1638 * t1638));
   hk_out[0] = t1258;
   hk_dout[0] = d1258;
   hk_out[1] = t1253;
@@ -5431,6 +5453,22 @@ HK_STATIC void hk_hashemiEnv_jvp(hk_real az, hk_real t, hk_real slack, hk_real o
   hk_dout[25] = d1624;
   hk_out[26] = t1625;
   hk_dout[26] = d1625;
+  hk_out[27] = t1635;
+  hk_dout[27] = d1635;
+  hk_out[28] = t1637;
+  hk_dout[28] = d1637;
+  hk_out[29] = t1253;
+  hk_dout[29] = d1253;
+  hk_out[30] = t1262;
+  hk_dout[30] = d1262;
+  hk_out[31] = t1283;
+  hk_dout[31] = d1283;
+  hk_out[32] = t1640;
+  hk_dout[32] = d1640;
+  hk_out[33] = t1340;
+  hk_dout[33] = d1340;
+  hk_out[34] = t1344;
+  hk_dout[34] = d1344;
 }
 
 HK_STATIC void hk_hashemiEnv_box(const hk_real HK_RADDR* dr, const hk_real HK_ADDR* hk_lo, const hk_real HK_ADDR* hk_hi, const hk_real HK_ADDR* hk_sc, hk_real HK_ADDR* hk_olo, hk_real HK_ADDR* hk_ohi, hk_real HK_ADDR* hk_oL) {
@@ -7034,6 +7072,24 @@ HK_STATIC void hk_hashemiEnv_box(const hk_real HK_RADDR* dr, const hk_real HK_AD
   hk_bx_mul(lo32, hi32, L32, lo1622, hi1622, L1622, &lo1623, &hi1623, &L1623);
   hk_real lo1624, hi1624, L1624;
   hk_bx_max(lo714, hi714, L714, lo1623, hi1623, L1623, &lo1624, &hi1624, &L1624);
+  hk_real lo1630, hi1630, L1630;
+  hk_bx_sub(lo7, hi7, L7, lo1258, hi1258, L1258, &lo1630, &hi1630, &L1630);
+  hk_real lo1631, hi1631, L1631;
+  hk_bx_add(lo1630, hi1630, L1630, lo703, hi703, L703, &lo1631, &hi1631, &L1631);
+  hk_real lo1632, hi1632, L1632;
+  hk_bx_div(lo1631, hi1631, L1631, lo1445, hi1445, L1445, &lo1632, &hi1632, &L1632);
+  hk_real lo1633, hi1633, L1633;
+  hk_bx_floor(lo1632, hi1632, L1632, &lo1633, &hi1633, &L1633);
+  hk_real lo1634, hi1634, L1634;
+  hk_bx_mul(lo1445, hi1445, L1445, lo1633, hi1633, L1633, &lo1634, &hi1634, &L1634);
+  hk_real lo1635, hi1635, L1635;
+  hk_bx_sub(lo1630, hi1630, L1630, lo1634, hi1634, L1634, &lo1635, &hi1635, &L1635);
+  hk_real lo1636, hi1636, L1636;
+  hk_bx_sub(lo704, hi704, L704, lo1253, hi1253, L1253, &lo1636, &hi1636, &L1636);
+  hk_real lo1637, hi1637, L1637;
+  hk_bx_sub(lo1636, hi1636, L1636, lo6, hi6, L6, &lo1637, &hi1637, &L1637);
+  hk_real lo1638, hi1638, L1638;
+  lo1638 = HK_LIT(300); hi1638 = HK_LIT(300); L1638 = HK_LIT(0);
   hk_real acclo1599 = HK_LIT(0), acchi1599 = HK_LIT(0), accL1599 = HK_LIT(0);
   hk_real acclo1602 = HK_LIT(0), acchi1602 = HK_LIT(0), accL1602 = HK_LIT(0);
   for (int hk_i = 0; hk_i < 64; ++hk_i) {
@@ -7396,6 +7452,10 @@ HK_STATIC void hk_hashemiEnv_box(const hk_real HK_RADDR* dr, const hk_real HK_AD
   hk_bx_add(lo35, hi35, L35, lo1627, hi1627, L1627, &lo1628, &hi1628, &L1628);
   hk_real lo1629, hi1629, L1629;
   hk_bx_min(lo34, hi34, L34, lo1628, hi1628, L1628, &lo1629, &hi1629, &L1629);
+  hk_real lo1639, hi1639, L1639;
+  hk_bx_sub(lo1629, hi1629, L1629, lo1638, hi1638, L1638, &lo1639, &hi1639, &L1639);
+  hk_real lo1640, hi1640, L1640;
+  hk_bx_div(lo1639, hi1639, L1639, lo1638, hi1638, L1638, &lo1640, &hi1640, &L1640);
   hk_olo[0] = lo1258; hk_ohi[0] = hi1258; hk_oL[0] = L1258;
   hk_olo[1] = lo1253; hk_ohi[1] = hi1253; hk_oL[1] = L1253;
   hk_olo[2] = lo768; hk_ohi[2] = hi768; hk_oL[2] = L768;
@@ -7423,6 +7483,14 @@ HK_STATIC void hk_hashemiEnv_box(const hk_real HK_RADDR* dr, const hk_real HK_AD
   hk_olo[24] = lo1620; hk_ohi[24] = hi1620; hk_oL[24] = L1620;
   hk_olo[25] = lo1624; hk_ohi[25] = hi1624; hk_oL[25] = L1624;
   hk_olo[26] = lo1625; hk_ohi[26] = hi1625; hk_oL[26] = L1625;
+  hk_olo[27] = lo1635; hk_ohi[27] = hi1635; hk_oL[27] = L1635;
+  hk_olo[28] = lo1637; hk_ohi[28] = hi1637; hk_oL[28] = L1637;
+  hk_olo[29] = lo1253; hk_ohi[29] = hi1253; hk_oL[29] = L1253;
+  hk_olo[30] = lo1262; hk_ohi[30] = hi1262; hk_oL[30] = L1262;
+  hk_olo[31] = lo1283; hk_ohi[31] = hi1283; hk_oL[31] = L1283;
+  hk_olo[32] = lo1640; hk_ohi[32] = hi1640; hk_oL[32] = L1640;
+  hk_olo[33] = lo1340; hk_ohi[33] = hi1340; hk_oL[33] = L1340;
+  hk_olo[34] = lo1344; hk_ohi[34] = hi1344; hk_oL[34] = L1344;
 }
 
 HK_STATIC void hk_hashemiLoop_jvp(hk_real az, hk_real t, hk_real slack, hk_real dt, hk_real elSun, hk_real azSun, hk_real dni, hk_real rDrum, hk_real W, hk_real rcm, hk_real Tmax, hk_real rho, hk_real Fdrive, hk_real L10, hk_real rodLen, hk_real R, hk_real f, hk_real a, hk_real w, hk_real rc, hk_real k, hk_real sigmaslope, hk_real sigmaspec, hk_real hsun, hk_real soil, hk_real alpha, hk_real eps, hk_real Ac, hk_real hC, hk_real Upipe, hk_real UAx, hk_real Coil, hk_real ToilMax, hk_real Toil, hk_real Twall, hk_real Ta, hk_real tautPrev, hk_real holdsPrev, hk_real tDead, hk_real b2_0, hk_real b2_1, const hk_real HK_RADDR* W1, const hk_real HK_RADDR* b1, const hk_real HK_RADDR* W2, const hk_real HK_RADDR* dr, const hk_real HK_ADDR* hk_dx, hk_real HK_ADDR* hk_out, hk_real HK_ADDR* hk_dout) {
@@ -10112,6 +10180,22 @@ HK_STATIC void hk_hashemiLoop_jvp(hk_real az, hk_real t, hk_real slack, hk_real 
   const hk_real d2186 = (d30 * t2185 + t30 * d2185);
   const hk_real t2187 = hk_max(t909, t2186);
   const hk_real d2187 = (t909 >= t2186 ? d909 : d2186);
+  const hk_real t2193 = (t5 - t1872);
+  const hk_real d2193 = (d5 - d1872);
+  const hk_real t2194 = (t2193 + t859);
+  const hk_real d2194 = (d2193 + d859);
+  const hk_real t2195 = (t2194 / t860);
+  const hk_real d2195 = ((d2194 * t860 - t2194 * d860) / (t860 * t860));
+  const hk_real t2196 = hk_floor(t2195);
+  const hk_real d2196 = HK_LIT(0);
+  const hk_real t2197 = (t860 * t2196);
+  const hk_real d2197 = (d860 * t2196 + t860 * d2196);
+  const hk_real t2198 = (t2193 - t2197);
+  const hk_real d2198 = (d2193 - d2197);
+  const hk_real t2199 = (t866 - t1867);
+  const hk_real d2199 = (d866 - d1867);
+  const hk_real t2200 = (t2199 - t4);
+  const hk_real d2200 = (d2199 - d4);
   hk_real acc2162 = HK_LIT(0); hk_real dacc2162 = HK_LIT(0);
   hk_real acc2165 = HK_LIT(0); hk_real dacc2165 = HK_LIT(0);
   for (int hk_i = 0; hk_i < 64; ++hk_i) {
@@ -10463,6 +10547,10 @@ HK_STATIC void hk_hashemiLoop_jvp(hk_real az, hk_real t, hk_real slack, hk_real 
   const hk_real d2191 = (d33 + d2190);
   const hk_real t2192 = hk_min(t32, t2191);
   const hk_real d2192 = (t32 <= t2191 ? d32 : d2191);
+  const hk_real t2201 = (t2192 - t869);
+  const hk_real d2201 = (d2192 - d869);
+  const hk_real t2202 = (t2201 / t869);
+  const hk_real d2202 = ((d2201 * t869 - t2201 * d869) / (t869 * t869));
   hk_out[0] = t1872;
   hk_dout[0] = d1872;
   hk_out[1] = t1867;
@@ -10517,26 +10605,42 @@ HK_STATIC void hk_hashemiLoop_jvp(hk_real az, hk_real t, hk_real slack, hk_real 
   hk_dout[25] = d2187;
   hk_out[26] = t2188;
   hk_dout[26] = d2188;
-  hk_out[27] = t865;
-  hk_dout[27] = d865;
-  hk_out[28] = t868;
-  hk_dout[28] = d868;
-  hk_out[29] = t1;
-  hk_dout[29] = d1;
-  hk_out[30] = t36;
-  hk_dout[30] = d36;
-  hk_out[31] = t37;
-  hk_dout[31] = d37;
-  hk_out[32] = t871;
-  hk_dout[32] = d871;
-  hk_out[33] = t876;
-  hk_dout[33] = d876;
-  hk_out[34] = t924;
-  hk_dout[34] = d924;
-  hk_out[35] = t1246;
-  hk_dout[35] = d1246;
-  hk_out[36] = t1280;
-  hk_dout[36] = d1280;
+  hk_out[27] = t2198;
+  hk_dout[27] = d2198;
+  hk_out[28] = t2200;
+  hk_dout[28] = d2200;
+  hk_out[29] = t1867;
+  hk_dout[29] = d1867;
+  hk_out[30] = t1876;
+  hk_dout[30] = d1876;
+  hk_out[31] = t1897;
+  hk_dout[31] = d1897;
+  hk_out[32] = t2202;
+  hk_dout[32] = d2202;
+  hk_out[33] = t1907;
+  hk_dout[33] = d1907;
+  hk_out[34] = t1908;
+  hk_dout[34] = d1908;
+  hk_out[35] = t865;
+  hk_dout[35] = d865;
+  hk_out[36] = t868;
+  hk_dout[36] = d868;
+  hk_out[37] = t1;
+  hk_dout[37] = d1;
+  hk_out[38] = t36;
+  hk_dout[38] = d36;
+  hk_out[39] = t37;
+  hk_dout[39] = d37;
+  hk_out[40] = t871;
+  hk_dout[40] = d871;
+  hk_out[41] = t876;
+  hk_dout[41] = d876;
+  hk_out[42] = t924;
+  hk_dout[42] = d924;
+  hk_out[43] = t1246;
+  hk_dout[43] = d1246;
+  hk_out[44] = t1280;
+  hk_dout[44] = d1280;
 }
 
 HK_STATIC void hk_hashemiLoop_box(const hk_real HK_RADDR* W1, const hk_real HK_RADDR* b1, const hk_real HK_RADDR* W2, const hk_real HK_RADDR* dr, const hk_real HK_ADDR* hk_lo, const hk_real HK_ADDR* hk_hi, const hk_real HK_ADDR* hk_sc, hk_real HK_ADDR* hk_olo, hk_real HK_ADDR* hk_ohi, hk_real HK_ADDR* hk_oL) {
@@ -13266,6 +13370,22 @@ HK_STATIC void hk_hashemiLoop_box(const hk_real HK_RADDR* W1, const hk_real HK_R
   hk_bx_mul(lo30, hi30, L30, lo2185, hi2185, L2185, &lo2186, &hi2186, &L2186);
   hk_real lo2187, hi2187, L2187;
   hk_bx_max(lo909, hi909, L909, lo2186, hi2186, L2186, &lo2187, &hi2187, &L2187);
+  hk_real lo2193, hi2193, L2193;
+  hk_bx_sub(lo5, hi5, L5, lo1872, hi1872, L1872, &lo2193, &hi2193, &L2193);
+  hk_real lo2194, hi2194, L2194;
+  hk_bx_add(lo2193, hi2193, L2193, lo859, hi859, L859, &lo2194, &hi2194, &L2194);
+  hk_real lo2195, hi2195, L2195;
+  hk_bx_div(lo2194, hi2194, L2194, lo860, hi860, L860, &lo2195, &hi2195, &L2195);
+  hk_real lo2196, hi2196, L2196;
+  hk_bx_floor(lo2195, hi2195, L2195, &lo2196, &hi2196, &L2196);
+  hk_real lo2197, hi2197, L2197;
+  hk_bx_mul(lo860, hi860, L860, lo2196, hi2196, L2196, &lo2197, &hi2197, &L2197);
+  hk_real lo2198, hi2198, L2198;
+  hk_bx_sub(lo2193, hi2193, L2193, lo2197, hi2197, L2197, &lo2198, &hi2198, &L2198);
+  hk_real lo2199, hi2199, L2199;
+  hk_bx_sub(lo866, hi866, L866, lo1867, hi1867, L1867, &lo2199, &hi2199, &L2199);
+  hk_real lo2200, hi2200, L2200;
+  hk_bx_sub(lo2199, hi2199, L2199, lo4, hi4, L4, &lo2200, &hi2200, &L2200);
   hk_real acclo2162 = HK_LIT(0), acchi2162 = HK_LIT(0), accL2162 = HK_LIT(0);
   hk_real acclo2165 = HK_LIT(0), acchi2165 = HK_LIT(0), accL2165 = HK_LIT(0);
   for (int hk_i = 0; hk_i < 64; ++hk_i) {
@@ -13628,6 +13748,10 @@ HK_STATIC void hk_hashemiLoop_box(const hk_real HK_RADDR* W1, const hk_real HK_R
   hk_bx_add(lo33, hi33, L33, lo2190, hi2190, L2190, &lo2191, &hi2191, &L2191);
   hk_real lo2192, hi2192, L2192;
   hk_bx_min(lo32, hi32, L32, lo2191, hi2191, L2191, &lo2192, &hi2192, &L2192);
+  hk_real lo2201, hi2201, L2201;
+  hk_bx_sub(lo2192, hi2192, L2192, lo869, hi869, L869, &lo2201, &hi2201, &L2201);
+  hk_real lo2202, hi2202, L2202;
+  hk_bx_div(lo2201, hi2201, L2201, lo869, hi869, L869, &lo2202, &hi2202, &L2202);
   hk_olo[0] = lo1872; hk_ohi[0] = hi1872; hk_oL[0] = L1872;
   hk_olo[1] = lo1867; hk_ohi[1] = hi1867; hk_oL[1] = L1867;
   hk_olo[2] = lo1382; hk_ohi[2] = hi1382; hk_oL[2] = L1382;
@@ -13655,16 +13779,24 @@ HK_STATIC void hk_hashemiLoop_box(const hk_real HK_RADDR* W1, const hk_real HK_R
   hk_olo[24] = lo2183; hk_ohi[24] = hi2183; hk_oL[24] = L2183;
   hk_olo[25] = lo2187; hk_ohi[25] = hi2187; hk_oL[25] = L2187;
   hk_olo[26] = lo2188; hk_ohi[26] = hi2188; hk_oL[26] = L2188;
-  hk_olo[27] = lo865; hk_ohi[27] = hi865; hk_oL[27] = L865;
-  hk_olo[28] = lo868; hk_ohi[28] = hi868; hk_oL[28] = L868;
-  hk_olo[29] = lo1; hk_ohi[29] = hi1; hk_oL[29] = L1;
-  hk_olo[30] = lo36; hk_ohi[30] = hi36; hk_oL[30] = L36;
-  hk_olo[31] = lo37; hk_ohi[31] = hi37; hk_oL[31] = L37;
-  hk_olo[32] = lo871; hk_ohi[32] = hi871; hk_oL[32] = L871;
-  hk_olo[33] = lo876; hk_ohi[33] = hi876; hk_oL[33] = L876;
-  hk_olo[34] = lo924; hk_ohi[34] = hi924; hk_oL[34] = L924;
-  hk_olo[35] = lo1246; hk_ohi[35] = hi1246; hk_oL[35] = L1246;
-  hk_olo[36] = lo1280; hk_ohi[36] = hi1280; hk_oL[36] = L1280;
+  hk_olo[27] = lo2198; hk_ohi[27] = hi2198; hk_oL[27] = L2198;
+  hk_olo[28] = lo2200; hk_ohi[28] = hi2200; hk_oL[28] = L2200;
+  hk_olo[29] = lo1867; hk_ohi[29] = hi1867; hk_oL[29] = L1867;
+  hk_olo[30] = lo1876; hk_ohi[30] = hi1876; hk_oL[30] = L1876;
+  hk_olo[31] = lo1897; hk_ohi[31] = hi1897; hk_oL[31] = L1897;
+  hk_olo[32] = lo2202; hk_ohi[32] = hi2202; hk_oL[32] = L2202;
+  hk_olo[33] = lo1907; hk_ohi[33] = hi1907; hk_oL[33] = L1907;
+  hk_olo[34] = lo1908; hk_ohi[34] = hi1908; hk_oL[34] = L1908;
+  hk_olo[35] = lo865; hk_ohi[35] = hi865; hk_oL[35] = L865;
+  hk_olo[36] = lo868; hk_ohi[36] = hi868; hk_oL[36] = L868;
+  hk_olo[37] = lo1; hk_ohi[37] = hi1; hk_oL[37] = L1;
+  hk_olo[38] = lo36; hk_ohi[38] = hi36; hk_oL[38] = L36;
+  hk_olo[39] = lo37; hk_ohi[39] = hi37; hk_oL[39] = L37;
+  hk_olo[40] = lo871; hk_ohi[40] = hi871; hk_oL[40] = L871;
+  hk_olo[41] = lo876; hk_ohi[41] = hi876; hk_oL[41] = L876;
+  hk_olo[42] = lo924; hk_ohi[42] = hi924; hk_oL[42] = L924;
+  hk_olo[43] = lo1246; hk_ohi[43] = hi1246; hk_oL[43] = L1246;
+  hk_olo[44] = lo1280; hk_ohi[44] = hi1280; hk_oL[44] = L1280;
 }
 
 HK_STATIC void hk_headToCmd_jvp(hk_real h, const hk_real HK_ADDR* hk_dx, hk_real HK_ADDR* hk_out, hk_real HK_ADDR* hk_dout) {

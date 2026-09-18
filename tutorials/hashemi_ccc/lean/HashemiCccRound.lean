@@ -671,6 +671,12 @@ theorem mlpPolicy_ccc : mlpPolicy = fun (W1 : Fin 16 → Fin 8 → ℝ) (b1 : Fi
   funext W1 b1 W2 b2 o k
   fin_cases k <;> rfl
 
+theorem obsHi_ccc : obsHi =
+    ![Real.pi, (Real.pi / (2 : ℝ)), (Real.pi / (2 : ℝ)), (1 : ℝ), (1 : ℝ), ((293 : ℝ) / (300 : ℝ)), (1 : ℝ), (1 : ℝ)] := rfl
+
+theorem obsLo_ccc : obsLo =
+    ![(-Real.pi), ((-Real.pi) / (2 : ℝ)), (0 : ℝ), (0 : ℝ), (0 : ℝ), (0 : ℝ), (0 : ℝ), (0 : ℝ)] := rfl
+
 theorem obsOf_ccc : obsOf = fun (az : ℝ) (t : ℝ) (elSun : ℝ) (azSun : ℝ) (taut : ℝ) (holds : ℝ) (Toil : ℝ) (tDead : ℝ) =>
     let v8 := (azSun - az)
     let v11 := ((2 : ℝ) * Real.pi)

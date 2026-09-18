@@ -1877,6 +1877,15 @@ HK_STATIC void hk_hashemiEnv(hk_real az, hk_real t, hk_real slack, hk_real omega
   const hk_real t1622 = (t35 - t36);
   const hk_real t1623 = (t32 * t1622);
   const hk_real t1624 = hk_max(t714, t1623);
+  const hk_real t1630 = (t7 - t1258);
+  const hk_real t1631 = (t1630 + t703);
+  const hk_real t1632 = (t1631 / t1445);
+  const hk_real t1633 = hk_floor(t1632);
+  const hk_real t1634 = (t1445 * t1633);
+  const hk_real t1635 = (t1630 - t1634);
+  const hk_real t1636 = (t704 - t1253);
+  const hk_real t1637 = (t1636 - t6);
+  const hk_real t1638 = HK_LIT(300);
   hk_real acc1599 = HK_LIT(0);
   hk_real acc1602 = HK_LIT(0);
   for (int hk_i = 0; hk_i < 64; ++hk_i) {
@@ -2062,6 +2071,8 @@ HK_STATIC void hk_hashemiEnv(hk_real az, hk_real t, hk_real slack, hk_real omega
   const hk_real t1627 = (t1626 / t33);
   const hk_real t1628 = (t35 + t1627);
   const hk_real t1629 = hk_min(t34, t1628);
+  const hk_real t1639 = (t1629 - t1638);
+  const hk_real t1640 = (t1639 / t1638);
   out[0] = t1258;
   out[1] = t1253;
   out[2] = t768;
@@ -2089,6 +2100,14 @@ HK_STATIC void hk_hashemiEnv(hk_real az, hk_real t, hk_real slack, hk_real omega
   out[24] = t1620;
   out[25] = t1624;
   out[26] = t1625;
+  out[27] = t1635;
+  out[28] = t1637;
+  out[29] = t1253;
+  out[30] = t1262;
+  out[31] = t1283;
+  out[32] = t1640;
+  out[33] = t1340;
+  out[34] = t1344;
 }
 
 HK_STATIC void hk_hashemiHanger(hk_real HK_ADDR* out) {
@@ -3481,6 +3500,14 @@ HK_STATIC void hk_hashemiLoop(hk_real az, hk_real t, hk_real slack, hk_real dt, 
   const hk_real t2185 = (t33 - t34);
   const hk_real t2186 = (t30 * t2185);
   const hk_real t2187 = hk_max(t909, t2186);
+  const hk_real t2193 = (t5 - t1872);
+  const hk_real t2194 = (t2193 + t859);
+  const hk_real t2195 = (t2194 / t860);
+  const hk_real t2196 = hk_floor(t2195);
+  const hk_real t2197 = (t860 * t2196);
+  const hk_real t2198 = (t2193 - t2197);
+  const hk_real t2199 = (t866 - t1867);
+  const hk_real t2200 = (t2199 - t4);
   hk_real acc2162 = HK_LIT(0);
   hk_real acc2165 = HK_LIT(0);
   for (int hk_i = 0; hk_i < 64; ++hk_i) {
@@ -3666,6 +3693,8 @@ HK_STATIC void hk_hashemiLoop(hk_real az, hk_real t, hk_real slack, hk_real dt, 
   const hk_real t2190 = (t2189 / t31);
   const hk_real t2191 = (t33 + t2190);
   const hk_real t2192 = hk_min(t32, t2191);
+  const hk_real t2201 = (t2192 - t869);
+  const hk_real t2202 = (t2201 / t869);
   out[0] = t1872;
   out[1] = t1867;
   out[2] = t1382;
@@ -3693,16 +3722,24 @@ HK_STATIC void hk_hashemiLoop(hk_real az, hk_real t, hk_real slack, hk_real dt, 
   out[24] = t2183;
   out[25] = t2187;
   out[26] = t2188;
-  out[27] = t865;
-  out[28] = t868;
-  out[29] = t1;
-  out[30] = t36;
-  out[31] = t37;
-  out[32] = t871;
-  out[33] = t876;
-  out[34] = t924;
-  out[35] = t1246;
-  out[36] = t1280;
+  out[27] = t2198;
+  out[28] = t2200;
+  out[29] = t1867;
+  out[30] = t1876;
+  out[31] = t1897;
+  out[32] = t2202;
+  out[33] = t1907;
+  out[34] = t1908;
+  out[35] = t865;
+  out[36] = t868;
+  out[37] = t1;
+  out[38] = t36;
+  out[39] = t37;
+  out[40] = t871;
+  out[41] = t876;
+  out[42] = t924;
+  out[43] = t1246;
+  out[44] = t1280;
 }
 
 HK_STATIC void hk_hashemiOutrigger(hk_real HK_ADDR* out) {
@@ -7667,6 +7704,40 @@ HK_STATIC void hk_mlpPolicy(hk_real b2_0, hk_real b2_1, hk_real o_0, hk_real o_1
   const hk_real t542 = hk_tanh(t541);
   out[0] = t508;
   out[1] = t542;
+}
+
+HK_STATIC void hk_obsHi(hk_real HK_ADDR* out) {
+  const hk_real t0 = HK_PI;
+  const hk_real t1 = HK_LIT(2);
+  const hk_real t2 = (t0 / t1);
+  const hk_real t3 = HK_LIT(1);
+  const hk_real t4 = HK_LIT(293);
+  const hk_real t5 = HK_LIT(300);
+  const hk_real t6 = (t4 / t5);
+  out[0] = t0;
+  out[1] = t2;
+  out[2] = t2;
+  out[3] = t3;
+  out[4] = t3;
+  out[5] = t6;
+  out[6] = t3;
+  out[7] = t3;
+}
+
+HK_STATIC void hk_obsLo(hk_real HK_ADDR* out) {
+  const hk_real t0 = HK_PI;
+  const hk_real t1 = (-t0);
+  const hk_real t2 = HK_LIT(2);
+  const hk_real t3 = (t1 / t2);
+  const hk_real t4 = HK_LIT(0);
+  out[0] = t1;
+  out[1] = t3;
+  out[2] = t4;
+  out[3] = t4;
+  out[4] = t4;
+  out[5] = t4;
+  out[6] = t4;
+  out[7] = t4;
 }
 
 HK_STATIC void hk_obsOf(hk_real az, hk_real t, hk_real elSun, hk_real azSun, hk_real taut, hk_real holds, hk_real Toil, hk_real tDead, hk_real HK_ADDR* out) {
@@ -17111,10 +17182,10 @@ HK_STATIC bool hk_check_hashemiEnv_capture_mem(hk_real az, hk_real t, hk_real sl
   }
   const hk_real t1599 = acc1599;
   const hk_real t1601 = (t1599 / t1600);
-  const bool t1630 = (t678 <= t1601);
-  const bool t1631 = (t1601 <= t682);
-  const bool t1632 = (t1630 && t1631);
-  return t1632;
+  const bool t1641 = (t678 <= t1601);
+  const bool t1642 = (t1601 <= t682);
+  const bool t1643 = (t1641 && t1642);
+  return t1643;
 }
 
 HK_STATIC bool hk_check_hashemiEnv_oil_le(hk_real az, hk_real t, hk_real slack, hk_real omegam, hk_real omegad, hk_real dt, hk_real elSun, hk_real azSun, hk_real dni, hk_real rDrum, hk_real W, hk_real rcm, hk_real Tmax, hk_real rho, hk_real Fdrive, hk_real L10, hk_real rodLen, hk_real R, hk_real f, hk_real a, hk_real w, hk_real rc, hk_real k, hk_real sigmaslope, hk_real sigmaspec, hk_real hsun, hk_real soil, hk_real alpha, hk_real eps, hk_real Ac, hk_real hC, hk_real Upipe, hk_real UAx, hk_real Coil, hk_real ToilMax, hk_real Toil, hk_real Twall, hk_real Ta, const hk_real HK_RADDR* dr) {
@@ -18014,8 +18085,8 @@ HK_STATIC bool hk_check_hashemiEnv_oil_le(hk_real az, hk_real t, hk_real slack, 
   const hk_real t1627 = (t1626 / t33);
   const hk_real t1628 = (t35 + t1627);
   const hk_real t1629 = hk_min(t34, t1628);
-  const bool t1630 = (t1629 <= t34);
-  return t1630;
+  const bool t1641 = (t1629 <= t34);
+  return t1641;
 }
 
 HK_STATIC bool hk_check_hashemiEnv_pot_le(hk_real az, hk_real t, hk_real slack, hk_real omegam, hk_real omegad, hk_real dt, hk_real elSun, hk_real azSun, hk_real dni, hk_real rDrum, hk_real W, hk_real rcm, hk_real Tmax, hk_real rho, hk_real Fdrive, hk_real L10, hk_real rodLen, hk_real R, hk_real f, hk_real a, hk_real w, hk_real rc, hk_real k, hk_real sigmaslope, hk_real sigmaspec, hk_real hsun, hk_real soil, hk_real alpha, hk_real eps, hk_real Ac, hk_real hC, hk_real Upipe, hk_real UAx, hk_real Coil, hk_real ToilMax, hk_real Toil, hk_real Twall, hk_real Ta, const hk_real HK_RADDR* dr) {
@@ -18027,11 +18098,11 @@ HK_STATIC bool hk_check_hashemiEnv_pot_le(hk_real az, hk_real t, hk_real slack, 
   const hk_real t1623 = (t35 - t36);
   const hk_real t1624 = (t32 * t1623);
   const hk_real t1625 = hk_max(t678, t1624);
-  const hk_real t1631 = hk_max(t678, t1623);
-  const hk_real t1632 = (t32 * t1631);
-  const bool t1633 = (t1625 <= t1632);
-  const bool t1634 = (!t679 || t1633);
-  return t1634;
+  const hk_real t1642 = hk_max(t678, t1623);
+  const hk_real t1643 = (t32 * t1642);
+  const bool t1644 = (t1625 <= t1643);
+  const bool t1645 = (!t679 || t1644);
+  return t1645;
 }
 
 HK_STATIC bool hk_check_hashemiHanger_length(void) {
@@ -21239,6 +21310,23 @@ HK_STATIC bool hk_check_wire_taut_iff(hk_real W, hk_real rcm, hk_real rw, hk_rea
   const bool t16 = (!t5 || t15);
   const bool t17 = (!t4 || t16);
   return t17;
+}
+
+HK_STATIC bool hk_check_wrapRad_mem(hk_real d) {
+  const hk_real t0 = d;
+  const hk_real t1 = HK_PI;
+  const hk_real t2 = (-t1);
+  const hk_real t3 = HK_LIT(2);
+  const hk_real t4 = (t3 * t1);
+  const hk_real t5 = (t0 + t1);
+  const hk_real t6 = (t5 / t4);
+  const hk_real t7 = hk_floor(t6);
+  const hk_real t8 = (t4 * t7);
+  const hk_real t9 = (t0 - t8);
+  const bool t10 = (t2 <= t9);
+  const bool t11 = (t9 < t1);
+  const bool t12 = (t10 && t11);
+  return t12;
 }
 
 HK_STATIC bool hk_check_yaw_lifts_nothing(hk_real p_0, hk_real p_1, hk_real p_2) {

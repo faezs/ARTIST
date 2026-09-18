@@ -394,31 +394,31 @@ kernel void mk_hangerLength_box(device const float* lo [[buffer(0)]], device con
 }
 kernel void mk_hashemiEnv_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device const float* dr_all [[buffer(2)]], device float* y [[buffer(3)]], device float* dy [[buffer(4)]], device const int* n [[buffer(5)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tx[38], tdx[38], ty[27], tdy[27];
+  float tx[38], tdx[38], ty[35], tdy[35];
   for (int k = 0; k < 38; ++k) { tx[k] = x[i*38+k]; tdx[k] = dx[i*38+k]; }
   hk_hashemiEnv_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tx[13], tx[14], tx[15], tx[16], tx[17], tx[18], tx[19], tx[20], tx[21], tx[22], tx[23], tx[24], tx[25], tx[26], tx[27], tx[28], tx[29], tx[30], tx[31], tx[32], tx[33], tx[34], tx[35], tx[36], tx[37], dr_all + i * 640, tdx, ty, tdy);
-  for (int k = 0; k < 27; ++k) { y[i*27+k] = ty[k]; dy[i*27+k] = tdy[k]; }
+  for (int k = 0; k < 35; ++k) { y[i*35+k] = ty[k]; dy[i*35+k] = tdy[k]; }
 }
 kernel void mk_hashemiEnv_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device const float* dr_all [[buffer(3)]], device float* olo [[buffer(4)]], device float* ohi [[buffer(5)]], device float* oL [[buffer(6)]], device const int* n [[buffer(7)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tlo[38], thi[38], tsc[38], rlo[27], rhi[27], rL[27];
+  float tlo[38], thi[38], tsc[38], rlo[35], rhi[35], rL[35];
   for (int k = 0; k < 38; ++k) { tlo[k] = lo[i*38+k]; thi[k] = hi[i*38+k]; tsc[k] = sc[i*38+k]; }
   hk_hashemiEnv_box(dr_all + i * 640, tlo, thi, tsc, rlo, rhi, rL);
-  for (int k = 0; k < 27; ++k) { olo[i*27+k] = rlo[k]; ohi[i*27+k] = rhi[k]; oL[i*27+k] = rL[k]; }
+  for (int k = 0; k < 35; ++k) { olo[i*35+k] = rlo[k]; ohi[i*35+k] = rhi[k]; oL[i*35+k] = rL[k]; }
 }
 kernel void mk_hashemiLoop_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device const float* W1_all [[buffer(2)]], device const float* b1_all [[buffer(3)]], device const float* W2_all [[buffer(4)]], device const float* dr_all [[buffer(5)]], device float* y [[buffer(6)]], device float* dy [[buffer(7)]], device const int* n [[buffer(8)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tx[41], tdx[41], ty[37], tdy[37];
+  float tx[41], tdx[41], ty[45], tdy[45];
   for (int k = 0; k < 41; ++k) { tx[k] = x[i*41+k]; tdx[k] = dx[i*41+k]; }
   hk_hashemiLoop_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tx[13], tx[14], tx[15], tx[16], tx[17], tx[18], tx[19], tx[20], tx[21], tx[22], tx[23], tx[24], tx[25], tx[26], tx[27], tx[28], tx[29], tx[30], tx[31], tx[32], tx[33], tx[34], tx[35], tx[36], tx[37], tx[38], tx[39], tx[40], W1_all + i * 128, b1_all + i * 16, W2_all + i * 32, dr_all + i * 640, tdx, ty, tdy);
-  for (int k = 0; k < 37; ++k) { y[i*37+k] = ty[k]; dy[i*37+k] = tdy[k]; }
+  for (int k = 0; k < 45; ++k) { y[i*45+k] = ty[k]; dy[i*45+k] = tdy[k]; }
 }
 kernel void mk_hashemiLoop_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device const float* W1_all [[buffer(3)]], device const float* b1_all [[buffer(4)]], device const float* W2_all [[buffer(5)]], device const float* dr_all [[buffer(6)]], device float* olo [[buffer(7)]], device float* ohi [[buffer(8)]], device float* oL [[buffer(9)]], device const int* n [[buffer(10)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tlo[41], thi[41], tsc[41], rlo[37], rhi[37], rL[37];
+  float tlo[41], thi[41], tsc[41], rlo[45], rhi[45], rL[45];
   for (int k = 0; k < 41; ++k) { tlo[k] = lo[i*41+k]; thi[k] = hi[i*41+k]; tsc[k] = sc[i*41+k]; }
   hk_hashemiLoop_box(W1_all + i * 128, b1_all + i * 16, W2_all + i * 32, dr_all + i * 640, tlo, thi, tsc, rlo, rhi, rL);
-  for (int k = 0; k < 37; ++k) { olo[i*37+k] = rlo[k]; ohi[i*37+k] = rhi[k]; oL[i*37+k] = rL[k]; }
+  for (int k = 0; k < 45; ++k) { olo[i*45+k] = rlo[k]; ohi[i*45+k] = rhi[k]; oL[i*45+k] = rL[k]; }
 }
 kernel void mk_headToCmd_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;

@@ -48,6 +48,8 @@ import json                                         # noqa: E402
 # headToDriveEl, compiled - here through the NumPy twin, exactly the kernel's functions)
 POLICY = json.load(open(os.path.join(HERE, "hashemi_policy.json")))
 HEAD_AZ, HEAD_EL = POLICY["motor_heads"]
+import hashemi_policy as machine_policy              # noqa: E402  the generated spaces module
+OBS_COLS = [ECOL["obs_" + n] for n in machine_policy.OBS_NAMES]
 
 
 class HashemiTandoorEnv(TandoorHashemiEnv):
@@ -100,6 +102,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self._om_full = self._az_full * self._R / self._rw               # headToDriveAz at u = 1
         self._el_full = self._el_full_rate / float(self._prm_np[0])       # x arm = headToDriveEl at u = -1 (the head's sense)
         self._arm0 = 1.03
+        # the machine's own interface (HashemiPolicy.lean through the generated module): the
+        # observation Box and the command Box; `machine_obs` is the kernel's observation columns
+        self.machine_observation_space = machine_policy.observation_space()
+        self.machine_action_space = machine_policy.action_space()
+        self.machine_obs = np.zeros((B, machine_policy.N_OBS), dtype=np.float32)
         self._env = None
         if self.gpu and self._metal is not None:
             self._env = HashemiEnvMetal()
@@ -192,6 +199,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self.t_oil = self.row[:, ECOL["T_oil"]].copy()
         self.cap_traced = self.row[:, ECOL["capture"]].copy()
         self._q_pot = self.row[:, ECOL["q_pot"]].copy()
+        self.machine_obs = self.row[:, OBS_COLS].astype(np.float32)
         self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])
         self.az_m = np.degrees(self.hk_state[:, 0])
 
@@ -286,6 +294,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             self.cap_traced = self.row[:, ECOL["capture"]]
             self.hk_state[:] = self._st.cpu().numpy()
             self.t_oil = self.row[:, ECOL["T_oil"]]
+            self.machine_obs = self.row[:, OBS_COLS].astype(np.float32)
             self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])
             self.az_m = np.degrees(self.hk_state[:, 0])
             return res

@@ -123,12 +123,14 @@ if __name__ == "__main__":
     for j, name in enumerate(ENV["columns"]):
         a, b = out[:, j], ref[:, j]
         fin = np.isfinite(a) & np.isfinite(b)
-        if name in ("stalled", "taut", "wire_holds", "sun_reachable", "lost_sun"):
+        if name in ("stalled", "taut", "wire_holds", "sun_reachable", "lost_sun", "obs_taut", "obs_holds"):
             flips = float(np.mean(a[fin] != b[fin]))
             worst.append((name, flips, "flips"))
             if flips > 0.01:
                 bad += 1
         else:
+            if name in ("obs_e_az", "e_az"):
+                a = np.where(fin, ((a - b + np.pi) % (2 * np.pi)) - np.pi + b, a)   # a wrapped angle: modulo 2 pi
             scale = np.maximum(1.0, np.abs(b[fin]))
             tol = 1e-2 if name in ("capture", "capture_s", "per_dni", "p_in", "q_abs", "q_pot", "q_net", "T_oil") else 1e-3
             err = float(np.max(np.abs(a[fin] - b[fin]) / scale)) if fin.any() else 0.0

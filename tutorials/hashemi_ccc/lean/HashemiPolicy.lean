@@ -20,7 +20,9 @@ lets Ccc extract it with everything else:
 * **a policy of this interface** (`mlpPolicy`): one hidden layer of 16 tanh units, its weights
   as inputs (shared by every agent), its outputs inside `(-1, 1)` (`mlpPolicy_bounded`);
 * **the closed loop** (`hashemiLoop`): the observation, the policy, the drives, the env's step -
-  one morphism, one kernel: the policy's tangent and box come with it.
+  one morphism, one kernel: the policy's tangent and box come with it;
+* **the observation's bounds** (`obsLo`, `obsHi`, `wrapRad_mem`): what the generated space module
+  reads for the Box.
 -/
 import RequestProject.HashemiEnv
 
@@ -78,7 +80,7 @@ noncomputable def headToDriveEl (h arm rDrum : ℝ) : ℝ := driveEl (-(headToCm
 
 /-! ## The sensing -/
 
-/-- an angle wrapped to `(-π, π]` -/
+/-- an angle wrapped to `[-π, π)` -/
 noncomputable def wrapRad (d : ℝ) : ℝ :=
   d - 2 * Real.pi * ((⌊(d + Real.pi) / (2 * Real.pi)⌋ : ℤ) : ℝ)
 
@@ -90,6 +92,24 @@ noncomputable def obsOf (az t elSun azSun taut holds Toil tDead : ℝ) : Fin 8 �
     sunReachableS tDead elSun, lostSunS tDead az t elSun azSun 0.03]
 
 def obsNames : Array String := #["e_az", "e_el", "swing", "taut", "holds", "oil", "reach_s", "lost_s"]
+
+/-- the observation's bounds: the wrapped azimuth error in `[-π, π)`, the elevation error within a
+right angle, the swing from the zenith to the vertical, the wire's flags, the oil from ambient to
+its limit (`(593 - 300) / 300`), the gates in `[0, 1]` -/
+noncomputable def obsLo : Fin 8 → ℝ := ![-Real.pi, -Real.pi / 2, 0, 0, 0, 0, 0, 0]
+noncomputable def obsHi : Fin 8 → ℝ := ![Real.pi, Real.pi / 2, Real.pi / 2, 1, 1, 293 / 300, 1, 1]
+
+theorem wrapRad_mem (d : ℝ) : -Real.pi ≤ wrapRad d ∧ wrapRad d < Real.pi := by
+  unfold wrapRad
+  have hpos : (0 : ℝ) < 2 * Real.pi := by positivity
+  have h1 := Int.floor_le ((d + Real.pi) / (2 * Real.pi))
+  have h2 := Int.lt_floor_add_one ((d + Real.pi) / (2 * Real.pi))
+  have e : (d + Real.pi) / (2 * Real.pi) * (2 * Real.pi) = d + Real.pi := by field_simp
+  have l1 := mul_le_mul_of_nonneg_right h1 hpos.le
+  have l2 := mul_lt_mul_of_pos_right h2 hpos
+  rw [e] at l1 l2
+  constructor <;> nlinarith [l1, l2]
+
 def actionNames : Array String := #["u_az", "u_el"]
 
 /-! ## The reference policy: the follower -/
@@ -163,7 +183,7 @@ noncomputable def hashemiLoop (az t slack dt elSun azSun dni rDrum W rcm Tmax rh
     R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx Coil ToilMax Toil Twall Ta
     tautPrev holdsPrev tDead : ℝ)
     (W1 : Fin 16 → Fin 8 → ℝ) (b1 : Fin 16 → ℝ) (W2 : Fin 2 → Fin 16 → ℝ) (b2 : Fin 2 → ℝ)
-    (dr : Fin 64 → Fin 10 → ℝ) : Fin 37 → ℝ :=
+    (dr : Fin 64 → Fin 10 → ℝ) : Fin 45 → ℝ :=
   let o := obsOf az t elSun azSun tautPrev holdsPrev Toil tDead
   let u := mlpPolicy W1 b1 W2 b2 o
   let arm := leverAt ymHashemi hpHashemi dishHalf zeHashemi t
@@ -173,14 +193,16 @@ noncomputable def hashemiLoop (az t slack dt elSun azSun dni rDrum W rcm Tmax rh
     R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx Coil ToilMax Toil Twall Ta dr
   ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9, s 10, s 11, s 12, s 13, s 14, s 15, s 16,
     s 17, s 18, s 19, s 20, s 21, s 22, s 23, s 24, s 25, s 26,
+    s 27, s 28, s 29, s 30, s 31, s 32, s 33, s 34,
     o 0, o 1, o 2, o 3, o 4, o 5, o 6, o 7, u 0, u 1]
 
 def loopNames : Array String := #[
   "az_next", "t_next", "slack_next", "wire_len", "t_dead", "stalled", "taut", "wire_holds", "arm",
   "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun", "sun_reachable_s", "lost_sun_s",
   "capture", "capture_s", "per_dni", "p_in", "T_oil", "q_abs", "q_coil_loss", "q_pipe", "q_pot", "q_net",
+  "obs_e_az", "obs_e_el", "obs_swing", "obs_taut", "obs_holds", "obs_oil", "obs_reach_s", "obs_lost_s",
   "e_az", "e_el", "swing", "taut_obs", "holds_obs", "oil", "reach_s", "lost_s", "u_az", "u_el"]
 
-theorem loopNames_size : loopNames.size = 37 := by rfl
+theorem loopNames_size : loopNames.size = 45 := by rfl
 
 end TandoorHashemi

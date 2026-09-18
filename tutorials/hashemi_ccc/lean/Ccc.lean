@@ -1230,6 +1230,8 @@ def printMslMega (f : Fun) (kname : String) : String := Id.run do
   let nin := f.inputs.size
   let nout := outs.size
   let P := if L.P == 0 then 1 else L.P
+  let live := liveNodes g outs
+  let sums := L.sums.filter live.contains
   let mut params : Array String := #["device const float* hk_x [[buffer(0)]]"]
   let mut bi := 1
   for (b, _, _) in f.arrays do
@@ -1240,7 +1242,7 @@ def printMslMega (f : Fun) (kname : String) : String := Id.run do
   let mut lines : Array String := #[]
   lines := lines.push s!"kernel void {kname}({", ".intercalate params.toList}, uint hk_b [[threadgroup_position_in_grid]], uint hk_i [[thread_position_in_threadgroup]]) \{"
   lines := lines.push "  if ((int)hk_b >= hk_n[0]) return;"
-  for s in L.sums.filter (liveNodes g outs).contains do lines := lines.push s!"  threadgroup float hk_sh{s}[{P}];"
+  for s in sums do lines := lines.push s!"  threadgroup float hk_sh{s}[{P}];"
   lines := lines.push s!"  device const float* hk_xb = hk_x + hk_b * {nin};"
   for (b, p, m) in f.arrays do
     if f.shared.contains b then lines := lines.push s!"  device const float* {b} = {b}_all;"
@@ -1248,14 +1250,47 @@ def printMslMega (f : Fun) (kname : String) : String := Id.run do
   let mut inIdx : Std.HashMap Nat Nat := {}
   for k in [0:nin] do inIdx := inIdx.insert (f.inputs[k]!).2 k
   let inRef := fun (i : Nat) => if g.isBool i then s!"(hk_xb[{inIdx.getD i 0}] != 0.0f)" else s!"hk_xb[{inIdx.getD i 0}]"
-  let live := liveNodes g outs
-  let sums := L.sums.filter live.contains
   let node := fun (i : Nat) (ind : String) =>
     (cNodeLines f .value inRef (fun _ => "0") (fun _ => ("0", "0", "0")) "hk_i" i).map (ind ++ ·)
   if !L.err.isEmpty then lines := lines.push s!"#error \"{L.err}\""
-  for i in [0:g.nodes.size] do
-    if live.contains i && !L.ray[i]! && !L.post[i]! then lines := lines ++ node i "  "
-  if !sums.isEmpty then
+  let isA := fun (i : Nat) => live.contains i && !L.ray[i]! && !L.post[i]!
+  if sums.isEmpty then
+    -- no reduction: one thread is the whole agent
+    for i in [0:g.nodes.size] do
+      if live.contains i then lines := lines ++ node i "  "
+  else
+    -- THE PRELUDE ON THREAD 0, BROADCAST: the agent-level nodes before the reduction are computed
+    -- once, and those the ray level reads go through threadgroup memory; the rays run on every
+    -- thread; thread 0 reduces, finishes, writes
+    let mut needed : Array Nat := #[]
+    let mut seen : Std.HashSet Nat := {}
+    for i in [0:g.nodes.size] do
+      if live.contains i && L.ray[i]! then
+        for d in g.nodes[i]!.deps do
+          if isA d && !seen.contains d then
+            seen := seen.insert d
+            needed := needed.push d
+    lines := lines.push s!"  threadgroup float hk_pre[{max needed.size 1}];"
+    -- declarations at function scope, values on thread 0
+    for i in [0:g.nodes.size] do
+      if isA i then
+        let ty := if g.isBool i then "bool" else "hk_real"
+        lines := lines.push s!"  {ty} t{i};"
+    lines := lines.push "  if (hk_i == 0) {"
+    for i in [0:g.nodes.size] do
+      if isA i then
+        match cRhs f inRef "hk_i" i with
+        | some r => lines := lines.push s!"    t{i} = {r};"
+        | none => pure ()
+    for k in [0:needed.size] do
+      let d := needed[k]!
+      lines := lines.push s!"    hk_pre[{k}] = {if g.isBool d then s!"(t{d} ? 1.0f : 0.0f)" else s!"t{d}"};"
+    lines := lines.push "  }"
+    lines := lines.push "  threadgroup_barrier(mem_flags::mem_threadgroup);"
+    for k in [0:needed.size] do
+      let d := needed[k]!
+      lines := lines.push s!"  t{d} = {if g.isBool d then s!"(hk_pre[{k}] != 0.0f)" else s!"hk_pre[{k}]"};"
+    -- the ray level on every thread
     for i in [0:g.nodes.size] do
       if live.contains i && L.ray[i]! then lines := lines ++ node i "  "
     for s in sums do
@@ -1266,13 +1301,17 @@ def printMslMega (f : Fun) (kname : String) : String := Id.run do
     lines := lines.push "  if (hk_i == 0) {"
     for s in sums do
       lines := lines.push s!"    \{ float acc = 0.0f; for (int j = 0; j < {P}; ++j) acc += hk_sh{s}[j]; hk_sh{s}[0] = acc; }"
+    -- what follows the reduction, on thread 0
+    for i in [0:g.nodes.size] do
+      if live.contains i && L.post[i]! then
+        match g.nodes[i]! with
+        | .sum _ _ => lines := lines.push s!"    const hk_real t{i} = hk_sh{i}[0];"
+        | _ => lines := lines ++ node i "    "
+    for k in [0:nout] do
+      lines := lines.push s!"    hk_y[hk_b * {nout} + {k}] = t{outs[k]!};"
     lines := lines.push "  }"
-    lines := lines.push "  threadgroup_barrier(mem_flags::mem_threadgroup);"
-  for i in [0:g.nodes.size] do
-    if live.contains i && L.post[i]! then
-      match g.nodes[i]! with
-      | .sum _ _ => lines := lines.push s!"  const hk_real t{i} = hk_sh{i}[0];"
-      | _ => lines := lines ++ node i "  "
+    lines := lines.push "}"
+    return "\n".intercalate lines.toList
   lines := lines.push "  if (hk_i == 0) {"
   for k in [0:nout] do
     lines := lines.push s!"    hk_y[hk_b * {nout} + {k}] = t{outs[k]!};"

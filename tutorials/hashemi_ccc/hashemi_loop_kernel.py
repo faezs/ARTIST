@@ -117,10 +117,12 @@ if __name__ == "__main__":
     for j, name in enumerate(POL["columns"]):
         a, b = out[:, j], ref[:, j]
         fin = np.isfinite(a) & np.isfinite(b)
-        if name in ("stalled", "taut", "wire_holds", "sun_reachable", "lost_sun", "taut_obs", "holds_obs"):
+        if name in ("stalled", "taut", "wire_holds", "sun_reachable", "lost_sun", "taut_obs", "holds_obs", "obs_taut", "obs_holds"):
             if np.mean(a[fin] != b[fin]) > 0.01:
                 bad += 1
         else:
+            if name in ("obs_e_az", "e_az"):
+                a = np.where(fin, ((a - b + np.pi) % (2 * np.pi)) - np.pi + b, a)   # a wrapped angle: modulo 2 pi
             err = np.max(np.abs(a[fin] - b[fin]) / np.maximum(1.0, np.abs(b[fin]))) if fin.any() else 0.0
             tol = 1e-2 if name in ("capture", "capture_s", "per_dni", "p_in", "q_abs", "q_pot", "q_net", "T_oil", "e_az") else 2e-3
             if err > tol:
