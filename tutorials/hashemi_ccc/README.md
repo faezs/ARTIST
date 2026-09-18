@@ -427,3 +427,59 @@ the facets' blur at F is 6 cm; the day's capture is 0.14 through the 6 cm slot, 
 60 cm slot, 0.46 with no dish in the way; tilting the axis to the azimuth tube halves the hit. In
 the env: 2.5 rotis a day through the 6 cm slot, 36 through 60 cm, against the oil loop's 79. The
 shape is exact; the facets and the slot are what decide the chain.
+
+## The receivers as one GADT
+
+`RequestProject/OpticGadt.lean` (mirrored in `lean/OpticGadt.lean`). Every receiver chain the
+project has - the two already in Lean and the three in the simulator's cores - as values of ONE
+indexed family, with a ray-trace interpreter over it.
+
+**The type.** `Optic : Port → Port → Type`, indexed by what a stage takes and what it delivers:
+`sky` (the sun's rays at the aperture), `cone` (a ray in open air), `bore` (a beam inside a bore,
+tube or light pipe), `spot` (a landing on the receiver). `St : Port → Type` is the state at a port
+(a ray, or a landing); a chain only typechecks when its elements meet. It is a SPEC-level object -
+`trace` erases the indices at every concrete chain, so the translator still sees a plain function of
+reals (`oilCapture : ℝ → … → ℝ`, `#check`ed at the foot of the file).
+
+**Constructors.** `nil`; `primary` (faceted conic dish, `conicZ`'s `k`, SolTrace's σ_slope/σ_spec);
+`flatMirror` (the fold at F, the flat M4 of `u_f2 = 0`); `hyperStrip` (the rotating hyperboloid
+strip); `gregStrip` (the ellipsoid beyond F); `ellipMirror` (the ellipsoid M4/M5); `actuatedM3`
+(the same figure rigidly turned by ψ - `_m3_figure`); `slot` (the flapped slot in the membrane);
+`stop`; `boreTube`; `lightPipe` (ρⁿ); `cpcLip` (the Winston lip, eight conical segments); `elbow`;
+and the terminals `coil`, `beamDown`, `pot`, `bread`; `seq` is composition - the Modula product.
+
+**The chains**, with their sources (`tutorials/`):
+
+| chain | elements | numbers |
+|---|---|---|
+| `cass` | dish, slot, hyperboloid strip, bore, M4 (ellipsoid), elbow, pot | `w_slot 0.7`, `slot_el 54°`, `d_strip 0.6`, `r_bore 0.7`, `r_m4 1.3`, `r_duct 0.20` — tandoor_hashemi_env.py:996-1004, 1179; `_build_cass_chain` :1789 |
+| `tri` | as `cass` but M3 actuated onto the loaf, no elbow at the end | `tri_target` :1761, `_m3_figure` :1781, `receiver == "tri"` :1067 |
+| `focus` | dish, M1 flat at F, off-axis collimator M2, flat M3, chase, off-axis M4, pot | `r_m1 0.15`, `col_dist 0.75`, `col_radius 0.5`, `r_m3 1.0` — `_build_focus_chain` :1653 |
+| `fold` | dish, flat fold at F, tube, CPC lip (8 cones), pipe, M5 ellipsoid, pot | `_geo_core` :150-380, `z_m5 -0.10` :995 |
+| `flower` | head membrane, the light pipe's mouth as F, the pipe down (Masdar beam-down) | tandoor_flower_env.py:374 |
+| `deepDish` | dish, Gregorian cap past F, bore, coudé ellipsoid relay, pot | hashemi_relay.py:1-28 (the relay must be an ellipsoid: a sphere at 20° blurs 104-128 mm) |
+| `hashemiOil` | his faceted satellite dish, the copper coil at F | `dishR 2`, `dishF 1`, `dishHalf 0.8`, facets 0.05, `rc 0.06` — Hashemi.lean:1225, HashemiTrace `traceParams` |
+| `hashemiBeam` | his dish, the hyperboloidal secondary, the slot, the tunnel | `beam_L 1.25`, `beam_dm/rm 0.06`, `beam_rt 0.55`, `beam_slot 0.06` — hashemi_tandoor_env.py:59 |
+
+The quadric hits are the twins' own: `hypHit` is `_hyp_hit` (tandoor_hashemi_env.py:561, smallest
+positive root on the F sheet), `ellipHit` is `_ellip_hit` (:600, the far root). Fates are the miss
+ledger's codes (2 no secondary, 3 off the strip, 6 the bore, 7 M4, 8 the way to the pot, 9 the
+collar, 13 the slot).
+
+**Theorems, no `sorry`.** `clip_seq`: the throughput of a composite is the product of its factors -
+the Modula composition rule for the one quantity every stage multiplies; `clip_nonneg`,
+`clip_le_one`. `toTrain` / `throughput_toTrain`: the forgetful map into `Optics.lean`'s paraxial
+`Train` preserves the throughput, so Liouville's theorems there are theorems about these chains -
+`etendue_le` (the étendue never increases) and `etendue_conserve` (in = out + every loss).
+`trace_seq_inl` / `trace_seq_inr` (a fate on the way is the chain's fate), `trace_nil_seq`,
+`trace_seq_nil`, `trace_seq_assoc`, `clip_assoc`: `seq` is a category with `nil` as its identity.
+Agreement with what was already traced in Lean: `hashemiBeam_agrees` is `rfl` - the beam-down
+terminal IS `HashemiBeamdown.traceBeam`; `oil_agrees` (via `oil_through_iff` and `oil_capture_iff`)
+proves the dish-plus-coil chain delivers exactly the rays `HashemiTrace.traceRayKErr` calls
+captured, which is `dishPower`'s column 0.
+
+**What is not pinned down.** No interpreter has a `sorry`, but two stages carry their throughput and
+leave the ray as they found it, and say so in their docstrings: `cpcLip` (the traced bounce off the
+eight conical segments of `_geo_core`) and `lightPipe` (the tunnel's bounces). Their geometry lives
+in the Python core and the kernel; the family carries their clip, which is what the étendue
+bookkeeping needs.
