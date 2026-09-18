@@ -42,6 +42,12 @@ from tandoor_hashemi_env import TandoorHashemiEnv   # noqa: E402
 from hashemi_kernel import COL, mega_numpy, mega_params_numpy                       # noqa: E402
 from hashemi_env_kernel import (HashemiEnvMetal, env_numpy, env_params, pack, draws,   # noqa: E402
                                 ECOL, EIN, N_IN, N_OUT, P as ENV_RAYS, M as ENV_M)
+import json                                         # noqa: E402
+# THE POLICY DESCRIPTION IS THE SPEC'S (HashemiPolicy.lean, written out by the driver): which
+# heads are the motors, how many levels, and the drives a head's value means (headToDriveAz /
+# headToDriveEl, compiled - here through the NumPy twin, exactly the kernel's functions)
+POLICY = json.load(open(os.path.join(HERE, "hashemi_policy.json")))
+HEAD_AZ, HEAD_EL = POLICY["motor_heads"]
 
 
 class HashemiTandoorEnv(TandoorHashemiEnv):
@@ -82,13 +88,17 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self.hk_row = self.row
         self.cap_traced = np.zeros(B)
         self._q_pot = np.zeros(B)
-        # THE HEADS MEAN WHAT THE PARENT'S MEAN: full command = RATE_AZ / RATE_EL deg/s of the dish.
-        # Azimuth: the roller's rate that gives azRate = RATE_AZ. Elevation: the drum's rate that
-        # gives elRate = omega_d rDrum / arm = RATE_EL at the wire's CURRENT lever arm (the
-        # kernel's `arm` column, 1.03 m at rest, 0.38 m at 60 deg). (Set to 1 cm/s of wire once:
-        # 22x the parent's rate, 2.8 deg per finest step - untrackable for a seven-valued head.)
-        self._om_full = np.radians(self.RATE_AZ) * float(rest[0, COL["rollerRadius"]]) / 0.05
-        self._el_full = np.radians(self.RATE_EL) / float(self._prm_np[0])   # x arm = omega_d at full command
+        # THE HEADS MEAN WHAT THE SPEC SAYS: HashemiPolicy.lean's headToDriveAz / headToDriveEl
+        # (full command = azFull / elFull of the dish, the drum's rate at the wire's CURRENT lever
+        # arm), compiled; the finest step outruns the sun and stays inside the tracker's budget
+        # by theorem (quantum_outruns_sun, quantum_within_budget). The twin is the kernel's
+        # function; the fused path evaluates the same formula on the device.
+        import hashemi_ccc as H
+        self._rw, self._R = 0.05, float(rest[0, COL["rollerRadius"]])     # hashemi.rDrive (the frames' 5 cm roller), rollerRadius hashemi
+        self._az_full = float(H.hk_azFull())            # rad/s of the dish at full command
+        self._el_full_rate = float(H.hk_elFull())
+        self._om_full = self._az_full * self._R / self._rw               # headToDriveAz at u = 1
+        self._el_full = self._el_full_rate / float(self._prm_np[0])       # x arm = headToDriveEl at u = -1 (the head's sense)
         self._arm0 = 1.03
         self._env = None
         if self.gpu and self._metal is not None:
@@ -159,10 +169,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     def _run_np(self, a):
         """one launch of the C twin: the pose, the capture, the oil, the pot's heat"""
         B = self.num_agents
-        c_az = (np.clip(a[:, 3], 0, 6) - 3) / 3.0
-        c_el = (np.clip(a[:, 4], 0, 6) - 3) / 3.0
+        import hashemi_ccc as H
         arm = np.maximum(self.row[:, ECOL["arm"]], 0.05) if self.row[:, ECOL["arm"]].any() else np.full(B, self._arm0)
-        cmd = np.stack([c_az * self._om_full, -c_el * self._el_full * arm], 1)
+        cmd = np.stack([np.asarray(H.hk_headToDriveAz(a[:, HEAD_AZ], np.full(B, self._rw), np.full(B, self._R)), dtype=np.float64),
+                        np.asarray(H.hk_headToDriveEl(a[:, HEAD_EL], arm, np.full(B, float(self._prm_np[0]))), dtype=np.float64)], 1)
         el, az = self._sun()
         sun = np.stack([np.full(B, el), np.full(B, az), np.asarray(self.dni, dtype=np.float64)], 1)
         if self._beam_profile is None:
@@ -216,10 +226,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # ---- ONE launch: the mount, the optics, the heat
         x = self._x
         x[:, EIN["az"]] = self._st[:, 0]; x[:, EIN["t"]] = self._st[:, 1]; x[:, EIN["slack"]] = self._st[:, 2]
-        x[:, EIN["omegam"]] = (a[:, 3].float().clamp(0, 6) - 3) / 3.0 * self._om_full
+        # headToCmd / driveAz / driveEl of HashemiPolicy.lean, on the device
+        x[:, EIN["omegam"]] = (a[:, HEAD_AZ].float().clamp(0, 6) - 3) / 3.0 * self._om_full
         arm = self._hk_out[:, ECOL["arm"]].clamp_min(0.05)
         arm = torch.where(arm > 0.05, arm, torch.full_like(arm, self._arm0))
-        x[:, EIN["omegad"]] = -(a[:, 4].float().clamp(0, 6) - 3) / 3.0 * self._el_full * arm
+        x[:, EIN["omegad"]] = -(a[:, HEAD_EL].float().clamp(0, 6) - 3) / 3.0 * self._el_full * arm
         el, az = self._sun()
         x[:, EIN["elSun"]] = el; x[:, EIN["azSun"]] = az
         x[:, EIN["dni"]] = F.dni                     # the parent's draw (last step's until step_pre)

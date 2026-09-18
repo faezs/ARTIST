@@ -139,26 +139,40 @@ def TrackerBudget (f : Float) (eps : Float) (h : Float) : Bool :=
 #eval IO.println ("TrackerBudget " ++ toString (TrackerBudget 1.742611 1.684062 1.625513))
 #eval IO.println ("TrackerBudget " ++ toString (TrackerBudget 1.411419 1.352870 1.294321))
 
+def azFull  : Float :=
+  (((0.035 : Float) * (3.141592653589793 : Float)) / (180 : Float))
+
+#eval IO.println ("azFull " ++ toString (azFull).toBits)
+#eval IO.println ("azFull " ++ toString (azFull).toBits)
+#eval IO.println ("azFull " ++ toString (azFull).toBits)
+
+def check_azFull_pos  : Bool :=
+  ((0 : Float) < (((0.035 : Float) * (3.141592653589793 : Float)) / (180 : Float)))
+
+#eval IO.println ("check_azFull_pos " ++ toString (check_azFull_pos))
+#eval IO.println ("check_azFull_pos " ++ toString (check_azFull_pos))
+#eval IO.println ("check_azFull_pos " ++ toString (check_azFull_pos))
+
 def azRate (omegam : Float) (rw : Float) (R : Float) : Float :=
   ((omegam * rw) / R)
 
-#eval IO.println ("azRate " ++ toString (azRate 0.287651 0.229102 1.770553).toBits)
-#eval IO.println ("azRate " ++ toString (azRate 1.556459 1.497910 1.439361).toBits)
-#eval IO.println ("azRate " ++ toString (azRate 1.225267 1.166718 1.108169).toBits)
+#eval IO.println ("azRate " ++ toString (azRate 1.515347 1.456798 1.398249).toBits)
+#eval IO.println ("azRate " ++ toString (azRate 1.184155 1.125606 1.067057).toBits)
+#eval IO.println ("azRate " ++ toString (azRate 0.852963 0.794414 0.735865).toBits)
 
 def check_azRate_pos (omegam : Float) (rw : Float) (R : Float) : Bool :=
   (!((0 : Float) < omegam) || (!((0 : Float) < rw) || (!((0 : Float) < R) || ((0 : Float) < ((omegam * rw) / R)))))
 
-#eval IO.println ("check_azRate_pos " ++ toString (check_azRate_pos 1.701499 1.642950 1.584401))
-#eval IO.println ("check_azRate_pos " ++ toString (check_azRate_pos 1.370307 1.311758 1.253209))
-#eval IO.println ("check_azRate_pos " ++ toString (check_azRate_pos 1.039115 0.980566 0.922017))
+#eval IO.println ("check_azRate_pos " ++ toString (check_azRate_pos 1.329195 1.270646 1.212097))
+#eval IO.println ("check_azRate_pos " ++ toString (check_azRate_pos 0.998003 0.939454 0.880905))
+#eval IO.println ("check_azRate_pos " ++ toString (check_azRate_pos 0.666811 0.608262 0.549713))
 
 def check_bearing_life (L10 : Float) : Bool :=
   (!(((10 : Float) ^ 6) <= L10) || (((100 : Float) * ((20 : Float) * (365.25 : Float))) < L10))
 
-#eval IO.println ("check_bearing_life " ++ toString (check_bearing_life 1.515347))
-#eval IO.println ("check_bearing_life " ++ toString (check_bearing_life 1.184155))
-#eval IO.println ("check_bearing_life " ++ toString (check_bearing_life 0.852963))
+#eval IO.println ("check_bearing_life " ++ toString (check_bearing_life 1.143043))
+#eval IO.println ("check_bearing_life " ++ toString (check_bearing_life 0.811851))
+#eval IO.println ("check_bearing_life " ++ toString (check_bearing_life 0.480659))
 
 def bisectStep (ym : Float) (hp : Float) (a : Float) (ze : Float) (L : Float) (lohi_1 : Float) (lohi_2 : Float) : Array Float :=
   let v9 := ((lohi_1 + lohi_2) / (2 : Float))
@@ -169,23 +183,23 @@ def bisectStep (ym : Float) (hp : Float) (a : Float) (ze : Float) (L : Float) (l
   let v28 := (L < (Float.sqrt (((((v11 * v12) + (v14 * v15)) - (-ym)) ^ 2) + (((((-v11) * v15) + (v14 * v12)) - hp) ^ 2))))
   #[(if v28 then v9 else lohi_1), (if v28 then lohi_2 else v9)]
 
-#eval IO.println ("bisectStep " ++ toString ((bisectStep 1.329195 1.270646 1.212097 1.153548 1.095000 1.036451 0.977902).map Float.toBits))
-#eval IO.println ("bisectStep " ++ toString ((bisectStep 0.998003 0.939454 0.880905 0.822356 0.763808 0.705259 0.646710).map Float.toBits))
-#eval IO.println ("bisectStep " ++ toString ((bisectStep 0.666811 0.608262 0.549713 0.491164 0.432616 0.374067 0.315518).map Float.toBits))
+#eval IO.println ("bisectStep " ++ toString ((bisectStep 0.956891 0.898342 0.839793 0.781244 0.722696 0.664147 0.605598).map Float.toBits))
+#eval IO.println ("bisectStep " ++ toString ((bisectStep 0.625699 0.567150 0.508601 0.450052 0.391504 0.332955 0.274406).map Float.toBits))
+#eval IO.println ("bisectStep " ++ toString ((bisectStep 0.294507 0.235958 1.777409 1.718860 1.660312 1.601763 1.543214).map Float.toBits))
 
 def boltStress (W : Float) (reach : Float) (d : Float) : Float :=
   (((W / (2 : Float)) * reach) / (((3.141592653589793 : Float) * (d ^ 3)) / (32 : Float)))
 
-#eval IO.println ("boltStress " ++ toString (boltStress 1.143043 1.084494 1.025945).toBits)
-#eval IO.println ("boltStress " ++ toString (boltStress 0.811851 0.753302 0.694753).toBits)
-#eval IO.println ("boltStress " ++ toString (boltStress 0.480659 0.422110 0.363561).toBits)
+#eval IO.println ("boltStress " ++ toString (boltStress 0.770739 0.712190 0.653641).toBits)
+#eval IO.println ("boltStress " ++ toString (boltStress 0.439547 0.380998 0.322449).toBits)
+#eval IO.println ("boltStress " ++ toString (boltStress 1.708355 1.649806 1.591257).toBits)
 
 def braceHeight (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) : Float :=
   (Float.sqrt ((l_brace ^ 2) - ((l_foot - l_footShort) ^ 2)))
 
-#eval IO.println ("braceHeight " ++ toString (braceHeight 0.956891 0.898342 0.839793 0.781244 0.722696).toBits)
-#eval IO.println ("braceHeight " ++ toString (braceHeight 0.625699 0.567150 0.508601 0.450052 0.391504).toBits)
-#eval IO.println ("braceHeight " ++ toString (braceHeight 0.294507 0.235958 1.777409 1.718860 1.660312).toBits)
+#eval IO.println ("braceHeight " ++ toString (braceHeight 0.584587 0.526038 0.467489 0.408940 0.350392).toBits)
+#eval IO.println ("braceHeight " ++ toString (braceHeight 0.253395 1.794846 1.736297 1.677748 1.619200).toBits)
+#eval IO.println ("braceHeight " ++ toString (braceHeight 1.522203 1.463654 1.405105 1.346556 1.288008).toBits)
 
 def check_braceHeight_hashemi  : Bool :=
   let v10 := (Float.sqrt (((0.96 : Float) ^ 2) - (((0.62 : Float) - (0.175 : Float)) ^ 2)))
@@ -219,45 +233,45 @@ def cableArea  : Float :=
 def cableDrop (L : Float) (I : Float) : Float :=
   ((((0.0000000172 : Float) * ((2 : Float) * L)) * I) / (0.0000015 : Float))
 
-#eval IO.println ("cableDrop " ++ toString (cableDrop 1.626131 1.567582).toBits)
-#eval IO.println ("cableDrop " ++ toString (cableDrop 1.294939 1.236390).toBits)
-#eval IO.println ("cableDrop " ++ toString (cableDrop 0.963747 0.905198).toBits)
+#eval IO.println ("cableDrop " ++ toString (cableDrop 1.253827 1.195278).toBits)
+#eval IO.println ("cableDrop " ++ toString (cableDrop 0.922635 0.864086).toBits)
+#eval IO.println ("cableDrop " ++ toString (cableDrop 0.591443 0.532894).toBits)
 
 def check_cable_drop_small (L : Float) (I : Float) : Bool :=
   (!(L <= (4 : Float)) || (!((0 : Float) <= I) || (!(I <= (1 : Float)) || (((((0.0000000172 : Float) * ((2 : Float) * L)) * I) / (0.0000015 : Float)) < (0.1 : Float)))))
 
-#eval IO.println ("check_cable_drop_small " ++ toString (check_cable_drop_small 1.439979 1.381430))
-#eval IO.println ("check_cable_drop_small " ++ toString (check_cable_drop_small 1.108787 1.050238))
-#eval IO.println ("check_cable_drop_small " ++ toString (check_cable_drop_small 0.777595 0.719046))
+#eval IO.println ("check_cable_drop_small " ++ toString (check_cable_drop_small 1.067675 1.009126))
+#eval IO.println ("check_cable_drop_small " ++ toString (check_cable_drop_small 0.736483 0.677934))
+#eval IO.println ("check_cable_drop_small " ++ toString (check_cable_drop_small 0.405291 0.346742))
 
 def captureS (rc : Float) (rad : Float) : Float :=
   (1.0 / (1.0 + Float.exp (-((rc - rad) / (0.005 : Float)))))
 
-#eval IO.println ("captureS " ++ toString (captureS 1.253827 1.195278).toBits)
-#eval IO.println ("captureS " ++ toString (captureS 0.922635 0.864086).toBits)
-#eval IO.println ("captureS " ++ toString (captureS 0.591443 0.532894).toBits)
+#eval IO.println ("captureS " ++ toString (captureS 0.881523 0.822974).toBits)
+#eval IO.println ("captureS " ++ toString (captureS 0.550331 0.491782).toBits)
+#eval IO.println ("captureS " ++ toString (captureS 0.219139 1.760590).toBits)
 
 def check_captureS_slope (rc : Float) (r1 : Float) (r2 : Float) : Bool :=
   ((Float.abs ((1.0 / (1.0 + Float.exp (-((rc - r1) / (0.005 : Float))))) - (1.0 / (1.0 + Float.exp (-((rc - r2) / (0.005 : Float))))))) <= ((Float.abs (r1 - r2)) / ((4 : Float) * (0.005 : Float))))
 
-#eval IO.println ("check_captureS_slope " ++ toString (check_captureS_slope 1.067675 1.009126 0.950577))
-#eval IO.println ("check_captureS_slope " ++ toString (check_captureS_slope 0.736483 0.677934 0.619385))
-#eval IO.println ("check_captureS_slope " ++ toString (check_captureS_slope 0.405291 0.346742 0.288193))
+#eval IO.println ("check_captureS_slope " ++ toString (check_captureS_slope 0.695371 0.636822 0.578273))
+#eval IO.println ("check_captureS_slope " ++ toString (check_captureS_slope 0.364179 0.305630 0.247081))
+#eval IO.println ("check_captureS_slope " ++ toString (check_captureS_slope 1.632987 1.574438 1.515889))
 
 def clearance (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (holeDown : Float) (reach : Float) : Float :=
   ((l_upright - holeDown) - reach)
 
-#eval IO.println ("clearance " ++ toString (clearance 0.881523 0.822974 0.764425 0.705876 0.647328 0.588779 0.530230).toBits)
-#eval IO.println ("clearance " ++ toString (clearance 0.550331 0.491782 0.433233 0.374684 0.316136 0.257587 1.799038).toBits)
-#eval IO.println ("clearance " ++ toString (clearance 0.219139 1.760590 1.702041 1.643492 1.584944 1.526395 1.467846).toBits)
+#eval IO.println ("clearance " ++ toString (clearance 0.509219 0.450670 0.392121 0.333572 0.275024 0.216475 1.757926).toBits)
+#eval IO.println ("clearance " ++ toString (clearance 1.778027 1.719478 1.660929 1.602380 1.543832 1.485283 1.426734).toBits)
+#eval IO.println ("clearance " ++ toString (clearance 1.446835 1.388286 1.329737 1.271188 1.212640 1.154091 1.095542).toBits)
 
 def check_clearance_hashemi (holeDown : Float) : Bool :=
   let v16 := (((1.30 : Float) - holeDown) - (Float.sqrt ((5 : Float) - ((2 : Float) * (Float.sqrt (3.36 : Float))))))
   ((((0.1449 : Float) - holeDown) < v16) && (v16 < ((0.146 : Float) - holeDown)))
 
-#eval IO.println ("check_clearance_hashemi " ++ toString (check_clearance_hashemi 0.695371))
-#eval IO.println ("check_clearance_hashemi " ++ toString (check_clearance_hashemi 0.364179))
-#eval IO.println ("check_clearance_hashemi " ++ toString (check_clearance_hashemi 1.632987))
+#eval IO.println ("check_clearance_hashemi " ++ toString (check_clearance_hashemi 0.323067))
+#eval IO.println ("check_clearance_hashemi " ++ toString (check_clearance_hashemi 1.591875))
+#eval IO.println ("check_clearance_hashemi " ++ toString (check_clearance_hashemi 1.260683))
 
 def coilCapture (rs : Float) (rc : Float) (d : Float) : Float :=
   let v9 := (rs ^ 2)
@@ -267,9 +281,9 @@ def coilCapture (rs : Float) (rc : Float) (d : Float) : Float :=
   let v30 := (d + rs)
   (if ((rs + rc) <= d) then (0 : Float) else (if (d <= (rc - rs)) then (1 : Float) else ((((v9 * (Float.acos (((v10 + v9) - v12) / (v15 * rs)))) + (v12 * (Float.acos (((v10 + v12) - v9) / (v15 * rc))))) - ((Float.sqrt ((((((-d) + rs) + rc) * (v30 - rc)) * ((d - rs) + rc)) * (v30 + rc))) / (2 : Float))) / ((3.141592653589793 : Float) * v9))))
 
-#eval IO.println ("coilCapture " ++ toString (coilCapture 0.509219 0.450670 0.392121).toBits)
-#eval IO.println ("coilCapture " ++ toString (coilCapture 1.778027 1.719478 1.660929).toBits)
-#eval IO.println ("coilCapture " ++ toString (coilCapture 1.446835 1.388286 1.329737).toBits)
+#eval IO.println ("coilCapture " ++ toString (coilCapture 1.736915 1.678366 1.619817).toBits)
+#eval IO.println ("coilCapture " ++ toString (coilCapture 1.405723 1.347174 1.288625).toBits)
+#eval IO.println ("coilCapture " ++ toString (coilCapture 1.074531 1.015982 0.957433).toBits)
 
 def conicHitS (c : Float) (k : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Float :=
   let v9 := ((1 : Float) + k)
@@ -277,33 +291,33 @@ def conicHitS (c : Float) (k : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) 
   let v36 := ((c * (((O_0 ^ 2) + (O_1 ^ 2)) + (v9 * (O_2 ^ 2)))) - ((2 : Float) * O_2))
   (((2 : Float) * v36) / ((-v27) - (Float.sqrt (max ((v27 ^ 2) - (((4 : Float) * (c * (((d_0 ^ 2) + (d_1 ^ 2)) + (v9 * (d_2 ^ 2))))) * v36)) (0 : Float)))))
 
-#eval IO.println ("conicHitS " ++ toString (conicHitS 0.323067 0.264518 0.205969 1.747420 1.688872 1.630323 1.571774 1.513225).toBits)
-#eval IO.println ("conicHitS " ++ toString (conicHitS 1.591875 1.533326 1.474777 1.416228 1.357680 1.299131 1.240582 1.182033).toBits)
-#eval IO.println ("conicHitS " ++ toString (conicHitS 1.260683 1.202134 1.143585 1.085036 1.026488 0.967939 0.909390 0.850841).toBits)
+#eval IO.println ("conicHitS " ++ toString (conicHitS 1.550763 1.492214 1.433665 1.375116 1.316568 1.258019 1.199470 1.140921).toBits)
+#eval IO.println ("conicHitS " ++ toString (conicHitS 1.219571 1.161022 1.102473 1.043924 0.985376 0.926827 0.868278 0.809729).toBits)
+#eval IO.println ("conicHitS " ++ toString (conicHitS 0.888379 0.829830 0.771281 0.712732 0.654184 0.595635 0.537086 0.478537).toBits)
 
 def conicSlope (c : Float) (k : Float) (r : Float) : Float :=
   ((c * r) / (Float.sqrt (max ((1 : Float) - ((((1 : Float) + k) * (c ^ 2)) * (r ^ 2))) (0.000000000000000001 : Float))))
 
-#eval IO.println ("conicSlope " ++ toString (conicSlope 1.736915 1.678366 1.619817).toBits)
-#eval IO.println ("conicSlope " ++ toString (conicSlope 1.405723 1.347174 1.288625).toBits)
-#eval IO.println ("conicSlope " ++ toString (conicSlope 1.074531 1.015982 0.957433).toBits)
+#eval IO.println ("conicSlope " ++ toString (conicSlope 1.364611 1.306062 1.247513).toBits)
+#eval IO.println ("conicSlope " ++ toString (conicSlope 1.033419 0.974870 0.916321).toBits)
+#eval IO.println ("conicSlope " ++ toString (conicSlope 0.702227 0.643678 0.585129).toBits)
 
 def conicZ (c : Float) (k : Float) (r : Float) : Float :=
   let v3 := (r ^ 2)
   ((c * v3) / ((1 : Float) + (Float.sqrt (max ((1 : Float) - ((((1 : Float) + k) * (c ^ 2)) * v3)) (0 : Float)))))
 
-#eval IO.println ("conicZ " ++ toString (conicZ 1.550763 1.492214 1.433665).toBits)
-#eval IO.println ("conicZ " ++ toString (conicZ 1.219571 1.161022 1.102473).toBits)
-#eval IO.println ("conicZ " ++ toString (conicZ 0.888379 0.829830 0.771281).toBits)
+#eval IO.println ("conicZ " ++ toString (conicZ 1.178459 1.119910 1.061361).toBits)
+#eval IO.println ("conicZ " ++ toString (conicZ 0.847267 0.788718 0.730169).toBits)
+#eval IO.println ("conicZ " ++ toString (conicZ 0.516075 0.457526 0.398977).toBits)
 
 def check_conicZ_paraboloid (c : Float) (r : Float) : Bool :=
   let v2 := (r ^ 2)
   let v3 := (c * v2)
   (feq (v3 / ((1 : Float) + (Float.sqrt (max ((1 : Float) - ((((1 : Float) + (-(1 : Float))) * (c ^ 2)) * v2)) (0 : Float))))) (v3 / (2 : Float)))
 
-#eval IO.println ("check_conicZ_paraboloid " ++ toString (check_conicZ_paraboloid 1.364611 1.306062))
-#eval IO.println ("check_conicZ_paraboloid " ++ toString (check_conicZ_paraboloid 1.033419 0.974870))
-#eval IO.println ("check_conicZ_paraboloid " ++ toString (check_conicZ_paraboloid 0.702227 0.643678))
+#eval IO.println ("check_conicZ_paraboloid " ++ toString (check_conicZ_paraboloid 0.992307 0.933758))
+#eval IO.println ("check_conicZ_paraboloid " ++ toString (check_conicZ_paraboloid 0.661115 0.602566))
+#eval IO.println ("check_conicZ_paraboloid " ++ toString (check_conicZ_paraboloid 0.329923 0.271374))
 
 def check_conicZ_sphere (c : Float) (r : Float) : Bool :=
   let v4 := (c ^ 2)
@@ -311,9 +325,9 @@ def check_conicZ_sphere (c : Float) (r : Float) : Bool :=
   let v18 := ((1 : Float) / c)
   (!((0 : Float) < c) || (!((v4 * v5) <= (1 : Float)) || (feq ((c * v5) / ((1 : Float) + (Float.sqrt (max ((1 : Float) - ((((1 : Float) + (0 : Float)) * v4) * v5)) (0 : Float))))) (v18 - (Float.sqrt ((v18 ^ 2) - v5))))))
 
-#eval IO.println ("check_conicZ_sphere " ++ toString (check_conicZ_sphere 1.178459 1.119910))
-#eval IO.println ("check_conicZ_sphere " ++ toString (check_conicZ_sphere 0.847267 0.788718))
-#eval IO.println ("check_conicZ_sphere " ++ toString (check_conicZ_sphere 0.516075 0.457526))
+#eval IO.println ("check_conicZ_sphere " ++ toString (check_conicZ_sphere 0.806155 0.747606))
+#eval IO.println ("check_conicZ_sphere " ++ toString (check_conicZ_sphere 0.474963 0.416414))
+#eval IO.println ("check_conicZ_sphere " ++ toString (check_conicZ_sphere 1.743771 1.685222))
 
 def constraints (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v14 := ((0 : Float) * (0 : Float))
@@ -326,9 +340,9 @@ def constraints (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross :
   let v37 := (-v28)
   #[(1 : Float), (0 : Float), (0 : Float), (v14 - v15), (v17 - v14), (v14 - v19), (0 : Float), (1 : Float), (0 : Float), (v14 - v17), (v15 - v14), (v19 - v14), (0 : Float), (0 : Float), (1 : Float), (v19 - v15), (v15 - v19), (v14 - v14), (0 : Float), (0 : Float), (1 : Float), ((v28 * (1 : Float)) - v30), (v30 - (c_apexH * (1 : Float))), (v34 - (v28 * (0 : Float))), (0 : Float), (0 : Float), (1 : Float), ((v37 * (1 : Float)) - v30), (v30 - (c_apexH * (1 : Float))), (v34 - (v37 * (0 : Float)))]
 
-#eval IO.println ("constraints " ++ toString ((constraints 0.992307 0.933758 0.875209 0.816660 0.758112 0.699563 0.641014 0.582465 0.523916 0.465368 0.406819 0.348270).map Float.toBits))
-#eval IO.println ("constraints " ++ toString ((constraints 0.661115 0.602566 0.544017 0.485468 0.426920 0.368371 0.309822 0.251273 1.792724 1.734176 1.675627 1.617078).map Float.toBits))
-#eval IO.println ("constraints " ++ toString ((constraints 0.329923 0.271374 0.212825 1.754276 1.695728 1.637179 1.578630 1.520081 1.461532 1.402984 1.344435 1.285886).map Float.toBits))
+#eval IO.println ("constraints " ++ toString ((constraints 0.620003 0.561454 0.502905 0.444356 0.385808 0.327259 0.268710 0.210161 1.751612 1.693064 1.634515 1.575966).map Float.toBits))
+#eval IO.println ("constraints " ++ toString ((constraints 0.288811 0.230262 1.771713 1.713164 1.654616 1.596067 1.537518 1.478969 1.420420 1.361872 1.303323 1.244774).map Float.toBits))
+#eval IO.println ("constraints " ++ toString ((constraints 1.557619 1.499070 1.440521 1.381972 1.323424 1.264875 1.206326 1.147777 1.089228 1.030680 0.972131 0.913582).map Float.toBits))
 
 def constraintsGrooved (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v14 := ((0 : Float) * (0 : Float))
@@ -343,9 +357,9 @@ def constraintsGrooved (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_
   let v40 := (v37 * (0 : Float))
   #[(1 : Float), (0 : Float), (0 : Float), (v14 - v15), (v17 - v14), (v14 - v19), (0 : Float), (1 : Float), (0 : Float), (v14 - v17), (v15 - v14), (v19 - v14), (0 : Float), (0 : Float), (1 : Float), (v19 - v15), (v15 - v19), (v14 - v14), (0 : Float), (0 : Float), (1 : Float), ((v28 * (1 : Float)) - v30), (v30 - (c_apexH * (1 : Float))), (v34 - v35), (0 : Float), (0 : Float), (1 : Float), ((v37 * (1 : Float)) - v30), (v30 - (c_apexH * (1 : Float))), (v34 - v40), c_apexH, v28, (0 : Float), (v35 - (b_zRail * v28)), ((b_zRail * c_apexH) - v34), ((c_apexH * v28) - (v28 * c_apexH)), c_apexH, v37, (0 : Float), (v40 - (b_zRail * v37)), ((b_zRail * c_apexH) - v34), ((c_apexH * v37) - (v37 * c_apexH))]
 
-#eval IO.println ("constraintsGrooved " ++ toString ((constraintsGrooved 0.806155 0.747606 0.689057 0.630508 0.571960 0.513411 0.454862 0.396313 0.337764 0.279216 0.220667 1.762118).map Float.toBits))
-#eval IO.println ("constraintsGrooved " ++ toString ((constraintsGrooved 0.474963 0.416414 0.357865 0.299316 0.240768 1.782219 1.723670 1.665121 1.606572 1.548024 1.489475 1.430926).map Float.toBits))
-#eval IO.println ("constraintsGrooved " ++ toString ((constraintsGrooved 1.743771 1.685222 1.626673 1.568124 1.509576 1.451027 1.392478 1.333929 1.275380 1.216832 1.158283 1.099734).map Float.toBits))
+#eval IO.println ("constraintsGrooved " ++ toString ((constraintsGrooved 0.433851 0.375302 0.316753 0.258204 1.799656 1.741107 1.682558 1.624009 1.565460 1.506912 1.448363 1.389814).map Float.toBits))
+#eval IO.println ("constraintsGrooved " ++ toString ((constraintsGrooved 1.702659 1.644110 1.585561 1.527012 1.468464 1.409915 1.351366 1.292817 1.234268 1.175720 1.117171 1.058622).map Float.toBits))
+#eval IO.println ("constraintsGrooved " ++ toString ((constraintsGrooved 1.371467 1.312918 1.254369 1.195820 1.137272 1.078723 1.020174 0.961625 0.903076 0.844528 0.785979 0.727430).map Float.toBits))
 
 def check_constraints_reciprocal_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Bool :=
   let v14 := ((0 : Float) * (0 : Float))
@@ -359,9 +373,9 @@ def check_constraints_reciprocal_yaw (c_chord : Float) (c_apexH : Float) (c_aBas
   let v70 := ((0 : Float) * (v30 - (c_apexH * (1 : Float))))
   ((feq (((((((0 : Float) * (v14 - v15)) + ((0 : Float) * (v17 - v14))) + ((1 : Float) * (v14 - v19))) + v19) + v14) + v14) (0 : Float)) && ((feq (((((((0 : Float) * (v14 - v17)) + ((0 : Float) * (v15 - v14))) + ((1 : Float) * (v19 - v14))) + v14) + v19) + v14) (0 : Float)) && ((feq (((((((0 : Float) * (v19 - v15)) + ((0 : Float) * (v15 - v19))) + ((1 : Float) * (v14 - v14))) + v14) + v14) + v19) (0 : Float)) && ((feq (((((((0 : Float) * ((v28 * (1 : Float)) - v30)) + v70) + ((1 : Float) * (v34 - (v28 * (0 : Float))))) + v14) + v14) + v19) (0 : Float)) && (feq (((((((0 : Float) * ((v37 * (1 : Float)) - v30)) + v70) + ((1 : Float) * (v34 - (v37 * (0 : Float))))) + v14) + v14) + v19) (0 : Float))))))
 
-#eval IO.println ("check_constraints_reciprocal_yaw " ++ toString (check_constraints_reciprocal_yaw 0.620003 0.561454 0.502905 0.444356 0.385808 0.327259 0.268710 0.210161 1.751612 1.693064 1.634515 1.575966))
-#eval IO.println ("check_constraints_reciprocal_yaw " ++ toString (check_constraints_reciprocal_yaw 0.288811 0.230262 1.771713 1.713164 1.654616 1.596067 1.537518 1.478969 1.420420 1.361872 1.303323 1.244774))
-#eval IO.println ("check_constraints_reciprocal_yaw " ++ toString (check_constraints_reciprocal_yaw 1.557619 1.499070 1.440521 1.381972 1.323424 1.264875 1.206326 1.147777 1.089228 1.030680 0.972131 0.913582))
+#eval IO.println ("check_constraints_reciprocal_yaw " ++ toString (check_constraints_reciprocal_yaw 0.247699 1.789150 1.730601 1.672052 1.613504 1.554955 1.496406 1.437857 1.379308 1.320760 1.262211 1.203662))
+#eval IO.println ("check_constraints_reciprocal_yaw " ++ toString (check_constraints_reciprocal_yaw 1.516507 1.457958 1.399409 1.340860 1.282312 1.223763 1.165214 1.106665 1.048116 0.989568 0.931019 0.872470))
+#eval IO.println ("check_constraints_reciprocal_yaw " ++ toString (check_constraints_reciprocal_yaw 1.185315 1.126766 1.068217 1.009668 0.951120 0.892571 0.834022 0.775473 0.716924 0.658376 0.599827 0.541278))
 
 def cosTubeCut  : Float :=
   let v2 := (Float.sqrt (3.2 : Float))
@@ -383,18 +397,18 @@ def check_cosTubeCut_bounds  : Bool :=
 def cross3 (u_0 : Float) (u_1 : Float) (u_2 : Float) (v_0 : Float) (v_1 : Float) (v_2 : Float) : Array Float :=
   #[((u_1 * v_2) - (u_2 * v_1)), ((u_2 * v_0) - (u_0 * v_2)), ((u_0 * v_1) - (u_1 * v_0))]
 
-#eval IO.println ("cross3 " ++ toString ((cross3 1.661547 1.602998 1.544449 1.485900 1.427352 1.368803).map Float.toBits))
-#eval IO.println ("cross3 " ++ toString ((cross3 1.330355 1.271806 1.213257 1.154708 1.096160 1.037611).map Float.toBits))
-#eval IO.println ("cross3 " ++ toString ((cross3 0.999163 0.940614 0.882065 0.823516 0.764968 0.706419).map Float.toBits))
+#eval IO.println ("cross3 " ++ toString ((cross3 1.289243 1.230694 1.172145 1.113596 1.055048 0.996499).map Float.toBits))
+#eval IO.println ("cross3 " ++ toString ((cross3 0.958051 0.899502 0.840953 0.782404 0.723856 0.665307).map Float.toBits))
+#eval IO.println ("cross3 " ++ toString ((cross3 0.626859 0.568310 0.509761 0.451212 0.392664 0.334115).map Float.toBits))
 
 def deadPoint (ym : Float) (hp : Float) (a : Float) (ze : Float) : Float :=
   let v4 := (ym * a)
   let v5 := (hp * ze)
   (if (v4 <= v5) then ((3.141592653589793 : Float) / (2 : Float)) else (Float.atan (((ym * ze) + (hp * a)) / (v4 - v5))))
 
-#eval IO.println ("deadPoint " ++ toString (deadPoint 1.475395 1.416846 1.358297 1.299748).toBits)
-#eval IO.println ("deadPoint " ++ toString (deadPoint 1.144203 1.085654 1.027105 0.968556).toBits)
-#eval IO.println ("deadPoint " ++ toString (deadPoint 0.813011 0.754462 0.695913 0.637364).toBits)
+#eval IO.println ("deadPoint " ++ toString (deadPoint 1.103091 1.044542 0.985993 0.927444).toBits)
+#eval IO.println ("deadPoint " ++ toString (deadPoint 0.771899 0.713350 0.654801 0.596252).toBits)
+#eval IO.println ("deadPoint " ++ toString (deadPoint 0.440707 0.382158 0.323609 0.265060).toBits)
 
 def check_deadTan_at_ym  : Bool :=
   let v5 := ((Float.sqrt (3.36 : Float)) - (1 : Float))
@@ -426,9 +440,9 @@ def dishAxes (az : Float) (t : Float) : Array Float :=
   let v10 := (-v2)
   #[((v9 * v7) - (v10 * v6)), ((v10 * v4) - (v8 * v7)), ((v8 * v6) - (v9 * v4)), v8, v9, v10, v4, v6, v7]
 
-#eval IO.println ("dishAxes " ++ toString ((dishAxes 0.916939 0.858390).map Float.toBits))
-#eval IO.println ("dishAxes " ++ toString ((dishAxes 0.585747 0.527198).map Float.toBits))
-#eval IO.println ("dishAxes " ++ toString ((dishAxes 0.254555 1.796006).map Float.toBits))
+#eval IO.println ("dishAxes " ++ toString ((dishAxes 0.544635 0.486086).map Float.toBits))
+#eval IO.println ("dishAxes " ++ toString ((dishAxes 0.213443 1.754894).map Float.toBits))
+#eval IO.println ("dishAxes " ++ toString ((dishAxes 1.482251 1.423702).map Float.toBits))
 
 def check_dishAxes_rot (az : Float) (t : Float) (delta : Float) : Bool :=
   let v3 := (Float.sin t)
@@ -453,9 +467,9 @@ def check_dishAxes_rot (az : Float) (t : Float) (delta : Float) : Bool :=
   let v39 := (Float.sin delta)
   (((feq ((v11 * v9) - (v12 * v8)) ((v22 * v31) - (v39 * v34))) && ((feq ((v12 * v6) - (v10 * v9)) ((v39 * v31) + (v22 * v34))) && (feq ((v10 * v8) - (v11 * v6)) ((v27 * v26) - (v28 * v24))))) && (((feq v10 ((v22 * v27) - (v39 * v28))) && ((feq v11 ((v39 * v27) + (v22 * v28))) && (feq v12 v12))) && ((feq v6 ((v22 * v24) - (v39 * v26))) && ((feq v8 ((v39 * v24) + (v22 * v26))) && (feq v9 v9)))))
 
-#eval IO.println ("check_dishAxes_rot " ++ toString (check_dishAxes_rot 0.730787 0.672238 0.613689))
-#eval IO.println ("check_dishAxes_rot " ++ toString (check_dishAxes_rot 0.399595 0.341046 0.282497))
-#eval IO.println ("check_dishAxes_rot " ++ toString (check_dishAxes_rot 1.668403 1.609854 1.551305))
+#eval IO.println ("check_dishAxes_rot " ++ toString (check_dishAxes_rot 0.358483 0.299934 0.241385))
+#eval IO.println ("check_dishAxes_rot " ++ toString (check_dishAxes_rot 1.627291 1.568742 1.510193))
+#eval IO.println ("check_dishAxes_rot " ++ toString (check_dishAxes_rot 1.296099 1.237550 1.179001))
 
 def dishF  : Float :=
   (1 : Float)
@@ -549,9 +563,9 @@ def dishPower (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : 
   let v266 := ((v263 <= rc) && v265)
   #[(if (v160 && v266) then (1 : Float) else (0 : Float)), (((v64 ^ 2) * rho) * (if (v160 && v266) then (1 : Float) else (0 : Float))), (if (!v160) then (0 : Float) else (if v266 then (2 : Float) else (1 : Float))), v263, (1.0 / (1.0 + Float.exp (-((rc - v263) / (0.005 : Float)))))]
 
-#eval IO.println ("dishPower " ++ toString ((dishPower 1.772331 1.713782 1.655233 1.596684 1.538136 1.479587 1.421038 1.362489 1.303940 1.245392 1.186843 1.128294 1.069745 1.011196 0.952648 0.894099 0.835550 0.777001 0.718452 0.659904 0.601355 0.542806 0.484257 0.425708).map Float.toBits))
-#eval IO.println ("dishPower " ++ toString ((dishPower 1.441139 1.382590 1.324041 1.265492 1.206944 1.148395 1.089846 1.031297 0.972748 0.914200 0.855651 0.797102 0.738553 0.680004 0.621456 0.562907 0.504358 0.445809 0.387260 0.328712 0.270163 0.211614 1.753065 1.694516).map Float.toBits))
-#eval IO.println ("dishPower " ++ toString ((dishPower 1.109947 1.051398 0.992849 0.934300 0.875752 0.817203 0.758654 0.700105 0.641556 0.583008 0.524459 0.465910 0.407361 0.348812 0.290264 0.231715 1.773166 1.714617 1.656068 1.597520 1.538971 1.480422 1.421873 1.363324).map Float.toBits))
+#eval IO.println ("dishPower " ++ toString ((dishPower 1.400027 1.341478 1.282929 1.224380 1.165832 1.107283 1.048734 0.990185 0.931636 0.873088 0.814539 0.755990 0.697441 0.638892 0.580344 0.521795 0.463246 0.404697 0.346148 0.287600 0.229051 1.770502 1.711953 1.653404).map Float.toBits))
+#eval IO.println ("dishPower " ++ toString ((dishPower 1.068835 1.010286 0.951737 0.893188 0.834640 0.776091 0.717542 0.658993 0.600444 0.541896 0.483347 0.424798 0.366249 0.307700 0.249152 1.790603 1.732054 1.673505 1.614956 1.556408 1.497859 1.439310 1.380761 1.322212).map Float.toBits))
+#eval IO.println ("dishPower " ++ toString ((dishPower 0.737643 0.679094 0.620545 0.561996 0.503448 0.444899 0.386350 0.327801 0.269252 0.210704 1.752155 1.693606 1.635057 1.576508 1.517960 1.459411 1.400862 1.342313 1.283764 1.225216 1.166667 1.108118 1.049569 0.991020).map Float.toBits))
 
 def check_dishPower_captured (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (sigmaslope : Float) (sigmaspec : Float) (rho : Float) (hsun : Float) (az : Float) (t : Float) (elSun : Float) (azSun : Float) (u1 : Float) (u2 : Float) (u3 : Float) (u4 : Float) (u5 : Float) (u6 : Float) (e1 : Float) (e2 : Float) (s1 : Float) (s2 : Float) : Bool :=
   let v24 := (Float.sin t)
@@ -632,9 +646,9 @@ def check_dishPower_captured (R : Float) (f : Float) (a : Float) (w : Float) (rc
   let v268 := (if (v160 && v266) then (1 : Float) else (0 : Float))
   ((feq v268 (0 : Float)) || (feq v268 (1 : Float)))
 
-#eval IO.println ("check_dishPower_captured " ++ toString (check_dishPower_captured 1.586179 1.527630 1.469081 1.410532 1.351984 1.293435 1.234886 1.176337 1.117788 1.059240 1.000691 0.942142 0.883593 0.825044 0.766496 0.707947 0.649398 0.590849 0.532300 0.473752 0.415203 0.356654 0.298105 0.239556))
-#eval IO.println ("check_dishPower_captured " ++ toString (check_dishPower_captured 1.254987 1.196438 1.137889 1.079340 1.020792 0.962243 0.903694 0.845145 0.786596 0.728048 0.669499 0.610950 0.552401 0.493852 0.435304 0.376755 0.318206 0.259657 0.201108 1.742560 1.684011 1.625462 1.566913 1.508364))
-#eval IO.println ("check_dishPower_captured " ++ toString (check_dishPower_captured 0.923795 0.865246 0.806697 0.748148 0.689600 0.631051 0.572502 0.513953 0.455404 0.396856 0.338307 0.279758 0.221209 1.762660 1.704112 1.645563 1.587014 1.528465 1.469916 1.411368 1.352819 1.294270 1.235721 1.177172))
+#eval IO.println ("check_dishPower_captured " ++ toString (check_dishPower_captured 1.213875 1.155326 1.096777 1.038228 0.979680 0.921131 0.862582 0.804033 0.745484 0.686936 0.628387 0.569838 0.511289 0.452740 0.394192 0.335643 0.277094 0.218545 1.759996 1.701448 1.642899 1.584350 1.525801 1.467252))
+#eval IO.println ("check_dishPower_captured " ++ toString (check_dishPower_captured 0.882683 0.824134 0.765585 0.707036 0.648488 0.589939 0.531390 0.472841 0.414292 0.355744 0.297195 0.238646 1.780097 1.721548 1.663000 1.604451 1.545902 1.487353 1.428804 1.370256 1.311707 1.253158 1.194609 1.136060))
+#eval IO.println ("check_dishPower_captured " ++ toString (check_dishPower_captured 0.551491 0.492942 0.434393 0.375844 0.317296 0.258747 0.200198 1.741649 1.683100 1.624552 1.566003 1.507454 1.448905 1.390356 1.331808 1.273259 1.214710 1.156161 1.097612 1.039064 0.980515 0.921966 0.863417 0.804868))
 
 def check_dishPower_le (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (sigmaslope : Float) (sigmaspec : Float) (rho : Float) (hsun : Float) (az : Float) (t : Float) (elSun : Float) (azSun : Float) (u1 : Float) (u2 : Float) (u3 : Float) (u4 : Float) (u5 : Float) (u6 : Float) (e1 : Float) (e2 : Float) (s1 : Float) (s2 : Float) : Bool :=
   let v26 := (Float.sin t)
@@ -715,9 +729,9 @@ def check_dishPower_le (R : Float) (f : Float) (a : Float) (w : Float) (rc : Flo
   let v275 := ((v66 ^ 2) * rho)
   (!((0 : Float) <= rho) || ((v275 * (if (v161 && v267) then (1 : Float) else (0 : Float))) <= v275))
 
-#eval IO.println ("check_dishPower_le " ++ toString (check_dishPower_le 1.400027 1.341478 1.282929 1.224380 1.165832 1.107283 1.048734 0.990185 0.931636 0.873088 0.814539 0.755990 0.697441 0.638892 0.580344 0.521795 0.463246 0.404697 0.346148 0.287600 0.229051 1.770502 1.711953 1.653404))
-#eval IO.println ("check_dishPower_le " ++ toString (check_dishPower_le 1.068835 1.010286 0.951737 0.893188 0.834640 0.776091 0.717542 0.658993 0.600444 0.541896 0.483347 0.424798 0.366249 0.307700 0.249152 1.790603 1.732054 1.673505 1.614956 1.556408 1.497859 1.439310 1.380761 1.322212))
-#eval IO.println ("check_dishPower_le " ++ toString (check_dishPower_le 0.737643 0.679094 0.620545 0.561996 0.503448 0.444899 0.386350 0.327801 0.269252 0.210704 1.752155 1.693606 1.635057 1.576508 1.517960 1.459411 1.400862 1.342313 1.283764 1.225216 1.166667 1.108118 1.049569 0.991020))
+#eval IO.println ("check_dishPower_le " ++ toString (check_dishPower_le 1.027723 0.969174 0.910625 0.852076 0.793528 0.734979 0.676430 0.617881 0.559332 0.500784 0.442235 0.383686 0.325137 0.266588 0.208040 1.749491 1.690942 1.632393 1.573844 1.515296 1.456747 1.398198 1.339649 1.281100))
+#eval IO.println ("check_dishPower_le " ++ toString (check_dishPower_le 0.696531 0.637982 0.579433 0.520884 0.462336 0.403787 0.345238 0.286689 0.228140 1.769592 1.711043 1.652494 1.593945 1.535396 1.476848 1.418299 1.359750 1.301201 1.242652 1.184104 1.125555 1.067006 1.008457 0.949908))
+#eval IO.println ("check_dishPower_le " ++ toString (check_dishPower_le 0.365339 0.306790 0.248241 1.789692 1.731144 1.672595 1.614046 1.555497 1.496948 1.438400 1.379851 1.321302 1.262753 1.204204 1.145656 1.087107 1.028558 0.970009 0.911460 0.852912 0.794363 0.735814 0.677265 0.618716))
 
 def dishR  : Float :=
   (2 : Float)
@@ -750,9 +764,39 @@ def check_dish_swings_to_vertical  : Bool :=
 def dot3 (u_0 : Float) (u_1 : Float) (u_2 : Float) (v_0 : Float) (v_1 : Float) (v_2 : Float) : Float :=
   (((u_0 * v_0) + (u_1 * v_1)) + (u_2 * v_2))
 
-#eval IO.println ("dot3 " ++ toString (dot3 0.469267 0.410718 0.352169 0.293620 0.235072 1.776523).toBits)
-#eval IO.println ("dot3 " ++ toString (dot3 1.738075 1.679526 1.620977 1.562428 1.503880 1.445331).toBits)
-#eval IO.println ("dot3 " ++ toString (dot3 1.406883 1.348334 1.289785 1.231236 1.172688 1.114139).toBits)
+#eval IO.println ("dot3 " ++ toString (dot3 1.696963 1.638414 1.579865 1.521316 1.462768 1.404219).toBits)
+#eval IO.println ("dot3 " ++ toString (dot3 1.365771 1.307222 1.248673 1.190124 1.131576 1.073027).toBits)
+#eval IO.println ("dot3 " ++ toString (dot3 1.034579 0.976030 0.917481 0.858932 0.800384 0.741835).toBits)
+
+def driveAz (u : Float) (rw : Float) (R : Float) : Float :=
+  (((u * (((0.035 : Float) * (3.141592653589793 : Float)) / (180 : Float))) * R) / rw)
+
+#eval IO.println ("driveAz " ++ toString (driveAz 1.510811 1.452262 1.393713).toBits)
+#eval IO.println ("driveAz " ++ toString (driveAz 1.179619 1.121070 1.062521).toBits)
+#eval IO.println ("driveAz " ++ toString (driveAz 0.848427 0.789878 0.731329).toBits)
+
+def check_driveAz_rate (u : Float) (rw : Float) (R : Float) : Bool :=
+  let v11 := (u * (((0.035 : Float) * (3.141592653589793 : Float)) / (180 : Float)))
+  (!(!(feq rw (0 : Float))) || (!(!(feq R (0 : Float))) || (feq ((((v11 * R) / rw) * rw) / R) v11)))
+
+#eval IO.println ("check_driveAz_rate " ++ toString (check_driveAz_rate 1.324659 1.266110 1.207561))
+#eval IO.println ("check_driveAz_rate " ++ toString (check_driveAz_rate 0.993467 0.934918 0.876369))
+#eval IO.println ("check_driveAz_rate " ++ toString (check_driveAz_rate 0.662275 0.603726 0.545177))
+
+def driveEl (u : Float) (arm : Float) (rDrum : Float) : Float :=
+  (((u * (((0.025 : Float) * (3.141592653589793 : Float)) / (180 : Float))) * arm) / rDrum)
+
+#eval IO.println ("driveEl " ++ toString (driveEl 1.138507 1.079958 1.021409).toBits)
+#eval IO.println ("driveEl " ++ toString (driveEl 0.807315 0.748766 0.690217).toBits)
+#eval IO.println ("driveEl " ++ toString (driveEl 0.476123 0.417574 0.359025).toBits)
+
+def check_driveEl_rate (u : Float) (arm : Float) (rDrum : Float) : Bool :=
+  let v11 := (u * (((0.025 : Float) * (3.141592653589793 : Float)) / (180 : Float)))
+  (!(!(feq rDrum (0 : Float))) || (!(!(feq arm (0 : Float))) || (feq ((((v11 * arm) / rDrum) * rDrum) / arm) v11)))
+
+#eval IO.println ("check_driveEl_rate " ++ toString (check_driveEl_rate 0.952355 0.893806 0.835257))
+#eval IO.println ("check_driveEl_rate " ++ toString (check_driveEl_rate 0.621163 0.562614 0.504065))
+#eval IO.println ("check_driveEl_rate " ++ toString (check_driveEl_rate 0.289971 0.231422 1.772873))
 
 def check_drive_recip_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) (F : Float) : Bool :=
   let v16 := (c_chord / (2 : Float))
@@ -761,9 +805,9 @@ def check_drive_recip_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Float) 
   let v25 := ((F * c_apexH) / v21)
   (feq (((((((0 : Float) * ((v16 * (0 : Float)) - (b_zRail * v25))) + ((0 : Float) * ((b_zRail * v23) - (c_apexH * (0 : Float))))) + ((1 : Float) * ((c_apexH * v25) - (v16 * v23)))) + ((0 : Float) * v23)) + ((0 : Float) * v25)) + ((0 : Float) * (0 : Float))) (F * v21))
 
-#eval IO.println ("check_drive_recip_yaw " ++ toString (check_drive_recip_yaw 0.283115 0.224566 1.766017 1.707468 1.648920 1.590371 1.531822 1.473273 1.414724 1.356176 1.297627 1.239078 1.180529))
-#eval IO.println ("check_drive_recip_yaw " ++ toString (check_drive_recip_yaw 1.551923 1.493374 1.434825 1.376276 1.317728 1.259179 1.200630 1.142081 1.083532 1.024984 0.966435 0.907886 0.849337))
-#eval IO.println ("check_drive_recip_yaw " ++ toString (check_drive_recip_yaw 1.220731 1.162182 1.103633 1.045084 0.986536 0.927987 0.869438 0.810889 0.752340 0.693792 0.635243 0.576694 0.518145))
+#eval IO.println ("check_drive_recip_yaw " ++ toString (check_drive_recip_yaw 0.766203 0.707654 0.649105 0.590556 0.532008 0.473459 0.414910 0.356361 0.297812 0.239264 1.780715 1.722166 1.663617))
+#eval IO.println ("check_drive_recip_yaw " ++ toString (check_drive_recip_yaw 0.435011 0.376462 0.317913 0.259364 0.200816 1.742267 1.683718 1.625169 1.566620 1.508072 1.449523 1.390974 1.332425))
+#eval IO.println ("check_drive_recip_yaw " ++ toString (check_drive_recip_yaw 1.703819 1.645270 1.586721 1.528172 1.469624 1.411075 1.352526 1.293977 1.235428 1.176880 1.118331 1.059782 1.001233))
 
 def check_drive_works_on_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) (F : Float) : Bool :=
   let v17 := (c_chord / (2 : Float))
@@ -772,9 +816,9 @@ def check_drive_works_on_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Floa
   let v26 := ((F * c_apexH) / v22)
   (!(!(feq F (0 : Float))) || (!(feq (((((((0 : Float) * ((v17 * (0 : Float)) - (b_zRail * v26))) + ((0 : Float) * ((b_zRail * v24) - (c_apexH * (0 : Float))))) + ((1 : Float) * ((c_apexH * v26) - (v17 * v24)))) + ((0 : Float) * v24)) + ((0 : Float) * v26)) + ((0 : Float) * (0 : Float))) (0 : Float))))
 
-#eval IO.println ("check_drive_works_on_yaw " ++ toString (check_drive_works_on_yaw 1.696963 1.638414 1.579865 1.521316 1.462768 1.404219 1.345670 1.287121 1.228572 1.170024 1.111475 1.052926 0.994377))
-#eval IO.println ("check_drive_works_on_yaw " ++ toString (check_drive_works_on_yaw 1.365771 1.307222 1.248673 1.190124 1.131576 1.073027 1.014478 0.955929 0.897380 0.838832 0.780283 0.721734 0.663185))
-#eval IO.println ("check_drive_works_on_yaw " ++ toString (check_drive_works_on_yaw 1.034579 0.976030 0.917481 0.858932 0.800384 0.741835 0.683286 0.624737 0.566188 0.507640 0.449091 0.390542 0.331993))
+#eval IO.println ("check_drive_works_on_yaw " ++ toString (check_drive_works_on_yaw 0.580051 0.521502 0.462953 0.404404 0.345856 0.287307 0.228758 1.770209 1.711660 1.653112 1.594563 1.536014 1.477465))
+#eval IO.println ("check_drive_works_on_yaw " ++ toString (check_drive_works_on_yaw 0.248859 1.790310 1.731761 1.673212 1.614664 1.556115 1.497566 1.439017 1.380468 1.321920 1.263371 1.204822 1.146273))
+#eval IO.println ("check_drive_works_on_yaw " ++ toString (check_drive_works_on_yaw 1.517667 1.459118 1.400569 1.342020 1.283472 1.224923 1.166374 1.107825 1.049276 0.990728 0.932179 0.873630 0.815081))
 
 def edgeClipAt (a : Float) (ze : Float) (t : Float) : Array Float :=
   let v3 := (-a)
@@ -783,9 +827,9 @@ def edgeClipAt (a : Float) (ze : Float) (t : Float) : Array Float :=
   let v7 := (Float.sin t)
   #[((v3 * v4) + (v6 * v7)), (((-v3) * v7) + (v6 * v4))]
 
-#eval IO.println ("edgeClipAt " ++ toString ((edgeClipAt 1.510811 1.452262 1.393713).map Float.toBits))
-#eval IO.println ("edgeClipAt " ++ toString ((edgeClipAt 1.179619 1.121070 1.062521).map Float.toBits))
-#eval IO.println ("edgeClipAt " ++ toString ((edgeClipAt 0.848427 0.789878 0.731329).map Float.toBits))
+#eval IO.println ("edgeClipAt " ++ toString ((edgeClipAt 0.393899 0.335350 0.276801).map Float.toBits))
+#eval IO.println ("edgeClipAt " ++ toString ((edgeClipAt 1.662707 1.604158 1.545609).map Float.toBits))
+#eval IO.println ("edgeClipAt " ++ toString ((edgeClipAt 1.331515 1.272966 1.214417).map Float.toBits))
 
 def check_edgeClip_cross (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Bool :=
   let v6 := (-a)
@@ -794,9 +838,9 @@ def check_edgeClip_cross (ym : Float) (hp : Float) (a : Float) (ze : Float) (t :
   let v10 := (Float.sin t)
   (feq (((-ym) * (((-v6) * v10) + (v9 * v7))) - (hp * ((v6 * v7) + (v9 * v10)))) ((((ym * ze) + (hp * a)) * v7) + (((hp * ze) - (ym * a)) * v10)))
 
-#eval IO.println ("check_edgeClip_cross " ++ toString (check_edgeClip_cross 1.324659 1.266110 1.207561 1.149012 1.090464))
-#eval IO.println ("check_edgeClip_cross " ++ toString (check_edgeClip_cross 0.993467 0.934918 0.876369 0.817820 0.759272))
-#eval IO.println ("check_edgeClip_cross " ++ toString (check_edgeClip_cross 0.662275 0.603726 0.545177 0.486628 0.428080))
+#eval IO.println ("check_edgeClip_cross " ++ toString (check_edgeClip_cross 0.207747 1.749198 1.690649 1.632100 1.573552))
+#eval IO.println ("check_edgeClip_cross " ++ toString (check_edgeClip_cross 1.476555 1.418006 1.359457 1.300908 1.242360))
+#eval IO.println ("check_edgeClip_cross " ++ toString (check_edgeClip_cross 1.145363 1.086814 1.028265 0.969716 0.911168))
 
 def check_edgeClip_radius (a : Float) (ze : Float) (t : Float) : Bool :=
   let v3 := (-a)
@@ -805,9 +849,9 @@ def check_edgeClip_radius (a : Float) (ze : Float) (t : Float) : Bool :=
   let v7 := (Float.sin t)
   (feq ((((v3 * v4) + (v6 * v7)) ^ 2) + ((((-v3) * v7) + (v6 * v4)) ^ 2)) ((a ^ 2) + (ze ^ 2)))
 
-#eval IO.println ("check_edgeClip_radius " ++ toString (check_edgeClip_radius 1.138507 1.079958 1.021409))
-#eval IO.println ("check_edgeClip_radius " ++ toString (check_edgeClip_radius 0.807315 0.748766 0.690217))
-#eval IO.println ("check_edgeClip_radius " ++ toString (check_edgeClip_radius 0.476123 0.417574 0.359025))
+#eval IO.println ("check_edgeClip_radius " ++ toString (check_edgeClip_radius 1.621595 1.563046 1.504497))
+#eval IO.println ("check_edgeClip_radius " ++ toString (check_edgeClip_radius 1.290403 1.231854 1.173305))
+#eval IO.println ("check_edgeClip_radius " ++ toString (check_edgeClip_radius 0.959211 0.900662 0.842113))
 
 def check_edgeClip_radius_hashemi (t : Float) : Bool :=
   let v2 := (-(0.8 : Float))
@@ -817,9 +861,9 @@ def check_edgeClip_radius_hashemi (t : Float) : Bool :=
   let v10 := (Float.sin t)
   (feq ((((v2 * v3) + (v9 * v10)) ^ 2) + ((((-v2) * v10) + (v9 * v3)) ^ 2)) ((5 : Float) - ((2 : Float) * v6)))
 
-#eval IO.println ("check_edgeClip_radius_hashemi " ++ toString (check_edgeClip_radius_hashemi 0.952355))
-#eval IO.println ("check_edgeClip_radius_hashemi " ++ toString (check_edgeClip_radius_hashemi 0.621163))
-#eval IO.println ("check_edgeClip_radius_hashemi " ++ toString (check_edgeClip_radius_hashemi 0.289971))
+#eval IO.println ("check_edgeClip_radius_hashemi " ++ toString (check_edgeClip_radius_hashemi 1.435443))
+#eval IO.println ("check_edgeClip_radius_hashemi " ++ toString (check_edgeClip_radius_hashemi 1.104251))
+#eval IO.println ("check_edgeClip_radius_hashemi " ++ toString (check_edgeClip_radius_hashemi 0.773059))
 
 def check_edgeClip_reach (a : Float) (ze : Float) (t : Float) : Bool :=
   let v3 := (-a)
@@ -828,40 +872,40 @@ def check_edgeClip_reach (a : Float) (ze : Float) (t : Float) : Bool :=
   let v7 := (Float.sin t)
   ((Float.abs ((v3 * v4) + (v6 * v7))) <= (Float.sqrt ((a ^ 2) + (ze ^ 2))))
 
-#eval IO.println ("check_edgeClip_reach " ++ toString (check_edgeClip_reach 0.766203 0.707654 0.649105))
-#eval IO.println ("check_edgeClip_reach " ++ toString (check_edgeClip_reach 0.435011 0.376462 0.317913))
-#eval IO.println ("check_edgeClip_reach " ++ toString (check_edgeClip_reach 1.703819 1.645270 1.586721))
+#eval IO.println ("check_edgeClip_reach " ++ toString (check_edgeClip_reach 1.249291 1.190742 1.132193))
+#eval IO.println ("check_edgeClip_reach " ++ toString (check_edgeClip_reach 0.918099 0.859550 0.801001))
+#eval IO.println ("check_edgeClip_reach " ++ toString (check_edgeClip_reach 0.586907 0.528358 0.469809))
 
 def edgeDepth (f : Float) (a : Float) (sag : Float) (el : Float) : Float :=
   (((f - sag) * (Float.sin el)) + (a * (Float.cos el)))
 
-#eval IO.println ("edgeDepth " ++ toString (edgeDepth 0.580051 0.521502 0.462953 0.404404).toBits)
-#eval IO.println ("edgeDepth " ++ toString (edgeDepth 0.248859 1.790310 1.731761 1.673212).toBits)
-#eval IO.println ("edgeDepth " ++ toString (edgeDepth 1.517667 1.459118 1.400569 1.342020).toBits)
+#eval IO.println ("edgeDepth " ++ toString (edgeDepth 1.063139 1.004590 0.946041 0.887492).toBits)
+#eval IO.println ("edgeDepth " ++ toString (edgeDepth 0.731947 0.673398 0.614849 0.556300).toBits)
+#eval IO.println ("edgeDepth " ++ toString (edgeDepth 0.400755 0.342206 0.283657 0.225108).toBits)
 
 def check_edgeDepth_horizon (f : Float) (a : Float) (sag : Float) : Bool :=
   (feq (((f - sag) * (Float.sin (0 : Float))) + (a * (Float.cos (0 : Float)))) a)
 
-#eval IO.println ("check_edgeDepth_horizon " ++ toString (check_edgeDepth_horizon 0.393899 0.335350 0.276801))
-#eval IO.println ("check_edgeDepth_horizon " ++ toString (check_edgeDepth_horizon 1.662707 1.604158 1.545609))
-#eval IO.println ("check_edgeDepth_horizon " ++ toString (check_edgeDepth_horizon 1.331515 1.272966 1.214417))
+#eval IO.println ("check_edgeDepth_horizon " ++ toString (check_edgeDepth_horizon 0.876987 0.818438 0.759889))
+#eval IO.println ("check_edgeDepth_horizon " ++ toString (check_edgeDepth_horizon 0.545795 0.487246 0.428697))
+#eval IO.println ("check_edgeDepth_horizon " ++ toString (check_edgeDepth_horizon 0.214603 1.756054 1.697505))
 
 def check_edgeDepth_le (f : Float) (a : Float) (sag : Float) (el : Float) : Bool :=
   let v4 := (f - sag)
   (((v4 * (Float.sin el)) + (a * (Float.cos el))) <= (Float.sqrt ((v4 ^ 2) + (a ^ 2))))
 
-#eval IO.println ("check_edgeDepth_le " ++ toString (check_edgeDepth_le 0.207747 1.749198 1.690649 1.632100))
-#eval IO.println ("check_edgeDepth_le " ++ toString (check_edgeDepth_le 1.476555 1.418006 1.359457 1.300908))
-#eval IO.println ("check_edgeDepth_le " ++ toString (check_edgeDepth_le 1.145363 1.086814 1.028265 0.969716))
+#eval IO.println ("check_edgeDepth_le " ++ toString (check_edgeDepth_le 0.690835 0.632286 0.573737 0.515188))
+#eval IO.println ("check_edgeDepth_le " ++ toString (check_edgeDepth_le 0.359643 0.301094 0.242545 1.783996))
+#eval IO.println ("check_edgeDepth_le " ++ toString (check_edgeDepth_le 1.628451 1.569902 1.511353 1.452804))
 
 def check_edgeDepth_noon (f : Float) (a : Float) (sag : Float) : Bool :=
   let v3 := (f - sag)
   let v6 := ((3.141592653589793 : Float) / (2 : Float))
   (feq ((v3 * (Float.sin v6)) + (a * (Float.cos v6))) v3)
 
-#eval IO.println ("check_edgeDepth_noon " ++ toString (check_edgeDepth_noon 1.621595 1.563046 1.504497))
-#eval IO.println ("check_edgeDepth_noon " ++ toString (check_edgeDepth_noon 1.290403 1.231854 1.173305))
-#eval IO.println ("check_edgeDepth_noon " ++ toString (check_edgeDepth_noon 0.959211 0.900662 0.842113))
+#eval IO.println ("check_edgeDepth_noon " ++ toString (check_edgeDepth_noon 0.504683 0.446134 0.387585))
+#eval IO.println ("check_edgeDepth_noon " ++ toString (check_edgeDepth_noon 1.773491 1.714942 1.656393))
+#eval IO.println ("check_edgeDepth_noon " ++ toString (check_edgeDepth_noon 1.442299 1.383750 1.325201))
 
 def check_edgeLever_dead (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Bool :=
   let v5 := (Float.sin t)
@@ -870,9 +914,9 @@ def check_edgeLever_dead (ym : Float) (hp : Float) (a : Float) (ze : Float) (t :
   let v19 := (-ze)
   (!(feq (v5 * ((ym * a) - (hp * ze))) (v10 * ((ym * ze) + (hp * a)))) || (feq (((-ym) * (((-v17) * v5) + (v19 * v10))) - (hp * ((v17 * v10) + (v19 * v5)))) (0 : Float)))
 
-#eval IO.println ("check_edgeLever_dead " ++ toString (check_edgeLever_dead 1.435443 1.376894 1.318345 1.259796 1.201248))
-#eval IO.println ("check_edgeLever_dead " ++ toString (check_edgeLever_dead 1.104251 1.045702 0.987153 0.928604 0.870056))
-#eval IO.println ("check_edgeLever_dead " ++ toString (check_edgeLever_dead 0.773059 0.714510 0.655961 0.597412 0.538864))
+#eval IO.println ("check_edgeLever_dead " ++ toString (check_edgeLever_dead 0.318531 0.259982 0.201433 1.742884 1.684336))
+#eval IO.println ("check_edgeLever_dead " ++ toString (check_edgeLever_dead 1.587339 1.528790 1.470241 1.411692 1.353144))
+#eval IO.println ("check_edgeLever_dead " ++ toString (check_edgeLever_dead 1.256147 1.197598 1.139049 1.080500 1.021952))
 
 def check_edgeLever_pos_iff (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Bool :=
   let v6 := (-a)
@@ -885,46 +929,60 @@ def check_edgeLever_pos_iff (ym : Float) (hp : Float) (a : Float) (ze : Float) (
   let v22 := (((v12 - v17) ^ 2) + ((v16 - hp) ^ 2))
   (!((0 : Float) < v22) || (((0 : Float) < (((v17 * v16) - (hp * v12)) / (Float.sqrt v22))) == ((v10 * ((ym * a) - (hp * ze))) < (v7 * ((ym * ze) + (hp * a))))))
 
-#eval IO.println ("check_edgeLever_pos_iff " ++ toString (check_edgeLever_pos_iff 1.249291 1.190742 1.132193 1.073644 1.015096))
-#eval IO.println ("check_edgeLever_pos_iff " ++ toString (check_edgeLever_pos_iff 0.918099 0.859550 0.801001 0.742452 0.683904))
-#eval IO.println ("check_edgeLever_pos_iff " ++ toString (check_edgeLever_pos_iff 0.586907 0.528358 0.469809 0.411260 0.352712))
+#eval IO.println ("check_edgeLever_pos_iff " ++ toString (check_edgeLever_pos_iff 1.732379 1.673830 1.615281 1.556732 1.498184))
+#eval IO.println ("check_edgeLever_pos_iff " ++ toString (check_edgeLever_pos_iff 1.401187 1.342638 1.284089 1.225540 1.166992))
+#eval IO.println ("check_edgeLever_pos_iff " ++ toString (check_edgeLever_pos_iff 1.069995 1.011446 0.952897 0.894348 0.835800))
+
+def elFull  : Float :=
+  (((0.025 : Float) * (3.141592653589793 : Float)) / (180 : Float))
+
+#eval IO.println ("elFull " ++ toString (elFull).toBits)
+#eval IO.println ("elFull " ++ toString (elFull).toBits)
+#eval IO.println ("elFull " ++ toString (elFull).toBits)
+
+def check_elFull_pos  : Bool :=
+  ((0 : Float) < (((0.025 : Float) * (3.141592653589793 : Float)) / (180 : Float)))
+
+#eval IO.println ("check_elFull_pos " ++ toString (check_elFull_pos))
+#eval IO.println ("check_elFull_pos " ++ toString (check_elFull_pos))
+#eval IO.println ("check_elFull_pos " ++ toString (check_elFull_pos))
 
 def elPower (W : Float) (rcm : Float) (t : Float) (omega : Float) : Float :=
   (((W * rcm) * (Float.sin t)) * omega)
 
-#eval IO.println ("elPower " ++ toString (elPower 1.063139 1.004590 0.946041 0.887492).toBits)
-#eval IO.println ("elPower " ++ toString (elPower 0.731947 0.673398 0.614849 0.556300).toBits)
-#eval IO.println ("elPower " ++ toString (elPower 0.400755 0.342206 0.283657 0.225108).toBits)
+#eval IO.println ("elPower " ++ toString (elPower 1.173923 1.115374 1.056825 0.998276).toBits)
+#eval IO.println ("elPower " ++ toString (elPower 0.842731 0.784182 0.725633 0.667084).toBits)
+#eval IO.println ("elPower " ++ toString (elPower 0.511539 0.452990 0.394441 0.335892).toBits)
 
 def check_elPower_eq_wire (rw : Float) (W : Float) (rcm : Float) (t : Float) (omega : Float) : Bool :=
   let v9 := ((W * rcm) * (Float.sin t))
   (!(!(feq rw (0 : Float))) || (feq ((v9 / rw) * (rw * omega)) (v9 * omega)))
 
-#eval IO.println ("check_elPower_eq_wire " ++ toString (check_elPower_eq_wire 0.876987 0.818438 0.759889 0.701340 0.642792))
-#eval IO.println ("check_elPower_eq_wire " ++ toString (check_elPower_eq_wire 0.545795 0.487246 0.428697 0.370148 0.311600))
-#eval IO.println ("check_elPower_eq_wire " ++ toString (check_elPower_eq_wire 0.214603 1.756054 1.697505 1.638956 1.580408))
+#eval IO.println ("check_elPower_eq_wire " ++ toString (check_elPower_eq_wire 0.987771 0.929222 0.870673 0.812124 0.753576))
+#eval IO.println ("check_elPower_eq_wire " ++ toString (check_elPower_eq_wire 0.656579 0.598030 0.539481 0.480932 0.422384))
+#eval IO.println ("check_elPower_eq_wire " ++ toString (check_elPower_eq_wire 0.325387 0.266838 0.208289 1.749740 1.691192))
 
 def check_elPower_le (W : Float) (rcm : Float) (omega : Float) (t : Float) : Bool :=
   let v8 := (W * rcm)
   (!((0 : Float) <= W) || (!((0 : Float) <= rcm) || (!((0 : Float) <= omega) || (((v8 * (Float.sin t)) * omega) <= (v8 * omega)))))
 
-#eval IO.println ("check_elPower_le " ++ toString (check_elPower_le 0.690835 0.632286 0.573737 0.515188))
-#eval IO.println ("check_elPower_le " ++ toString (check_elPower_le 0.359643 0.301094 0.242545 1.783996))
-#eval IO.println ("check_elPower_le " ++ toString (check_elPower_le 1.628451 1.569902 1.511353 1.452804))
+#eval IO.println ("check_elPower_le " ++ toString (check_elPower_le 0.801619 0.743070 0.684521 0.625972))
+#eval IO.println ("check_elPower_le " ++ toString (check_elPower_le 0.470427 0.411878 0.353329 0.294780))
+#eval IO.println ("check_elPower_le " ++ toString (check_elPower_le 1.739235 1.680686 1.622137 1.563588))
 
 def elRate (omegad : Float) (rDrum : Float) (rw : Float) : Float :=
   ((omegad * rDrum) / rw)
 
-#eval IO.println ("elRate " ++ toString (elRate 0.504683 0.446134 0.387585).toBits)
-#eval IO.println ("elRate " ++ toString (elRate 1.773491 1.714942 1.656393).toBits)
-#eval IO.println ("elRate " ++ toString (elRate 1.442299 1.383750 1.325201).toBits)
+#eval IO.println ("elRate " ++ toString (elRate 0.615467 0.556918 0.498369).toBits)
+#eval IO.println ("elRate " ++ toString (elRate 0.284275 0.225726 1.767177).toBits)
+#eval IO.println ("elRate " ++ toString (elRate 1.553083 1.494534 1.435985).toBits)
 
 def facetSpot (w : Float) (f : Float) : Float :=
   (w + (f * (0.0093 : Float)))
 
-#eval IO.println ("facetSpot " ++ toString (facetSpot 0.318531 0.259982).toBits)
-#eval IO.println ("facetSpot " ++ toString (facetSpot 1.587339 1.528790).toBits)
-#eval IO.println ("facetSpot " ++ toString (facetSpot 1.256147 1.197598).toBits)
+#eval IO.println ("facetSpot " ++ toString (facetSpot 0.429315 0.370766).toBits)
+#eval IO.println ("facetSpot " ++ toString (facetSpot 1.698123 1.639574).toBits)
+#eval IO.println ("facetSpot " ++ toString (facetSpot 1.366931 1.308382).toBits)
 
 def check_facetSpot_hashemi  : Bool :=
   (feq ((0.05 : Float) + ((1 : Float) * (0.0093 : Float))) (0.0593 : Float))
@@ -936,18 +994,18 @@ def check_facetSpot_hashemi  : Bool :=
 def focusShift (h : Float) (eps : Float) : Float :=
   (h * (Float.sin eps))
 
-#eval IO.println ("focusShift " ++ toString (focusShift 1.546227 1.487678).toBits)
-#eval IO.println ("focusShift " ++ toString (focusShift 1.215035 1.156486).toBits)
-#eval IO.println ("focusShift " ++ toString (focusShift 0.883843 0.825294).toBits)
+#eval IO.println ("focusShift " ++ toString (focusShift 1.657011 1.598462).toBits)
+#eval IO.println ("focusShift " ++ toString (focusShift 1.325819 1.267270).toBits)
+#eval IO.println ("focusShift " ++ toString (focusShift 0.994627 0.936078).toBits)
 
 def check_focus_on_axis (psi : Float) (p_1 : Float) (p_2 : Float) : Bool :=
   let v1 := (Float.cos psi)
   let v7 := (Float.sin psi)
   (!(!(feq v1 (1 : Float))) || (!((feq ((v1 * p_1) - (v7 * p_2)) p_1) && (feq ((v7 * p_1) + (v1 * p_2)) p_2)) || ((feq p_1 (0 : Float)) && (feq p_2 (0 : Float)))))
 
-#eval IO.println ("check_focus_on_axis " ++ toString (check_focus_on_axis 1.360075 1.301526 1.242977))
-#eval IO.println ("check_focus_on_axis " ++ toString (check_focus_on_axis 1.028883 0.970334 0.911785))
-#eval IO.println ("check_focus_on_axis " ++ toString (check_focus_on_axis 0.697691 0.639142 0.580593))
+#eval IO.println ("check_focus_on_axis " ++ toString (check_focus_on_axis 1.470859 1.412310 1.353761))
+#eval IO.println ("check_focus_on_axis " ++ toString (check_focus_on_axis 1.139667 1.081118 1.022569))
+#eval IO.println ("check_focus_on_axis " ++ toString (check_focus_on_axis 0.808475 0.749926 0.691377))
 
 def gateTau  : Float :=
   (0.01 : Float)
@@ -972,9 +1030,9 @@ def check_grooved_reciprocal_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : 
   let v103 := ((0 : Float) * c_apexH)
   ((feq (((((((0 : Float) * (v14 - v15)) + ((0 : Float) * (v17 - v14))) + ((1 : Float) * (v14 - v19))) + v19) + v14) + v14) (0 : Float)) && ((feq (((((((0 : Float) * (v14 - v17)) + ((0 : Float) * (v15 - v14))) + ((1 : Float) * (v19 - v14))) + v14) + v19) + v14) (0 : Float)) && ((feq (((((((0 : Float) * (v19 - v15)) + ((0 : Float) * (v15 - v19))) + ((1 : Float) * (v14 - v14))) + v14) + v14) + v19) (0 : Float)) && ((feq (((((((0 : Float) * ((v28 * (1 : Float)) - v30)) + v82) + ((1 : Float) * (v34 - v35))) + v14) + v14) + v19) (0 : Float)) && ((feq (((((((0 : Float) * ((v37 * (1 : Float)) - v30)) + v82) + ((1 : Float) * (v34 - v40))) + v14) + v14) + v19) (0 : Float)) && ((feq (((((((0 : Float) * (v35 - (b_zRail * v28))) + v99) + ((1 : Float) * ((c_apexH * v28) - (v28 * c_apexH)))) + v103) + ((0 : Float) * v28)) + v14) (0 : Float)) && (feq (((((((0 : Float) * (v40 - (b_zRail * v37))) + v99) + ((1 : Float) * ((c_apexH * v37) - (v37 * c_apexH)))) + v103) + ((0 : Float) * v37)) + v14) (0 : Float))))))))
 
-#eval IO.println ("check_grooved_reciprocal_yaw " ++ toString (check_grooved_reciprocal_yaw 0.987771 0.929222 0.870673 0.812124 0.753576 0.695027 0.636478 0.577929 0.519380 0.460832 0.402283 0.343734))
-#eval IO.println ("check_grooved_reciprocal_yaw " ++ toString (check_grooved_reciprocal_yaw 0.656579 0.598030 0.539481 0.480932 0.422384 0.363835 0.305286 0.246737 1.788188 1.729640 1.671091 1.612542))
-#eval IO.println ("check_grooved_reciprocal_yaw " ++ toString (check_grooved_reciprocal_yaw 0.325387 0.266838 0.208289 1.749740 1.691192 1.632643 1.574094 1.515545 1.456996 1.398448 1.339899 1.281350))
+#eval IO.println ("check_grooved_reciprocal_yaw " ++ toString (check_grooved_reciprocal_yaw 1.098555 1.040006 0.981457 0.922908 0.864360 0.805811 0.747262 0.688713 0.630164 0.571616 0.513067 0.454518))
+#eval IO.println ("check_grooved_reciprocal_yaw " ++ toString (check_grooved_reciprocal_yaw 0.767363 0.708814 0.650265 0.591716 0.533168 0.474619 0.416070 0.357521 0.298972 0.240424 1.781875 1.723326))
+#eval IO.println ("check_grooved_reciprocal_yaw " ++ toString (check_grooved_reciprocal_yaw 0.436171 0.377622 0.319073 0.260524 0.201976 1.743427 1.684878 1.626329 1.567780 1.509232 1.450683 1.392134))
 
 def check_grooved_relation_x (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Bool :=
   let v13 := (c_chord / (2 : Float))
@@ -995,9 +1053,9 @@ def check_grooved_relation_x (c_chord : Float) (c_apexH : Float) (c_aBase : Floa
   let v84 := (v57 * (v33 - ((2 : Float) * (0 : Float))))
   ((feq (((c_apexH + c_apexH) - (v37 * (1 : Float))) + v84) (0 : Float)) && ((feq (((v13 + v24) - v47) + v84) (0 : Float)) && ((feq ((v33 - v47) + (v57 * (((1 : Float) + (1 : Float)) - ((2 : Float) * (1 : Float))))) (0 : Float)) && ((feq ((((v15 - (b_zRail * v13)) + (v25 - (b_zRail * v24))) - (v37 * (v39 - v40))) + (v57 * ((((v13 * (1 : Float)) - v59) + ((v24 * (1 : Float)) - v59)) - ((2 : Float) * (v44 - v40))))) (0 : Float)) && ((feq (((v20 + v20) - (v37 * ((b_zBearing * (1 : Float)) - v39))) + (v57 * ((v62 + v62) - ((2 : Float) * (v40 - v44))))) (0 : Float)) && (feq (((((c_apexH * v13) - (v13 * c_apexH)) + ((c_apexH * v24) - (v24 * c_apexH))) - (v37 * (v39 - v44))) + (v57 * (((v19 - v15) + (v19 - v25)) - ((2 : Float) * (v39 - v39))))) (0 : Float)))))))
 
-#eval IO.println ("check_grooved_relation_x " ++ toString (check_grooved_relation_x 0.801619 0.743070 0.684521 0.625972 0.567424 0.508875 0.450326 0.391777 0.333228 0.274680 0.216131 1.757582))
-#eval IO.println ("check_grooved_relation_x " ++ toString (check_grooved_relation_x 0.470427 0.411878 0.353329 0.294780 0.236232 1.777683 1.719134 1.660585 1.602036 1.543488 1.484939 1.426390))
-#eval IO.println ("check_grooved_relation_x " ++ toString (check_grooved_relation_x 1.739235 1.680686 1.622137 1.563588 1.505040 1.446491 1.387942 1.329393 1.270844 1.212296 1.153747 1.095198))
+#eval IO.println ("check_grooved_relation_x " ++ toString (check_grooved_relation_x 0.912403 0.853854 0.795305 0.736756 0.678208 0.619659 0.561110 0.502561 0.444012 0.385464 0.326915 0.268366))
+#eval IO.println ("check_grooved_relation_x " ++ toString (check_grooved_relation_x 0.581211 0.522662 0.464113 0.405564 0.347016 0.288467 0.229918 1.771369 1.712820 1.654272 1.595723 1.537174))
+#eval IO.println ("check_grooved_relation_x " ++ toString (check_grooved_relation_x 0.250019 1.791470 1.732921 1.674372 1.615824 1.557275 1.498726 1.440177 1.381628 1.323080 1.264531 1.205982))
 
 def check_grooved_relation_y (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Bool :=
   let v13 := (c_chord / (2 : Float))
@@ -1015,9 +1073,9 @@ def check_grooved_relation_y (c_chord : Float) (c_apexH : Float) (c_aBase : Floa
   let v70 := (v56 * v33)
   ((feq (((c_apexH - c_apexH) - v45) - v70) (0 : Float)) && ((feq (((v13 - v24) - (c_chord * (1 : Float))) - v70) (0 : Float)) && ((feq ((v33 - v45) - (v56 * ((1 : Float) - (1 : Float)))) (0 : Float)) && ((feq ((((v15 - (b_zRail * v13)) - (v25 - (b_zRail * v24))) - (c_chord * (v38 - (b_zBearing * (1 : Float))))) - (v56 * (((v13 * (1 : Float)) - v58) - ((v24 * (1 : Float)) - v58)))) (0 : Float)) && ((feq (((v20 - v20) - (c_chord * ((b_zBearing * (0 : Float)) - v38))) - (v56 * (v61 - v61))) (0 : Float)) && (feq (((((c_apexH * v13) - (v13 * c_apexH)) - ((c_apexH * v24) - (v24 * c_apexH))) - (c_chord * (((0 : Float) * (1 : Float)) - v38))) - (v56 * ((v19 - v15) - (v19 - v25)))) (0 : Float)))))))
 
-#eval IO.println ("check_grooved_relation_y " ++ toString (check_grooved_relation_y 0.615467 0.556918 0.498369 0.439820 0.381272 0.322723 0.264174 0.205625 1.747076 1.688528 1.629979 1.571430))
-#eval IO.println ("check_grooved_relation_y " ++ toString (check_grooved_relation_y 0.284275 0.225726 1.767177 1.708628 1.650080 1.591531 1.532982 1.474433 1.415884 1.357336 1.298787 1.240238))
-#eval IO.println ("check_grooved_relation_y " ++ toString (check_grooved_relation_y 1.553083 1.494534 1.435985 1.377436 1.318888 1.260339 1.201790 1.143241 1.084692 1.026144 0.967595 0.909046))
+#eval IO.println ("check_grooved_relation_y " ++ toString (check_grooved_relation_y 0.726251 0.667702 0.609153 0.550604 0.492056 0.433507 0.374958 0.316409 0.257860 1.799312 1.740763 1.682214))
+#eval IO.println ("check_grooved_relation_y " ++ toString (check_grooved_relation_y 0.395059 0.336510 0.277961 0.219412 1.760864 1.702315 1.643766 1.585217 1.526668 1.468120 1.409571 1.351022))
+#eval IO.println ("check_grooved_relation_y " ++ toString (check_grooved_relation_y 1.663867 1.605318 1.546769 1.488220 1.429672 1.371123 1.312574 1.254025 1.195476 1.136928 1.078379 1.019830))
 
 def hM12  : Float :=
   ((0.00175 : Float) / ((2 : Float) * (3.141592653589793 : Float)))
@@ -1030,9 +1088,9 @@ def hangerLength (R : Float) (a : Float) (yr : Float) (dx : Float) : Float :=
   let v5 := (yr ^ 2)
   (Float.sqrt (((dx ^ 2) + v5) + (((R / (2 : Float)) - (R - (Float.sqrt ((R ^ 2) - ((Float.sqrt ((a ^ 2) + v5)) ^ 2))))) ^ 2)))
 
-#eval IO.println ("hangerLength " ++ toString (hangerLength 0.243163 1.784614 1.726065 1.667516).toBits)
-#eval IO.println ("hangerLength " ++ toString (hangerLength 1.511971 1.453422 1.394873 1.336324).toBits)
-#eval IO.println ("hangerLength " ++ toString (hangerLength 1.180779 1.122230 1.063681 1.005132).toBits)
+#eval IO.println ("hangerLength " ++ toString (hangerLength 0.353947 0.295398 0.236849 1.778300).toBits)
+#eval IO.println ("hangerLength " ++ toString (hangerLength 1.622755 1.564206 1.505657 1.447108).toBits)
+#eval IO.println ("hangerLength " ++ toString (hangerLength 1.291563 1.233014 1.174465 1.115916).toBits)
 
 def check_hangerLength_bounds  : Bool :=
   let v7 := (Float.sqrt ((4.36 : Float) - ((2 : Float) * (Float.sqrt (3.2 : Float)))))
@@ -1289,9 +1347,9 @@ def hashemiEnv (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad
   let v1616 := (Toil - Ta)
   #[v1258, v1253, (if v764 then (v762 - v730) else (0 : Float)), (if v1252 then v758 else v766), v711, (if (v763 || v1252) then (1 : Float) else (0 : Float)), (if (feq (if v764 then (v762 - v730) else (0 : Float)) (0 : Float)) then (1 : Float) else (0 : Float)), (if (v1229 <= (Tmax * (((v712 * v1270) - ((0.34 : Float) * v1267)) / (Float.sqrt (((v1267 - v712) ^ 2) + ((v1270 - (0.34 : Float)) ^ 2)))))) then (1 : Float) else (0 : Float)), (((v712 * v752) - ((0.34 : Float) * v749)) / v758), (v760 / (((v712 * v752) - ((0.34 : Float) * v749)) / v758)), ((omegam * (0.05 : Float)) / (Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2)))), v1328, (v704 - t), (if v1331 then (1 : Float) else (0 : Float)), (if (v1331 && ((0.03 : Float) < v1328)) then (1 : Float) else (0 : Float)), (1.0 / (1.0 + Float.exp (-((elSun - v1330) / (0.01 : Float))))), ((1.0 / (1.0 + Float.exp (-((elSun - v1330) / (0.01 : Float))))) * (1.0 / (1.0 + Float.exp (-((v1328 - (0.03 : Float)) / (0.01 : Float)))))), (v1599 / (64 : Float)), (v1602 / (64 : Float)), (v1593 * (v1599 / (64 : Float))), (((v1593 * (v1599 / (64 : Float))) * dni) * soil), (min ToilMax (Toil + ((dt * ((((alpha * (((v1593 * (v1599 / (64 : Float))) * dni) * soil)) - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v1616))) - (Upipe * v1616)) - (max (0 : Float) (UAx * (Toil - Twall))))) / Coil))), (alpha * (((v1593 * (v1599 / (64 : Float))) * dni) * soil)), ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v1616)), (Upipe * v1616), (max (0 : Float) (UAx * (Toil - Twall))), ((((alpha * (((v1593 * (v1599 / (64 : Float))) * dni) * soil)) - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v1616))) - (Upipe * v1616)) - (max (0 : Float) (UAx * (Toil - Twall))))]
 
-#eval IO.println ("hashemiEnv " ++ toString ((hashemiEnv 0.912403 0.853854 0.795305 0.736756 0.678208 0.619659 0.561110 0.502561 0.444012 0.385464 0.326915 0.268366 0.209817 1.751268 1.692720 1.634171 1.575622 1.517073 1.458524 1.399976 1.341427 1.282878 1.224329 1.165780 1.107232 1.048683 0.990134 0.931585 0.873036 0.814488 0.755939 0.697390 0.638841 0.580292 0.521744 0.463195 0.404646 0.346097 #[1.189019, 1.130470, 1.071921, 1.013372, 0.954824, 0.896275, 0.837726, 0.779177, 0.720628, 0.662080, 0.603531, 0.544982, 0.486433, 0.427884, 0.369336, 0.310787, 0.252238, 1.793689, 1.735140, 1.676592, 1.618043, 1.559494, 1.500945, 1.442396, 1.383848, 1.325299, 1.266750, 1.208201, 1.149652, 1.091104, 1.032555, 0.974006, 0.915457, 0.856908, 0.798360, 0.739811, 0.681262, 0.622713, 0.564164, 0.505616, 0.447067, 0.388518, 0.329969, 0.271420, 0.212872, 1.754323, 1.695774, 1.637225, 1.578676, 1.520128, 1.461579, 1.403030, 1.344481, 1.285932, 1.227384, 1.168835, 1.110286, 1.051737, 0.993188, 0.934640, 0.876091, 0.817542, 0.758993, 0.700444, 0.641896, 0.583347, 0.524798, 0.466249, 0.407700, 0.349152, 0.290603, 0.232054, 1.773505, 1.714956, 1.656408, 1.597859, 1.539310, 1.480761, 1.422212, 1.363664, 1.305115, 1.246566, 1.188017, 1.129468, 1.070920, 1.012371, 0.953822, 0.895273, 0.836724, 0.778176, 0.719627, 0.661078, 0.602529, 0.543980, 0.485432, 0.426883, 0.368334, 0.309785, 0.251236, 1.792688, 1.734139, 1.675590, 1.617041, 1.558492, 1.499944, 1.441395, 1.382846, 1.324297, 1.265748, 1.207200, 1.148651, 1.090102, 1.031553, 0.973004, 0.914456, 0.855907, 0.797358, 0.738809, 0.680260, 0.621712, 0.563163, 0.504614, 0.446065, 0.387516, 0.328968, 0.270419, 0.211870, 1.753321, 1.694772, 1.636224, 1.577675, 1.519126, 1.460577, 1.402028, 1.343480, 1.284931, 1.226382, 1.167833, 1.109284, 1.050736, 0.992187, 0.933638, 0.875089, 0.816540, 0.757992, 0.699443, 0.640894, 0.582345, 0.523796, 0.465248, 0.406699, 0.348150, 0.289601, 0.231052, 1.772504, 1.713955, 1.655406, 1.596857, 1.538308, 1.479760, 1.421211, 1.362662, 1.304113, 1.245564, 1.187016, 1.128467, 1.069918, 1.011369, 0.952820, 0.894272, 0.835723, 0.777174, 0.718625, 0.660076, 0.601528, 0.542979, 0.484430, 0.425881, 0.367332, 0.308784, 0.250235, 1.791686, 1.733137, 1.674588, 1.616040, 1.557491, 1.498942, 1.440393, 1.381844, 1.323296, 1.264747, 1.206198, 1.147649, 1.089100, 1.030552, 0.972003, 0.913454, 0.854905, 0.796356, 0.737808, 0.679259, 0.620710, 0.562161, 0.503612, 0.445064, 0.386515, 0.327966, 0.269417, 0.210868, 1.752320, 1.693771, 1.635222, 1.576673, 1.518124, 1.459576, 1.401027, 1.342478, 1.283929, 1.225380, 1.166832, 1.108283, 1.049734, 0.991185, 0.932636, 0.874088, 0.815539, 0.756990, 0.698441, 0.639892, 0.581344, 0.522795, 0.464246, 0.405697, 0.347148, 0.288600, 0.230051, 1.771502, 1.712953, 1.654404, 1.595856, 1.537307, 1.478758, 1.420209, 1.361660, 1.303112, 1.244563, 1.186014, 1.127465, 1.068916, 1.010368, 0.951819, 0.893270, 0.834721, 0.776172, 0.717624, 0.659075, 0.600526, 0.541977, 0.483428, 0.424880, 0.366331, 0.307782, 0.249233, 1.790684, 1.732136, 1.673587, 1.615038, 1.556489, 1.497940, 1.439392, 1.380843, 1.322294, 1.263745, 1.205196, 1.146648, 1.088099, 1.029550, 0.971001, 0.912452, 0.853904, 0.795355, 0.736806, 0.678257, 0.619708, 0.561160, 0.502611, 0.444062, 0.385513, 0.326964, 0.268416, 0.209867, 1.751318, 1.692769, 1.634220, 1.575672, 1.517123, 1.458574, 1.400025, 1.341476, 1.282928, 1.224379, 1.165830, 1.107281, 1.048732, 0.990184, 0.931635, 0.873086, 0.814537, 0.755988, 0.697440, 0.638891, 0.580342, 0.521793, 0.463244, 0.404696, 0.346147, 0.287598, 0.229049, 1.770500, 1.711952, 1.653403, 1.594854, 1.536305, 1.477756, 1.419208, 1.360659, 1.302110, 1.243561, 1.185012, 1.126464, 1.067915, 1.009366, 0.950817, 0.892268, 0.833720, 0.775171, 0.716622, 0.658073, 0.599524, 0.540976, 0.482427, 0.423878, 0.365329, 0.306780, 0.248232, 1.789683, 1.731134, 1.672585, 1.614036, 1.555488, 1.496939, 1.438390, 1.379841, 1.321292, 1.262744, 1.204195, 1.145646, 1.087097, 1.028548, 0.970000, 0.911451, 0.852902, 0.794353, 0.735804, 0.677256, 0.618707, 0.560158, 0.501609, 0.443060, 0.384512, 0.325963, 0.267414, 0.208865, 1.750316, 1.691768, 1.633219, 1.574670, 1.516121, 1.457572, 1.399024, 1.340475, 1.281926, 1.223377, 1.164828, 1.106280, 1.047731, 0.989182, 0.930633, 0.872084, 0.813536, 0.754987, 0.696438, 0.637889, 0.579340, 0.520792, 0.462243, 0.403694, 0.345145, 0.286596, 0.228048, 1.769499, 1.710950, 1.652401, 1.593852, 1.535304, 1.476755, 1.418206, 1.359657, 1.301108, 1.242560, 1.184011, 1.125462, 1.066913, 1.008364, 0.949816, 0.891267, 0.832718, 0.774169, 0.715620, 0.657072, 0.598523, 0.539974, 0.481425, 0.422876, 0.364328, 0.305779, 0.247230, 1.788681, 1.730132, 1.671584, 1.613035, 1.554486, 1.495937, 1.437388, 1.378840, 1.320291, 1.261742, 1.203193, 1.144644, 1.086096, 1.027547, 0.968998, 0.910449, 0.851900, 0.793352, 0.734803, 0.676254, 0.617705, 0.559156, 0.500608, 0.442059, 0.383510, 0.324961, 0.266412, 0.207864, 1.749315, 1.690766, 1.632217, 1.573668, 1.515120, 1.456571, 1.398022, 1.339473, 1.280924, 1.222376, 1.163827, 1.105278, 1.046729, 0.988180, 0.929632, 0.871083, 0.812534, 0.753985, 0.695436, 0.636888, 0.578339, 0.519790, 0.461241, 0.402692, 0.344144, 0.285595, 0.227046, 1.768497, 1.709948, 1.651400, 1.592851, 1.534302, 1.475753, 1.417204, 1.358656, 1.300107, 1.241558, 1.183009, 1.124460, 1.065912, 1.007363, 0.948814, 0.890265, 0.831716, 0.773168, 0.714619, 0.656070, 0.597521, 0.538972, 0.480424, 0.421875, 0.363326, 0.304777, 0.246228, 1.787680, 1.729131, 1.670582, 1.612033, 1.553484, 1.494936, 1.436387, 1.377838, 1.319289, 1.260740, 1.202192, 1.143643, 1.085094, 1.026545, 0.967996, 0.909448, 0.850899, 0.792350, 0.733801, 0.675252, 0.616704, 0.558155, 0.499606, 0.441057, 0.382508, 0.323960, 0.265411, 0.206862, 1.748313, 1.689764, 1.631216, 1.572667, 1.514118, 1.455569, 1.397020, 1.338472, 1.279923, 1.221374, 1.162825, 1.104276, 1.045728, 0.987179, 0.928630, 0.870081, 0.811532, 0.752984, 0.694435, 0.635886, 0.577337, 0.518788, 0.460240, 0.401691, 0.343142, 0.284593, 0.226044, 1.767496, 1.708947, 1.650398, 1.591849, 1.533300, 1.474752, 1.416203, 1.357654, 1.299105, 1.240556, 1.182008, 1.123459, 1.064910, 1.006361, 0.947812, 0.889264, 0.830715, 0.772166, 0.713617, 0.655068, 0.596520, 0.537971, 0.479422, 0.420873, 0.362324, 0.303776, 0.245227, 1.786678, 1.728129, 1.669580, 1.611032, 1.552483, 1.493934, 1.435385, 1.376836, 1.318288, 1.259739, 1.201190, 1.142641, 1.084092, 1.025544, 0.966995, 0.908446, 0.849897, 0.791348, 0.732800, 0.674251, 0.615702, 0.557153, 0.498604, 0.440056, 0.381507, 0.322958, 0.264409, 0.205860, 1.747312, 1.688763, 1.630214, 1.571665, 1.513116, 1.454568, 1.396019, 1.337470, 1.278921, 1.220372, 1.161824, 1.103275, 1.044726, 0.986177, 0.927628, 0.869080, 0.810531, 0.751982, 0.693433, 0.634884, 0.576336]).map Float.toBits))
-#eval IO.println ("hashemiEnv " ++ toString ((hashemiEnv 0.581211 0.522662 0.464113 0.405564 0.347016 0.288467 0.229918 1.771369 1.712820 1.654272 1.595723 1.537174 1.478625 1.420076 1.361528 1.302979 1.244430 1.185881 1.127332 1.068784 1.010235 0.951686 0.893137 0.834588 0.776040 0.717491 0.658942 0.600393 0.541844 0.483296 0.424747 0.366198 0.307649 0.249100 1.790552 1.732003 1.673454 1.614905 #[0.857827, 0.799278, 0.740729, 0.682180, 0.623632, 0.565083, 0.506534, 0.447985, 0.389436, 0.330888, 0.272339, 0.213790, 1.755241, 1.696692, 1.638144, 1.579595, 1.521046, 1.462497, 1.403948, 1.345400, 1.286851, 1.228302, 1.169753, 1.111204, 1.052656, 0.994107, 0.935558, 0.877009, 0.818460, 0.759912, 0.701363, 0.642814, 0.584265, 0.525716, 0.467168, 0.408619, 0.350070, 0.291521, 0.232972, 1.774424, 1.715875, 1.657326, 1.598777, 1.540228, 1.481680, 1.423131, 1.364582, 1.306033, 1.247484, 1.188936, 1.130387, 1.071838, 1.013289, 0.954740, 0.896192, 0.837643, 0.779094, 0.720545, 0.661996, 0.603448, 0.544899, 0.486350, 0.427801, 0.369252, 0.310704, 0.252155, 1.793606, 1.735057, 1.676508, 1.617960, 1.559411, 1.500862, 1.442313, 1.383764, 1.325216, 1.266667, 1.208118, 1.149569, 1.091020, 1.032472, 0.973923, 0.915374, 0.856825, 0.798276, 0.739728, 0.681179, 0.622630, 0.564081, 0.505532, 0.446984, 0.388435, 0.329886, 0.271337, 0.212788, 1.754240, 1.695691, 1.637142, 1.578593, 1.520044, 1.461496, 1.402947, 1.344398, 1.285849, 1.227300, 1.168752, 1.110203, 1.051654, 0.993105, 0.934556, 0.876008, 0.817459, 0.758910, 0.700361, 0.641812, 0.583264, 0.524715, 0.466166, 0.407617, 0.349068, 0.290520, 0.231971, 1.773422, 1.714873, 1.656324, 1.597776, 1.539227, 1.480678, 1.422129, 1.363580, 1.305032, 1.246483, 1.187934, 1.129385, 1.070836, 1.012288, 0.953739, 0.895190, 0.836641, 0.778092, 0.719544, 0.660995, 0.602446, 0.543897, 0.485348, 0.426800, 0.368251, 0.309702, 0.251153, 1.792604, 1.734056, 1.675507, 1.616958, 1.558409, 1.499860, 1.441312, 1.382763, 1.324214, 1.265665, 1.207116, 1.148568, 1.090019, 1.031470, 0.972921, 0.914372, 0.855824, 0.797275, 0.738726, 0.680177, 0.621628, 0.563080, 0.504531, 0.445982, 0.387433, 0.328884, 0.270336, 0.211787, 1.753238, 1.694689, 1.636140, 1.577592, 1.519043, 1.460494, 1.401945, 1.343396, 1.284848, 1.226299, 1.167750, 1.109201, 1.050652, 0.992104, 0.933555, 0.875006, 0.816457, 0.757908, 0.699360, 0.640811, 0.582262, 0.523713, 0.465164, 0.406616, 0.348067, 0.289518, 0.230969, 1.772420, 1.713872, 1.655323, 1.596774, 1.538225, 1.479676, 1.421128, 1.362579, 1.304030, 1.245481, 1.186932, 1.128384, 1.069835, 1.011286, 0.952737, 0.894188, 0.835640, 0.777091, 0.718542, 0.659993, 0.601444, 0.542896, 0.484347, 0.425798, 0.367249, 0.308700, 0.250152, 1.791603, 1.733054, 1.674505, 1.615956, 1.557408, 1.498859, 1.440310, 1.381761, 1.323212, 1.264664, 1.206115, 1.147566, 1.089017, 1.030468, 0.971920, 0.913371, 0.854822, 0.796273, 0.737724, 0.679176, 0.620627, 0.562078, 0.503529, 0.444980, 0.386432, 0.327883, 0.269334, 0.210785, 1.752236, 1.693688, 1.635139, 1.576590, 1.518041, 1.459492, 1.400944, 1.342395, 1.283846, 1.225297, 1.166748, 1.108200, 1.049651, 0.991102, 0.932553, 0.874004, 0.815456, 0.756907, 0.698358, 0.639809, 0.581260, 0.522712, 0.464163, 0.405614, 0.347065, 0.288516, 0.229968, 1.771419, 1.712870, 1.654321, 1.595772, 1.537224, 1.478675, 1.420126, 1.361577, 1.303028, 1.244480, 1.185931, 1.127382, 1.068833, 1.010284, 0.951736, 0.893187, 0.834638, 0.776089, 0.717540, 0.658992, 0.600443, 0.541894, 0.483345, 0.424796, 0.366248, 0.307699, 0.249150, 1.790601, 1.732052, 1.673504, 1.614955, 1.556406, 1.497857, 1.439308, 1.380760, 1.322211, 1.263662, 1.205113, 1.146564, 1.088016, 1.029467, 0.970918, 0.912369, 0.853820, 0.795272, 0.736723, 0.678174, 0.619625, 0.561076, 0.502528, 0.443979, 0.385430, 0.326881, 0.268332, 0.209784, 1.751235, 1.692686, 1.634137, 1.575588, 1.517040, 1.458491, 1.399942, 1.341393, 1.282844, 1.224296, 1.165747, 1.107198, 1.048649, 0.990100, 0.931552, 0.873003, 0.814454, 0.755905, 0.697356, 0.638808, 0.580259, 0.521710, 0.463161, 0.404612, 0.346064, 0.287515, 0.228966, 1.770417, 1.711868, 1.653320, 1.594771, 1.536222, 1.477673, 1.419124, 1.360576, 1.302027, 1.243478, 1.184929, 1.126380, 1.067832, 1.009283, 0.950734, 0.892185, 0.833636, 0.775088, 0.716539, 0.657990, 0.599441, 0.540892, 0.482344, 0.423795, 0.365246, 0.306697, 0.248148, 1.789600, 1.731051, 1.672502, 1.613953, 1.555404, 1.496856, 1.438307, 1.379758, 1.321209, 1.262660, 1.204112, 1.145563, 1.087014, 1.028465, 0.969916, 0.911368, 0.852819, 0.794270, 0.735721, 0.677172, 0.618624, 0.560075, 0.501526, 0.442977, 0.384428, 0.325880, 0.267331, 0.208782, 1.750233, 1.691684, 1.633136, 1.574587, 1.516038, 1.457489, 1.398940, 1.340392, 1.281843, 1.223294, 1.164745, 1.106196, 1.047648, 0.989099, 0.930550, 0.872001, 0.813452, 0.754904, 0.696355, 0.637806, 0.579257, 0.520708, 0.462160, 0.403611, 0.345062, 0.286513, 0.227964, 1.769416, 1.710867, 1.652318, 1.593769, 1.535220, 1.476672, 1.418123, 1.359574, 1.301025, 1.242476, 1.183928, 1.125379, 1.066830, 1.008281, 0.949732, 0.891184, 0.832635, 0.774086, 0.715537, 0.656988, 0.598440, 0.539891, 0.481342, 0.422793, 0.364244, 0.305696, 0.247147, 1.788598, 1.730049, 1.671500, 1.612952, 1.554403, 1.495854, 1.437305, 1.378756, 1.320208, 1.261659, 1.203110, 1.144561, 1.086012, 1.027464, 0.968915, 0.910366, 0.851817, 0.793268, 0.734720, 0.676171, 0.617622, 0.559073, 0.500524, 0.441976, 0.383427, 0.324878, 0.266329, 0.207780, 1.749232, 1.690683, 1.632134, 1.573585, 1.515036, 1.456488, 1.397939, 1.339390, 1.280841, 1.222292, 1.163744, 1.105195, 1.046646, 0.988097, 0.929548, 0.871000, 0.812451, 0.753902, 0.695353, 0.636804, 0.578256, 0.519707, 0.461158, 0.402609, 0.344060, 0.285512, 0.226963, 1.768414, 1.709865, 1.651316, 1.592768, 1.534219, 1.475670, 1.417121, 1.358572, 1.300024, 1.241475, 1.182926, 1.124377, 1.065828, 1.007280, 0.948731, 0.890182, 0.831633, 0.773084, 0.714536, 0.655987, 0.597438, 0.538889, 0.480340, 0.421792, 0.363243, 0.304694, 0.246145, 1.787596, 1.729048, 1.670499, 1.611950, 1.553401, 1.494852, 1.436304, 1.377755, 1.319206, 1.260657, 1.202108, 1.143560, 1.085011, 1.026462, 0.967913, 0.909364, 0.850816, 0.792267, 0.733718, 0.675169, 0.616620, 0.558072, 0.499523, 0.440974, 0.382425, 0.323876, 0.265328, 0.206779, 1.748230, 1.689681, 1.631132, 1.572584, 1.514035, 1.455486, 1.396937, 1.338388, 1.279840, 1.221291, 1.162742, 1.104193, 1.045644, 0.987096, 0.928547, 0.869998, 0.811449, 0.752900, 0.694352, 0.635803, 0.577254, 0.518705, 0.460156, 0.401608, 0.343059, 0.284510, 0.225961, 1.767412, 1.708864, 1.650315, 1.591766, 1.533217, 1.474668, 1.416120, 1.357571, 1.299022, 1.240473, 1.181924, 1.123376, 1.064827, 1.006278, 0.947729, 0.889180, 0.830632, 0.772083, 0.713534, 0.654985, 0.596436, 0.537888, 0.479339, 0.420790, 0.362241, 0.303692, 0.245144]).map Float.toBits))
-#eval IO.println ("hashemiEnv " ++ toString ((hashemiEnv 0.250019 1.791470 1.732921 1.674372 1.615824 1.557275 1.498726 1.440177 1.381628 1.323080 1.264531 1.205982 1.147433 1.088884 1.030336 0.971787 0.913238 0.854689 0.796140 0.737592 0.679043 0.620494 0.561945 0.503396 0.444848 0.386299 0.327750 0.269201 0.210652 1.752104 1.693555 1.635006 1.576457 1.517908 1.459360 1.400811 1.342262 1.283713 #[0.526635, 0.468086, 0.409537, 0.350988, 0.292440, 0.233891, 1.775342, 1.716793, 1.658244, 1.599696, 1.541147, 1.482598, 1.424049, 1.365500, 1.306952, 1.248403, 1.189854, 1.131305, 1.072756, 1.014208, 0.955659, 0.897110, 0.838561, 0.780012, 0.721464, 0.662915, 0.604366, 0.545817, 0.487268, 0.428720, 0.370171, 0.311622, 0.253073, 1.794524, 1.735976, 1.677427, 1.618878, 1.560329, 1.501780, 1.443232, 1.384683, 1.326134, 1.267585, 1.209036, 1.150488, 1.091939, 1.033390, 0.974841, 0.916292, 0.857744, 0.799195, 0.740646, 0.682097, 0.623548, 0.565000, 0.506451, 0.447902, 0.389353, 0.330804, 0.272256, 0.213707, 1.755158, 1.696609, 1.638060, 1.579512, 1.520963, 1.462414, 1.403865, 1.345316, 1.286768, 1.228219, 1.169670, 1.111121, 1.052572, 0.994024, 0.935475, 0.876926, 0.818377, 0.759828, 0.701280, 0.642731, 0.584182, 0.525633, 0.467084, 0.408536, 0.349987, 0.291438, 0.232889, 1.774340, 1.715792, 1.657243, 1.598694, 1.540145, 1.481596, 1.423048, 1.364499, 1.305950, 1.247401, 1.188852, 1.130304, 1.071755, 1.013206, 0.954657, 0.896108, 0.837560, 0.779011, 0.720462, 0.661913, 0.603364, 0.544816, 0.486267, 0.427718, 0.369169, 0.310620, 0.252072, 1.793523, 1.734974, 1.676425, 1.617876, 1.559328, 1.500779, 1.442230, 1.383681, 1.325132, 1.266584, 1.208035, 1.149486, 1.090937, 1.032388, 0.973840, 0.915291, 0.856742, 0.798193, 0.739644, 0.681096, 0.622547, 0.563998, 0.505449, 0.446900, 0.388352, 0.329803, 0.271254, 0.212705, 1.754156, 1.695608, 1.637059, 1.578510, 1.519961, 1.461412, 1.402864, 1.344315, 1.285766, 1.227217, 1.168668, 1.110120, 1.051571, 0.993022, 0.934473, 0.875924, 0.817376, 0.758827, 0.700278, 0.641729, 0.583180, 0.524632, 0.466083, 0.407534, 0.348985, 0.290436, 0.231888, 1.773339, 1.714790, 1.656241, 1.597692, 1.539144, 1.480595, 1.422046, 1.363497, 1.304948, 1.246400, 1.187851, 1.129302, 1.070753, 1.012204, 0.953656, 0.895107, 0.836558, 0.778009, 0.719460, 0.660912, 0.602363, 0.543814, 0.485265, 0.426716, 0.368168, 0.309619, 0.251070, 1.792521, 1.733972, 1.675424, 1.616875, 1.558326, 1.499777, 1.441228, 1.382680, 1.324131, 1.265582, 1.207033, 1.148484, 1.089936, 1.031387, 0.972838, 0.914289, 0.855740, 0.797192, 0.738643, 0.680094, 0.621545, 0.562996, 0.504448, 0.445899, 0.387350, 0.328801, 0.270252, 0.211704, 1.753155, 1.694606, 1.636057, 1.577508, 1.518960, 1.460411, 1.401862, 1.343313, 1.284764, 1.226216, 1.167667, 1.109118, 1.050569, 0.992020, 0.933472, 0.874923, 0.816374, 0.757825, 0.699276, 0.640728, 0.582179, 0.523630, 0.465081, 0.406532, 0.347984, 0.289435, 0.230886, 1.772337, 1.713788, 1.655240, 1.596691, 1.538142, 1.479593, 1.421044, 1.362496, 1.303947, 1.245398, 1.186849, 1.128300, 1.069752, 1.011203, 0.952654, 0.894105, 0.835556, 0.777008, 0.718459, 0.659910, 0.601361, 0.542812, 0.484264, 0.425715, 0.367166, 0.308617, 0.250068, 1.791520, 1.732971, 1.674422, 1.615873, 1.557324, 1.498776, 1.440227, 1.381678, 1.323129, 1.264580, 1.206032, 1.147483, 1.088934, 1.030385, 0.971836, 0.913288, 0.854739, 0.796190, 0.737641, 0.679092, 0.620544, 0.561995, 0.503446, 0.444897, 0.386348, 0.327800, 0.269251, 0.210702, 1.752153, 1.693604, 1.635056, 1.576507, 1.517958, 1.459409, 1.400860, 1.342312, 1.283763, 1.225214, 1.166665, 1.108116, 1.049568, 0.991019, 0.932470, 0.873921, 0.815372, 0.756824, 0.698275, 0.639726, 0.581177, 0.522628, 0.464080, 0.405531, 0.346982, 0.288433, 0.229884, 1.771336, 1.712787, 1.654238, 1.595689, 1.537140, 1.478592, 1.420043, 1.361494, 1.302945, 1.244396, 1.185848, 1.127299, 1.068750, 1.010201, 0.951652, 0.893104, 0.834555, 0.776006, 0.717457, 0.658908, 0.600360, 0.541811, 0.483262, 0.424713, 0.366164, 0.307616, 0.249067, 1.790518, 1.731969, 1.673420, 1.614872, 1.556323, 1.497774, 1.439225, 1.380676, 1.322128, 1.263579, 1.205030, 1.146481, 1.087932, 1.029384, 0.970835, 0.912286, 0.853737, 0.795188, 0.736640, 0.678091, 0.619542, 0.560993, 0.502444, 0.443896, 0.385347, 0.326798, 0.268249, 0.209700, 1.751152, 1.692603, 1.634054, 1.575505, 1.516956, 1.458408, 1.399859, 1.341310, 1.282761, 1.224212, 1.165664, 1.107115, 1.048566, 0.990017, 0.931468, 0.872920, 0.814371, 0.755822, 0.697273, 0.638724, 0.580176, 0.521627, 0.463078, 0.404529, 0.345980, 0.287432, 0.228883, 1.770334, 1.711785, 1.653236, 1.594688, 1.536139, 1.477590, 1.419041, 1.360492, 1.301944, 1.243395, 1.184846, 1.126297, 1.067748, 1.009200, 0.950651, 0.892102, 0.833553, 0.775004, 0.716456, 0.657907, 0.599358, 0.540809, 0.482260, 0.423712, 0.365163, 0.306614, 0.248065, 1.789516, 1.730968, 1.672419, 1.613870, 1.555321, 1.496772, 1.438224, 1.379675, 1.321126, 1.262577, 1.204028, 1.145480, 1.086931, 1.028382, 0.969833, 0.911284, 0.852736, 0.794187, 0.735638, 0.677089, 0.618540, 0.559992, 0.501443, 0.442894, 0.384345, 0.325796, 0.267248, 0.208699, 1.750150, 1.691601, 1.633052, 1.574504, 1.515955, 1.457406, 1.398857, 1.340308, 1.281760, 1.223211, 1.164662, 1.106113, 1.047564, 0.989016, 0.930467, 0.871918, 0.813369, 0.754820, 0.696272, 0.637723, 0.579174, 0.520625, 0.462076, 0.403528, 0.344979, 0.286430, 0.227881, 1.769332, 1.710784, 1.652235, 1.593686, 1.535137, 1.476588, 1.418040, 1.359491, 1.300942, 1.242393, 1.183844, 1.125296, 1.066747, 1.008198, 0.949649, 0.891100, 0.832552, 0.774003, 0.715454, 0.656905, 0.598356, 0.539808, 0.481259, 0.422710, 0.364161, 0.305612, 0.247064, 1.788515, 1.729966, 1.671417, 1.612868, 1.554320, 1.495771, 1.437222, 1.378673, 1.320124, 1.261576, 1.203027, 1.144478, 1.085929, 1.027380, 0.968832, 0.910283, 0.851734, 0.793185, 0.734636, 0.676088, 0.617539, 0.558990, 0.500441, 0.441892, 0.383344, 0.324795, 0.266246, 0.207697, 1.749148, 1.690600, 1.632051, 1.573502, 1.514953, 1.456404, 1.397856, 1.339307, 1.280758, 1.222209, 1.163660, 1.105112, 1.046563, 0.988014, 0.929465, 0.870916, 0.812368, 0.753819, 0.695270, 0.636721, 0.578172, 0.519624, 0.461075, 0.402526, 0.343977, 0.285428, 0.226880, 1.768331, 1.709782, 1.651233, 1.592684, 1.534136, 1.475587, 1.417038, 1.358489, 1.299940, 1.241392, 1.182843, 1.124294, 1.065745, 1.007196, 0.948648, 0.890099, 0.831550, 0.773001, 0.714452, 0.655904, 0.597355, 0.538806, 0.480257, 0.421708, 0.363160, 0.304611, 0.246062, 1.787513, 1.728964, 1.670416, 1.611867, 1.553318, 1.494769, 1.436220, 1.377672, 1.319123, 1.260574, 1.202025, 1.143476, 1.084928, 1.026379, 0.967830, 0.909281, 0.850732, 0.792184, 0.733635, 0.675086, 0.616537, 0.557988, 0.499440, 0.440891, 0.382342, 0.323793, 0.265244, 0.206696, 1.748147, 1.689598, 1.631049, 1.572500, 1.513952]).map Float.toBits))
+#eval IO.println ("hashemiEnv " ++ toString ((hashemiEnv 1.023187 0.964638 0.906089 0.847540 0.788992 0.730443 0.671894 0.613345 0.554796 0.496248 0.437699 0.379150 0.320601 0.262052 0.203504 1.744955 1.686406 1.627857 1.569308 1.510760 1.452211 1.393662 1.335113 1.276564 1.218016 1.159467 1.100918 1.042369 0.983820 0.925272 0.866723 0.808174 0.749625 0.691076 0.632528 0.573979 0.515430 0.456881 #[1.299803, 1.241254, 1.182705, 1.124156, 1.065608, 1.007059, 0.948510, 0.889961, 0.831412, 0.772864, 0.714315, 0.655766, 0.597217, 0.538668, 0.480120, 0.421571, 0.363022, 0.304473, 0.245924, 1.787376, 1.728827, 1.670278, 1.611729, 1.553180, 1.494632, 1.436083, 1.377534, 1.318985, 1.260436, 1.201888, 1.143339, 1.084790, 1.026241, 0.967692, 0.909144, 0.850595, 0.792046, 0.733497, 0.674948, 0.616400, 0.557851, 0.499302, 0.440753, 0.382204, 0.323656, 0.265107, 0.206558, 1.748009, 1.689460, 1.630912, 1.572363, 1.513814, 1.455265, 1.396716, 1.338168, 1.279619, 1.221070, 1.162521, 1.103972, 1.045424, 0.986875, 0.928326, 0.869777, 0.811228, 0.752680, 0.694131, 0.635582, 0.577033, 0.518484, 0.459936, 0.401387, 0.342838, 0.284289, 0.225740, 1.767192, 1.708643, 1.650094, 1.591545, 1.532996, 1.474448, 1.415899, 1.357350, 1.298801, 1.240252, 1.181704, 1.123155, 1.064606, 1.006057, 0.947508, 0.888960, 0.830411, 0.771862, 0.713313, 0.654764, 0.596216, 0.537667, 0.479118, 0.420569, 0.362020, 0.303472, 0.244923, 1.786374, 1.727825, 1.669276, 1.610728, 1.552179, 1.493630, 1.435081, 1.376532, 1.317984, 1.259435, 1.200886, 1.142337, 1.083788, 1.025240, 0.966691, 0.908142, 0.849593, 0.791044, 0.732496, 0.673947, 0.615398, 0.556849, 0.498300, 0.439752, 0.381203, 0.322654, 0.264105, 0.205556, 1.747008, 1.688459, 1.629910, 1.571361, 1.512812, 1.454264, 1.395715, 1.337166, 1.278617, 1.220068, 1.161520, 1.102971, 1.044422, 0.985873, 0.927324, 0.868776, 0.810227, 0.751678, 0.693129, 0.634580, 0.576032, 0.517483, 0.458934, 0.400385, 0.341836, 0.283288, 0.224739, 1.766190, 1.707641, 1.649092, 1.590544, 1.531995, 1.473446, 1.414897, 1.356348, 1.297800, 1.239251, 1.180702, 1.122153, 1.063604, 1.005056, 0.946507, 0.887958, 0.829409, 0.770860, 0.712312, 0.653763, 0.595214, 0.536665, 0.478116, 0.419568, 0.361019, 0.302470, 0.243921, 1.785372, 1.726824, 1.668275, 1.609726, 1.551177, 1.492628, 1.434080, 1.375531, 1.316982, 1.258433, 1.199884, 1.141336, 1.082787, 1.024238, 0.965689, 0.907140, 0.848592, 0.790043, 0.731494, 0.672945, 0.614396, 0.555848, 0.497299, 0.438750, 0.380201, 0.321652, 0.263104, 0.204555, 1.746006, 1.687457, 1.628908, 1.570360, 1.511811, 1.453262, 1.394713, 1.336164, 1.277616, 1.219067, 1.160518, 1.101969, 1.043420, 0.984872, 0.926323, 0.867774, 0.809225, 0.750676, 0.692128, 0.633579, 0.575030, 0.516481, 0.457932, 0.399384, 0.340835, 0.282286, 0.223737, 1.765188, 1.706640, 1.648091, 1.589542, 1.530993, 1.472444, 1.413896, 1.355347, 1.296798, 1.238249, 1.179700, 1.121152, 1.062603, 1.004054, 0.945505, 0.886956, 0.828408, 0.769859, 0.711310, 0.652761, 0.594212, 0.535664, 0.477115, 0.418566, 0.360017, 0.301468, 0.242920, 1.784371, 1.725822, 1.667273, 1.608724, 1.550176, 1.491627, 1.433078, 1.374529, 1.315980, 1.257432, 1.198883, 1.140334, 1.081785, 1.023236, 0.964688, 0.906139, 0.847590, 0.789041, 0.730492, 0.671944, 0.613395, 0.554846, 0.496297, 0.437748, 0.379200, 0.320651, 0.262102, 0.203553, 1.745004, 1.686456, 1.627907, 1.569358, 1.510809, 1.452260, 1.393712, 1.335163, 1.276614, 1.218065, 1.159516, 1.100968, 1.042419, 0.983870, 0.925321, 0.866772, 0.808224, 0.749675, 0.691126, 0.632577, 0.574028, 0.515480, 0.456931, 0.398382, 0.339833, 0.281284, 0.222736, 1.764187, 1.705638, 1.647089, 1.588540, 1.529992, 1.471443, 1.412894, 1.354345, 1.295796, 1.237248, 1.178699, 1.120150, 1.061601, 1.003052, 0.944504, 0.885955, 0.827406, 0.768857, 0.710308, 0.651760, 0.593211, 0.534662, 0.476113, 0.417564, 0.359016, 0.300467, 0.241918, 1.783369, 1.724820, 1.666272, 1.607723, 1.549174, 1.490625, 1.432076, 1.373528, 1.314979, 1.256430, 1.197881, 1.139332, 1.080784, 1.022235, 0.963686, 0.905137, 0.846588, 0.788040, 0.729491, 0.670942, 0.612393, 0.553844, 0.495296, 0.436747, 0.378198, 0.319649, 0.261100, 0.202552, 1.744003, 1.685454, 1.626905, 1.568356, 1.509808, 1.451259, 1.392710, 1.334161, 1.275612, 1.217064, 1.158515, 1.099966, 1.041417, 0.982868, 0.924320, 0.865771, 0.807222, 0.748673, 0.690124, 0.631576, 0.573027, 0.514478, 0.455929, 0.397380, 0.338832, 0.280283, 0.221734, 1.763185, 1.704636, 1.646088, 1.587539, 1.528990, 1.470441, 1.411892, 1.353344, 1.294795, 1.236246, 1.177697, 1.119148, 1.060600, 1.002051, 0.943502, 0.884953, 0.826404, 0.767856, 0.709307, 0.650758, 0.592209, 0.533660, 0.475112, 0.416563, 0.358014, 0.299465, 0.240916, 1.782368, 1.723819, 1.665270, 1.606721, 1.548172, 1.489624, 1.431075, 1.372526, 1.313977, 1.255428, 1.196880, 1.138331, 1.079782, 1.021233, 0.962684, 0.904136, 0.845587, 0.787038, 0.728489, 0.669940, 0.611392, 0.552843, 0.494294, 0.435745, 0.377196, 0.318648, 0.260099, 0.201550, 1.743001, 1.684452, 1.625904, 1.567355, 1.508806, 1.450257, 1.391708, 1.333160, 1.274611, 1.216062, 1.157513, 1.098964, 1.040416, 0.981867, 0.923318, 0.864769, 0.806220, 0.747672, 0.689123, 0.630574, 0.572025, 0.513476, 0.454928, 0.396379, 0.337830, 0.279281, 0.220732, 1.762184, 1.703635, 1.645086, 1.586537, 1.527988, 1.469440, 1.410891, 1.352342, 1.293793, 1.235244, 1.176696, 1.118147, 1.059598, 1.001049, 0.942500, 0.883952, 0.825403, 0.766854, 0.708305, 0.649756, 0.591208, 0.532659, 0.474110, 0.415561, 0.357012, 0.298464, 0.239915, 1.781366, 1.722817, 1.664268, 1.605720, 1.547171, 1.488622, 1.430073, 1.371524, 1.312976, 1.254427, 1.195878, 1.137329, 1.078780, 1.020232, 0.961683, 0.903134, 0.844585, 0.786036, 0.727488, 0.668939, 0.610390, 0.551841, 0.493292, 0.434744, 0.376195, 0.317646, 0.259097, 0.200548, 1.742000, 1.683451, 1.624902, 1.566353, 1.507804, 1.449256, 1.390707, 1.332158, 1.273609, 1.215060, 1.156512, 1.097963, 1.039414, 0.980865, 0.922316, 0.863768, 0.805219, 0.746670, 0.688121, 0.629572, 0.571024, 0.512475, 0.453926, 0.395377, 0.336828, 0.278280, 0.219731, 1.761182, 1.702633, 1.644084, 1.585536, 1.526987, 1.468438, 1.409889, 1.351340, 1.292792, 1.234243, 1.175694, 1.117145, 1.058596, 1.000048, 0.941499, 0.882950, 0.824401, 0.765852, 0.707304, 0.648755, 0.590206, 0.531657, 0.473108, 0.414560, 0.356011, 0.297462, 0.238913, 1.780364, 1.721816, 1.663267, 1.604718, 1.546169, 1.487620, 1.429072, 1.370523, 1.311974, 1.253425, 1.194876, 1.136328, 1.077779, 1.019230, 0.960681, 0.902132, 0.843584, 0.785035, 0.726486, 0.667937, 0.609388, 0.550840, 0.492291, 0.433742, 0.375193, 0.316644, 0.258096, 1.799547, 1.740998, 1.682449, 1.623900, 1.565352, 1.506803, 1.448254, 1.389705, 1.331156, 1.272608, 1.214059, 1.155510, 1.096961, 1.038412, 0.979864, 0.921315, 0.862766, 0.804217, 0.745668, 0.687120]).map Float.toBits))
+#eval IO.println ("hashemiEnv " ++ toString ((hashemiEnv 0.691995 0.633446 0.574897 0.516348 0.457800 0.399251 0.340702 0.282153 0.223604 1.765056 1.706507 1.647958 1.589409 1.530860 1.472312 1.413763 1.355214 1.296665 1.238116 1.179568 1.121019 1.062470 1.003921 0.945372 0.886824 0.828275 0.769726 0.711177 0.652628 0.594080 0.535531 0.476982 0.418433 0.359884 0.301336 0.242787 1.784238 1.725689 #[0.968611, 0.910062, 0.851513, 0.792964, 0.734416, 0.675867, 0.617318, 0.558769, 0.500220, 0.441672, 0.383123, 0.324574, 0.266025, 0.207476, 1.748928, 1.690379, 1.631830, 1.573281, 1.514732, 1.456184, 1.397635, 1.339086, 1.280537, 1.221988, 1.163440, 1.104891, 1.046342, 0.987793, 0.929244, 0.870696, 0.812147, 0.753598, 0.695049, 0.636500, 0.577952, 0.519403, 0.460854, 0.402305, 0.343756, 0.285208, 0.226659, 1.768110, 1.709561, 1.651012, 1.592464, 1.533915, 1.475366, 1.416817, 1.358268, 1.299720, 1.241171, 1.182622, 1.124073, 1.065524, 1.006976, 0.948427, 0.889878, 0.831329, 0.772780, 0.714232, 0.655683, 0.597134, 0.538585, 0.480036, 0.421488, 0.362939, 0.304390, 0.245841, 1.787292, 1.728744, 1.670195, 1.611646, 1.553097, 1.494548, 1.436000, 1.377451, 1.318902, 1.260353, 1.201804, 1.143256, 1.084707, 1.026158, 0.967609, 0.909060, 0.850512, 0.791963, 0.733414, 0.674865, 0.616316, 0.557768, 0.499219, 0.440670, 0.382121, 0.323572, 0.265024, 0.206475, 1.747926, 1.689377, 1.630828, 1.572280, 1.513731, 1.455182, 1.396633, 1.338084, 1.279536, 1.220987, 1.162438, 1.103889, 1.045340, 0.986792, 0.928243, 0.869694, 0.811145, 0.752596, 0.694048, 0.635499, 0.576950, 0.518401, 0.459852, 0.401304, 0.342755, 0.284206, 0.225657, 1.767108, 1.708560, 1.650011, 1.591462, 1.532913, 1.474364, 1.415816, 1.357267, 1.298718, 1.240169, 1.181620, 1.123072, 1.064523, 1.005974, 0.947425, 0.888876, 0.830328, 0.771779, 0.713230, 0.654681, 0.596132, 0.537584, 0.479035, 0.420486, 0.361937, 0.303388, 0.244840, 1.786291, 1.727742, 1.669193, 1.610644, 1.552096, 1.493547, 1.434998, 1.376449, 1.317900, 1.259352, 1.200803, 1.142254, 1.083705, 1.025156, 0.966608, 0.908059, 0.849510, 0.790961, 0.732412, 0.673864, 0.615315, 0.556766, 0.498217, 0.439668, 0.381120, 0.322571, 0.264022, 0.205473, 1.746924, 1.688376, 1.629827, 1.571278, 1.512729, 1.454180, 1.395632, 1.337083, 1.278534, 1.219985, 1.161436, 1.102888, 1.044339, 0.985790, 0.927241, 0.868692, 0.810144, 0.751595, 0.693046, 0.634497, 0.575948, 0.517400, 0.458851, 0.400302, 0.341753, 0.283204, 0.224656, 1.766107, 1.707558, 1.649009, 1.590460, 1.531912, 1.473363, 1.414814, 1.356265, 1.297716, 1.239168, 1.180619, 1.122070, 1.063521, 1.004972, 0.946424, 0.887875, 0.829326, 0.770777, 0.712228, 0.653680, 0.595131, 0.536582, 0.478033, 0.419484, 0.360936, 0.302387, 0.243838, 1.785289, 1.726740, 1.668192, 1.609643, 1.551094, 1.492545, 1.433996, 1.375448, 1.316899, 1.258350, 1.199801, 1.141252, 1.082704, 1.024155, 0.965606, 0.907057, 0.848508, 0.789960, 0.731411, 0.672862, 0.614313, 0.555764, 0.497216, 0.438667, 0.380118, 0.321569, 0.263020, 0.204472, 1.745923, 1.687374, 1.628825, 1.570276, 1.511728, 1.453179, 1.394630, 1.336081, 1.277532, 1.218984, 1.160435, 1.101886, 1.043337, 0.984788, 0.926240, 0.867691, 0.809142, 0.750593, 0.692044, 0.633496, 0.574947, 0.516398, 0.457849, 0.399300, 0.340752, 0.282203, 0.223654, 1.765105, 1.706556, 1.648008, 1.589459, 1.530910, 1.472361, 1.413812, 1.355264, 1.296715, 1.238166, 1.179617, 1.121068, 1.062520, 1.003971, 0.945422, 0.886873, 0.828324, 0.769776, 0.711227, 0.652678, 0.594129, 0.535580, 0.477032, 0.418483, 0.359934, 0.301385, 0.242836, 1.784288, 1.725739, 1.667190, 1.608641, 1.550092, 1.491544, 1.432995, 1.374446, 1.315897, 1.257348, 1.198800, 1.140251, 1.081702, 1.023153, 0.964604, 0.906056, 0.847507, 0.788958, 0.730409, 0.671860, 0.613312, 0.554763, 0.496214, 0.437665, 0.379116, 0.320568, 0.262019, 0.203470, 1.744921, 1.686372, 1.627824, 1.569275, 1.510726, 1.452177, 1.393628, 1.335080, 1.276531, 1.217982, 1.159433, 1.100884, 1.042336, 0.983787, 0.925238, 0.866689, 0.808140, 0.749592, 0.691043, 0.632494, 0.573945, 0.515396, 0.456848, 0.398299, 0.339750, 0.281201, 0.222652, 1.764104, 1.705555, 1.647006, 1.588457, 1.529908, 1.471360, 1.412811, 1.354262, 1.295713, 1.237164, 1.178616, 1.120067, 1.061518, 1.002969, 0.944420, 0.885872, 0.827323, 0.768774, 0.710225, 0.651676, 0.593128, 0.534579, 0.476030, 0.417481, 0.358932, 0.300384, 0.241835, 1.783286, 1.724737, 1.666188, 1.607640, 1.549091, 1.490542, 1.431993, 1.373444, 1.314896, 1.256347, 1.197798, 1.139249, 1.080700, 1.022152, 0.963603, 0.905054, 0.846505, 0.787956, 0.729408, 0.670859, 0.612310, 0.553761, 0.495212, 0.436664, 0.378115, 0.319566, 0.261017, 0.202468, 1.743920, 1.685371, 1.626822, 1.568273, 1.509724, 1.451176, 1.392627, 1.334078, 1.275529, 1.216980, 1.158432, 1.099883, 1.041334, 0.982785, 0.924236, 0.865688, 0.807139, 0.748590, 0.690041, 0.631492, 0.572944, 0.514395, 0.455846, 0.397297, 0.338748, 0.280200, 0.221651, 1.763102, 1.704553, 1.646004, 1.587456, 1.528907, 1.470358, 1.411809, 1.353260, 1.294712, 1.236163, 1.177614, 1.119065, 1.060516, 1.001968, 0.943419, 0.884870, 0.826321, 0.767772, 0.709224, 0.650675, 0.592126, 0.533577, 0.475028, 0.416480, 0.357931, 0.299382, 0.240833, 1.782284, 1.723736, 1.665187, 1.606638, 1.548089, 1.489540, 1.430992, 1.372443, 1.313894, 1.255345, 1.196796, 1.138248, 1.079699, 1.021150, 0.962601, 0.904052, 0.845504, 0.786955, 0.728406, 0.669857, 0.611308, 0.552760, 0.494211, 0.435662, 0.377113, 0.318564, 0.260016, 0.201467, 1.742918, 1.684369, 1.625820, 1.567272, 1.508723, 1.450174, 1.391625, 1.333076, 1.274528, 1.215979, 1.157430, 1.098881, 1.040332, 0.981784, 0.923235, 0.864686, 0.806137, 0.747588, 0.689040, 0.630491, 0.571942, 0.513393, 0.454844, 0.396296, 0.337747, 0.279198, 0.220649, 1.762100, 1.703552, 1.645003, 1.586454, 1.527905, 1.469356, 1.410808, 1.352259, 1.293710, 1.235161, 1.176612, 1.118064, 1.059515, 1.000966, 0.942417, 0.883868, 0.825320, 0.766771, 0.708222, 0.649673, 0.591124, 0.532576, 0.474027, 0.415478, 0.356929, 0.298380, 0.239832, 1.781283, 1.722734, 1.664185, 1.605636, 1.547088, 1.488539, 1.429990, 1.371441, 1.312892, 1.254344, 1.195795, 1.137246, 1.078697, 1.020148, 0.961600, 0.903051, 0.844502, 0.785953, 0.727404, 0.668856, 0.610307, 0.551758, 0.493209, 0.434660, 0.376112, 0.317563, 0.259014, 0.200465, 1.741916, 1.683368, 1.624819, 1.566270, 1.507721, 1.449172, 1.390624, 1.332075, 1.273526, 1.214977, 1.156428, 1.097880, 1.039331, 0.980782, 0.922233, 0.863684, 0.805136, 0.746587, 0.688038, 0.629489, 0.570940, 0.512392, 0.453843, 0.395294, 0.336745, 0.278196, 0.219648, 1.761099, 1.702550, 1.644001, 1.585452, 1.526904, 1.468355, 1.409806, 1.351257, 1.292708, 1.234160, 1.175611, 1.117062, 1.058513, 0.999964, 0.941416, 0.882867, 0.824318, 0.765769, 0.707220, 0.648672, 0.590123, 0.531574, 0.473025, 0.414476, 0.355928]).map Float.toBits))
+#eval IO.println ("hashemiEnv " ++ toString ((hashemiEnv 0.360803 0.302254 0.243705 1.785156 1.726608 1.668059 1.609510 1.550961 1.492412 1.433864 1.375315 1.316766 1.258217 1.199668 1.141120 1.082571 1.024022 0.965473 0.906924 0.848376 0.789827 0.731278 0.672729 0.614180 0.555632 0.497083 0.438534 0.379985 0.321436 0.262888 0.204339 1.745790 1.687241 1.628692 1.570144 1.511595 1.453046 1.394497 #[0.637419, 0.578870, 0.520321, 0.461772, 0.403224, 0.344675, 0.286126, 0.227577, 1.769028, 1.710480, 1.651931, 1.593382, 1.534833, 1.476284, 1.417736, 1.359187, 1.300638, 1.242089, 1.183540, 1.124992, 1.066443, 1.007894, 0.949345, 0.890796, 0.832248, 0.773699, 0.715150, 0.656601, 0.598052, 0.539504, 0.480955, 0.422406, 0.363857, 0.305308, 0.246760, 1.788211, 1.729662, 1.671113, 1.612564, 1.554016, 1.495467, 1.436918, 1.378369, 1.319820, 1.261272, 1.202723, 1.144174, 1.085625, 1.027076, 0.968528, 0.909979, 0.851430, 0.792881, 0.734332, 0.675784, 0.617235, 0.558686, 0.500137, 0.441588, 0.383040, 0.324491, 0.265942, 0.207393, 1.748844, 1.690296, 1.631747, 1.573198, 1.514649, 1.456100, 1.397552, 1.339003, 1.280454, 1.221905, 1.163356, 1.104808, 1.046259, 0.987710, 0.929161, 0.870612, 0.812064, 0.753515, 0.694966, 0.636417, 0.577868, 0.519320, 0.460771, 0.402222, 0.343673, 0.285124, 0.226576, 1.768027, 1.709478, 1.650929, 1.592380, 1.533832, 1.475283, 1.416734, 1.358185, 1.299636, 1.241088, 1.182539, 1.123990, 1.065441, 1.006892, 0.948344, 0.889795, 0.831246, 0.772697, 0.714148, 0.655600, 0.597051, 0.538502, 0.479953, 0.421404, 0.362856, 0.304307, 0.245758, 1.787209, 1.728660, 1.670112, 1.611563, 1.553014, 1.494465, 1.435916, 1.377368, 1.318819, 1.260270, 1.201721, 1.143172, 1.084624, 1.026075, 0.967526, 0.908977, 0.850428, 0.791880, 0.733331, 0.674782, 0.616233, 0.557684, 0.499136, 0.440587, 0.382038, 0.323489, 0.264940, 0.206392, 1.747843, 1.689294, 1.630745, 1.572196, 1.513648, 1.455099, 1.396550, 1.338001, 1.279452, 1.220904, 1.162355, 1.103806, 1.045257, 0.986708, 0.928160, 0.869611, 0.811062, 0.752513, 0.693964, 0.635416, 0.576867, 0.518318, 0.459769, 0.401220, 0.342672, 0.284123, 0.225574, 1.767025, 1.708476, 1.649928, 1.591379, 1.532830, 1.474281, 1.415732, 1.357184, 1.298635, 1.240086, 1.181537, 1.122988, 1.064440, 1.005891, 0.947342, 0.888793, 0.830244, 0.771696, 0.713147, 0.654598, 0.596049, 0.537500, 0.478952, 0.420403, 0.361854, 0.303305, 0.244756, 1.786208, 1.727659, 1.669110, 1.610561, 1.552012, 1.493464, 1.434915, 1.376366, 1.317817, 1.259268, 1.200720, 1.142171, 1.083622, 1.025073, 0.966524, 0.907976, 0.849427, 0.790878, 0.732329, 0.673780, 0.615232, 0.556683, 0.498134, 0.439585, 0.381036, 0.322488, 0.263939, 0.205390, 1.746841, 1.688292, 1.629744, 1.571195, 1.512646, 1.454097, 1.395548, 1.337000, 1.278451, 1.219902, 1.161353, 1.102804, 1.044256, 0.985707, 0.927158, 0.868609, 0.810060, 0.751512, 0.692963, 0.634414, 0.575865, 0.517316, 0.458768, 0.400219, 0.341670, 0.283121, 0.224572, 1.766024, 1.707475, 1.648926, 1.590377, 1.531828, 1.473280, 1.414731, 1.356182, 1.297633, 1.239084, 1.180536, 1.121987, 1.063438, 1.004889, 0.946340, 0.887792, 0.829243, 0.770694, 0.712145, 0.653596, 0.595048, 0.536499, 0.477950, 0.419401, 0.360852, 0.302304, 0.243755, 1.785206, 1.726657, 1.668108, 1.609560, 1.551011, 1.492462, 1.433913, 1.375364, 1.316816, 1.258267, 1.199718, 1.141169, 1.082620, 1.024072, 0.965523, 0.906974, 0.848425, 0.789876, 0.731328, 0.672779, 0.614230, 0.555681, 0.497132, 0.438584, 0.380035, 0.321486, 0.262937, 0.204388, 1.745840, 1.687291, 1.628742, 1.570193, 1.511644, 1.453096, 1.394547, 1.335998, 1.277449, 1.218900, 1.160352, 1.101803, 1.043254, 0.984705, 0.926156, 0.867608, 0.809059, 0.750510, 0.691961, 0.633412, 0.574864, 0.516315, 0.457766, 0.399217, 0.340668, 0.282120, 0.223571, 1.765022, 1.706473, 1.647924, 1.589376, 1.530827, 1.472278, 1.413729, 1.355180, 1.296632, 1.238083, 1.179534, 1.120985, 1.062436, 1.003888, 0.945339, 0.886790, 0.828241, 0.769692, 0.711144, 0.652595, 0.594046, 0.535497, 0.476948, 0.418400, 0.359851, 0.301302, 0.242753, 1.784204, 1.725656, 1.667107, 1.608558, 1.550009, 1.491460, 1.432912, 1.374363, 1.315814, 1.257265, 1.198716, 1.140168, 1.081619, 1.023070, 0.964521, 0.905972, 0.847424, 0.788875, 0.730326, 0.671777, 0.613228, 0.554680, 0.496131, 0.437582, 0.379033, 0.320484, 0.261936, 0.203387, 1.744838, 1.686289, 1.627740, 1.569192, 1.510643, 1.452094, 1.393545, 1.334996, 1.276448, 1.217899, 1.159350, 1.100801, 1.042252, 0.983704, 0.925155, 0.866606, 0.808057, 0.749508, 0.690960, 0.632411, 0.573862, 0.515313, 0.456764, 0.398216, 0.339667, 0.281118, 0.222569, 1.764020, 1.705472, 1.646923, 1.588374, 1.529825, 1.471276, 1.412728, 1.354179, 1.295630, 1.237081, 1.178532, 1.119984, 1.061435, 1.002886, 0.944337, 0.885788, 0.827240, 0.768691, 0.710142, 0.651593, 0.593044, 0.534496, 0.475947, 0.417398, 0.358849, 0.300300, 0.241752, 1.783203, 1.724654, 1.666105, 1.607556, 1.549008, 1.490459, 1.431910, 1.373361, 1.314812, 1.256264, 1.197715, 1.139166, 1.080617, 1.022068, 0.963520, 0.904971, 0.846422, 0.787873, 0.729324, 0.670776, 0.612227, 0.553678, 0.495129, 0.436580, 0.378032, 0.319483, 0.260934, 0.202385, 1.743836, 1.685288, 1.626739, 1.568190, 1.509641, 1.451092, 1.392544, 1.333995, 1.275446, 1.216897, 1.158348, 1.099800, 1.041251, 0.982702, 0.924153, 0.865604, 0.807056, 0.748507, 0.689958, 0.631409, 0.572860, 0.514312, 0.455763, 0.397214, 0.338665, 0.280116, 0.221568, 1.763019, 1.704470, 1.645921, 1.587372, 1.528824, 1.470275, 1.411726, 1.353177, 1.294628, 1.236080, 1.177531, 1.118982, 1.060433, 1.001884, 0.943336, 0.884787, 0.826238, 0.767689, 0.709140, 0.650592, 0.592043, 0.533494, 0.474945, 0.416396, 0.357848, 0.299299, 0.240750, 1.782201, 1.723652, 1.665104, 1.606555, 1.548006, 1.489457, 1.430908, 1.372360, 1.313811, 1.255262, 1.196713, 1.138164, 1.079616, 1.021067, 0.962518, 0.903969, 0.845420, 0.786872, 0.728323, 0.669774, 0.611225, 0.552676, 0.494128, 0.435579, 0.377030, 0.318481, 0.259932, 0.201384, 1.742835, 1.684286, 1.625737, 1.567188, 1.508640, 1.450091, 1.391542, 1.332993, 1.274444, 1.215896, 1.157347, 1.098798, 1.040249, 0.981700, 0.923152, 0.864603, 0.806054, 0.747505, 0.688956, 0.630408, 0.571859, 0.513310, 0.454761, 0.396212, 0.337664, 0.279115, 0.220566, 1.762017, 1.703468, 1.644920, 1.586371, 1.527822, 1.469273, 1.410724, 1.352176, 1.293627, 1.235078, 1.176529, 1.117980, 1.059432, 1.000883, 0.942334, 0.883785, 0.825236, 0.766688, 0.708139, 0.649590, 0.591041, 0.532492, 0.473944, 0.415395, 0.356846, 0.298297, 0.239748, 1.781200, 1.722651, 1.664102, 1.605553, 1.547004, 1.488456, 1.429907, 1.371358, 1.312809, 1.254260, 1.195712, 1.137163, 1.078614, 1.020065, 0.961516, 0.902968, 0.844419, 0.785870, 0.727321, 0.668772, 0.610224, 0.551675, 0.493126, 0.434577, 0.376028, 0.317480, 0.258931, 0.200382, 1.741833, 1.683284, 1.624736]).map Float.toBits))
 
 def check_hashemiEnv_capture_mem (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Float) (dt : Float) (elSun : Float) (azSun : Float) (dni : Float) (rDrum : Float) (W : Float) (rcm : Float) (Tmax : Float) (rho : Float) (Fdrive : Float) (L10 : Float) (rodLen : Float) (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (sigmaslope : Float) (sigmaspec : Float) (hsun : Float) (soil : Float) (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Coil : Float) (ToilMax : Float) (Toil : Float) (Twall : Float) (Ta : Float) (dr : Array Float) : Bool :=
   let v689 := ((1 : Float) - ((2 : Float) - (Float.sqrt (((2 : Float) ^ 2) - ((0.8 : Float) ^ 2)))))
@@ -1507,9 +1565,9 @@ def check_hashemiEnv_capture_mem (az : Float) (t : Float) (slack : Float) (omega
   let v1601 := (v1599 / (64 : Float))
   (((0 : Float) <= v1601) && (v1601 <= (1 : Float)))
 
-#eval IO.println ("check_hashemiEnv_capture_mem " ++ toString (check_hashemiEnv_capture_mem 0.726251 0.667702 0.609153 0.550604 0.492056 0.433507 0.374958 0.316409 0.257860 1.799312 1.740763 1.682214 1.623665 1.565116 1.506568 1.448019 1.389470 1.330921 1.272372 1.213824 1.155275 1.096726 1.038177 0.979628 0.921080 0.862531 0.803982 0.745433 0.686884 0.628336 0.569787 0.511238 0.452689 0.394140 0.335592 0.277043 0.218494 1.759945 #[1.002867, 0.944318, 0.885769, 0.827220, 0.768672, 0.710123, 0.651574, 0.593025, 0.534476, 0.475928, 0.417379, 0.358830, 0.300281, 0.241732, 1.783184, 1.724635, 1.666086, 1.607537, 1.548988, 1.490440, 1.431891, 1.373342, 1.314793, 1.256244, 1.197696, 1.139147, 1.080598, 1.022049, 0.963500, 0.904952, 0.846403, 0.787854, 0.729305, 0.670756, 0.612208, 0.553659, 0.495110, 0.436561, 0.378012, 0.319464, 0.260915, 0.202366, 1.743817, 1.685268, 1.626720, 1.568171, 1.509622, 1.451073, 1.392524, 1.333976, 1.275427, 1.216878, 1.158329, 1.099780, 1.041232, 0.982683, 0.924134, 0.865585, 0.807036, 0.748488, 0.689939, 0.631390, 0.572841, 0.514292, 0.455744, 0.397195, 0.338646, 0.280097, 0.221548, 1.763000, 1.704451, 1.645902, 1.587353, 1.528804, 1.470256, 1.411707, 1.353158, 1.294609, 1.236060, 1.177512, 1.118963, 1.060414, 1.001865, 0.943316, 0.884768, 0.826219, 0.767670, 0.709121, 0.650572, 0.592024, 0.533475, 0.474926, 0.416377, 0.357828, 0.299280, 0.240731, 1.782182, 1.723633, 1.665084, 1.606536, 1.547987, 1.489438, 1.430889, 1.372340, 1.313792, 1.255243, 1.196694, 1.138145, 1.079596, 1.021048, 0.962499, 0.903950, 0.845401, 0.786852, 0.728304, 0.669755, 0.611206, 0.552657, 0.494108, 0.435560, 0.377011, 0.318462, 0.259913, 0.201364, 1.742816, 1.684267, 1.625718, 1.567169, 1.508620, 1.450072, 1.391523, 1.332974, 1.274425, 1.215876, 1.157328, 1.098779, 1.040230, 0.981681, 0.923132, 0.864584, 0.806035, 0.747486, 0.688937, 0.630388, 0.571840, 0.513291, 0.454742, 0.396193, 0.337644, 0.279096, 0.220547, 1.761998, 1.703449, 1.644900, 1.586352, 1.527803, 1.469254, 1.410705, 1.352156, 1.293608, 1.235059, 1.176510, 1.117961, 1.059412, 1.000864, 0.942315, 0.883766, 0.825217, 0.766668, 0.708120, 0.649571, 0.591022, 0.532473, 0.473924, 0.415376, 0.356827, 0.298278, 0.239729, 1.781180, 1.722632, 1.664083, 1.605534, 1.546985, 1.488436, 1.429888, 1.371339, 1.312790, 1.254241, 1.195692, 1.137144, 1.078595, 1.020046, 0.961497, 0.902948, 0.844400, 0.785851, 0.727302, 0.668753, 0.610204, 0.551656, 0.493107, 0.434558, 0.376009, 0.317460, 0.258912, 0.200363, 1.741814, 1.683265, 1.624716, 1.566168, 1.507619, 1.449070, 1.390521, 1.331972, 1.273424, 1.214875, 1.156326, 1.097777, 1.039228, 0.980680, 0.922131, 0.863582, 0.805033, 0.746484, 0.687936, 0.629387, 0.570838, 0.512289, 0.453740, 0.395192, 0.336643, 0.278094, 0.219545, 1.760996, 1.702448, 1.643899, 1.585350, 1.526801, 1.468252, 1.409704, 1.351155, 1.292606, 1.234057, 1.175508, 1.116960, 1.058411, 0.999862, 0.941313, 0.882764, 0.824216, 0.765667, 0.707118, 0.648569, 0.590020, 0.531472, 0.472923, 0.414374, 0.355825, 0.297276, 0.238728, 1.780179, 1.721630, 1.663081, 1.604532, 1.545984, 1.487435, 1.428886, 1.370337, 1.311788, 1.253240, 1.194691, 1.136142, 1.077593, 1.019044, 0.960496, 0.901947, 0.843398, 0.784849, 0.726300, 0.667752, 0.609203, 0.550654, 0.492105, 0.433556, 0.375008, 0.316459, 0.257910, 1.799361, 1.740812, 1.682264, 1.623715, 1.565166, 1.506617, 1.448068, 1.389520, 1.330971, 1.272422, 1.213873, 1.155324, 1.096776, 1.038227, 0.979678, 0.921129, 0.862580, 0.804032, 0.745483, 0.686934, 0.628385, 0.569836, 0.511288, 0.452739, 0.394190, 0.335641, 0.277092, 0.218544, 1.759995, 1.701446, 1.642897, 1.584348, 1.525800, 1.467251, 1.408702, 1.350153, 1.291604, 1.233056, 1.174507, 1.115958, 1.057409, 0.998860, 0.940312, 0.881763, 0.823214, 0.764665, 0.706116, 0.647568, 0.589019, 0.530470, 0.471921, 0.413372, 0.354824, 0.296275, 0.237726, 1.779177, 1.720628, 1.662080, 1.603531, 1.544982, 1.486433, 1.427884, 1.369336, 1.310787, 1.252238, 1.193689, 1.135140, 1.076592, 1.018043, 0.959494, 0.900945, 0.842396, 0.783848, 0.725299, 0.666750, 0.608201, 0.549652, 0.491104, 0.432555, 0.374006, 0.315457, 0.256908, 1.798360, 1.739811, 1.681262, 1.622713, 1.564164, 1.505616, 1.447067, 1.388518, 1.329969, 1.271420, 1.212872, 1.154323, 1.095774, 1.037225, 0.978676, 0.920128, 0.861579, 0.803030, 0.744481, 0.685932, 0.627384, 0.568835, 0.510286, 0.451737, 0.393188, 0.334640, 0.276091, 0.217542, 1.758993, 1.700444, 1.641896, 1.583347, 1.524798, 1.466249, 1.407700, 1.349152, 1.290603, 1.232054, 1.173505, 1.114956, 1.056408, 0.997859, 0.939310, 0.880761, 0.822212, 0.763664, 0.705115, 0.646566, 0.588017, 0.529468, 0.470920, 0.412371, 0.353822, 0.295273, 0.236724, 1.778176, 1.719627, 1.661078, 1.602529, 1.543980, 1.485432, 1.426883, 1.368334, 1.309785, 1.251236, 1.192688, 1.134139, 1.075590, 1.017041, 0.958492, 0.899944, 0.841395, 0.782846, 0.724297, 0.665748, 0.607200, 0.548651, 0.490102, 0.431553, 0.373004, 0.314456, 0.255907, 1.797358, 1.738809, 1.680260, 1.621712, 1.563163, 1.504614, 1.446065, 1.387516, 1.328968, 1.270419, 1.211870, 1.153321, 1.094772, 1.036224, 0.977675, 0.919126, 0.860577, 0.802028, 0.743480, 0.684931, 0.626382, 0.567833, 0.509284, 0.450736, 0.392187, 0.333638, 0.275089, 0.216540, 1.757992, 1.699443, 1.640894, 1.582345, 1.523796, 1.465248, 1.406699, 1.348150, 1.289601, 1.231052, 1.172504, 1.113955, 1.055406, 0.996857, 0.938308, 0.879760, 0.821211, 0.762662, 0.704113, 0.645564, 0.587016, 0.528467, 0.469918, 0.411369, 0.352820, 0.294272, 0.235723, 1.777174, 1.718625, 1.660076, 1.601528, 1.542979, 1.484430, 1.425881, 1.367332, 1.308784, 1.250235, 1.191686, 1.133137, 1.074588, 1.016040, 0.957491, 0.898942, 0.840393, 0.781844, 0.723296, 0.664747, 0.606198, 0.547649, 0.489100, 0.430552, 0.372003, 0.313454, 0.254905, 1.796356, 1.737808, 1.679259, 1.620710, 1.562161, 1.503612, 1.445064, 1.386515, 1.327966, 1.269417, 1.210868, 1.152320, 1.093771, 1.035222, 0.976673, 0.918124, 0.859576, 0.801027, 0.742478, 0.683929, 0.625380, 0.566832, 0.508283, 0.449734, 0.391185, 0.332636, 0.274088, 0.215539, 1.756990, 1.698441, 1.639892, 1.581344, 1.522795, 1.464246, 1.405697, 1.347148, 1.288600, 1.230051, 1.171502, 1.112953, 1.054404, 0.995856, 0.937307, 0.878758, 0.820209, 0.761660, 0.703112, 0.644563, 0.586014, 0.527465, 0.468916, 0.410368, 0.351819, 0.293270, 0.234721, 1.776172, 1.717624, 1.659075, 1.600526, 1.541977, 1.483428, 1.424880, 1.366331, 1.307782, 1.249233, 1.190684, 1.132136, 1.073587, 1.015038, 0.956489, 0.897940, 0.839392, 0.780843, 0.722294, 0.663745, 0.605196, 0.546648, 0.488099, 0.429550, 0.371001, 0.312452, 0.253904, 1.795355, 1.736806, 1.678257, 1.619708, 1.561160, 1.502611, 1.444062, 1.385513, 1.326964, 1.268416, 1.209867, 1.151318, 1.092769, 1.034220, 0.975672, 0.917123, 0.858574, 0.800025, 0.741476, 0.682928, 0.624379, 0.565830, 0.507281, 0.448732, 0.390184]))
-#eval IO.println ("check_hashemiEnv_capture_mem " ++ toString (check_hashemiEnv_capture_mem 0.395059 0.336510 0.277961 0.219412 1.760864 1.702315 1.643766 1.585217 1.526668 1.468120 1.409571 1.351022 1.292473 1.233924 1.175376 1.116827 1.058278 0.999729 0.941180 0.882632 0.824083 0.765534 0.706985 0.648436 0.589888 0.531339 0.472790 0.414241 0.355692 0.297144 0.238595 1.780046 1.721497 1.662948 1.604400 1.545851 1.487302 1.428753 #[0.671675, 0.613126, 0.554577, 0.496028, 0.437480, 0.378931, 0.320382, 0.261833, 0.203284, 1.744736, 1.686187, 1.627638, 1.569089, 1.510540, 1.451992, 1.393443, 1.334894, 1.276345, 1.217796, 1.159248, 1.100699, 1.042150, 0.983601, 0.925052, 0.866504, 0.807955, 0.749406, 0.690857, 0.632308, 0.573760, 0.515211, 0.456662, 0.398113, 0.339564, 0.281016, 0.222467, 1.763918, 1.705369, 1.646820, 1.588272, 1.529723, 1.471174, 1.412625, 1.354076, 1.295528, 1.236979, 1.178430, 1.119881, 1.061332, 1.002784, 0.944235, 0.885686, 0.827137, 0.768588, 0.710040, 0.651491, 0.592942, 0.534393, 0.475844, 0.417296, 0.358747, 0.300198, 0.241649, 1.783100, 1.724552, 1.666003, 1.607454, 1.548905, 1.490356, 1.431808, 1.373259, 1.314710, 1.256161, 1.197612, 1.139064, 1.080515, 1.021966, 0.963417, 0.904868, 0.846320, 0.787771, 0.729222, 0.670673, 0.612124, 0.553576, 0.495027, 0.436478, 0.377929, 0.319380, 0.260832, 0.202283, 1.743734, 1.685185, 1.626636, 1.568088, 1.509539, 1.450990, 1.392441, 1.333892, 1.275344, 1.216795, 1.158246, 1.099697, 1.041148, 0.982600, 0.924051, 0.865502, 0.806953, 0.748404, 0.689856, 0.631307, 0.572758, 0.514209, 0.455660, 0.397112, 0.338563, 0.280014, 0.221465, 1.762916, 1.704368, 1.645819, 1.587270, 1.528721, 1.470172, 1.411624, 1.353075, 1.294526, 1.235977, 1.177428, 1.118880, 1.060331, 1.001782, 0.943233, 0.884684, 0.826136, 0.767587, 0.709038, 0.650489, 0.591940, 0.533392, 0.474843, 0.416294, 0.357745, 0.299196, 0.240648, 1.782099, 1.723550, 1.665001, 1.606452, 1.547904, 1.489355, 1.430806, 1.372257, 1.313708, 1.255160, 1.196611, 1.138062, 1.079513, 1.020964, 0.962416, 0.903867, 0.845318, 0.786769, 0.728220, 0.669672, 0.611123, 0.552574, 0.494025, 0.435476, 0.376928, 0.318379, 0.259830, 0.201281, 1.742732, 1.684184, 1.625635, 1.567086, 1.508537, 1.449988, 1.391440, 1.332891, 1.274342, 1.215793, 1.157244, 1.098696, 1.040147, 0.981598, 0.923049, 0.864500, 0.805952, 0.747403, 0.688854, 0.630305, 0.571756, 0.513208, 0.454659, 0.396110, 0.337561, 0.279012, 0.220464, 1.761915, 1.703366, 1.644817, 1.586268, 1.527720, 1.469171, 1.410622, 1.352073, 1.293524, 1.234976, 1.176427, 1.117878, 1.059329, 1.000780, 0.942232, 0.883683, 0.825134, 0.766585, 0.708036, 0.649488, 0.590939, 0.532390, 0.473841, 0.415292, 0.356744, 0.298195, 0.239646, 1.781097, 1.722548, 1.664000, 1.605451, 1.546902, 1.488353, 1.429804, 1.371256, 1.312707, 1.254158, 1.195609, 1.137060, 1.078512, 1.019963, 0.961414, 0.902865, 0.844316, 0.785768, 0.727219, 0.668670, 0.610121, 0.551572, 0.493024, 0.434475, 0.375926, 0.317377, 0.258828, 0.200280, 1.741731, 1.683182, 1.624633, 1.566084, 1.507536, 1.448987, 1.390438, 1.331889, 1.273340, 1.214792, 1.156243, 1.097694, 1.039145, 0.980596, 0.922048, 0.863499, 0.804950, 0.746401, 0.687852, 0.629304, 0.570755, 0.512206, 0.453657, 0.395108, 0.336560, 0.278011, 0.219462, 1.760913, 1.702364, 1.643816, 1.585267, 1.526718, 1.468169, 1.409620, 1.351072, 1.292523, 1.233974, 1.175425, 1.116876, 1.058328, 0.999779, 0.941230, 0.882681, 0.824132, 0.765584, 0.707035, 0.648486, 0.589937, 0.531388, 0.472840, 0.414291, 0.355742, 0.297193, 0.238644, 1.780096, 1.721547, 1.662998, 1.604449, 1.545900, 1.487352, 1.428803, 1.370254, 1.311705, 1.253156, 1.194608, 1.136059, 1.077510, 1.018961, 0.960412, 0.901864, 0.843315, 0.784766, 0.726217, 0.667668, 0.609120, 0.550571, 0.492022, 0.433473, 0.374924, 0.316376, 0.257827, 1.799278, 1.740729, 1.682180, 1.623632, 1.565083, 1.506534, 1.447985, 1.389436, 1.330888, 1.272339, 1.213790, 1.155241, 1.096692, 1.038144, 0.979595, 0.921046, 0.862497, 0.803948, 0.745400, 0.686851, 0.628302, 0.569753, 0.511204, 0.452656, 0.394107, 0.335558, 0.277009, 0.218460, 1.759912, 1.701363, 1.642814, 1.584265, 1.525716, 1.467168, 1.408619, 1.350070, 1.291521, 1.232972, 1.174424, 1.115875, 1.057326, 0.998777, 0.940228, 0.881680, 0.823131, 0.764582, 0.706033, 0.647484, 0.588936, 0.530387, 0.471838, 0.413289, 0.354740, 0.296192, 0.237643, 1.779094, 1.720545, 1.661996, 1.603448, 1.544899, 1.486350, 1.427801, 1.369252, 1.310704, 1.252155, 1.193606, 1.135057, 1.076508, 1.017960, 0.959411, 0.900862, 0.842313, 0.783764, 0.725216, 0.666667, 0.608118, 0.549569, 0.491020, 0.432472, 0.373923, 0.315374, 0.256825, 1.798276, 1.739728, 1.681179, 1.622630, 1.564081, 1.505532, 1.446984, 1.388435, 1.329886, 1.271337, 1.212788, 1.154240, 1.095691, 1.037142, 0.978593, 0.920044, 0.861496, 0.802947, 0.744398, 0.685849, 0.627300, 0.568752, 0.510203, 0.451654, 0.393105, 0.334556, 0.276008, 0.217459, 1.758910, 1.700361, 1.641812, 1.583264, 1.524715, 1.466166, 1.407617, 1.349068, 1.290520, 1.231971, 1.173422, 1.114873, 1.056324, 0.997776, 0.939227, 0.880678, 0.822129, 0.763580, 0.705032, 0.646483, 0.587934, 0.529385, 0.470836, 0.412288, 0.353739, 0.295190, 0.236641, 1.778092, 1.719544, 1.660995, 1.602446, 1.543897, 1.485348, 1.426800, 1.368251, 1.309702, 1.251153, 1.192604, 1.134056, 1.075507, 1.016958, 0.958409, 0.899860, 0.841312, 0.782763, 0.724214, 0.665665, 0.607116, 0.548568, 0.490019, 0.431470, 0.372921, 0.314372, 0.255824, 1.797275, 1.738726, 1.680177, 1.621628, 1.563080, 1.504531, 1.445982, 1.387433, 1.328884, 1.270336, 1.211787, 1.153238, 1.094689, 1.036140, 0.977592, 0.919043, 0.860494, 0.801945, 0.743396, 0.684848, 0.626299, 0.567750, 0.509201, 0.450652, 0.392104, 0.333555, 0.275006, 0.216457, 1.757908, 1.699360, 1.640811, 1.582262, 1.523713, 1.465164, 1.406616, 1.348067, 1.289518, 1.230969, 1.172420, 1.113872, 1.055323, 0.996774, 0.938225, 0.879676, 0.821128, 0.762579, 0.704030, 0.645481, 0.586932, 0.528384, 0.469835, 0.411286, 0.352737, 0.294188, 0.235640, 1.777091, 1.718542, 1.659993, 1.601444, 1.542896, 1.484347, 1.425798, 1.367249, 1.308700, 1.250152, 1.191603, 1.133054, 1.074505, 1.015956, 0.957408, 0.898859, 0.840310, 0.781761, 0.723212, 0.664664, 0.606115, 0.547566, 0.489017, 0.430468, 0.371920, 0.313371, 0.254822, 1.796273, 1.737724, 1.679176, 1.620627, 1.562078, 1.503529, 1.444980, 1.386432, 1.327883, 1.269334, 1.210785, 1.152236, 1.093688, 1.035139, 0.976590, 0.918041, 0.859492, 0.800944, 0.742395, 0.683846, 0.625297, 0.566748, 0.508200, 0.449651, 0.391102, 0.332553, 0.274004, 0.215456, 1.756907, 1.698358, 1.639809, 1.581260, 1.522712, 1.464163, 1.405614, 1.347065, 1.288516, 1.229968, 1.171419, 1.112870, 1.054321, 0.995772, 0.937224, 0.878675, 0.820126, 0.761577, 0.703028, 0.644480, 0.585931, 0.527382, 0.468833, 0.410284, 0.351736, 0.293187, 0.234638, 1.776089, 1.717540, 1.658992]))
-#eval IO.println ("check_hashemiEnv_capture_mem " ++ toString (check_hashemiEnv_capture_mem 1.663867 1.605318 1.546769 1.488220 1.429672 1.371123 1.312574 1.254025 1.195476 1.136928 1.078379 1.019830 0.961281 0.902732 0.844184 0.785635 0.727086 0.668537 0.609988 0.551440 0.492891 0.434342 0.375793 0.317244 0.258696 0.200147 1.741598 1.683049 1.624500 1.565952 1.507403 1.448854 1.390305 1.331756 1.273208 1.214659 1.156110 1.097561 #[0.340483, 0.281934, 0.223385, 1.764836, 1.706288, 1.647739, 1.589190, 1.530641, 1.472092, 1.413544, 1.354995, 1.296446, 1.237897, 1.179348, 1.120800, 1.062251, 1.003702, 0.945153, 0.886604, 0.828056, 0.769507, 0.710958, 0.652409, 0.593860, 0.535312, 0.476763, 0.418214, 0.359665, 0.301116, 0.242568, 1.784019, 1.725470, 1.666921, 1.608372, 1.549824, 1.491275, 1.432726, 1.374177, 1.315628, 1.257080, 1.198531, 1.139982, 1.081433, 1.022884, 0.964336, 0.905787, 0.847238, 0.788689, 0.730140, 0.671592, 0.613043, 0.554494, 0.495945, 0.437396, 0.378848, 0.320299, 0.261750, 0.203201, 1.744652, 1.686104, 1.627555, 1.569006, 1.510457, 1.451908, 1.393360, 1.334811, 1.276262, 1.217713, 1.159164, 1.100616, 1.042067, 0.983518, 0.924969, 0.866420, 0.807872, 0.749323, 0.690774, 0.632225, 0.573676, 0.515128, 0.456579, 0.398030, 0.339481, 0.280932, 0.222384, 1.763835, 1.705286, 1.646737, 1.588188, 1.529640, 1.471091, 1.412542, 1.353993, 1.295444, 1.236896, 1.178347, 1.119798, 1.061249, 1.002700, 0.944152, 0.885603, 0.827054, 0.768505, 0.709956, 0.651408, 0.592859, 0.534310, 0.475761, 0.417212, 0.358664, 0.300115, 0.241566, 1.783017, 1.724468, 1.665920, 1.607371, 1.548822, 1.490273, 1.431724, 1.373176, 1.314627, 1.256078, 1.197529, 1.138980, 1.080432, 1.021883, 0.963334, 0.904785, 0.846236, 0.787688, 0.729139, 0.670590, 0.612041, 0.553492, 0.494944, 0.436395, 0.377846, 0.319297, 0.260748, 0.202200, 1.743651, 1.685102, 1.626553, 1.568004, 1.509456, 1.450907, 1.392358, 1.333809, 1.275260, 1.216712, 1.158163, 1.099614, 1.041065, 0.982516, 0.923968, 0.865419, 0.806870, 0.748321, 0.689772, 0.631224, 0.572675, 0.514126, 0.455577, 0.397028, 0.338480, 0.279931, 0.221382, 1.762833, 1.704284, 1.645736, 1.587187, 1.528638, 1.470089, 1.411540, 1.352992, 1.294443, 1.235894, 1.177345, 1.118796, 1.060248, 1.001699, 0.943150, 0.884601, 0.826052, 0.767504, 0.708955, 0.650406, 0.591857, 0.533308, 0.474760, 0.416211, 0.357662, 0.299113, 0.240564, 1.782016, 1.723467, 1.664918, 1.606369, 1.547820, 1.489272, 1.430723, 1.372174, 1.313625, 1.255076, 1.196528, 1.137979, 1.079430, 1.020881, 0.962332, 0.903784, 0.845235, 0.786686, 0.728137, 0.669588, 0.611040, 0.552491, 0.493942, 0.435393, 0.376844, 0.318296, 0.259747, 0.201198, 1.742649, 1.684100, 1.625552, 1.567003, 1.508454, 1.449905, 1.391356, 1.332808, 1.274259, 1.215710, 1.157161, 1.098612, 1.040064, 0.981515, 0.922966, 0.864417, 0.805868, 0.747320, 0.688771, 0.630222, 0.571673, 0.513124, 0.454576, 0.396027, 0.337478, 0.278929, 0.220380, 1.761832, 1.703283, 1.644734, 1.586185, 1.527636, 1.469088, 1.410539, 1.351990, 1.293441, 1.234892, 1.176344, 1.117795, 1.059246, 1.000697, 0.942148, 0.883600, 0.825051, 0.766502, 0.707953, 0.649404, 0.590856, 0.532307, 0.473758, 0.415209, 0.356660, 0.298112, 0.239563, 1.781014, 1.722465, 1.663916, 1.605368, 1.546819, 1.488270, 1.429721, 1.371172, 1.312624, 1.254075, 1.195526, 1.136977, 1.078428, 1.019880, 0.961331, 0.902782, 0.844233, 0.785684, 0.727136, 0.668587, 0.610038, 0.551489, 0.492940, 0.434392, 0.375843, 0.317294, 0.258745, 0.200196, 1.741648, 1.683099, 1.624550, 1.566001, 1.507452, 1.448904, 1.390355, 1.331806, 1.273257, 1.214708, 1.156160, 1.097611, 1.039062, 0.980513, 0.921964, 0.863416, 0.804867, 0.746318, 0.687769, 0.629220, 0.570672, 0.512123, 0.453574, 0.395025, 0.336476, 0.277928, 0.219379, 1.760830, 1.702281, 1.643732, 1.585184, 1.526635, 1.468086, 1.409537, 1.350988, 1.292440, 1.233891, 1.175342, 1.116793, 1.058244, 0.999696, 0.941147, 0.882598, 0.824049, 0.765500, 0.706952, 0.648403, 0.589854, 0.531305, 0.472756, 0.414208, 0.355659, 0.297110, 0.238561, 1.780012, 1.721464, 1.662915, 1.604366, 1.545817, 1.487268, 1.428720, 1.370171, 1.311622, 1.253073, 1.194524, 1.135976, 1.077427, 1.018878, 0.960329, 0.901780, 0.843232, 0.784683, 0.726134, 0.667585, 0.609036, 0.550488, 0.491939, 0.433390, 0.374841, 0.316292, 0.257744, 1.799195, 1.740646, 1.682097, 1.623548, 1.565000, 1.506451, 1.447902, 1.389353, 1.330804, 1.272256, 1.213707, 1.155158, 1.096609, 1.038060, 0.979512, 0.920963, 0.862414, 0.803865, 0.745316, 0.686768, 0.628219, 0.569670, 0.511121, 0.452572, 0.394024, 0.335475, 0.276926, 0.218377, 1.759828, 1.701280, 1.642731, 1.584182, 1.525633, 1.467084, 1.408536, 1.349987, 1.291438, 1.232889, 1.174340, 1.115792, 1.057243, 0.998694, 0.940145, 0.881596, 0.823048, 0.764499, 0.705950, 0.647401, 0.588852, 0.530304, 0.471755, 0.413206, 0.354657, 0.296108, 0.237560, 1.779011, 1.720462, 1.661913, 1.603364, 1.544816, 1.486267, 1.427718, 1.369169, 1.310620, 1.252072, 1.193523, 1.134974, 1.076425, 1.017876, 0.959328, 0.900779, 0.842230, 0.783681, 0.725132, 0.666584, 0.608035, 0.549486, 0.490937, 0.432388, 0.373840, 0.315291, 0.256742, 1.798193, 1.739644, 1.681096, 1.622547, 1.563998, 1.505449, 1.446900, 1.388352, 1.329803, 1.271254, 1.212705, 1.154156, 1.095608, 1.037059, 0.978510, 0.919961, 0.861412, 0.802864, 0.744315, 0.685766, 0.627217, 0.568668, 0.510120, 0.451571, 0.393022, 0.334473, 0.275924, 0.217376, 1.758827, 1.700278, 1.641729, 1.583180, 1.524632, 1.466083, 1.407534, 1.348985, 1.290436, 1.231888, 1.173339, 1.114790, 1.056241, 0.997692, 0.939144, 0.880595, 0.822046, 0.763497, 0.704948, 0.646400, 0.587851, 0.529302, 0.470753, 0.412204, 0.353656, 0.295107, 0.236558, 1.778009, 1.719460, 1.660912, 1.602363, 1.543814, 1.485265, 1.426716, 1.368168, 1.309619, 1.251070, 1.192521, 1.133972, 1.075424, 1.016875, 0.958326, 0.899777, 0.841228, 0.782680, 0.724131, 0.665582, 0.607033, 0.548484, 0.489936, 0.431387, 0.372838, 0.314289, 0.255740, 1.797192, 1.738643, 1.680094, 1.621545, 1.562996, 1.504448, 1.445899, 1.387350, 1.328801, 1.270252, 1.211704, 1.153155, 1.094606, 1.036057, 0.977508, 0.918960, 0.860411, 0.801862, 0.743313, 0.684764, 0.626216, 0.567667, 0.509118, 0.450569, 0.392020, 0.333472, 0.274923, 0.216374, 1.757825, 1.699276, 1.640728, 1.582179, 1.523630, 1.465081, 1.406532, 1.347984, 1.289435, 1.230886, 1.172337, 1.113788, 1.055240, 0.996691, 0.938142, 0.879593, 0.821044, 0.762496, 0.703947, 0.645398, 0.586849, 0.528300, 0.469752, 0.411203, 0.352654, 0.294105, 0.235556, 1.777008, 1.718459, 1.659910, 1.601361, 1.542812, 1.484264, 1.425715, 1.367166, 1.308617, 1.250068, 1.191520, 1.132971, 1.074422, 1.015873, 0.957324, 0.898776, 0.840227, 0.781678, 0.723129, 0.664580, 0.606032, 0.547483, 0.488934, 0.430385, 0.371836, 0.313288, 0.254739, 1.796190, 1.737641, 1.679092, 1.620544, 1.561995, 1.503446, 1.444897, 1.386348, 1.327800]))
+#eval IO.println ("check_hashemiEnv_capture_mem " ++ toString (check_hashemiEnv_capture_mem 0.837035 0.778486 0.719937 0.661388 0.602840 0.544291 0.485742 0.427193 0.368644 0.310096 0.251547 1.792998 1.734449 1.675900 1.617352 1.558803 1.500254 1.441705 1.383156 1.324608 1.266059 1.207510 1.148961 1.090412 1.031864 0.973315 0.914766 0.856217 0.797668 0.739120 0.680571 0.622022 0.563473 0.504924 0.446376 0.387827 0.329278 0.270729 #[1.113651, 1.055102, 0.996553, 0.938004, 0.879456, 0.820907, 0.762358, 0.703809, 0.645260, 0.586712, 0.528163, 0.469614, 0.411065, 0.352516, 0.293968, 0.235419, 1.776870, 1.718321, 1.659772, 1.601224, 1.542675, 1.484126, 1.425577, 1.367028, 1.308480, 1.249931, 1.191382, 1.132833, 1.074284, 1.015736, 0.957187, 0.898638, 0.840089, 0.781540, 0.722992, 0.664443, 0.605894, 0.547345, 0.488796, 0.430248, 0.371699, 0.313150, 0.254601, 1.796052, 1.737504, 1.678955, 1.620406, 1.561857, 1.503308, 1.444760, 1.386211, 1.327662, 1.269113, 1.210564, 1.152016, 1.093467, 1.034918, 0.976369, 0.917820, 0.859272, 0.800723, 0.742174, 0.683625, 0.625076, 0.566528, 0.507979, 0.449430, 0.390881, 0.332332, 0.273784, 0.215235, 1.756686, 1.698137, 1.639588, 1.581040, 1.522491, 1.463942, 1.405393, 1.346844, 1.288296, 1.229747, 1.171198, 1.112649, 1.054100, 0.995552, 0.937003, 0.878454, 0.819905, 0.761356, 0.702808, 0.644259, 0.585710, 0.527161, 0.468612, 0.410064, 0.351515, 0.292966, 0.234417, 1.775868, 1.717320, 1.658771, 1.600222, 1.541673, 1.483124, 1.424576, 1.366027, 1.307478, 1.248929, 1.190380, 1.131832, 1.073283, 1.014734, 0.956185, 0.897636, 0.839088, 0.780539, 0.721990, 0.663441, 0.604892, 0.546344, 0.487795, 0.429246, 0.370697, 0.312148, 0.253600, 1.795051, 1.736502, 1.677953, 1.619404, 1.560856, 1.502307, 1.443758, 1.385209, 1.326660, 1.268112, 1.209563, 1.151014, 1.092465, 1.033916, 0.975368, 0.916819, 0.858270, 0.799721, 0.741172, 0.682624, 0.624075, 0.565526, 0.506977, 0.448428, 0.389880, 0.331331, 0.272782, 0.214233, 1.755684, 1.697136, 1.638587, 1.580038, 1.521489, 1.462940, 1.404392, 1.345843, 1.287294, 1.228745, 1.170196, 1.111648, 1.053099, 0.994550, 0.936001, 0.877452, 0.818904, 0.760355, 0.701806, 0.643257, 0.584708, 0.526160, 0.467611, 0.409062, 0.350513, 0.291964, 0.233416, 1.774867, 1.716318, 1.657769, 1.599220, 1.540672, 1.482123, 1.423574, 1.365025, 1.306476, 1.247928, 1.189379, 1.130830, 1.072281, 1.013732, 0.955184, 0.896635, 0.838086, 0.779537, 0.720988, 0.662440, 0.603891, 0.545342, 0.486793, 0.428244, 0.369696, 0.311147, 0.252598, 1.794049, 1.735500, 1.676952, 1.618403, 1.559854, 1.501305, 1.442756, 1.384208, 1.325659, 1.267110, 1.208561, 1.150012, 1.091464, 1.032915, 0.974366, 0.915817, 0.857268, 0.798720, 0.740171, 0.681622, 0.623073, 0.564524, 0.505976, 0.447427, 0.388878, 0.330329, 0.271780, 0.213232, 1.754683, 1.696134, 1.637585, 1.579036, 1.520488, 1.461939, 1.403390, 1.344841, 1.286292, 1.227744, 1.169195, 1.110646, 1.052097, 0.993548, 0.935000, 0.876451, 0.817902, 0.759353, 0.700804, 0.642256, 0.583707, 0.525158, 0.466609, 0.408060, 0.349512, 0.290963, 0.232414, 1.773865, 1.715316, 1.656768, 1.598219, 1.539670, 1.481121, 1.422572, 1.364024, 1.305475, 1.246926, 1.188377, 1.129828, 1.071280, 1.012731, 0.954182, 0.895633, 0.837084, 0.778536, 0.719987, 0.661438, 0.602889, 0.544340, 0.485792, 0.427243, 0.368694, 0.310145, 0.251596, 1.793048, 1.734499, 1.675950, 1.617401, 1.558852, 1.500304, 1.441755, 1.383206, 1.324657, 1.266108, 1.207560, 1.149011, 1.090462, 1.031913, 0.973364, 0.914816, 0.856267, 0.797718, 0.739169, 0.680620, 0.622072, 0.563523, 0.504974, 0.446425, 0.387876, 0.329328, 0.270779, 0.212230, 1.753681, 1.695132, 1.636584, 1.578035, 1.519486, 1.460937, 1.402388, 1.343840, 1.285291, 1.226742, 1.168193, 1.109644, 1.051096, 0.992547, 0.933998, 0.875449, 0.816900, 0.758352, 0.699803, 0.641254, 0.582705, 0.524156, 0.465608, 0.407059, 0.348510, 0.289961, 0.231412, 1.772864, 1.714315, 1.655766, 1.597217, 1.538668, 1.480120, 1.421571, 1.363022, 1.304473, 1.245924, 1.187376, 1.128827, 1.070278, 1.011729, 0.953180, 0.894632, 0.836083, 0.777534, 0.718985, 0.660436, 0.601888, 0.543339, 0.484790, 0.426241, 0.367692, 0.309144, 0.250595, 1.792046, 1.733497, 1.674948, 1.616400, 1.557851, 1.499302, 1.440753, 1.382204, 1.323656, 1.265107, 1.206558, 1.148009, 1.089460, 1.030912, 0.972363, 0.913814, 0.855265, 0.796716, 0.738168, 0.679619, 0.621070, 0.562521, 0.503972, 0.445424, 0.386875, 0.328326, 0.269777, 0.211228, 1.752680, 1.694131, 1.635582, 1.577033, 1.518484, 1.459936, 1.401387, 1.342838, 1.284289, 1.225740, 1.167192, 1.108643, 1.050094, 0.991545, 0.932996, 0.874448, 0.815899, 0.757350, 0.698801, 0.640252, 0.581704, 0.523155, 0.464606, 0.406057, 0.347508, 0.288960, 0.230411, 1.771862, 1.713313, 1.654764, 1.596216, 1.537667, 1.479118, 1.420569, 1.362020, 1.303472, 1.244923, 1.186374, 1.127825, 1.069276, 1.010728, 0.952179, 0.893630, 0.835081, 0.776532, 0.717984, 0.659435, 0.600886, 0.542337, 0.483788, 0.425240, 0.366691, 0.308142, 0.249593, 1.791044, 1.732496, 1.673947, 1.615398, 1.556849, 1.498300, 1.439752, 1.381203, 1.322654, 1.264105, 1.205556, 1.147008, 1.088459, 1.029910, 0.971361, 0.912812, 0.854264, 0.795715, 0.737166, 0.678617, 0.620068, 0.561520, 0.502971, 0.444422, 0.385873, 0.327324, 0.268776, 0.210227, 1.751678, 1.693129, 1.634580, 1.576032, 1.517483, 1.458934, 1.400385, 1.341836, 1.283288, 1.224739, 1.166190, 1.107641, 1.049092, 0.990544, 0.931995, 0.873446, 0.814897, 0.756348, 0.697800, 0.639251, 0.580702, 0.522153, 0.463604, 0.405056, 0.346507, 0.287958, 0.229409, 1.770860, 1.712312, 1.653763, 1.595214, 1.536665, 1.478116, 1.419568, 1.361019, 1.302470, 1.243921, 1.185372, 1.126824, 1.068275, 1.009726, 0.951177, 0.892628, 0.834080, 0.775531, 0.716982, 0.658433, 0.599884, 0.541336, 0.482787, 0.424238, 0.365689, 0.307140, 0.248592, 1.790043, 1.731494, 1.672945, 1.614396, 1.555848, 1.497299, 1.438750, 1.380201, 1.321652, 1.263104, 1.204555, 1.146006, 1.087457, 1.028908, 0.970360, 0.911811, 0.853262, 0.794713, 0.736164, 0.677616, 0.619067, 0.560518, 0.501969, 0.443420, 0.384872, 0.326323, 0.267774, 0.209225, 1.750676, 1.692128, 1.633579, 1.575030, 1.516481, 1.457932, 1.399384, 1.340835, 1.282286, 1.223737, 1.165188, 1.106640, 1.048091, 0.989542, 0.930993, 0.872444, 0.813896, 0.755347, 0.696798, 0.638249, 0.579700, 0.521152, 0.462603, 0.404054, 0.345505, 0.286956, 0.228408, 1.769859, 1.711310, 1.652761, 1.594212, 1.535664, 1.477115, 1.418566, 1.360017, 1.301468, 1.242920, 1.184371, 1.125822, 1.067273, 1.008724, 0.950176, 0.891627, 0.833078, 0.774529, 0.715980, 0.657432, 0.598883, 0.540334, 0.481785, 0.423236, 0.364688, 0.306139, 0.247590, 1.789041, 1.730492, 1.671944, 1.613395, 1.554846, 1.496297, 1.437748, 1.379200, 1.320651, 1.262102, 1.203553, 1.145004, 1.086456, 1.027907, 0.969358, 0.910809, 0.852260, 0.793712, 0.735163, 0.676614, 0.618065, 0.559516, 0.500968]))
+#eval IO.println ("check_hashemiEnv_capture_mem " ++ toString (check_hashemiEnv_capture_mem 0.505843 0.447294 0.388745 0.330196 0.271648 0.213099 1.754550 1.696001 1.637452 1.578904 1.520355 1.461806 1.403257 1.344708 1.286160 1.227611 1.169062 1.110513 1.051964 0.993416 0.934867 0.876318 0.817769 0.759220 0.700672 0.642123 0.583574 0.525025 0.466476 0.407928 0.349379 0.290830 0.232281 1.773732 1.715184 1.656635 1.598086 1.539537 #[0.782459, 0.723910, 0.665361, 0.606812, 0.548264, 0.489715, 0.431166, 0.372617, 0.314068, 0.255520, 1.796971, 1.738422, 1.679873, 1.621324, 1.562776, 1.504227, 1.445678, 1.387129, 1.328580, 1.270032, 1.211483, 1.152934, 1.094385, 1.035836, 0.977288, 0.918739, 0.860190, 0.801641, 0.743092, 0.684544, 0.625995, 0.567446, 0.508897, 0.450348, 0.391800, 0.333251, 0.274702, 0.216153, 1.757604, 1.699056, 1.640507, 1.581958, 1.523409, 1.464860, 1.406312, 1.347763, 1.289214, 1.230665, 1.172116, 1.113568, 1.055019, 0.996470, 0.937921, 0.879372, 0.820824, 0.762275, 0.703726, 0.645177, 0.586628, 0.528080, 0.469531, 0.410982, 0.352433, 0.293884, 0.235336, 1.776787, 1.718238, 1.659689, 1.601140, 1.542592, 1.484043, 1.425494, 1.366945, 1.308396, 1.249848, 1.191299, 1.132750, 1.074201, 1.015652, 0.957104, 0.898555, 0.840006, 0.781457, 0.722908, 0.664360, 0.605811, 0.547262, 0.488713, 0.430164, 0.371616, 0.313067, 0.254518, 1.795969, 1.737420, 1.678872, 1.620323, 1.561774, 1.503225, 1.444676, 1.386128, 1.327579, 1.269030, 1.210481, 1.151932, 1.093384, 1.034835, 0.976286, 0.917737, 0.859188, 0.800640, 0.742091, 0.683542, 0.624993, 0.566444, 0.507896, 0.449347, 0.390798, 0.332249, 0.273700, 0.215152, 1.756603, 1.698054, 1.639505, 1.580956, 1.522408, 1.463859, 1.405310, 1.346761, 1.288212, 1.229664, 1.171115, 1.112566, 1.054017, 0.995468, 0.936920, 0.878371, 0.819822, 0.761273, 0.702724, 0.644176, 0.585627, 0.527078, 0.468529, 0.409980, 0.351432, 0.292883, 0.234334, 1.775785, 1.717236, 1.658688, 1.600139, 1.541590, 1.483041, 1.424492, 1.365944, 1.307395, 1.248846, 1.190297, 1.131748, 1.073200, 1.014651, 0.956102, 0.897553, 0.839004, 0.780456, 0.721907, 0.663358, 0.604809, 0.546260, 0.487712, 0.429163, 0.370614, 0.312065, 0.253516, 1.794968, 1.736419, 1.677870, 1.619321, 1.560772, 1.502224, 1.443675, 1.385126, 1.326577, 1.268028, 1.209480, 1.150931, 1.092382, 1.033833, 0.975284, 0.916736, 0.858187, 0.799638, 0.741089, 0.682540, 0.623992, 0.565443, 0.506894, 0.448345, 0.389796, 0.331248, 0.272699, 0.214150, 1.755601, 1.697052, 1.638504, 1.579955, 1.521406, 1.462857, 1.404308, 1.345760, 1.287211, 1.228662, 1.170113, 1.111564, 1.053016, 0.994467, 0.935918, 0.877369, 0.818820, 0.760272, 0.701723, 0.643174, 0.584625, 0.526076, 0.467528, 0.408979, 0.350430, 0.291881, 0.233332, 1.774784, 1.716235, 1.657686, 1.599137, 1.540588, 1.482040, 1.423491, 1.364942, 1.306393, 1.247844, 1.189296, 1.130747, 1.072198, 1.013649, 0.955100, 0.896552, 0.838003, 0.779454, 0.720905, 0.662356, 0.603808, 0.545259, 0.486710, 0.428161, 0.369612, 0.311064, 0.252515, 1.793966, 1.735417, 1.676868, 1.618320, 1.559771, 1.501222, 1.442673, 1.384124, 1.325576, 1.267027, 1.208478, 1.149929, 1.091380, 1.032832, 0.974283, 0.915734, 0.857185, 0.798636, 0.740088, 0.681539, 0.622990, 0.564441, 0.505892, 0.447344, 0.388795, 0.330246, 0.271697, 0.213148, 1.754600, 1.696051, 1.637502, 1.578953, 1.520404, 1.461856, 1.403307, 1.344758, 1.286209, 1.227660, 1.169112, 1.110563, 1.052014, 0.993465, 0.934916, 0.876368, 0.817819, 0.759270, 0.700721, 0.642172, 0.583624, 0.525075, 0.466526, 0.407977, 0.349428, 0.290880, 0.232331, 1.773782, 1.715233, 1.656684, 1.598136, 1.539587, 1.481038, 1.422489, 1.363940, 1.305392, 1.246843, 1.188294, 1.129745, 1.071196, 1.012648, 0.954099, 0.895550, 0.837001, 0.778452, 0.719904, 0.661355, 0.602806, 0.544257, 0.485708, 0.427160, 0.368611, 0.310062, 0.251513, 1.792964, 1.734416, 1.675867, 1.617318, 1.558769, 1.500220, 1.441672, 1.383123, 1.324574, 1.266025, 1.207476, 1.148928, 1.090379, 1.031830, 0.973281, 0.914732, 0.856184, 0.797635, 0.739086, 0.680537, 0.621988, 0.563440, 0.504891, 0.446342, 0.387793, 0.329244, 0.270696, 0.212147, 1.753598, 1.695049, 1.636500, 1.577952, 1.519403, 1.460854, 1.402305, 1.343756, 1.285208, 1.226659, 1.168110, 1.109561, 1.051012, 0.992464, 0.933915, 0.875366, 0.816817, 0.758268, 0.699720, 0.641171, 0.582622, 0.524073, 0.465524, 0.406976, 0.348427, 0.289878, 0.231329, 1.772780, 1.714232, 1.655683, 1.597134, 1.538585, 1.480036, 1.421488, 1.362939, 1.304390, 1.245841, 1.187292, 1.128744, 1.070195, 1.011646, 0.953097, 0.894548, 0.836000, 0.777451, 0.718902, 0.660353, 0.601804, 0.543256, 0.484707, 0.426158, 0.367609, 0.309060, 0.250512, 1.791963, 1.733414, 1.674865, 1.616316, 1.557768, 1.499219, 1.440670, 1.382121, 1.323572, 1.265024, 1.206475, 1.147926, 1.089377, 1.030828, 0.972280, 0.913731, 0.855182, 0.796633, 0.738084, 0.679536, 0.620987, 0.562438, 0.503889, 0.445340, 0.386792, 0.328243, 0.269694, 0.211145, 1.752596, 1.694048, 1.635499, 1.576950, 1.518401, 1.459852, 1.401304, 1.342755, 1.284206, 1.225657, 1.167108, 1.108560, 1.050011, 0.991462, 0.932913, 0.874364, 0.815816, 0.757267, 0.698718, 0.640169, 0.581620, 0.523072, 0.464523, 0.405974, 0.347425, 0.288876, 0.230328, 1.771779, 1.713230, 1.654681, 1.596132, 1.537584, 1.479035, 1.420486, 1.361937, 1.303388, 1.244840, 1.186291, 1.127742, 1.069193, 1.010644, 0.952096, 0.893547, 0.834998, 0.776449, 0.717900, 0.659352, 0.600803, 0.542254, 0.483705, 0.425156, 0.366608, 0.308059, 0.249510, 1.790961, 1.732412, 1.673864, 1.615315, 1.556766, 1.498217, 1.439668, 1.381120, 1.322571, 1.264022, 1.205473, 1.146924, 1.088376, 1.029827, 0.971278, 0.912729, 0.854180, 0.795632, 0.737083, 0.678534, 0.619985, 0.561436, 0.502888, 0.444339, 0.385790, 0.327241, 0.268692, 0.210144, 1.751595, 1.693046, 1.634497, 1.575948, 1.517400, 1.458851, 1.400302, 1.341753, 1.283204, 1.224656, 1.166107, 1.107558, 1.049009, 0.990460, 0.931912, 0.873363, 0.814814, 0.756265, 0.697716, 0.639168, 0.580619, 0.522070, 0.463521, 0.404972, 0.346424, 0.287875, 0.229326, 1.770777, 1.712228, 1.653680, 1.595131, 1.536582, 1.478033, 1.419484, 1.360936, 1.302387, 1.243838, 1.185289, 1.126740, 1.068192, 1.009643, 0.951094, 0.892545, 0.833996, 0.775448, 0.716899, 0.658350, 0.599801, 0.541252, 0.482704, 0.424155, 0.365606, 0.307057, 0.248508, 1.789960, 1.731411, 1.672862, 1.614313, 1.555764, 1.497216, 1.438667, 1.380118, 1.321569, 1.263020, 1.204472, 1.145923, 1.087374, 1.028825, 0.970276, 0.911728, 0.853179, 0.794630, 0.736081, 0.677532, 0.618984, 0.560435, 0.501886, 0.443337, 0.384788, 0.326240, 0.267691, 0.209142, 1.750593, 1.692044, 1.633496, 1.574947, 1.516398, 1.457849, 1.399300, 1.340752, 1.282203, 1.223654, 1.165105, 1.106556, 1.048008, 0.989459, 0.930910, 0.872361, 0.813812, 0.755264, 0.696715, 0.638166, 0.579617, 0.521068, 0.462520, 0.403971, 0.345422, 0.286873, 0.228324, 1.769776]))
+#eval IO.println ("check_hashemiEnv_capture_mem " ++ toString (check_hashemiEnv_capture_mem 1.774651 1.716102 1.657553 1.599004 1.540456 1.481907 1.423358 1.364809 1.306260 1.247712 1.189163 1.130614 1.072065 1.013516 0.954968 0.896419 0.837870 0.779321 0.720772 0.662224 0.603675 0.545126 0.486577 0.428028 0.369480 0.310931 0.252382 1.793833 1.735284 1.676736 1.618187 1.559638 1.501089 1.442540 1.383992 1.325443 1.266894 1.208345 #[0.451267, 0.392718, 0.334169, 0.275620, 0.217072, 1.758523, 1.699974, 1.641425, 1.582876, 1.524328, 1.465779, 1.407230, 1.348681, 1.290132, 1.231584, 1.173035, 1.114486, 1.055937, 0.997388, 0.938840, 0.880291, 0.821742, 0.763193, 0.704644, 0.646096, 0.587547, 0.528998, 0.470449, 0.411900, 0.353352, 0.294803, 0.236254, 1.777705, 1.719156, 1.660608, 1.602059, 1.543510, 1.484961, 1.426412, 1.367864, 1.309315, 1.250766, 1.192217, 1.133668, 1.075120, 1.016571, 0.958022, 0.899473, 0.840924, 0.782376, 0.723827, 0.665278, 0.606729, 0.548180, 0.489632, 0.431083, 0.372534, 0.313985, 0.255436, 1.796888, 1.738339, 1.679790, 1.621241, 1.562692, 1.504144, 1.445595, 1.387046, 1.328497, 1.269948, 1.211400, 1.152851, 1.094302, 1.035753, 0.977204, 0.918656, 0.860107, 0.801558, 0.743009, 0.684460, 0.625912, 0.567363, 0.508814, 0.450265, 0.391716, 0.333168, 0.274619, 0.216070, 1.757521, 1.698972, 1.640424, 1.581875, 1.523326, 1.464777, 1.406228, 1.347680, 1.289131, 1.230582, 1.172033, 1.113484, 1.054936, 0.996387, 0.937838, 0.879289, 0.820740, 0.762192, 0.703643, 0.645094, 0.586545, 0.527996, 0.469448, 0.410899, 0.352350, 0.293801, 0.235252, 1.776704, 1.718155, 1.659606, 1.601057, 1.542508, 1.483960, 1.425411, 1.366862, 1.308313, 1.249764, 1.191216, 1.132667, 1.074118, 1.015569, 0.957020, 0.898472, 0.839923, 0.781374, 0.722825, 0.664276, 0.605728, 0.547179, 0.488630, 0.430081, 0.371532, 0.312984, 0.254435, 1.795886, 1.737337, 1.678788, 1.620240, 1.561691, 1.503142, 1.444593, 1.386044, 1.327496, 1.268947, 1.210398, 1.151849, 1.093300, 1.034752, 0.976203, 0.917654, 0.859105, 0.800556, 0.742008, 0.683459, 0.624910, 0.566361, 0.507812, 0.449264, 0.390715, 0.332166, 0.273617, 0.215068, 1.756520, 1.697971, 1.639422, 1.580873, 1.522324, 1.463776, 1.405227, 1.346678, 1.288129, 1.229580, 1.171032, 1.112483, 1.053934, 0.995385, 0.936836, 0.878288, 0.819739, 0.761190, 0.702641, 0.644092, 0.585544, 0.526995, 0.468446, 0.409897, 0.351348, 0.292800, 0.234251, 1.775702, 1.717153, 1.658604, 1.600056, 1.541507, 1.482958, 1.424409, 1.365860, 1.307312, 1.248763, 1.190214, 1.131665, 1.073116, 1.014568, 0.956019, 0.897470, 0.838921, 0.780372, 0.721824, 0.663275, 0.604726, 0.546177, 0.487628, 0.429080, 0.370531, 0.311982, 0.253433, 1.794884, 1.736336, 1.677787, 1.619238, 1.560689, 1.502140, 1.443592, 1.385043, 1.326494, 1.267945, 1.209396, 1.150848, 1.092299, 1.033750, 0.975201, 0.916652, 0.858104, 0.799555, 0.741006, 0.682457, 0.623908, 0.565360, 0.506811, 0.448262, 0.389713, 0.331164, 0.272616, 0.214067, 1.755518, 1.696969, 1.638420, 1.579872, 1.521323, 1.462774, 1.404225, 1.345676, 1.287128, 1.228579, 1.170030, 1.111481, 1.052932, 0.994384, 0.935835, 0.877286, 0.818737, 0.760188, 0.701640, 0.643091, 0.584542, 0.525993, 0.467444, 0.408896, 0.350347, 0.291798, 0.233249, 1.774700, 1.716152, 1.657603, 1.599054, 1.540505, 1.481956, 1.423408, 1.364859, 1.306310, 1.247761, 1.189212, 1.130664, 1.072115, 1.013566, 0.955017, 0.896468, 0.837920, 0.779371, 0.720822, 0.662273, 0.603724, 0.545176, 0.486627, 0.428078, 0.369529, 0.310980, 0.252432, 1.793883, 1.735334, 1.676785, 1.618236, 1.559688, 1.501139, 1.442590, 1.384041, 1.325492, 1.266944, 1.208395, 1.149846, 1.091297, 1.032748, 0.974200, 0.915651, 0.857102, 0.798553, 0.740004, 0.681456, 0.622907, 0.564358, 0.505809, 0.447260, 0.388712, 0.330163, 0.271614, 0.213065, 1.754516, 1.695968, 1.637419, 1.578870, 1.520321, 1.461772, 1.403224, 1.344675, 1.286126, 1.227577, 1.169028, 1.110480, 1.051931, 0.993382, 0.934833, 0.876284, 0.817736, 0.759187, 0.700638, 0.642089, 0.583540, 0.524992, 0.466443, 0.407894, 0.349345, 0.290796, 0.232248, 1.773699, 1.715150, 1.656601, 1.598052, 1.539504, 1.480955, 1.422406, 1.363857, 1.305308, 1.246760, 1.188211, 1.129662, 1.071113, 1.012564, 0.954016, 0.895467, 0.836918, 0.778369, 0.719820, 0.661272, 0.602723, 0.544174, 0.485625, 0.427076, 0.368528, 0.309979, 0.251430, 1.792881, 1.734332, 1.675784, 1.617235, 1.558686, 1.500137, 1.441588, 1.383040, 1.324491, 1.265942, 1.207393, 1.148844, 1.090296, 1.031747, 0.973198, 0.914649, 0.856100, 0.797552, 0.739003, 0.680454, 0.621905, 0.563356, 0.504808, 0.446259, 0.387710, 0.329161, 0.270612, 0.212064, 1.753515, 1.694966, 1.636417, 1.577868, 1.519320, 1.460771, 1.402222, 1.343673, 1.285124, 1.226576, 1.168027, 1.109478, 1.050929, 0.992380, 0.933832, 0.875283, 0.816734, 0.758185, 0.699636, 0.641088, 0.582539, 0.523990, 0.465441, 0.406892, 0.348344, 0.289795, 0.231246, 1.772697, 1.714148, 1.655600, 1.597051, 1.538502, 1.479953, 1.421404, 1.362856, 1.304307, 1.245758, 1.187209, 1.128660, 1.070112, 1.011563, 0.953014, 0.894465, 0.835916, 0.777368, 0.718819, 0.660270, 0.601721, 0.543172, 0.484624, 0.426075, 0.367526, 0.308977, 0.250428, 1.791880, 1.733331, 1.674782, 1.616233, 1.557684, 1.499136, 1.440587, 1.382038, 1.323489, 1.264940, 1.206392, 1.147843, 1.089294, 1.030745, 0.972196, 0.913648, 0.855099, 0.796550, 0.738001, 0.679452, 0.620904, 0.562355, 0.503806, 0.445257, 0.386708, 0.328160, 0.269611, 0.211062, 1.752513, 1.693964, 1.635416, 1.576867, 1.518318, 1.459769, 1.401220, 1.342672, 1.284123, 1.225574, 1.167025, 1.108476, 1.049928, 0.991379, 0.932830, 0.874281, 0.815732, 0.757184, 0.698635, 0.640086, 0.581537, 0.522988, 0.464440, 0.405891, 0.347342, 0.288793, 0.230244, 1.771696, 1.713147, 1.654598, 1.596049, 1.537500, 1.478952, 1.420403, 1.361854, 1.303305, 1.244756, 1.186208, 1.127659, 1.069110, 1.010561, 0.952012, 0.893464, 0.834915, 0.776366, 0.717817, 0.659268, 0.600720, 0.542171, 0.483622, 0.425073, 0.366524, 0.307976, 0.249427, 1.790878, 1.732329, 1.673780, 1.615232, 1.556683, 1.498134, 1.439585, 1.381036, 1.322488, 1.263939, 1.205390, 1.146841, 1.088292, 1.029744, 0.971195, 0.912646, 0.854097, 0.795548, 0.737000, 0.678451, 0.619902, 0.561353, 0.502804, 0.444256, 0.385707, 0.327158, 0.268609, 0.210060, 1.751512, 1.692963, 1.634414, 1.575865, 1.517316, 1.458768, 1.400219, 1.341670, 1.283121, 1.224572, 1.166024, 1.107475, 1.048926, 0.990377, 0.931828, 0.873280, 0.814731, 0.756182, 0.697633, 0.639084, 0.580536, 0.521987, 0.463438, 0.404889, 0.346340, 0.287792, 0.229243, 1.770694, 1.712145, 1.653596, 1.595048, 1.536499, 1.477950, 1.419401, 1.360852, 1.302304, 1.243755, 1.185206, 1.126657, 1.068108, 1.009560, 0.951011, 0.892462, 0.833913, 0.775364, 0.716816, 0.658267, 0.599718, 0.541169, 0.482620, 0.424072, 0.365523, 0.306974, 0.248425, 1.789876, 1.731328, 1.672779, 1.614230, 1.555681, 1.497132, 1.438584]))
 
 def check_hashemiEnv_oil_le (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Float) (dt : Float) (elSun : Float) (azSun : Float) (dni : Float) (rDrum : Float) (W : Float) (rcm : Float) (Tmax : Float) (rho : Float) (Fdrive : Float) (L10 : Float) (rodLen : Float) (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (sigmaslope : Float) (sigmaspec : Float) (hsun : Float) (soil : Float) (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Coil : Float) (ToilMax : Float) (Toil : Float) (Twall : Float) (Ta : Float) (dr : Array Float) : Bool :=
   let v688 := ((1 : Float) - ((2 : Float) - (Float.sqrt (((2 : Float) ^ 2) - ((0.8 : Float) ^ 2)))))
@@ -1726,18 +1784,18 @@ def check_hashemiEnv_oil_le (az : Float) (t : Float) (slack : Float) (omegam : F
   let v1616 := (Toil - Ta)
   ((min ToilMax (Toil + ((dt * ((((alpha * (((v1593 * (v1599 / (64 : Float))) * dni) * soil)) - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v1616))) - (Upipe * v1616)) - (max (0 : Float) (UAx * (Toil - Twall))))) / Coil))) <= ToilMax)
 
-#eval IO.println ("check_hashemiEnv_oil_le " ++ toString (check_hashemiEnv_oil_le 0.540099 0.481550 0.423001 0.364452 0.305904 0.247355 1.788806 1.730257 1.671708 1.613160 1.554611 1.496062 1.437513 1.378964 1.320416 1.261867 1.203318 1.144769 1.086220 1.027672 0.969123 0.910574 0.852025 0.793476 0.734928 0.676379 0.617830 0.559281 0.500732 0.442184 0.383635 0.325086 0.266537 0.207988 1.749440 1.690891 1.632342 1.573793 #[0.816715, 0.758166, 0.699617, 0.641068, 0.582520, 0.523971, 0.465422, 0.406873, 0.348324, 0.289776, 0.231227, 1.772678, 1.714129, 1.655580, 1.597032, 1.538483, 1.479934, 1.421385, 1.362836, 1.304288, 1.245739, 1.187190, 1.128641, 1.070092, 1.011544, 0.952995, 0.894446, 0.835897, 0.777348, 0.718800, 0.660251, 0.601702, 0.543153, 0.484604, 0.426056, 0.367507, 0.308958, 0.250409, 1.791860, 1.733312, 1.674763, 1.616214, 1.557665, 1.499116, 1.440568, 1.382019, 1.323470, 1.264921, 1.206372, 1.147824, 1.089275, 1.030726, 0.972177, 0.913628, 0.855080, 0.796531, 0.737982, 0.679433, 0.620884, 0.562336, 0.503787, 0.445238, 0.386689, 0.328140, 0.269592, 0.211043, 1.752494, 1.693945, 1.635396, 1.576848, 1.518299, 1.459750, 1.401201, 1.342652, 1.284104, 1.225555, 1.167006, 1.108457, 1.049908, 0.991360, 0.932811, 0.874262, 0.815713, 0.757164, 0.698616, 0.640067, 0.581518, 0.522969, 0.464420, 0.405872, 0.347323, 0.288774, 0.230225, 1.771676, 1.713128, 1.654579, 1.596030, 1.537481, 1.478932, 1.420384, 1.361835, 1.303286, 1.244737, 1.186188, 1.127640, 1.069091, 1.010542, 0.951993, 0.893444, 0.834896, 0.776347, 0.717798, 0.659249, 0.600700, 0.542152, 0.483603, 0.425054, 0.366505, 0.307956, 0.249408, 1.790859, 1.732310, 1.673761, 1.615212, 1.556664, 1.498115, 1.439566, 1.381017, 1.322468, 1.263920, 1.205371, 1.146822, 1.088273, 1.029724, 0.971176, 0.912627, 0.854078, 0.795529, 0.736980, 0.678432, 0.619883, 0.561334, 0.502785, 0.444236, 0.385688, 0.327139, 0.268590, 0.210041, 1.751492, 1.692944, 1.634395, 1.575846, 1.517297, 1.458748, 1.400200, 1.341651, 1.283102, 1.224553, 1.166004, 1.107456, 1.048907, 0.990358, 0.931809, 0.873260, 0.814712, 0.756163, 0.697614, 0.639065, 0.580516, 0.521968, 0.463419, 0.404870, 0.346321, 0.287772, 0.229224, 1.770675, 1.712126, 1.653577, 1.595028, 1.536480, 1.477931, 1.419382, 1.360833, 1.302284, 1.243736, 1.185187, 1.126638, 1.068089, 1.009540, 0.950992, 0.892443, 0.833894, 0.775345, 0.716796, 0.658248, 0.599699, 0.541150, 0.482601, 0.424052, 0.365504, 0.306955, 0.248406, 1.789857, 1.731308, 1.672760, 1.614211, 1.555662, 1.497113, 1.438564, 1.380016, 1.321467, 1.262918, 1.204369, 1.145820, 1.087272, 1.028723, 0.970174, 0.911625, 0.853076, 0.794528, 0.735979, 0.677430, 0.618881, 0.560332, 0.501784, 0.443235, 0.384686, 0.326137, 0.267588, 0.209040, 1.750491, 1.691942, 1.633393, 1.574844, 1.516296, 1.457747, 1.399198, 1.340649, 1.282100, 1.223552, 1.165003, 1.106454, 1.047905, 0.989356, 0.930808, 0.872259, 0.813710, 0.755161, 0.696612, 0.638064, 0.579515, 0.520966, 0.462417, 0.403868, 0.345320, 0.286771, 0.228222, 1.769673, 1.711124, 1.652576, 1.594027, 1.535478, 1.476929, 1.418380, 1.359832, 1.301283, 1.242734, 1.184185, 1.125636, 1.067088, 1.008539, 0.949990, 0.891441, 0.832892, 0.774344, 0.715795, 0.657246, 0.598697, 0.540148, 0.481600, 0.423051, 0.364502, 0.305953, 0.247404, 1.788856, 1.730307, 1.671758, 1.613209, 1.554660, 1.496112, 1.437563, 1.379014, 1.320465, 1.261916, 1.203368, 1.144819, 1.086270, 1.027721, 0.969172, 0.910624, 0.852075, 0.793526, 0.734977, 0.676428, 0.617880, 0.559331, 0.500782, 0.442233, 0.383684, 0.325136, 0.266587, 0.208038, 1.749489, 1.690940, 1.632392, 1.573843, 1.515294, 1.456745, 1.398196, 1.339648, 1.281099, 1.222550, 1.164001, 1.105452, 1.046904, 0.988355, 0.929806, 0.871257, 0.812708, 0.754160, 0.695611, 0.637062, 0.578513, 0.519964, 0.461416, 0.402867, 0.344318, 0.285769, 0.227220, 1.768672, 1.710123, 1.651574, 1.593025, 1.534476, 1.475928, 1.417379, 1.358830, 1.300281, 1.241732, 1.183184, 1.124635, 1.066086, 1.007537, 0.948988, 0.890440, 0.831891, 0.773342, 0.714793, 0.656244, 0.597696, 0.539147, 0.480598, 0.422049, 0.363500, 0.304952, 0.246403, 1.787854, 1.729305, 1.670756, 1.612208, 1.553659, 1.495110, 1.436561, 1.378012, 1.319464, 1.260915, 1.202366, 1.143817, 1.085268, 1.026720, 0.968171, 0.909622, 0.851073, 0.792524, 0.733976, 0.675427, 0.616878, 0.558329, 0.499780, 0.441232, 0.382683, 0.324134, 0.265585, 0.207036, 1.748488, 1.689939, 1.631390, 1.572841, 1.514292, 1.455744, 1.397195, 1.338646, 1.280097, 1.221548, 1.163000, 1.104451, 1.045902, 0.987353, 0.928804, 0.870256, 0.811707, 0.753158, 0.694609, 0.636060, 0.577512, 0.518963, 0.460414, 0.401865, 0.343316, 0.284768, 0.226219, 1.767670, 1.709121, 1.650572, 1.592024, 1.533475, 1.474926, 1.416377, 1.357828, 1.299280, 1.240731, 1.182182, 1.123633, 1.065084, 1.006536, 0.947987, 0.889438, 0.830889, 0.772340, 0.713792, 0.655243, 0.596694, 0.538145, 0.479596, 0.421048, 0.362499, 0.303950, 0.245401, 1.786852, 1.728304, 1.669755, 1.611206, 1.552657, 1.494108, 1.435560, 1.377011, 1.318462, 1.259913, 1.201364, 1.142816, 1.084267, 1.025718, 0.967169, 0.908620, 0.850072, 0.791523, 0.732974, 0.674425, 0.615876, 0.557328, 0.498779, 0.440230, 0.381681, 0.323132, 0.264584, 0.206035, 1.747486, 1.688937, 1.630388, 1.571840, 1.513291, 1.454742, 1.396193, 1.337644, 1.279096, 1.220547, 1.161998, 1.103449, 1.044900, 0.986352, 0.927803, 0.869254, 0.810705, 0.752156, 0.693608, 0.635059, 0.576510, 0.517961, 0.459412, 0.400864, 0.342315, 0.283766, 0.225217, 1.766668, 1.708120, 1.649571, 1.591022, 1.532473, 1.473924, 1.415376, 1.356827, 1.298278, 1.239729, 1.181180, 1.122632, 1.064083, 1.005534, 0.946985, 0.888436, 0.829888, 0.771339, 0.712790, 0.654241, 0.595692, 0.537144, 0.478595, 0.420046, 0.361497, 0.302948, 0.244400, 1.785851, 1.727302, 1.668753, 1.610204, 1.551656, 1.493107, 1.434558, 1.376009, 1.317460, 1.258912, 1.200363, 1.141814, 1.083265, 1.024716, 0.966168, 0.907619, 0.849070, 0.790521, 0.731972, 0.673424, 0.614875, 0.556326, 0.497777, 0.439228, 0.380680, 0.322131, 0.263582, 0.205033, 1.746484, 1.687936, 1.629387, 1.570838, 1.512289, 1.453740, 1.395192, 1.336643, 1.278094, 1.219545, 1.160996, 1.102448, 1.043899, 0.985350, 0.926801, 0.868252, 0.809704, 0.751155, 0.692606, 0.634057, 0.575508, 0.516960, 0.458411, 0.399862, 0.341313, 0.282764, 0.224216, 1.765667, 1.707118, 1.648569, 1.590020, 1.531472, 1.472923, 1.414374, 1.355825, 1.297276, 1.238728, 1.180179, 1.121630, 1.063081, 1.004532, 0.945984, 0.887435, 0.828886, 0.770337, 0.711788, 0.653240, 0.594691, 0.536142, 0.477593, 0.419044, 0.360496, 0.301947, 0.243398, 1.784849, 1.726300, 1.667752, 1.609203, 1.550654, 1.492105, 1.433556, 1.375008, 1.316459, 1.257910, 1.199361, 1.140812, 1.082264, 1.023715, 0.965166, 0.906617, 0.848068, 0.789520, 0.730971, 0.672422, 0.613873, 0.555324, 0.496776, 0.438227, 0.379678, 0.321129, 0.262580, 0.204032]))
-#eval IO.println ("check_hashemiEnv_oil_le " ++ toString (check_hashemiEnv_oil_le 0.208907 1.750358 1.691809 1.633260 1.574712 1.516163 1.457614 1.399065 1.340516 1.281968 1.223419 1.164870 1.106321 1.047772 0.989224 0.930675 0.872126 0.813577 0.755028 0.696480 0.637931 0.579382 0.520833 0.462284 0.403736 0.345187 0.286638 0.228089 1.769540 1.710992 1.652443 1.593894 1.535345 1.476796 1.418248 1.359699 1.301150 1.242601 #[0.485523, 0.426974, 0.368425, 0.309876, 0.251328, 1.792779, 1.734230, 1.675681, 1.617132, 1.558584, 1.500035, 1.441486, 1.382937, 1.324388, 1.265840, 1.207291, 1.148742, 1.090193, 1.031644, 0.973096, 0.914547, 0.855998, 0.797449, 0.738900, 0.680352, 0.621803, 0.563254, 0.504705, 0.446156, 0.387608, 0.329059, 0.270510, 0.211961, 1.753412, 1.694864, 1.636315, 1.577766, 1.519217, 1.460668, 1.402120, 1.343571, 1.285022, 1.226473, 1.167924, 1.109376, 1.050827, 0.992278, 0.933729, 0.875180, 0.816632, 0.758083, 0.699534, 0.640985, 0.582436, 0.523888, 0.465339, 0.406790, 0.348241, 0.289692, 0.231144, 1.772595, 1.714046, 1.655497, 1.596948, 1.538400, 1.479851, 1.421302, 1.362753, 1.304204, 1.245656, 1.187107, 1.128558, 1.070009, 1.011460, 0.952912, 0.894363, 0.835814, 0.777265, 0.718716, 0.660168, 0.601619, 0.543070, 0.484521, 0.425972, 0.367424, 0.308875, 0.250326, 1.791777, 1.733228, 1.674680, 1.616131, 1.557582, 1.499033, 1.440484, 1.381936, 1.323387, 1.264838, 1.206289, 1.147740, 1.089192, 1.030643, 0.972094, 0.913545, 0.854996, 0.796448, 0.737899, 0.679350, 0.620801, 0.562252, 0.503704, 0.445155, 0.386606, 0.328057, 0.269508, 0.210960, 1.752411, 1.693862, 1.635313, 1.576764, 1.518216, 1.459667, 1.401118, 1.342569, 1.284020, 1.225472, 1.166923, 1.108374, 1.049825, 0.991276, 0.932728, 0.874179, 0.815630, 0.757081, 0.698532, 0.639984, 0.581435, 0.522886, 0.464337, 0.405788, 0.347240, 0.288691, 0.230142, 1.771593, 1.713044, 1.654496, 1.595947, 1.537398, 1.478849, 1.420300, 1.361752, 1.303203, 1.244654, 1.186105, 1.127556, 1.069008, 1.010459, 0.951910, 0.893361, 0.834812, 0.776264, 0.717715, 0.659166, 0.600617, 0.542068, 0.483520, 0.424971, 0.366422, 0.307873, 0.249324, 1.790776, 1.732227, 1.673678, 1.615129, 1.556580, 1.498032, 1.439483, 1.380934, 1.322385, 1.263836, 1.205288, 1.146739, 1.088190, 1.029641, 0.971092, 0.912544, 0.853995, 0.795446, 0.736897, 0.678348, 0.619800, 0.561251, 0.502702, 0.444153, 0.385604, 0.327056, 0.268507, 0.209958, 1.751409, 1.692860, 1.634312, 1.575763, 1.517214, 1.458665, 1.400116, 1.341568, 1.283019, 1.224470, 1.165921, 1.107372, 1.048824, 0.990275, 0.931726, 0.873177, 0.814628, 0.756080, 0.697531, 0.638982, 0.580433, 0.521884, 0.463336, 0.404787, 0.346238, 0.287689, 0.229140, 1.770592, 1.712043, 1.653494, 1.594945, 1.536396, 1.477848, 1.419299, 1.360750, 1.302201, 1.243652, 1.185104, 1.126555, 1.068006, 1.009457, 0.950908, 0.892360, 0.833811, 0.775262, 0.716713, 0.658164, 0.599616, 0.541067, 0.482518, 0.423969, 0.365420, 0.306872, 0.248323, 1.789774, 1.731225, 1.672676, 1.614128, 1.555579, 1.497030, 1.438481, 1.379932, 1.321384, 1.262835, 1.204286, 1.145737, 1.087188, 1.028640, 0.970091, 0.911542, 0.852993, 0.794444, 0.735896, 0.677347, 0.618798, 0.560249, 0.501700, 0.443152, 0.384603, 0.326054, 0.267505, 0.208956, 1.750408, 1.691859, 1.633310, 1.574761, 1.516212, 1.457664, 1.399115, 1.340566, 1.282017, 1.223468, 1.164920, 1.106371, 1.047822, 0.989273, 0.930724, 0.872176, 0.813627, 0.755078, 0.696529, 0.637980, 0.579432, 0.520883, 0.462334, 0.403785, 0.345236, 0.286688, 0.228139, 1.769590, 1.711041, 1.652492, 1.593944, 1.535395, 1.476846, 1.418297, 1.359748, 1.301200, 1.242651, 1.184102, 1.125553, 1.067004, 1.008456, 0.949907, 0.891358, 0.832809, 0.774260, 0.715712, 0.657163, 0.598614, 0.540065, 0.481516, 0.422968, 0.364419, 0.305870, 0.247321, 1.788772, 1.730224, 1.671675, 1.613126, 1.554577, 1.496028, 1.437480, 1.378931, 1.320382, 1.261833, 1.203284, 1.144736, 1.086187, 1.027638, 0.969089, 0.910540, 0.851992, 0.793443, 0.734894, 0.676345, 0.617796, 0.559248, 0.500699, 0.442150, 0.383601, 0.325052, 0.266504, 0.207955, 1.749406, 1.690857, 1.632308, 1.573760, 1.515211, 1.456662, 1.398113, 1.339564, 1.281016, 1.222467, 1.163918, 1.105369, 1.046820, 0.988272, 0.929723, 0.871174, 0.812625, 0.754076, 0.695528, 0.636979, 0.578430, 0.519881, 0.461332, 0.402784, 0.344235, 0.285686, 0.227137, 1.768588, 1.710040, 1.651491, 1.592942, 1.534393, 1.475844, 1.417296, 1.358747, 1.300198, 1.241649, 1.183100, 1.124552, 1.066003, 1.007454, 0.948905, 0.890356, 0.831808, 0.773259, 0.714710, 0.656161, 0.597612, 0.539064, 0.480515, 0.421966, 0.363417, 0.304868, 0.246320, 1.787771, 1.729222, 1.670673, 1.612124, 1.553576, 1.495027, 1.436478, 1.377929, 1.319380, 1.260832, 1.202283, 1.143734, 1.085185, 1.026636, 0.968088, 0.909539, 0.850990, 0.792441, 0.733892, 0.675344, 0.616795, 0.558246, 0.499697, 0.441148, 0.382600, 0.324051, 0.265502, 0.206953, 1.748404, 1.689856, 1.631307, 1.572758, 1.514209, 1.455660, 1.397112, 1.338563, 1.280014, 1.221465, 1.162916, 1.104368, 1.045819, 0.987270, 0.928721, 0.870172, 0.811624, 0.753075, 0.694526, 0.635977, 0.577428, 0.518880, 0.460331, 0.401782, 0.343233, 0.284684, 0.226136, 1.767587, 1.709038, 1.650489, 1.591940, 1.533392, 1.474843, 1.416294, 1.357745, 1.299196, 1.240648, 1.182099, 1.123550, 1.065001, 1.006452, 0.947904, 0.889355, 0.830806, 0.772257, 0.713708, 0.655160, 0.596611, 0.538062, 0.479513, 0.420964, 0.362416, 0.303867, 0.245318, 1.786769, 1.728220, 1.669672, 1.611123, 1.552574, 1.494025, 1.435476, 1.376928, 1.318379, 1.259830, 1.201281, 1.142732, 1.084184, 1.025635, 0.967086, 0.908537, 0.849988, 0.791440, 0.732891, 0.674342, 0.615793, 0.557244, 0.498696, 0.440147, 0.381598, 0.323049, 0.264500, 0.205952, 1.747403, 1.688854, 1.630305, 1.571756, 1.513208, 1.454659, 1.396110, 1.337561, 1.279012, 1.220464, 1.161915, 1.103366, 1.044817, 0.986268, 0.927720, 0.869171, 0.810622, 0.752073, 0.693524, 0.634976, 0.576427, 0.517878, 0.459329, 0.400780, 0.342232, 0.283683, 0.225134, 1.766585, 1.708036, 1.649488, 1.590939, 1.532390, 1.473841, 1.415292, 1.356744, 1.298195, 1.239646, 1.181097, 1.122548, 1.064000, 1.005451, 0.946902, 0.888353, 0.829804, 0.771256, 0.712707, 0.654158, 0.595609, 0.537060, 0.478512, 0.419963, 0.361414, 0.302865, 0.244316, 1.785768, 1.727219, 1.668670, 1.610121, 1.551572, 1.493024, 1.434475, 1.375926, 1.317377, 1.258828, 1.200280, 1.141731, 1.083182, 1.024633, 0.966084, 0.907536, 0.848987, 0.790438, 0.731889, 0.673340, 0.614792, 0.556243, 0.497694, 0.439145, 0.380596, 0.322048, 0.263499, 0.204950, 1.746401, 1.687852, 1.629304, 1.570755, 1.512206, 1.453657, 1.395108, 1.336560, 1.278011, 1.219462, 1.160913, 1.102364, 1.043816, 0.985267, 0.926718, 0.868169, 0.809620, 0.751072, 0.692523, 0.633974, 0.575425, 0.516876, 0.458328, 0.399779, 0.341230, 0.282681, 0.224132, 1.765584, 1.707035, 1.648486, 1.589937, 1.531388, 1.472840]))
-#eval IO.println ("check_hashemiEnv_oil_le " ++ toString (check_hashemiEnv_oil_le 1.477715 1.419166 1.360617 1.302068 1.243520 1.184971 1.126422 1.067873 1.009324 0.950776 0.892227 0.833678 0.775129 0.716580 0.658032 0.599483 0.540934 0.482385 0.423836 0.365288 0.306739 0.248190 1.789641 1.731092 1.672544 1.613995 1.555446 1.496897 1.438348 1.379800 1.321251 1.262702 1.204153 1.145604 1.087056 1.028507 0.969958 0.911409 #[1.754331, 1.695782, 1.637233, 1.578684, 1.520136, 1.461587, 1.403038, 1.344489, 1.285940, 1.227392, 1.168843, 1.110294, 1.051745, 0.993196, 0.934648, 0.876099, 0.817550, 0.759001, 0.700452, 0.641904, 0.583355, 0.524806, 0.466257, 0.407708, 0.349160, 0.290611, 0.232062, 1.773513, 1.714964, 1.656416, 1.597867, 1.539318, 1.480769, 1.422220, 1.363672, 1.305123, 1.246574, 1.188025, 1.129476, 1.070928, 1.012379, 0.953830, 0.895281, 0.836732, 0.778184, 0.719635, 0.661086, 0.602537, 0.543988, 0.485440, 0.426891, 0.368342, 0.309793, 0.251244, 1.792696, 1.734147, 1.675598, 1.617049, 1.558500, 1.499952, 1.441403, 1.382854, 1.324305, 1.265756, 1.207208, 1.148659, 1.090110, 1.031561, 0.973012, 0.914464, 0.855915, 0.797366, 0.738817, 0.680268, 0.621720, 0.563171, 0.504622, 0.446073, 0.387524, 0.328976, 0.270427, 0.211878, 1.753329, 1.694780, 1.636232, 1.577683, 1.519134, 1.460585, 1.402036, 1.343488, 1.284939, 1.226390, 1.167841, 1.109292, 1.050744, 0.992195, 0.933646, 0.875097, 0.816548, 0.758000, 0.699451, 0.640902, 0.582353, 0.523804, 0.465256, 0.406707, 0.348158, 0.289609, 0.231060, 1.772512, 1.713963, 1.655414, 1.596865, 1.538316, 1.479768, 1.421219, 1.362670, 1.304121, 1.245572, 1.187024, 1.128475, 1.069926, 1.011377, 0.952828, 0.894280, 0.835731, 0.777182, 0.718633, 0.660084, 0.601536, 0.542987, 0.484438, 0.425889, 0.367340, 0.308792, 0.250243, 1.791694, 1.733145, 1.674596, 1.616048, 1.557499, 1.498950, 1.440401, 1.381852, 1.323304, 1.264755, 1.206206, 1.147657, 1.089108, 1.030560, 0.972011, 0.913462, 0.854913, 0.796364, 0.737816, 0.679267, 0.620718, 0.562169, 0.503620, 0.445072, 0.386523, 0.327974, 0.269425, 0.210876, 1.752328, 1.693779, 1.635230, 1.576681, 1.518132, 1.459584, 1.401035, 1.342486, 1.283937, 1.225388, 1.166840, 1.108291, 1.049742, 0.991193, 0.932644, 0.874096, 0.815547, 0.756998, 0.698449, 0.639900, 0.581352, 0.522803, 0.464254, 0.405705, 0.347156, 0.288608, 0.230059, 1.771510, 1.712961, 1.654412, 1.595864, 1.537315, 1.478766, 1.420217, 1.361668, 1.303120, 1.244571, 1.186022, 1.127473, 1.068924, 1.010376, 0.951827, 0.893278, 0.834729, 0.776180, 0.717632, 0.659083, 0.600534, 0.541985, 0.483436, 0.424888, 0.366339, 0.307790, 0.249241, 1.790692, 1.732144, 1.673595, 1.615046, 1.556497, 1.497948, 1.439400, 1.380851, 1.322302, 1.263753, 1.205204, 1.146656, 1.088107, 1.029558, 0.971009, 0.912460, 0.853912, 0.795363, 0.736814, 0.678265, 0.619716, 0.561168, 0.502619, 0.444070, 0.385521, 0.326972, 0.268424, 0.209875, 1.751326, 1.692777, 1.634228, 1.575680, 1.517131, 1.458582, 1.400033, 1.341484, 1.282936, 1.224387, 1.165838, 1.107289, 1.048740, 0.990192, 0.931643, 0.873094, 0.814545, 0.755996, 0.697448, 0.638899, 0.580350, 0.521801, 0.463252, 0.404704, 0.346155, 0.287606, 0.229057, 1.770508, 1.711960, 1.653411, 1.594862, 1.536313, 1.477764, 1.419216, 1.360667, 1.302118, 1.243569, 1.185020, 1.126472, 1.067923, 1.009374, 0.950825, 0.892276, 0.833728, 0.775179, 0.716630, 0.658081, 0.599532, 0.540984, 0.482435, 0.423886, 0.365337, 0.306788, 0.248240, 1.789691, 1.731142, 1.672593, 1.614044, 1.555496, 1.496947, 1.438398, 1.379849, 1.321300, 1.262752, 1.204203, 1.145654, 1.087105, 1.028556, 0.970008, 0.911459, 0.852910, 0.794361, 0.735812, 0.677264, 0.618715, 0.560166, 0.501617, 0.443068, 0.384520, 0.325971, 0.267422, 0.208873, 1.750324, 1.691776, 1.633227, 1.574678, 1.516129, 1.457580, 1.399032, 1.340483, 1.281934, 1.223385, 1.164836, 1.106288, 1.047739, 0.989190, 0.930641, 0.872092, 0.813544, 0.754995, 0.696446, 0.637897, 0.579348, 0.520800, 0.462251, 0.403702, 0.345153, 0.286604, 0.228056, 1.769507, 1.710958, 1.652409, 1.593860, 1.535312, 1.476763, 1.418214, 1.359665, 1.301116, 1.242568, 1.184019, 1.125470, 1.066921, 1.008372, 0.949824, 0.891275, 0.832726, 0.774177, 0.715628, 0.657080, 0.598531, 0.539982, 0.481433, 0.422884, 0.364336, 0.305787, 0.247238, 1.788689, 1.730140, 1.671592, 1.613043, 1.554494, 1.495945, 1.437396, 1.378848, 1.320299, 1.261750, 1.203201, 1.144652, 1.086104, 1.027555, 0.969006, 0.910457, 0.851908, 0.793360, 0.734811, 0.676262, 0.617713, 0.559164, 0.500616, 0.442067, 0.383518, 0.324969, 0.266420, 0.207872, 1.749323, 1.690774, 1.632225, 1.573676, 1.515128, 1.456579, 1.398030, 1.339481, 1.280932, 1.222384, 1.163835, 1.105286, 1.046737, 0.988188, 0.929640, 0.871091, 0.812542, 0.753993, 0.695444, 0.636896, 0.578347, 0.519798, 0.461249, 0.402700, 0.344152, 0.285603, 0.227054, 1.768505, 1.709956, 1.651408, 1.592859, 1.534310, 1.475761, 1.417212, 1.358664, 1.300115, 1.241566, 1.183017, 1.124468, 1.065920, 1.007371, 0.948822, 0.890273, 0.831724, 0.773176, 0.714627, 0.656078, 0.597529, 0.538980, 0.480432, 0.421883, 0.363334, 0.304785, 0.246236, 1.787688, 1.729139, 1.670590, 1.612041, 1.553492, 1.494944, 1.436395, 1.377846, 1.319297, 1.260748, 1.202200, 1.143651, 1.085102, 1.026553, 0.968004, 0.909456, 0.850907, 0.792358, 0.733809, 0.675260, 0.616712, 0.558163, 0.499614, 0.441065, 0.382516, 0.323968, 0.265419, 0.206870, 1.748321, 1.689772, 1.631224, 1.572675, 1.514126, 1.455577, 1.397028, 1.338480, 1.279931, 1.221382, 1.162833, 1.104284, 1.045736, 0.987187, 0.928638, 0.870089, 0.811540, 0.752992, 0.694443, 0.635894, 0.577345, 0.518796, 0.460248, 0.401699, 0.343150, 0.284601, 0.226052, 1.767504, 1.708955, 1.650406, 1.591857, 1.533308, 1.474760, 1.416211, 1.357662, 1.299113, 1.240564, 1.182016, 1.123467, 1.064918, 1.006369, 0.947820, 0.889272, 0.830723, 0.772174, 0.713625, 0.655076, 0.596528, 0.537979, 0.479430, 0.420881, 0.362332, 0.303784, 0.245235, 1.786686, 1.728137, 1.669588, 1.611040, 1.552491, 1.493942, 1.435393, 1.376844, 1.318296, 1.259747, 1.201198, 1.142649, 1.084100, 1.025552, 0.967003, 0.908454, 0.849905, 0.791356, 0.732808, 0.674259, 0.615710, 0.557161, 0.498612, 0.440064, 0.381515, 0.322966, 0.264417, 0.205868, 1.747320, 1.688771, 1.630222, 1.571673, 1.513124, 1.454576, 1.396027, 1.337478, 1.278929, 1.220380, 1.161832, 1.103283, 1.044734, 0.986185, 0.927636, 0.869088, 0.810539, 0.751990, 0.693441, 0.634892, 0.576344, 0.517795, 0.459246, 0.400697, 0.342148, 0.283600, 0.225051, 1.766502, 1.707953, 1.649404, 1.590856, 1.532307, 1.473758, 1.415209, 1.356660, 1.298112, 1.239563, 1.181014, 1.122465, 1.063916, 1.005368, 0.946819, 0.888270, 0.829721, 0.771172, 0.712624, 0.654075, 0.595526, 0.536977, 0.478428, 0.419880, 0.361331, 0.302782, 0.244233, 1.785684, 1.727136, 1.668587, 1.610038, 1.551489, 1.492940, 1.434392, 1.375843, 1.317294, 1.258745, 1.200196, 1.141648]))
+#eval IO.println ("check_hashemiEnv_oil_le " ++ toString (check_hashemiEnv_oil_le 0.650883 0.592334 0.533785 0.475236 0.416688 0.358139 0.299590 0.241041 1.782492 1.723944 1.665395 1.606846 1.548297 1.489748 1.431200 1.372651 1.314102 1.255553 1.197004 1.138456 1.079907 1.021358 0.962809 0.904260 0.845712 0.787163 0.728614 0.670065 0.611516 0.552968 0.494419 0.435870 0.377321 0.318772 0.260224 0.201675 1.743126 1.684577 #[0.927499, 0.868950, 0.810401, 0.751852, 0.693304, 0.634755, 0.576206, 0.517657, 0.459108, 0.400560, 0.342011, 0.283462, 0.224913, 1.766364, 1.707816, 1.649267, 1.590718, 1.532169, 1.473620, 1.415072, 1.356523, 1.297974, 1.239425, 1.180876, 1.122328, 1.063779, 1.005230, 0.946681, 0.888132, 0.829584, 0.771035, 0.712486, 0.653937, 0.595388, 0.536840, 0.478291, 0.419742, 0.361193, 0.302644, 0.244096, 1.785547, 1.726998, 1.668449, 1.609900, 1.551352, 1.492803, 1.434254, 1.375705, 1.317156, 1.258608, 1.200059, 1.141510, 1.082961, 1.024412, 0.965864, 0.907315, 0.848766, 0.790217, 0.731668, 0.673120, 0.614571, 0.556022, 0.497473, 0.438924, 0.380376, 0.321827, 0.263278, 0.204729, 1.746180, 1.687632, 1.629083, 1.570534, 1.511985, 1.453436, 1.394888, 1.336339, 1.277790, 1.219241, 1.160692, 1.102144, 1.043595, 0.985046, 0.926497, 0.867948, 0.809400, 0.750851, 0.692302, 0.633753, 0.575204, 0.516656, 0.458107, 0.399558, 0.341009, 0.282460, 0.223912, 1.765363, 1.706814, 1.648265, 1.589716, 1.531168, 1.472619, 1.414070, 1.355521, 1.296972, 1.238424, 1.179875, 1.121326, 1.062777, 1.004228, 0.945680, 0.887131, 0.828582, 0.770033, 0.711484, 0.652936, 0.594387, 0.535838, 0.477289, 0.418740, 0.360192, 0.301643, 0.243094, 1.784545, 1.725996, 1.667448, 1.608899, 1.550350, 1.491801, 1.433252, 1.374704, 1.316155, 1.257606, 1.199057, 1.140508, 1.081960, 1.023411, 0.964862, 0.906313, 0.847764, 0.789216, 0.730667, 0.672118, 0.613569, 0.555020, 0.496472, 0.437923, 0.379374, 0.320825, 0.262276, 0.203728, 1.745179, 1.686630, 1.628081, 1.569532, 1.510984, 1.452435, 1.393886, 1.335337, 1.276788, 1.218240, 1.159691, 1.101142, 1.042593, 0.984044, 0.925496, 0.866947, 0.808398, 0.749849, 0.691300, 0.632752, 0.574203, 0.515654, 0.457105, 0.398556, 0.340008, 0.281459, 0.222910, 1.764361, 1.705812, 1.647264, 1.588715, 1.530166, 1.471617, 1.413068, 1.354520, 1.295971, 1.237422, 1.178873, 1.120324, 1.061776, 1.003227, 0.944678, 0.886129, 0.827580, 0.769032, 0.710483, 0.651934, 0.593385, 0.534836, 0.476288, 0.417739, 0.359190, 0.300641, 0.242092, 1.783544, 1.724995, 1.666446, 1.607897, 1.549348, 1.490800, 1.432251, 1.373702, 1.315153, 1.256604, 1.198056, 1.139507, 1.080958, 1.022409, 0.963860, 0.905312, 0.846763, 0.788214, 0.729665, 0.671116, 0.612568, 0.554019, 0.495470, 0.436921, 0.378372, 0.319824, 0.261275, 0.202726, 1.744177, 1.685628, 1.627080, 1.568531, 1.509982, 1.451433, 1.392884, 1.334336, 1.275787, 1.217238, 1.158689, 1.100140, 1.041592, 0.983043, 0.924494, 0.865945, 0.807396, 0.748848, 0.690299, 0.631750, 0.573201, 0.514652, 0.456104, 0.397555, 0.339006, 0.280457, 0.221908, 1.763360, 1.704811, 1.646262, 1.587713, 1.529164, 1.470616, 1.412067, 1.353518, 1.294969, 1.236420, 1.177872, 1.119323, 1.060774, 1.002225, 0.943676, 0.885128, 0.826579, 0.768030, 0.709481, 0.650932, 0.592384, 0.533835, 0.475286, 0.416737, 0.358188, 0.299640, 0.241091, 1.782542, 1.723993, 1.665444, 1.606896, 1.548347, 1.489798, 1.431249, 1.372700, 1.314152, 1.255603, 1.197054, 1.138505, 1.079956, 1.021408, 0.962859, 0.904310, 0.845761, 0.787212, 0.728664, 0.670115, 0.611566, 0.553017, 0.494468, 0.435920, 0.377371, 0.318822, 0.260273, 0.201724, 1.743176, 1.684627, 1.626078, 1.567529, 1.508980, 1.450432, 1.391883, 1.333334, 1.274785, 1.216236, 1.157688, 1.099139, 1.040590, 0.982041, 0.923492, 0.864944, 0.806395, 0.747846, 0.689297, 0.630748, 0.572200, 0.513651, 0.455102, 0.396553, 0.338004, 0.279456, 0.220907, 1.762358, 1.703809, 1.645260, 1.586712, 1.528163, 1.469614, 1.411065, 1.352516, 1.293968, 1.235419, 1.176870, 1.118321, 1.059772, 1.001224, 0.942675, 0.884126, 0.825577, 0.767028, 0.708480, 0.649931, 0.591382, 0.532833, 0.474284, 0.415736, 0.357187, 0.298638, 0.240089, 1.781540, 1.722992, 1.664443, 1.605894, 1.547345, 1.488796, 1.430248, 1.371699, 1.313150, 1.254601, 1.196052, 1.137504, 1.078955, 1.020406, 0.961857, 0.903308, 0.844760, 0.786211, 0.727662, 0.669113, 0.610564, 0.552016, 0.493467, 0.434918, 0.376369, 0.317820, 0.259272, 0.200723, 1.742174, 1.683625, 1.625076, 1.566528, 1.507979, 1.449430, 1.390881, 1.332332, 1.273784, 1.215235, 1.156686, 1.098137, 1.039588, 0.981040, 0.922491, 0.863942, 0.805393, 0.746844, 0.688296, 0.629747, 0.571198, 0.512649, 0.454100, 0.395552, 0.337003, 0.278454, 0.219905, 1.761356, 1.702808, 1.644259, 1.585710, 1.527161, 1.468612, 1.410064, 1.351515, 1.292966, 1.234417, 1.175868, 1.117320, 1.058771, 1.000222, 0.941673, 0.883124, 0.824576, 0.766027, 0.707478, 0.648929, 0.590380, 0.531832, 0.473283, 0.414734, 0.356185, 0.297636, 0.239088, 1.780539, 1.721990, 1.663441, 1.604892, 1.546344, 1.487795, 1.429246, 1.370697, 1.312148, 1.253600, 1.195051, 1.136502, 1.077953, 1.019404, 0.960856, 0.902307, 0.843758, 0.785209, 0.726660, 0.668112, 0.609563, 0.551014, 0.492465, 0.433916, 0.375368, 0.316819, 0.258270, 1.799721, 1.741172, 1.682624, 1.624075, 1.565526, 1.506977, 1.448428, 1.389880, 1.331331, 1.272782, 1.214233, 1.155684, 1.097136, 1.038587, 0.980038, 0.921489, 0.862940, 0.804392, 0.745843, 0.687294, 0.628745, 0.570196, 0.511648, 0.453099, 0.394550, 0.336001, 0.277452, 0.218904, 1.760355, 1.701806, 1.643257, 1.584708, 1.526160, 1.467611, 1.409062, 1.350513, 1.291964, 1.233416, 1.174867, 1.116318, 1.057769, 0.999220, 0.940672, 0.882123, 0.823574, 0.765025, 0.706476, 0.647928, 0.589379, 0.530830, 0.472281, 0.413732, 0.355184, 0.296635, 0.238086, 1.779537, 1.720988, 1.662440, 1.603891, 1.545342, 1.486793, 1.428244, 1.369696, 1.311147, 1.252598, 1.194049, 1.135500, 1.076952, 1.018403, 0.959854, 0.901305, 0.842756, 0.784208, 0.725659, 0.667110, 0.608561, 0.550012, 0.491464, 0.432915, 0.374366, 0.315817, 0.257268, 1.798720, 1.740171, 1.681622, 1.623073, 1.564524, 1.505976, 1.447427, 1.388878, 1.330329, 1.271780, 1.213232, 1.154683, 1.096134, 1.037585, 0.979036, 0.920488, 0.861939, 0.803390, 0.744841, 0.686292, 0.627744, 0.569195, 0.510646, 0.452097, 0.393548, 0.335000, 0.276451, 0.217902, 1.759353, 1.700804, 1.642256, 1.583707, 1.525158, 1.466609, 1.408060, 1.349512, 1.290963, 1.232414, 1.173865, 1.115316, 1.056768, 0.998219, 0.939670, 0.881121, 0.822572, 0.764024, 0.705475, 0.646926, 0.588377, 0.529828, 0.471280, 0.412731, 0.354182, 0.295633, 0.237084, 1.778536, 1.719987, 1.661438, 1.602889, 1.544340, 1.485792, 1.427243, 1.368694, 1.310145, 1.251596, 1.193048, 1.134499, 1.075950, 1.017401, 0.958852, 0.900304, 0.841755, 0.783206, 0.724657, 0.666108, 0.607560, 0.549011, 0.490462, 0.431913, 0.373364, 0.314816]))
+#eval IO.println ("check_hashemiEnv_oil_le " ++ toString (check_hashemiEnv_oil_le 0.319691 0.261142 0.202593 1.744044 1.685496 1.626947 1.568398 1.509849 1.451300 1.392752 1.334203 1.275654 1.217105 1.158556 1.100008 1.041459 0.982910 0.924361 0.865812 0.807264 0.748715 0.690166 0.631617 0.573068 0.514520 0.455971 0.397422 0.338873 0.280324 0.221776 1.763227 1.704678 1.646129 1.587580 1.529032 1.470483 1.411934 1.353385 #[0.596307, 0.537758, 0.479209, 0.420660, 0.362112, 0.303563, 0.245014, 1.786465, 1.727916, 1.669368, 1.610819, 1.552270, 1.493721, 1.435172, 1.376624, 1.318075, 1.259526, 1.200977, 1.142428, 1.083880, 1.025331, 0.966782, 0.908233, 0.849684, 0.791136, 0.732587, 0.674038, 0.615489, 0.556940, 0.498392, 0.439843, 0.381294, 0.322745, 0.264196, 0.205648, 1.747099, 1.688550, 1.630001, 1.571452, 1.512904, 1.454355, 1.395806, 1.337257, 1.278708, 1.220160, 1.161611, 1.103062, 1.044513, 0.985964, 0.927416, 0.868867, 0.810318, 0.751769, 0.693220, 0.634672, 0.576123, 0.517574, 0.459025, 0.400476, 0.341928, 0.283379, 0.224830, 1.766281, 1.707732, 1.649184, 1.590635, 1.532086, 1.473537, 1.414988, 1.356440, 1.297891, 1.239342, 1.180793, 1.122244, 1.063696, 1.005147, 0.946598, 0.888049, 0.829500, 0.770952, 0.712403, 0.653854, 0.595305, 0.536756, 0.478208, 0.419659, 0.361110, 0.302561, 0.244012, 1.785464, 1.726915, 1.668366, 1.609817, 1.551268, 1.492720, 1.434171, 1.375622, 1.317073, 1.258524, 1.199976, 1.141427, 1.082878, 1.024329, 0.965780, 0.907232, 0.848683, 0.790134, 0.731585, 0.673036, 0.614488, 0.555939, 0.497390, 0.438841, 0.380292, 0.321744, 0.263195, 0.204646, 1.746097, 1.687548, 1.629000, 1.570451, 1.511902, 1.453353, 1.394804, 1.336256, 1.277707, 1.219158, 1.160609, 1.102060, 1.043512, 0.984963, 0.926414, 0.867865, 0.809316, 0.750768, 0.692219, 0.633670, 0.575121, 0.516572, 0.458024, 0.399475, 0.340926, 0.282377, 0.223828, 1.765280, 1.706731, 1.648182, 1.589633, 1.531084, 1.472536, 1.413987, 1.355438, 1.296889, 1.238340, 1.179792, 1.121243, 1.062694, 1.004145, 0.945596, 0.887048, 0.828499, 0.769950, 0.711401, 0.652852, 0.594304, 0.535755, 0.477206, 0.418657, 0.360108, 0.301560, 0.243011, 1.784462, 1.725913, 1.667364, 1.608816, 1.550267, 1.491718, 1.433169, 1.374620, 1.316072, 1.257523, 1.198974, 1.140425, 1.081876, 1.023328, 0.964779, 0.906230, 0.847681, 0.789132, 0.730584, 0.672035, 0.613486, 0.554937, 0.496388, 0.437840, 0.379291, 0.320742, 0.262193, 0.203644, 1.745096, 1.686547, 1.627998, 1.569449, 1.510900, 1.452352, 1.393803, 1.335254, 1.276705, 1.218156, 1.159608, 1.101059, 1.042510, 0.983961, 0.925412, 0.866864, 0.808315, 0.749766, 0.691217, 0.632668, 0.574120, 0.515571, 0.457022, 0.398473, 0.339924, 0.281376, 0.222827, 1.764278, 1.705729, 1.647180, 1.588632, 1.530083, 1.471534, 1.412985, 1.354436, 1.295888, 1.237339, 1.178790, 1.120241, 1.061692, 1.003144, 0.944595, 0.886046, 0.827497, 0.768948, 0.710400, 0.651851, 0.593302, 0.534753, 0.476204, 0.417656, 0.359107, 0.300558, 0.242009, 1.783460, 1.724912, 1.666363, 1.607814, 1.549265, 1.490716, 1.432168, 1.373619, 1.315070, 1.256521, 1.197972, 1.139424, 1.080875, 1.022326, 0.963777, 0.905228, 0.846680, 0.788131, 0.729582, 0.671033, 0.612484, 0.553936, 0.495387, 0.436838, 0.378289, 0.319740, 0.261192, 0.202643, 1.744094, 1.685545, 1.626996, 1.568448, 1.509899, 1.451350, 1.392801, 1.334252, 1.275704, 1.217155, 1.158606, 1.100057, 1.041508, 0.982960, 0.924411, 0.865862, 0.807313, 0.748764, 0.690216, 0.631667, 0.573118, 0.514569, 0.456020, 0.397472, 0.338923, 0.280374, 0.221825, 1.763276, 1.704728, 1.646179, 1.587630, 1.529081, 1.470532, 1.411984, 1.353435, 1.294886, 1.236337, 1.177788, 1.119240, 1.060691, 1.002142, 0.943593, 0.885044, 0.826496, 0.767947, 0.709398, 0.650849, 0.592300, 0.533752, 0.475203, 0.416654, 0.358105, 0.299556, 0.241008, 1.782459, 1.723910, 1.665361, 1.606812, 1.548264, 1.489715, 1.431166, 1.372617, 1.314068, 1.255520, 1.196971, 1.138422, 1.079873, 1.021324, 0.962776, 0.904227, 0.845678, 0.787129, 0.728580, 0.670032, 0.611483, 0.552934, 0.494385, 0.435836, 0.377288, 0.318739, 0.260190, 0.201641, 1.743092, 1.684544, 1.625995, 1.567446, 1.508897, 1.450348, 1.391800, 1.333251, 1.274702, 1.216153, 1.157604, 1.099056, 1.040507, 0.981958, 0.923409, 0.864860, 0.806312, 0.747763, 0.689214, 0.630665, 0.572116, 0.513568, 0.455019, 0.396470, 0.337921, 0.279372, 0.220824, 1.762275, 1.703726, 1.645177, 1.586628, 1.528080, 1.469531, 1.410982, 1.352433, 1.293884, 1.235336, 1.176787, 1.118238, 1.059689, 1.001140, 0.942592, 0.884043, 0.825494, 0.766945, 0.708396, 0.649848, 0.591299, 0.532750, 0.474201, 0.415652, 0.357104, 0.298555, 0.240006, 1.781457, 1.722908, 1.664360, 1.605811, 1.547262, 1.488713, 1.430164, 1.371616, 1.313067, 1.254518, 1.195969, 1.137420, 1.078872, 1.020323, 0.961774, 0.903225, 0.844676, 0.786128, 0.727579, 0.669030, 0.610481, 0.551932, 0.493384, 0.434835, 0.376286, 0.317737, 0.259188, 0.200640, 1.742091, 1.683542, 1.624993, 1.566444, 1.507896, 1.449347, 1.390798, 1.332249, 1.273700, 1.215152, 1.156603, 1.098054, 1.039505, 0.980956, 0.922408, 0.863859, 0.805310, 0.746761, 0.688212, 0.629664, 0.571115, 0.512566, 0.454017, 0.395468, 0.336920, 0.278371, 0.219822, 1.761273, 1.702724, 1.644176, 1.585627, 1.527078, 1.468529, 1.409980, 1.351432, 1.292883, 1.234334, 1.175785, 1.117236, 1.058688, 1.000139, 0.941590, 0.883041, 0.824492, 0.765944, 0.707395, 0.648846, 0.590297, 0.531748, 0.473200, 0.414651, 0.356102, 0.297553, 0.239004, 1.780456, 1.721907, 1.663358, 1.604809, 1.546260, 1.487712, 1.429163, 1.370614, 1.312065, 1.253516, 1.194968, 1.136419, 1.077870, 1.019321, 0.960772, 0.902224, 0.843675, 0.785126, 0.726577, 0.668028, 0.609480, 0.550931, 0.492382, 0.433833, 0.375284, 0.316736, 0.258187, 1.799638, 1.741089, 1.682540, 1.623992, 1.565443, 1.506894, 1.448345, 1.389796, 1.331248, 1.272699, 1.214150, 1.155601, 1.097052, 1.038504, 0.979955, 0.921406, 0.862857, 0.804308, 0.745760, 0.687211, 0.628662, 0.570113, 0.511564, 0.453016, 0.394467, 0.335918, 0.277369, 0.218820, 1.760272, 1.701723, 1.643174, 1.584625, 1.526076, 1.467528, 1.408979, 1.350430, 1.291881, 1.233332, 1.174784, 1.116235, 1.057686, 0.999137, 0.940588, 0.882040, 0.823491, 0.764942, 0.706393, 0.647844, 0.589296, 0.530747, 0.472198, 0.413649, 0.355100, 0.296552, 0.238003, 1.779454, 1.720905, 1.662356, 1.603808, 1.545259, 1.486710, 1.428161, 1.369612, 1.311064, 1.252515, 1.193966, 1.135417, 1.076868, 1.018320, 0.959771, 0.901222, 0.842673, 0.784124, 0.725576, 0.667027, 0.608478, 0.549929, 0.491380, 0.432832, 0.374283, 0.315734, 0.257185, 1.798636, 1.740088, 1.681539, 1.622990, 1.564441, 1.505892, 1.447344, 1.388795, 1.330246, 1.271697, 1.213148, 1.154600, 1.096051, 1.037502, 0.978953, 0.920404, 0.861856, 0.803307, 0.744758, 0.686209, 0.627660, 0.569112, 0.510563, 0.452014, 0.393465, 0.334916, 0.276368, 0.217819, 1.759270, 1.700721, 1.642172, 1.583624]))
+#eval IO.println ("check_hashemiEnv_oil_le " ++ toString (check_hashemiEnv_oil_le 1.588499 1.529950 1.471401 1.412852 1.354304 1.295755 1.237206 1.178657 1.120108 1.061560 1.003011 0.944462 0.885913 0.827364 0.768816 0.710267 0.651718 0.593169 0.534620 0.476072 0.417523 0.358974 0.300425 0.241876 1.783328 1.724779 1.666230 1.607681 1.549132 1.490584 1.432035 1.373486 1.314937 1.256388 1.197840 1.139291 1.080742 1.022193 #[0.265115, 0.206566, 1.748017, 1.689468, 1.630920, 1.572371, 1.513822, 1.455273, 1.396724, 1.338176, 1.279627, 1.221078, 1.162529, 1.103980, 1.045432, 0.986883, 0.928334, 0.869785, 0.811236, 0.752688, 0.694139, 0.635590, 0.577041, 0.518492, 0.459944, 0.401395, 0.342846, 0.284297, 0.225748, 1.767200, 1.708651, 1.650102, 1.591553, 1.533004, 1.474456, 1.415907, 1.357358, 1.298809, 1.240260, 1.181712, 1.123163, 1.064614, 1.006065, 0.947516, 0.888968, 0.830419, 0.771870, 0.713321, 0.654772, 0.596224, 0.537675, 0.479126, 0.420577, 0.362028, 0.303480, 0.244931, 1.786382, 1.727833, 1.669284, 1.610736, 1.552187, 1.493638, 1.435089, 1.376540, 1.317992, 1.259443, 1.200894, 1.142345, 1.083796, 1.025248, 0.966699, 0.908150, 0.849601, 0.791052, 0.732504, 0.673955, 0.615406, 0.556857, 0.498308, 0.439760, 0.381211, 0.322662, 0.264113, 0.205564, 1.747016, 1.688467, 1.629918, 1.571369, 1.512820, 1.454272, 1.395723, 1.337174, 1.278625, 1.220076, 1.161528, 1.102979, 1.044430, 0.985881, 0.927332, 0.868784, 0.810235, 0.751686, 0.693137, 0.634588, 0.576040, 0.517491, 0.458942, 0.400393, 0.341844, 0.283296, 0.224747, 1.766198, 1.707649, 1.649100, 1.590552, 1.532003, 1.473454, 1.414905, 1.356356, 1.297808, 1.239259, 1.180710, 1.122161, 1.063612, 1.005064, 0.946515, 0.887966, 0.829417, 0.770868, 0.712320, 0.653771, 0.595222, 0.536673, 0.478124, 0.419576, 0.361027, 0.302478, 0.243929, 1.785380, 1.726832, 1.668283, 1.609734, 1.551185, 1.492636, 1.434088, 1.375539, 1.316990, 1.258441, 1.199892, 1.141344, 1.082795, 1.024246, 0.965697, 0.907148, 0.848600, 0.790051, 0.731502, 0.672953, 0.614404, 0.555856, 0.497307, 0.438758, 0.380209, 0.321660, 0.263112, 0.204563, 1.746014, 1.687465, 1.628916, 1.570368, 1.511819, 1.453270, 1.394721, 1.336172, 1.277624, 1.219075, 1.160526, 1.101977, 1.043428, 0.984880, 0.926331, 0.867782, 0.809233, 0.750684, 0.692136, 0.633587, 0.575038, 0.516489, 0.457940, 0.399392, 0.340843, 0.282294, 0.223745, 1.765196, 1.706648, 1.648099, 1.589550, 1.531001, 1.472452, 1.413904, 1.355355, 1.296806, 1.238257, 1.179708, 1.121160, 1.062611, 1.004062, 0.945513, 0.886964, 0.828416, 0.769867, 0.711318, 0.652769, 0.594220, 0.535672, 0.477123, 0.418574, 0.360025, 0.301476, 0.242928, 1.784379, 1.725830, 1.667281, 1.608732, 1.550184, 1.491635, 1.433086, 1.374537, 1.315988, 1.257440, 1.198891, 1.140342, 1.081793, 1.023244, 0.964696, 0.906147, 0.847598, 0.789049, 0.730500, 0.671952, 0.613403, 0.554854, 0.496305, 0.437756, 0.379208, 0.320659, 0.262110, 0.203561, 1.745012, 1.686464, 1.627915, 1.569366, 1.510817, 1.452268, 1.393720, 1.335171, 1.276622, 1.218073, 1.159524, 1.100976, 1.042427, 0.983878, 0.925329, 0.866780, 0.808232, 0.749683, 0.691134, 0.632585, 0.574036, 0.515488, 0.456939, 0.398390, 0.339841, 0.281292, 0.222744, 1.764195, 1.705646, 1.647097, 1.588548, 1.530000, 1.471451, 1.412902, 1.354353, 1.295804, 1.237256, 1.178707, 1.120158, 1.061609, 1.003060, 0.944512, 0.885963, 0.827414, 0.768865, 0.710316, 0.651768, 0.593219, 0.534670, 0.476121, 0.417572, 0.359024, 0.300475, 0.241926, 1.783377, 1.724828, 1.666280, 1.607731, 1.549182, 1.490633, 1.432084, 1.373536, 1.314987, 1.256438, 1.197889, 1.139340, 1.080792, 1.022243, 0.963694, 0.905145, 0.846596, 0.788048, 0.729499, 0.670950, 0.612401, 0.553852, 0.495304, 0.436755, 0.378206, 0.319657, 0.261108, 0.202560, 1.744011, 1.685462, 1.626913, 1.568364, 1.509816, 1.451267, 1.392718, 1.334169, 1.275620, 1.217072, 1.158523, 1.099974, 1.041425, 0.982876, 0.924328, 0.865779, 0.807230, 0.748681, 0.690132, 0.631584, 0.573035, 0.514486, 0.455937, 0.397388, 0.338840, 0.280291, 0.221742, 1.763193, 1.704644, 1.646096, 1.587547, 1.528998, 1.470449, 1.411900, 1.353352, 1.294803, 1.236254, 1.177705, 1.119156, 1.060608, 1.002059, 0.943510, 0.884961, 0.826412, 0.767864, 0.709315, 0.650766, 0.592217, 0.533668, 0.475120, 0.416571, 0.358022, 0.299473, 0.240924, 1.782376, 1.723827, 1.665278, 1.606729, 1.548180, 1.489632, 1.431083, 1.372534, 1.313985, 1.255436, 1.196888, 1.138339, 1.079790, 1.021241, 0.962692, 0.904144, 0.845595, 0.787046, 0.728497, 0.669948, 0.611400, 0.552851, 0.494302, 0.435753, 0.377204, 0.318656, 0.260107, 0.201558, 1.743009, 1.684460, 1.625912, 1.567363, 1.508814, 1.450265, 1.391716, 1.333168, 1.274619, 1.216070, 1.157521, 1.098972, 1.040424, 0.981875, 0.923326, 0.864777, 0.806228, 0.747680, 0.689131, 0.630582, 0.572033, 0.513484, 0.454936, 0.396387, 0.337838, 0.279289, 0.220740, 1.762192, 1.703643, 1.645094, 1.586545, 1.527996, 1.469448, 1.410899, 1.352350, 1.293801, 1.235252, 1.176704, 1.118155, 1.059606, 1.001057, 0.942508, 0.883960, 0.825411, 0.766862, 0.708313, 0.649764, 0.591216, 0.532667, 0.474118, 0.415569, 0.357020, 0.298472, 0.239923, 1.781374, 1.722825, 1.664276, 1.605728, 1.547179, 1.488630, 1.430081, 1.371532, 1.312984, 1.254435, 1.195886, 1.137337, 1.078788, 1.020240, 0.961691, 0.903142, 0.844593, 0.786044, 0.727496, 0.668947, 0.610398, 0.551849, 0.493300, 0.434752, 0.376203, 0.317654, 0.259105, 0.200556, 1.742008, 1.683459, 1.624910, 1.566361, 1.507812, 1.449264, 1.390715, 1.332166, 1.273617, 1.215068, 1.156520, 1.097971, 1.039422, 0.980873, 0.922324, 0.863776, 0.805227, 0.746678, 0.688129, 0.629580, 0.571032, 0.512483, 0.453934, 0.395385, 0.336836, 0.278288, 0.219739, 1.761190, 1.702641, 1.644092, 1.585544, 1.526995, 1.468446, 1.409897, 1.351348, 1.292800, 1.234251, 1.175702, 1.117153, 1.058604, 1.000056, 0.941507, 0.882958, 0.824409, 0.765860, 0.707312, 0.648763, 0.590214, 0.531665, 0.473116, 0.414568, 0.356019, 0.297470, 0.238921, 1.780372, 1.721824, 1.663275, 1.604726, 1.546177, 1.487628, 1.429080, 1.370531, 1.311982, 1.253433, 1.194884, 1.136336, 1.077787, 1.019238, 0.960689, 0.902140, 0.843592, 0.785043, 0.726494, 0.667945, 0.609396, 0.550848, 0.492299, 0.433750, 0.375201, 0.316652, 0.258104, 1.799555, 1.741006, 1.682457, 1.623908, 1.565360, 1.506811, 1.448262, 1.389713, 1.331164, 1.272616, 1.214067, 1.155518, 1.096969, 1.038420, 0.979872, 0.921323, 0.862774, 0.804225, 0.745676, 0.687128, 0.628579, 0.570030, 0.511481, 0.452932, 0.394384, 0.335835, 0.277286, 0.218737, 1.760188, 1.701640, 1.643091, 1.584542, 1.525993, 1.467444, 1.408896, 1.350347, 1.291798, 1.233249, 1.174700, 1.116152, 1.057603, 0.999054, 0.940505, 0.881956, 0.823408, 0.764859, 0.706310, 0.647761, 0.589212, 0.530664, 0.472115, 0.413566, 0.355017, 0.296468, 0.237920, 1.779371, 1.720822, 1.662273, 1.603724, 1.545176, 1.486627, 1.428078, 1.369529, 1.310980, 1.252432]))
 
 def check_hashemiEnv_pot_le (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Float) (dt : Float) (elSun : Float) (azSun : Float) (dni : Float) (rDrum : Float) (W : Float) (rcm : Float) (Tmax : Float) (rho : Float) (Fdrive : Float) (L10 : Float) (rodLen : Float) (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (sigmaslope : Float) (sigmaspec : Float) (hsun : Float) (soil : Float) (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Coil : Float) (ToilMax : Float) (Toil : Float) (Twall : Float) (Ta : Float) (dr : Array Float) : Bool :=
   let v1623 := (Toil - Twall)
   let v1625 := (max (0 : Float) (UAx * v1623))
   (!((0 : Float) <= UAx) || (v1625 <= (UAx * (max (0 : Float) v1623))))
 
-#eval IO.println ("check_hashemiEnv_pot_le " ++ toString (check_hashemiEnv_pot_le 0.353947 0.295398 0.236849 1.778300 1.719752 1.661203 1.602654 1.544105 1.485556 1.427008 1.368459 1.309910 1.251361 1.192812 1.134264 1.075715 1.017166 0.958617 0.900068 0.841520 0.782971 0.724422 0.665873 0.607324 0.548776 0.490227 0.431678 0.373129 0.314580 0.256032 1.797483 1.738934 1.680385 1.621836 1.563288 1.504739 1.446190 1.387641 #[0.630563, 0.572014, 0.513465, 0.454916, 0.396368, 0.337819, 0.279270, 0.220721, 1.762172, 1.703624, 1.645075, 1.586526, 1.527977, 1.469428, 1.410880, 1.352331, 1.293782, 1.235233, 1.176684, 1.118136, 1.059587, 1.001038, 0.942489, 0.883940, 0.825392, 0.766843, 0.708294, 0.649745, 0.591196, 0.532648, 0.474099, 0.415550, 0.357001, 0.298452, 0.239904, 1.781355, 1.722806, 1.664257, 1.605708, 1.547160, 1.488611, 1.430062, 1.371513, 1.312964, 1.254416, 1.195867, 1.137318, 1.078769, 1.020220, 0.961672, 0.903123, 0.844574, 0.786025, 0.727476, 0.668928, 0.610379, 0.551830, 0.493281, 0.434732, 0.376184, 0.317635, 0.259086, 0.200537, 1.741988, 1.683440, 1.624891, 1.566342, 1.507793, 1.449244, 1.390696, 1.332147, 1.273598, 1.215049, 1.156500, 1.097952, 1.039403, 0.980854, 0.922305, 0.863756, 0.805208, 0.746659, 0.688110, 0.629561, 0.571012, 0.512464, 0.453915, 0.395366, 0.336817, 0.278268, 0.219720, 1.761171, 1.702622, 1.644073, 1.585524, 1.526976, 1.468427, 1.409878, 1.351329, 1.292780, 1.234232, 1.175683, 1.117134, 1.058585, 1.000036, 0.941488, 0.882939, 0.824390, 0.765841, 0.707292, 0.648744, 0.590195, 0.531646, 0.473097, 0.414548, 0.356000, 0.297451, 0.238902, 1.780353, 1.721804, 1.663256, 1.604707, 1.546158, 1.487609, 1.429060, 1.370512, 1.311963, 1.253414, 1.194865, 1.136316, 1.077768, 1.019219, 0.960670, 0.902121, 0.843572, 0.785024, 0.726475, 0.667926, 0.609377, 0.550828, 0.492280, 0.433731, 0.375182, 0.316633, 0.258084, 1.799536, 1.740987, 1.682438, 1.623889, 1.565340, 1.506792, 1.448243, 1.389694, 1.331145, 1.272596, 1.214048, 1.155499, 1.096950, 1.038401, 0.979852, 0.921304, 0.862755, 0.804206, 0.745657, 0.687108, 0.628560, 0.570011, 0.511462, 0.452913, 0.394364, 0.335816, 0.277267, 0.218718, 1.760169, 1.701620, 1.643072, 1.584523, 1.525974, 1.467425, 1.408876, 1.350328, 1.291779, 1.233230, 1.174681, 1.116132, 1.057584, 0.999035, 0.940486, 0.881937, 0.823388, 0.764840, 0.706291, 0.647742, 0.589193, 0.530644, 0.472096, 0.413547, 0.354998, 0.296449, 0.237900, 1.779352, 1.720803, 1.662254, 1.603705, 1.545156, 1.486608, 1.428059, 1.369510, 1.310961, 1.252412, 1.193864, 1.135315, 1.076766, 1.018217, 0.959668, 0.901120, 0.842571, 0.784022, 0.725473, 0.666924, 0.608376, 0.549827, 0.491278, 0.432729, 0.374180, 0.315632, 0.257083, 1.798534, 1.739985, 1.681436, 1.622888, 1.564339, 1.505790, 1.447241, 1.388692, 1.330144, 1.271595, 1.213046, 1.154497, 1.095948, 1.037400, 0.978851, 0.920302, 0.861753, 0.803204, 0.744656, 0.686107, 0.627558, 0.569009, 0.510460, 0.451912, 0.393363, 0.334814, 0.276265, 0.217716, 1.759168, 1.700619, 1.642070, 1.583521, 1.524972, 1.466424, 1.407875, 1.349326, 1.290777, 1.232228, 1.173680, 1.115131, 1.056582, 0.998033, 0.939484, 0.880936, 0.822387, 0.763838, 0.705289, 0.646740, 0.588192, 0.529643, 0.471094, 0.412545, 0.353996, 0.295448, 0.236899, 1.778350, 1.719801, 1.661252, 1.602704, 1.544155, 1.485606, 1.427057, 1.368508, 1.309960, 1.251411, 1.192862, 1.134313, 1.075764, 1.017216, 0.958667, 0.900118, 0.841569, 0.783020, 0.724472, 0.665923, 0.607374, 0.548825, 0.490276, 0.431728, 0.373179, 0.314630, 0.256081, 1.797532, 1.738984, 1.680435, 1.621886, 1.563337, 1.504788, 1.446240, 1.387691, 1.329142, 1.270593, 1.212044, 1.153496, 1.094947, 1.036398, 0.977849, 0.919300, 0.860752, 0.802203, 0.743654, 0.685105, 0.626556, 0.568008, 0.509459, 0.450910, 0.392361, 0.333812, 0.275264, 0.216715, 1.758166, 1.699617, 1.641068, 1.582520, 1.523971, 1.465422, 1.406873, 1.348324, 1.289776, 1.231227, 1.172678, 1.114129, 1.055580, 0.997032, 0.938483, 0.879934, 0.821385, 0.762836, 0.704288, 0.645739, 0.587190, 0.528641, 0.470092, 0.411544, 0.352995, 0.294446, 0.235897, 1.777348, 1.718800, 1.660251, 1.601702, 1.543153, 1.484604, 1.426056, 1.367507, 1.308958, 1.250409, 1.191860, 1.133312, 1.074763, 1.016214, 0.957665, 0.899116, 0.840568, 0.782019, 0.723470, 0.664921, 0.606372, 0.547824, 0.489275, 0.430726, 0.372177, 0.313628, 0.255080, 1.796531, 1.737982, 1.679433, 1.620884, 1.562336, 1.503787, 1.445238, 1.386689, 1.328140, 1.269592, 1.211043, 1.152494, 1.093945, 1.035396, 0.976848, 0.918299, 0.859750, 0.801201, 0.742652, 0.684104, 0.625555, 0.567006, 0.508457, 0.449908, 0.391360, 0.332811, 0.274262, 0.215713, 1.757164, 1.698616, 1.640067, 1.581518, 1.522969, 1.464420, 1.405872, 1.347323, 1.288774, 1.230225, 1.171676, 1.113128, 1.054579, 0.996030, 0.937481, 0.878932, 0.820384, 0.761835, 0.703286, 0.644737, 0.586188, 0.527640, 0.469091, 0.410542, 0.351993, 0.293444, 0.234896, 1.776347, 1.717798, 1.659249, 1.600700, 1.542152, 1.483603, 1.425054, 1.366505, 1.307956, 1.249408, 1.190859, 1.132310, 1.073761, 1.015212, 0.956664, 0.898115, 0.839566, 0.781017, 0.722468, 0.663920, 0.605371, 0.546822, 0.488273, 0.429724, 0.371176, 0.312627, 0.254078, 1.795529, 1.736980, 1.678432, 1.619883, 1.561334, 1.502785, 1.444236, 1.385688, 1.327139, 1.268590, 1.210041, 1.151492, 1.092944, 1.034395, 0.975846, 0.917297, 0.858748, 0.800200, 0.741651, 0.683102, 0.624553, 0.566004, 0.507456, 0.448907, 0.390358, 0.331809, 0.273260, 0.214712, 1.756163, 1.697614, 1.639065, 1.580516, 1.521968, 1.463419, 1.404870, 1.346321, 1.287772, 1.229224, 1.170675, 1.112126, 1.053577, 0.995028, 0.936480, 0.877931, 0.819382, 0.760833, 0.702284, 0.643736, 0.585187, 0.526638, 0.468089, 0.409540, 0.350992, 0.292443, 0.233894, 1.775345, 1.716796, 1.658248, 1.599699, 1.541150, 1.482601, 1.424052, 1.365504, 1.306955, 1.248406, 1.189857, 1.131308, 1.072760, 1.014211, 0.955662, 0.897113, 0.838564, 0.780016, 0.721467, 0.662918, 0.604369, 0.545820, 0.487272, 0.428723, 0.370174, 0.311625, 0.253076, 1.794528, 1.735979, 1.677430, 1.618881, 1.560332, 1.501784, 1.443235, 1.384686, 1.326137, 1.267588, 1.209040, 1.150491, 1.091942, 1.033393, 0.974844, 0.916296, 0.857747, 0.799198, 0.740649, 0.682100, 0.623552, 0.565003, 0.506454, 0.447905, 0.389356, 0.330808, 0.272259, 0.213710, 1.755161, 1.696612, 1.638064, 1.579515, 1.520966, 1.462417, 1.403868, 1.345320, 1.286771, 1.228222, 1.169673, 1.111124, 1.052576, 0.994027, 0.935478, 0.876929, 0.818380, 0.759832, 0.701283, 0.642734, 0.584185, 0.525636, 0.467088, 0.408539, 0.349990, 0.291441, 0.232892, 1.774344, 1.715795, 1.657246, 1.598697, 1.540148, 1.481600, 1.423051, 1.364502, 1.305953, 1.247404, 1.188856, 1.130307, 1.071758, 1.013209, 0.954660, 0.896112, 0.837563, 0.779014, 0.720465, 0.661916, 0.603368, 0.544819, 0.486270, 0.427721, 0.369172, 0.310624, 0.252075, 1.793526, 1.734977, 1.676428, 1.617880]))
-#eval IO.println ("check_hashemiEnv_pot_le " ++ toString (check_hashemiEnv_pot_le 1.622755 1.564206 1.505657 1.447108 1.388560 1.330011 1.271462 1.212913 1.154364 1.095816 1.037267 0.978718 0.920169 0.861620 0.803072 0.744523 0.685974 0.627425 0.568876 0.510328 0.451779 0.393230 0.334681 0.276132 0.217584 1.759035 1.700486 1.641937 1.583388 1.524840 1.466291 1.407742 1.349193 1.290644 1.232096 1.173547 1.114998 1.056449 #[0.299371, 0.240822, 1.782273, 1.723724, 1.665176, 1.606627, 1.548078, 1.489529, 1.430980, 1.372432, 1.313883, 1.255334, 1.196785, 1.138236, 1.079688, 1.021139, 0.962590, 0.904041, 0.845492, 0.786944, 0.728395, 0.669846, 0.611297, 0.552748, 0.494200, 0.435651, 0.377102, 0.318553, 0.260004, 0.201456, 1.742907, 1.684358, 1.625809, 1.567260, 1.508712, 1.450163, 1.391614, 1.333065, 1.274516, 1.215968, 1.157419, 1.098870, 1.040321, 0.981772, 0.923224, 0.864675, 0.806126, 0.747577, 0.689028, 0.630480, 0.571931, 0.513382, 0.454833, 0.396284, 0.337736, 0.279187, 0.220638, 1.762089, 1.703540, 1.644992, 1.586443, 1.527894, 1.469345, 1.410796, 1.352248, 1.293699, 1.235150, 1.176601, 1.118052, 1.059504, 1.000955, 0.942406, 0.883857, 0.825308, 0.766760, 0.708211, 0.649662, 0.591113, 0.532564, 0.474016, 0.415467, 0.356918, 0.298369, 0.239820, 1.781272, 1.722723, 1.664174, 1.605625, 1.547076, 1.488528, 1.429979, 1.371430, 1.312881, 1.254332, 1.195784, 1.137235, 1.078686, 1.020137, 0.961588, 0.903040, 0.844491, 0.785942, 0.727393, 0.668844, 0.610296, 0.551747, 0.493198, 0.434649, 0.376100, 0.317552, 0.259003, 0.200454, 1.741905, 1.683356, 1.624808, 1.566259, 1.507710, 1.449161, 1.390612, 1.332064, 1.273515, 1.214966, 1.156417, 1.097868, 1.039320, 0.980771, 0.922222, 0.863673, 0.805124, 0.746576, 0.688027, 0.629478, 0.570929, 0.512380, 0.453832, 0.395283, 0.336734, 0.278185, 0.219636, 1.761088, 1.702539, 1.643990, 1.585441, 1.526892, 1.468344, 1.409795, 1.351246, 1.292697, 1.234148, 1.175600, 1.117051, 1.058502, 0.999953, 0.941404, 0.882856, 0.824307, 0.765758, 0.707209, 0.648660, 0.590112, 0.531563, 0.473014, 0.414465, 0.355916, 0.297368, 0.238819, 1.780270, 1.721721, 1.663172, 1.604624, 1.546075, 1.487526, 1.428977, 1.370428, 1.311880, 1.253331, 1.194782, 1.136233, 1.077684, 1.019136, 0.960587, 0.902038, 0.843489, 0.784940, 0.726392, 0.667843, 0.609294, 0.550745, 0.492196, 0.433648, 0.375099, 0.316550, 0.258001, 1.799452, 1.740904, 1.682355, 1.623806, 1.565257, 1.506708, 1.448160, 1.389611, 1.331062, 1.272513, 1.213964, 1.155416, 1.096867, 1.038318, 0.979769, 0.921220, 0.862672, 0.804123, 0.745574, 0.687025, 0.628476, 0.569928, 0.511379, 0.452830, 0.394281, 0.335732, 0.277184, 0.218635, 1.760086, 1.701537, 1.642988, 1.584440, 1.525891, 1.467342, 1.408793, 1.350244, 1.291696, 1.233147, 1.174598, 1.116049, 1.057500, 0.998952, 0.940403, 0.881854, 0.823305, 0.764756, 0.706208, 0.647659, 0.589110, 0.530561, 0.472012, 0.413464, 0.354915, 0.296366, 0.237817, 1.779268, 1.720720, 1.662171, 1.603622, 1.545073, 1.486524, 1.427976, 1.369427, 1.310878, 1.252329, 1.193780, 1.135232, 1.076683, 1.018134, 0.959585, 0.901036, 0.842488, 0.783939, 0.725390, 0.666841, 0.608292, 0.549744, 0.491195, 0.432646, 0.374097, 0.315548, 0.257000, 1.798451, 1.739902, 1.681353, 1.622804, 1.564256, 1.505707, 1.447158, 1.388609, 1.330060, 1.271512, 1.212963, 1.154414, 1.095865, 1.037316, 0.978768, 0.920219, 0.861670, 0.803121, 0.744572, 0.686024, 0.627475, 0.568926, 0.510377, 0.451828, 0.393280, 0.334731, 0.276182, 0.217633, 1.759084, 1.700536, 1.641987, 1.583438, 1.524889, 1.466340, 1.407792, 1.349243, 1.290694, 1.232145, 1.173596, 1.115048, 1.056499, 0.997950, 0.939401, 0.880852, 0.822304, 0.763755, 0.705206, 0.646657, 0.588108, 0.529560, 0.471011, 0.412462, 0.353913, 0.295364, 0.236816, 1.778267, 1.719718, 1.661169, 1.602620, 1.544072, 1.485523, 1.426974, 1.368425, 1.309876, 1.251328, 1.192779, 1.134230, 1.075681, 1.017132, 0.958584, 0.900035, 0.841486, 0.782937, 0.724388, 0.665840, 0.607291, 0.548742, 0.490193, 0.431644, 0.373096, 0.314547, 0.255998, 1.797449, 1.738900, 1.680352, 1.621803, 1.563254, 1.504705, 1.446156, 1.387608, 1.329059, 1.270510, 1.211961, 1.153412, 1.094864, 1.036315, 0.977766, 0.919217, 0.860668, 0.802120, 0.743571, 0.685022, 0.626473, 0.567924, 0.509376, 0.450827, 0.392278, 0.333729, 0.275180, 0.216632, 1.758083, 1.699534, 1.640985, 1.582436, 1.523888, 1.465339, 1.406790, 1.348241, 1.289692, 1.231144, 1.172595, 1.114046, 1.055497, 0.996948, 0.938400, 0.879851, 0.821302, 0.762753, 0.704204, 0.645656, 0.587107, 0.528558, 0.470009, 0.411460, 0.352912, 0.294363, 0.235814, 1.777265, 1.718716, 1.660168, 1.601619, 1.543070, 1.484521, 1.425972, 1.367424, 1.308875, 1.250326, 1.191777, 1.133228, 1.074680, 1.016131, 0.957582, 0.899033, 0.840484, 0.781936, 0.723387, 0.664838, 0.606289, 0.547740, 0.489192, 0.430643, 0.372094, 0.313545, 0.254996, 1.796448, 1.737899, 1.679350, 1.620801, 1.562252, 1.503704, 1.445155, 1.386606, 1.328057, 1.269508, 1.210960, 1.152411, 1.093862, 1.035313, 0.976764, 0.918216, 0.859667, 0.801118, 0.742569, 0.684020, 0.625472, 0.566923, 0.508374, 0.449825, 0.391276, 0.332728, 0.274179, 0.215630, 1.757081, 1.698532, 1.639984, 1.581435, 1.522886, 1.464337, 1.405788, 1.347240, 1.288691, 1.230142, 1.171593, 1.113044, 1.054496, 0.995947, 0.937398, 0.878849, 0.820300, 0.761752, 0.703203, 0.644654, 0.586105, 0.527556, 0.469008, 0.410459, 0.351910, 0.293361, 0.234812, 1.776264, 1.717715, 1.659166, 1.600617, 1.542068, 1.483520, 1.424971, 1.366422, 1.307873, 1.249324, 1.190776, 1.132227, 1.073678, 1.015129, 0.956580, 0.898032, 0.839483, 0.780934, 0.722385, 0.663836, 0.605288, 0.546739, 0.488190, 0.429641, 0.371092, 0.312544, 0.253995, 1.795446, 1.736897, 1.678348, 1.619800, 1.561251, 1.502702, 1.444153, 1.385604, 1.327056, 1.268507, 1.209958, 1.151409, 1.092860, 1.034312, 0.975763, 0.917214, 0.858665, 0.800116, 0.741568, 0.683019, 0.624470, 0.565921, 0.507372, 0.448824, 0.390275, 0.331726, 0.273177, 0.214628, 1.756080, 1.697531, 1.638982, 1.580433, 1.521884, 1.463336, 1.404787, 1.346238, 1.287689, 1.229140, 1.170592, 1.112043, 1.053494, 0.994945, 0.936396, 0.877848, 0.819299, 0.760750, 0.702201, 0.643652, 0.585104, 0.526555, 0.468006, 0.409457, 0.350908, 0.292360, 0.233811, 1.775262, 1.716713, 1.658164, 1.599616, 1.541067, 1.482518, 1.423969, 1.365420, 1.306872, 1.248323, 1.189774, 1.131225, 1.072676, 1.014128, 0.955579, 0.897030, 0.838481, 0.779932, 0.721384, 0.662835, 0.604286, 0.545737, 0.487188, 0.428640, 0.370091, 0.311542, 0.252993, 1.794444, 1.735896, 1.677347, 1.618798, 1.560249, 1.501700, 1.443152, 1.384603, 1.326054, 1.267505, 1.208956, 1.150408, 1.091859, 1.033310, 0.974761, 0.916212, 0.857664, 0.799115, 0.740566, 0.682017, 0.623468, 0.564920, 0.506371, 0.447822, 0.389273, 0.330724, 0.272176, 0.213627, 1.755078, 1.696529, 1.637980, 1.579432, 1.520883, 1.462334, 1.403785, 1.345236, 1.286688]))
-#eval IO.println ("check_hashemiEnv_pot_le " ++ toString (check_hashemiEnv_pot_le 1.291563 1.233014 1.174465 1.115916 1.057368 0.998819 0.940270 0.881721 0.823172 0.764624 0.706075 0.647526 0.588977 0.530428 0.471880 0.413331 0.354782 0.296233 0.237684 1.779136 1.720587 1.662038 1.603489 1.544940 1.486392 1.427843 1.369294 1.310745 1.252196 1.193648 1.135099 1.076550 1.018001 0.959452 0.900904 0.842355 0.783806 0.725257 #[1.568179, 1.509630, 1.451081, 1.392532, 1.333984, 1.275435, 1.216886, 1.158337, 1.099788, 1.041240, 0.982691, 0.924142, 0.865593, 0.807044, 0.748496, 0.689947, 0.631398, 0.572849, 0.514300, 0.455752, 0.397203, 0.338654, 0.280105, 0.221556, 1.763008, 1.704459, 1.645910, 1.587361, 1.528812, 1.470264, 1.411715, 1.353166, 1.294617, 1.236068, 1.177520, 1.118971, 1.060422, 1.001873, 0.943324, 0.884776, 0.826227, 0.767678, 0.709129, 0.650580, 0.592032, 0.533483, 0.474934, 0.416385, 0.357836, 0.299288, 0.240739, 1.782190, 1.723641, 1.665092, 1.606544, 1.547995, 1.489446, 1.430897, 1.372348, 1.313800, 1.255251, 1.196702, 1.138153, 1.079604, 1.021056, 0.962507, 0.903958, 0.845409, 0.786860, 0.728312, 0.669763, 0.611214, 0.552665, 0.494116, 0.435568, 0.377019, 0.318470, 0.259921, 0.201372, 1.742824, 1.684275, 1.625726, 1.567177, 1.508628, 1.450080, 1.391531, 1.332982, 1.274433, 1.215884, 1.157336, 1.098787, 1.040238, 0.981689, 0.923140, 0.864592, 0.806043, 0.747494, 0.688945, 0.630396, 0.571848, 0.513299, 0.454750, 0.396201, 0.337652, 0.279104, 0.220555, 1.762006, 1.703457, 1.644908, 1.586360, 1.527811, 1.469262, 1.410713, 1.352164, 1.293616, 1.235067, 1.176518, 1.117969, 1.059420, 1.000872, 0.942323, 0.883774, 0.825225, 0.766676, 0.708128, 0.649579, 0.591030, 0.532481, 0.473932, 0.415384, 0.356835, 0.298286, 0.239737, 1.781188, 1.722640, 1.664091, 1.605542, 1.546993, 1.488444, 1.429896, 1.371347, 1.312798, 1.254249, 1.195700, 1.137152, 1.078603, 1.020054, 0.961505, 0.902956, 0.844408, 0.785859, 0.727310, 0.668761, 0.610212, 0.551664, 0.493115, 0.434566, 0.376017, 0.317468, 0.258920, 0.200371, 1.741822, 1.683273, 1.624724, 1.566176, 1.507627, 1.449078, 1.390529, 1.331980, 1.273432, 1.214883, 1.156334, 1.097785, 1.039236, 0.980688, 0.922139, 0.863590, 0.805041, 0.746492, 0.687944, 0.629395, 0.570846, 0.512297, 0.453748, 0.395200, 0.336651, 0.278102, 0.219553, 1.761004, 1.702456, 1.643907, 1.585358, 1.526809, 1.468260, 1.409712, 1.351163, 1.292614, 1.234065, 1.175516, 1.116968, 1.058419, 0.999870, 0.941321, 0.882772, 0.824224, 0.765675, 0.707126, 0.648577, 0.590028, 0.531480, 0.472931, 0.414382, 0.355833, 0.297284, 0.238736, 1.780187, 1.721638, 1.663089, 1.604540, 1.545992, 1.487443, 1.428894, 1.370345, 1.311796, 1.253248, 1.194699, 1.136150, 1.077601, 1.019052, 0.960504, 0.901955, 0.843406, 0.784857, 0.726308, 0.667760, 0.609211, 0.550662, 0.492113, 0.433564, 0.375016, 0.316467, 0.257918, 1.799369, 1.740820, 1.682272, 1.623723, 1.565174, 1.506625, 1.448076, 1.389528, 1.330979, 1.272430, 1.213881, 1.155332, 1.096784, 1.038235, 0.979686, 0.921137, 0.862588, 0.804040, 0.745491, 0.686942, 0.628393, 0.569844, 0.511296, 0.452747, 0.394198, 0.335649, 0.277100, 0.218552, 1.760003, 1.701454, 1.642905, 1.584356, 1.525808, 1.467259, 1.408710, 1.350161, 1.291612, 1.233064, 1.174515, 1.115966, 1.057417, 0.998868, 0.940320, 0.881771, 0.823222, 0.764673, 0.706124, 0.647576, 0.589027, 0.530478, 0.471929, 0.413380, 0.354832, 0.296283, 0.237734, 1.779185, 1.720636, 1.662088, 1.603539, 1.544990, 1.486441, 1.427892, 1.369344, 1.310795, 1.252246, 1.193697, 1.135148, 1.076600, 1.018051, 0.959502, 0.900953, 0.842404, 0.783856, 0.725307, 0.666758, 0.608209, 0.549660, 0.491112, 0.432563, 0.374014, 0.315465, 0.256916, 1.798368, 1.739819, 1.681270, 1.622721, 1.564172, 1.505624, 1.447075, 1.388526, 1.329977, 1.271428, 1.212880, 1.154331, 1.095782, 1.037233, 0.978684, 0.920136, 0.861587, 0.803038, 0.744489, 0.685940, 0.627392, 0.568843, 0.510294, 0.451745, 0.393196, 0.334648, 0.276099, 0.217550, 1.759001, 1.700452, 1.641904, 1.583355, 1.524806, 1.466257, 1.407708, 1.349160, 1.290611, 1.232062, 1.173513, 1.114964, 1.056416, 0.997867, 0.939318, 0.880769, 0.822220, 0.763672, 0.705123, 0.646574, 0.588025, 0.529476, 0.470928, 0.412379, 0.353830, 0.295281, 0.236732, 1.778184, 1.719635, 1.661086, 1.602537, 1.543988, 1.485440, 1.426891, 1.368342, 1.309793, 1.251244, 1.192696, 1.134147, 1.075598, 1.017049, 0.958500, 0.899952, 0.841403, 0.782854, 0.724305, 0.665756, 0.607208, 0.548659, 0.490110, 0.431561, 0.373012, 0.314464, 0.255915, 1.797366, 1.738817, 1.680268, 1.621720, 1.563171, 1.504622, 1.446073, 1.387524, 1.328976, 1.270427, 1.211878, 1.153329, 1.094780, 1.036232, 0.977683, 0.919134, 0.860585, 0.802036, 0.743488, 0.684939, 0.626390, 0.567841, 0.509292, 0.450744, 0.392195, 0.333646, 0.275097, 0.216548, 1.758000, 1.699451, 1.640902, 1.582353, 1.523804, 1.465256, 1.406707, 1.348158, 1.289609, 1.231060, 1.172512, 1.113963, 1.055414, 0.996865, 0.938316, 0.879768, 0.821219, 0.762670, 0.704121, 0.645572, 0.587024, 0.528475, 0.469926, 0.411377, 0.352828, 0.294280, 0.235731, 1.777182, 1.718633, 1.660084, 1.601536, 1.542987, 1.484438, 1.425889, 1.367340, 1.308792, 1.250243, 1.191694, 1.133145, 1.074596, 1.016048, 0.957499, 0.898950, 0.840401, 0.781852, 0.723304, 0.664755, 0.606206, 0.547657, 0.489108, 0.430560, 0.372011, 0.313462, 0.254913, 1.796364, 1.737816, 1.679267, 1.620718, 1.562169, 1.503620, 1.445072, 1.386523, 1.327974, 1.269425, 1.210876, 1.152328, 1.093779, 1.035230, 0.976681, 0.918132, 0.859584, 0.801035, 0.742486, 0.683937, 0.625388, 0.566840, 0.508291, 0.449742, 0.391193, 0.332644, 0.274096, 0.215547, 1.756998, 1.698449, 1.639900, 1.581352, 1.522803, 1.464254, 1.405705, 1.347156, 1.288608, 1.230059, 1.171510, 1.112961, 1.054412, 0.995864, 0.937315, 0.878766, 0.820217, 0.761668, 0.703120, 0.644571, 0.586022, 0.527473, 0.468924, 0.410376, 0.351827, 0.293278, 0.234729, 1.776180, 1.717632, 1.659083, 1.600534, 1.541985, 1.483436, 1.424888, 1.366339, 1.307790, 1.249241, 1.190692, 1.132144, 1.073595, 1.015046, 0.956497, 0.897948, 0.839400, 0.780851, 0.722302, 0.663753, 0.605204, 0.546656, 0.488107, 0.429558, 0.371009, 0.312460, 0.253912, 1.795363, 1.736814, 1.678265, 1.619716, 1.561168, 1.502619, 1.444070, 1.385521, 1.326972, 1.268424, 1.209875, 1.151326, 1.092777, 1.034228, 0.975680, 0.917131, 0.858582, 0.800033, 0.741484, 0.682936, 0.624387, 0.565838, 0.507289, 0.448740, 0.390192, 0.331643, 0.273094, 0.214545, 1.755996, 1.697448, 1.638899, 1.580350, 1.521801, 1.463252, 1.404704, 1.346155, 1.287606, 1.229057, 1.170508, 1.111960, 1.053411, 0.994862, 0.936313, 0.877764, 0.819216, 0.760667, 0.702118, 0.643569, 0.585020, 0.526472, 0.467923, 0.409374, 0.350825, 0.292276, 0.233728, 1.775179, 1.716630, 1.658081, 1.599532, 1.540984, 1.482435, 1.423886, 1.365337, 1.306788, 1.248240, 1.189691, 1.131142, 1.072593, 1.014044, 0.955496]))
+#eval IO.println ("check_hashemiEnv_pot_le " ++ toString (check_hashemiEnv_pot_le 0.464731 0.406182 0.347633 0.289084 0.230536 1.771987 1.713438 1.654889 1.596340 1.537792 1.479243 1.420694 1.362145 1.303596 1.245048 1.186499 1.127950 1.069401 1.010852 0.952304 0.893755 0.835206 0.776657 0.718108 0.659560 0.601011 0.542462 0.483913 0.425364 0.366816 0.308267 0.249718 1.791169 1.732620 1.674072 1.615523 1.556974 1.498425 #[0.741347, 0.682798, 0.624249, 0.565700, 0.507152, 0.448603, 0.390054, 0.331505, 0.272956, 0.214408, 1.755859, 1.697310, 1.638761, 1.580212, 1.521664, 1.463115, 1.404566, 1.346017, 1.287468, 1.228920, 1.170371, 1.111822, 1.053273, 0.994724, 0.936176, 0.877627, 0.819078, 0.760529, 0.701980, 0.643432, 0.584883, 0.526334, 0.467785, 0.409236, 0.350688, 0.292139, 0.233590, 1.775041, 1.716492, 1.657944, 1.599395, 1.540846, 1.482297, 1.423748, 1.365200, 1.306651, 1.248102, 1.189553, 1.131004, 1.072456, 1.013907, 0.955358, 0.896809, 0.838260, 0.779712, 0.721163, 0.662614, 0.604065, 0.545516, 0.486968, 0.428419, 0.369870, 0.311321, 0.252772, 1.794224, 1.735675, 1.677126, 1.618577, 1.560028, 1.501480, 1.442931, 1.384382, 1.325833, 1.267284, 1.208736, 1.150187, 1.091638, 1.033089, 0.974540, 0.915992, 0.857443, 0.798894, 0.740345, 0.681796, 0.623248, 0.564699, 0.506150, 0.447601, 0.389052, 0.330504, 0.271955, 0.213406, 1.754857, 1.696308, 1.637760, 1.579211, 1.520662, 1.462113, 1.403564, 1.345016, 1.286467, 1.227918, 1.169369, 1.110820, 1.052272, 0.993723, 0.935174, 0.876625, 0.818076, 0.759528, 0.700979, 0.642430, 0.583881, 0.525332, 0.466784, 0.408235, 0.349686, 0.291137, 0.232588, 1.774040, 1.715491, 1.656942, 1.598393, 1.539844, 1.481296, 1.422747, 1.364198, 1.305649, 1.247100, 1.188552, 1.130003, 1.071454, 1.012905, 0.954356, 0.895808, 0.837259, 0.778710, 0.720161, 0.661612, 0.603064, 0.544515, 0.485966, 0.427417, 0.368868, 0.310320, 0.251771, 1.793222, 1.734673, 1.676124, 1.617576, 1.559027, 1.500478, 1.441929, 1.383380, 1.324832, 1.266283, 1.207734, 1.149185, 1.090636, 1.032088, 0.973539, 0.914990, 0.856441, 0.797892, 0.739344, 0.680795, 0.622246, 0.563697, 0.505148, 0.446600, 0.388051, 0.329502, 0.270953, 0.212404, 1.753856, 1.695307, 1.636758, 1.578209, 1.519660, 1.461112, 1.402563, 1.344014, 1.285465, 1.226916, 1.168368, 1.109819, 1.051270, 0.992721, 0.934172, 0.875624, 0.817075, 0.758526, 0.699977, 0.641428, 0.582880, 0.524331, 0.465782, 0.407233, 0.348684, 0.290136, 0.231587, 1.773038, 1.714489, 1.655940, 1.597392, 1.538843, 1.480294, 1.421745, 1.363196, 1.304648, 1.246099, 1.187550, 1.129001, 1.070452, 1.011904, 0.953355, 0.894806, 0.836257, 0.777708, 0.719160, 0.660611, 0.602062, 0.543513, 0.484964, 0.426416, 0.367867, 0.309318, 0.250769, 1.792220, 1.733672, 1.675123, 1.616574, 1.558025, 1.499476, 1.440928, 1.382379, 1.323830, 1.265281, 1.206732, 1.148184, 1.089635, 1.031086, 0.972537, 0.913988, 0.855440, 0.796891, 0.738342, 0.679793, 0.621244, 0.562696, 0.504147, 0.445598, 0.387049, 0.328500, 0.269952, 0.211403, 1.752854, 1.694305, 1.635756, 1.577208, 1.518659, 1.460110, 1.401561, 1.343012, 1.284464, 1.225915, 1.167366, 1.108817, 1.050268, 0.991720, 0.933171, 0.874622, 0.816073, 0.757524, 0.698976, 0.640427, 0.581878, 0.523329, 0.464780, 0.406232, 0.347683, 0.289134, 0.230585, 1.772036, 1.713488, 1.654939, 1.596390, 1.537841, 1.479292, 1.420744, 1.362195, 1.303646, 1.245097, 1.186548, 1.128000, 1.069451, 1.010902, 0.952353, 0.893804, 0.835256, 0.776707, 0.718158, 0.659609, 0.601060, 0.542512, 0.483963, 0.425414, 0.366865, 0.308316, 0.249768, 1.791219, 1.732670, 1.674121, 1.615572, 1.557024, 1.498475, 1.439926, 1.381377, 1.322828, 1.264280, 1.205731, 1.147182, 1.088633, 1.030084, 0.971536, 0.912987, 0.854438, 0.795889, 0.737340, 0.678792, 0.620243, 0.561694, 0.503145, 0.444596, 0.386048, 0.327499, 0.268950, 0.210401, 1.751852, 1.693304, 1.634755, 1.576206, 1.517657, 1.459108, 1.400560, 1.342011, 1.283462, 1.224913, 1.166364, 1.107816, 1.049267, 0.990718, 0.932169, 0.873620, 0.815072, 0.756523, 0.697974, 0.639425, 0.580876, 0.522328, 0.463779, 0.405230, 0.346681, 0.288132, 0.229584, 1.771035, 1.712486, 1.653937, 1.595388, 1.536840, 1.478291, 1.419742, 1.361193, 1.302644, 1.244096, 1.185547, 1.126998, 1.068449, 1.009900, 0.951352, 0.892803, 0.834254, 0.775705, 0.717156, 0.658608, 0.600059, 0.541510, 0.482961, 0.424412, 0.365864, 0.307315, 0.248766, 1.790217, 1.731668, 1.673120, 1.614571, 1.556022, 1.497473, 1.438924, 1.380376, 1.321827, 1.263278, 1.204729, 1.146180, 1.087632, 1.029083, 0.970534, 0.911985, 0.853436, 0.794888, 0.736339, 0.677790, 0.619241, 0.560692, 0.502144, 0.443595, 0.385046, 0.326497, 0.267948, 0.209400, 1.750851, 1.692302, 1.633753, 1.575204, 1.516656, 1.458107, 1.399558, 1.341009, 1.282460, 1.223912, 1.165363, 1.106814, 1.048265, 0.989716, 0.931168, 0.872619, 0.814070, 0.755521, 0.696972, 0.638424, 0.579875, 0.521326, 0.462777, 0.404228, 0.345680, 0.287131, 0.228582, 1.770033, 1.711484, 1.652936, 1.594387, 1.535838, 1.477289, 1.418740, 1.360192, 1.301643, 1.243094, 1.184545, 1.125996, 1.067448, 1.008899, 0.950350, 0.891801, 0.833252, 0.774704, 0.716155, 0.657606, 0.599057, 0.540508, 0.481960, 0.423411, 0.364862, 0.306313, 0.247764, 1.789216, 1.730667, 1.672118, 1.613569, 1.555020, 1.496472, 1.437923, 1.379374, 1.320825, 1.262276, 1.203728, 1.145179, 1.086630, 1.028081, 0.969532, 0.910984, 0.852435, 0.793886, 0.735337, 0.676788, 0.618240, 0.559691, 0.501142, 0.442593, 0.384044, 0.325496, 0.266947, 0.208398, 1.749849, 1.691300, 1.632752, 1.574203, 1.515654, 1.457105, 1.398556, 1.340008, 1.281459, 1.222910, 1.164361, 1.105812, 1.047264, 0.988715, 0.930166, 0.871617, 0.813068, 0.754520, 0.695971, 0.637422, 0.578873, 0.520324, 0.461776, 0.403227, 0.344678, 0.286129, 0.227580, 1.769032, 1.710483, 1.651934, 1.593385, 1.534836, 1.476288, 1.417739, 1.359190, 1.300641, 1.242092, 1.183544, 1.124995, 1.066446, 1.007897, 0.949348, 0.890800, 0.832251, 0.773702, 0.715153, 0.656604, 0.598056, 0.539507, 0.480958, 0.422409, 0.363860, 0.305312, 0.246763, 1.788214, 1.729665, 1.671116, 1.612568, 1.554019, 1.495470, 1.436921, 1.378372, 1.319824, 1.261275, 1.202726, 1.144177, 1.085628, 1.027080, 0.968531, 0.909982, 0.851433, 0.792884, 0.734336, 0.675787, 0.617238, 0.558689, 0.500140, 0.441592, 0.383043, 0.324494, 0.265945, 0.207396, 1.748848, 1.690299, 1.631750, 1.573201, 1.514652, 1.456104, 1.397555, 1.339006, 1.280457, 1.221908, 1.163360, 1.104811, 1.046262, 0.987713, 0.929164, 0.870616, 0.812067, 0.753518, 0.694969, 0.636420, 0.577872, 0.519323, 0.460774, 0.402225, 0.343676, 0.285128, 0.226579, 1.768030, 1.709481, 1.650932, 1.592384, 1.533835, 1.475286, 1.416737, 1.358188, 1.299640, 1.241091, 1.182542, 1.123993, 1.065444, 1.006896, 0.948347, 0.889798, 0.831249, 0.772700, 0.714152, 0.655603, 0.597054, 0.538505, 0.479956, 0.421408, 0.362859, 0.304310, 0.245761, 1.787212, 1.728664]))
+#eval IO.println ("check_hashemiEnv_pot_le " ++ toString (check_hashemiEnv_pot_le 1.733539 1.674990 1.616441 1.557892 1.499344 1.440795 1.382246 1.323697 1.265148 1.206600 1.148051 1.089502 1.030953 0.972404 0.913856 0.855307 0.796758 0.738209 0.679660 0.621112 0.562563 0.504014 0.445465 0.386916 0.328368 0.269819 0.211270 1.752721 1.694172 1.635624 1.577075 1.518526 1.459977 1.401428 1.342880 1.284331 1.225782 1.167233 #[0.410155, 0.351606, 0.293057, 0.234508, 1.775960, 1.717411, 1.658862, 1.600313, 1.541764, 1.483216, 1.424667, 1.366118, 1.307569, 1.249020, 1.190472, 1.131923, 1.073374, 1.014825, 0.956276, 0.897728, 0.839179, 0.780630, 0.722081, 0.663532, 0.604984, 0.546435, 0.487886, 0.429337, 0.370788, 0.312240, 0.253691, 1.795142, 1.736593, 1.678044, 1.619496, 1.560947, 1.502398, 1.443849, 1.385300, 1.326752, 1.268203, 1.209654, 1.151105, 1.092556, 1.034008, 0.975459, 0.916910, 0.858361, 0.799812, 0.741264, 0.682715, 0.624166, 0.565617, 0.507068, 0.448520, 0.389971, 0.331422, 0.272873, 0.214324, 1.755776, 1.697227, 1.638678, 1.580129, 1.521580, 1.463032, 1.404483, 1.345934, 1.287385, 1.228836, 1.170288, 1.111739, 1.053190, 0.994641, 0.936092, 0.877544, 0.818995, 0.760446, 0.701897, 0.643348, 0.584800, 0.526251, 0.467702, 0.409153, 0.350604, 0.292056, 0.233507, 1.774958, 1.716409, 1.657860, 1.599312, 1.540763, 1.482214, 1.423665, 1.365116, 1.306568, 1.248019, 1.189470, 1.130921, 1.072372, 1.013824, 0.955275, 0.896726, 0.838177, 0.779628, 0.721080, 0.662531, 0.603982, 0.545433, 0.486884, 0.428336, 0.369787, 0.311238, 0.252689, 1.794140, 1.735592, 1.677043, 1.618494, 1.559945, 1.501396, 1.442848, 1.384299, 1.325750, 1.267201, 1.208652, 1.150104, 1.091555, 1.033006, 0.974457, 0.915908, 0.857360, 0.798811, 0.740262, 0.681713, 0.623164, 0.564616, 0.506067, 0.447518, 0.388969, 0.330420, 0.271872, 0.213323, 1.754774, 1.696225, 1.637676, 1.579128, 1.520579, 1.462030, 1.403481, 1.344932, 1.286384, 1.227835, 1.169286, 1.110737, 1.052188, 0.993640, 0.935091, 0.876542, 0.817993, 0.759444, 0.700896, 0.642347, 0.583798, 0.525249, 0.466700, 0.408152, 0.349603, 0.291054, 0.232505, 1.773956, 1.715408, 1.656859, 1.598310, 1.539761, 1.481212, 1.422664, 1.364115, 1.305566, 1.247017, 1.188468, 1.129920, 1.071371, 1.012822, 0.954273, 0.895724, 0.837176, 0.778627, 0.720078, 0.661529, 0.602980, 0.544432, 0.485883, 0.427334, 0.368785, 0.310236, 0.251688, 1.793139, 1.734590, 1.676041, 1.617492, 1.558944, 1.500395, 1.441846, 1.383297, 1.324748, 1.266200, 1.207651, 1.149102, 1.090553, 1.032004, 0.973456, 0.914907, 0.856358, 0.797809, 0.739260, 0.680712, 0.622163, 0.563614, 0.505065, 0.446516, 0.387968, 0.329419, 0.270870, 0.212321, 1.753772, 1.695224, 1.636675, 1.578126, 1.519577, 1.461028, 1.402480, 1.343931, 1.285382, 1.226833, 1.168284, 1.109736, 1.051187, 0.992638, 0.934089, 0.875540, 0.816992, 0.758443, 0.699894, 0.641345, 0.582796, 0.524248, 0.465699, 0.407150, 0.348601, 0.290052, 0.231504, 1.772955, 1.714406, 1.655857, 1.597308, 1.538760, 1.480211, 1.421662, 1.363113, 1.304564, 1.246016, 1.187467, 1.128918, 1.070369, 1.011820, 0.953272, 0.894723, 0.836174, 0.777625, 0.719076, 0.660528, 0.601979, 0.543430, 0.484881, 0.426332, 0.367784, 0.309235, 0.250686, 1.792137, 1.733588, 1.675040, 1.616491, 1.557942, 1.499393, 1.440844, 1.382296, 1.323747, 1.265198, 1.206649, 1.148100, 1.089552, 1.031003, 0.972454, 0.913905, 0.855356, 0.796808, 0.738259, 0.679710, 0.621161, 0.562612, 0.504064, 0.445515, 0.386966, 0.328417, 0.269868, 0.211320, 1.752771, 1.694222, 1.635673, 1.577124, 1.518576, 1.460027, 1.401478, 1.342929, 1.284380, 1.225832, 1.167283, 1.108734, 1.050185, 0.991636, 0.933088, 0.874539, 0.815990, 0.757441, 0.698892, 0.640344, 0.581795, 0.523246, 0.464697, 0.406148, 0.347600, 0.289051, 0.230502, 1.771953, 1.713404, 1.654856, 1.596307, 1.537758, 1.479209, 1.420660, 1.362112, 1.303563, 1.245014, 1.186465, 1.127916, 1.069368, 1.010819, 0.952270, 0.893721, 0.835172, 0.776624, 0.718075, 0.659526, 0.600977, 0.542428, 0.483880, 0.425331, 0.366782, 0.308233, 0.249684, 1.791136, 1.732587, 1.674038, 1.615489, 1.556940, 1.498392, 1.439843, 1.381294, 1.322745, 1.264196, 1.205648, 1.147099, 1.088550, 1.030001, 0.971452, 0.912904, 0.854355, 0.795806, 0.737257, 0.678708, 0.620160, 0.561611, 0.503062, 0.444513, 0.385964, 0.327416, 0.268867, 0.210318, 1.751769, 1.693220, 1.634672, 1.576123, 1.517574, 1.459025, 1.400476, 1.341928, 1.283379, 1.224830, 1.166281, 1.107732, 1.049184, 0.990635, 0.932086, 0.873537, 0.814988, 0.756440, 0.697891, 0.639342, 0.580793, 0.522244, 0.463696, 0.405147, 0.346598, 0.288049, 0.229500, 1.770952, 1.712403, 1.653854, 1.595305, 1.536756, 1.478208, 1.419659, 1.361110, 1.302561, 1.244012, 1.185464, 1.126915, 1.068366, 1.009817, 0.951268, 0.892720, 0.834171, 0.775622, 0.717073, 0.658524, 0.599976, 0.541427, 0.482878, 0.424329, 0.365780, 0.307232, 0.248683, 1.790134, 1.731585, 1.673036, 1.614488, 1.555939, 1.497390, 1.438841, 1.380292, 1.321744, 1.263195, 1.204646, 1.146097, 1.087548, 1.029000, 0.970451, 0.911902, 0.853353, 0.794804, 0.736256, 0.677707, 0.619158, 0.560609, 0.502060, 0.443512, 0.384963, 0.326414, 0.267865, 0.209316, 1.750768, 1.692219, 1.633670, 1.575121, 1.516572, 1.458024, 1.399475, 1.340926, 1.282377, 1.223828, 1.165280, 1.106731, 1.048182, 0.989633, 0.931084, 0.872536, 0.813987, 0.755438, 0.696889, 0.638340, 0.579792, 0.521243, 0.462694, 0.404145, 0.345596, 0.287048, 0.228499, 1.769950, 1.711401, 1.652852, 1.594304, 1.535755, 1.477206, 1.418657, 1.360108, 1.301560, 1.243011, 1.184462, 1.125913, 1.067364, 1.008816, 0.950267, 0.891718, 0.833169, 0.774620, 0.716072, 0.657523, 0.598974, 0.540425, 0.481876, 0.423328, 0.364779, 0.306230, 0.247681, 1.789132, 1.730584, 1.672035, 1.613486, 1.554937, 1.496388, 1.437840, 1.379291, 1.320742, 1.262193, 1.203644, 1.145096, 1.086547, 1.027998, 0.969449, 0.910900, 0.852352, 0.793803, 0.735254, 0.676705, 0.618156, 0.559608, 0.501059, 0.442510, 0.383961, 0.325412, 0.266864, 0.208315, 1.749766, 1.691217, 1.632668, 1.574120, 1.515571, 1.457022, 1.398473, 1.339924, 1.281376, 1.222827, 1.164278, 1.105729, 1.047180, 0.988632, 0.930083, 0.871534, 0.812985, 0.754436, 0.695888, 0.637339, 0.578790, 0.520241, 0.461692, 0.403144, 0.344595, 0.286046, 0.227497, 1.768948, 1.710400, 1.651851, 1.593302, 1.534753, 1.476204, 1.417656, 1.359107, 1.300558, 1.242009, 1.183460, 1.124912, 1.066363, 1.007814, 0.949265, 0.890716, 0.832168, 0.773619, 0.715070, 0.656521, 0.597972, 0.539424, 0.480875, 0.422326, 0.363777, 0.305228, 0.246680, 1.788131, 1.729582, 1.671033, 1.612484, 1.553936, 1.495387, 1.436838, 1.378289, 1.319740, 1.261192, 1.202643, 1.144094, 1.085545, 1.026996, 0.968448, 0.909899, 0.851350, 0.792801, 0.734252, 0.675704, 0.617155, 0.558606, 0.500057, 0.441508, 0.382960, 0.324411, 0.265862, 0.207313, 1.748764, 1.690216, 1.631667, 1.573118, 1.514569, 1.456020, 1.397472]))
+#eval IO.println ("check_hashemiEnv_pot_le " ++ toString (check_hashemiEnv_pot_le 1.402347 1.343798 1.285249 1.226700 1.168152 1.109603 1.051054 0.992505 0.933956 0.875408 0.816859 0.758310 0.699761 0.641212 0.582664 0.524115 0.465566 0.407017 0.348468 0.289920 0.231371 1.772822 1.714273 1.655724 1.597176 1.538627 1.480078 1.421529 1.362980 1.304432 1.245883 1.187334 1.128785 1.070236 1.011688 0.953139 0.894590 0.836041 #[1.678963, 1.620414, 1.561865, 1.503316, 1.444768, 1.386219, 1.327670, 1.269121, 1.210572, 1.152024, 1.093475, 1.034926, 0.976377, 0.917828, 0.859280, 0.800731, 0.742182, 0.683633, 0.625084, 0.566536, 0.507987, 0.449438, 0.390889, 0.332340, 0.273792, 0.215243, 1.756694, 1.698145, 1.639596, 1.581048, 1.522499, 1.463950, 1.405401, 1.346852, 1.288304, 1.229755, 1.171206, 1.112657, 1.054108, 0.995560, 0.937011, 0.878462, 0.819913, 0.761364, 0.702816, 0.644267, 0.585718, 0.527169, 0.468620, 0.410072, 0.351523, 0.292974, 0.234425, 1.775876, 1.717328, 1.658779, 1.600230, 1.541681, 1.483132, 1.424584, 1.366035, 1.307486, 1.248937, 1.190388, 1.131840, 1.073291, 1.014742, 0.956193, 0.897644, 0.839096, 0.780547, 0.721998, 0.663449, 0.604900, 0.546352, 0.487803, 0.429254, 0.370705, 0.312156, 0.253608, 1.795059, 1.736510, 1.677961, 1.619412, 1.560864, 1.502315, 1.443766, 1.385217, 1.326668, 1.268120, 1.209571, 1.151022, 1.092473, 1.033924, 0.975376, 0.916827, 0.858278, 0.799729, 0.741180, 0.682632, 0.624083, 0.565534, 0.506985, 0.448436, 0.389888, 0.331339, 0.272790, 0.214241, 1.755692, 1.697144, 1.638595, 1.580046, 1.521497, 1.462948, 1.404400, 1.345851, 1.287302, 1.228753, 1.170204, 1.111656, 1.053107, 0.994558, 0.936009, 0.877460, 0.818912, 0.760363, 0.701814, 0.643265, 0.584716, 0.526168, 0.467619, 0.409070, 0.350521, 0.291972, 0.233424, 1.774875, 1.716326, 1.657777, 1.599228, 1.540680, 1.482131, 1.423582, 1.365033, 1.306484, 1.247936, 1.189387, 1.130838, 1.072289, 1.013740, 0.955192, 0.896643, 0.838094, 0.779545, 0.720996, 0.662448, 0.603899, 0.545350, 0.486801, 0.428252, 0.369704, 0.311155, 0.252606, 1.794057, 1.735508, 1.676960, 1.618411, 1.559862, 1.501313, 1.442764, 1.384216, 1.325667, 1.267118, 1.208569, 1.150020, 1.091472, 1.032923, 0.974374, 0.915825, 0.857276, 0.798728, 0.740179, 0.681630, 0.623081, 0.564532, 0.505984, 0.447435, 0.388886, 0.330337, 0.271788, 0.213240, 1.754691, 1.696142, 1.637593, 1.579044, 1.520496, 1.461947, 1.403398, 1.344849, 1.286300, 1.227752, 1.169203, 1.110654, 1.052105, 0.993556, 0.935008, 0.876459, 0.817910, 0.759361, 0.700812, 0.642264, 0.583715, 0.525166, 0.466617, 0.408068, 0.349520, 0.290971, 0.232422, 1.773873, 1.715324, 1.656776, 1.598227, 1.539678, 1.481129, 1.422580, 1.364032, 1.305483, 1.246934, 1.188385, 1.129836, 1.071288, 1.012739, 0.954190, 0.895641, 0.837092, 0.778544, 0.719995, 0.661446, 0.602897, 0.544348, 0.485800, 0.427251, 0.368702, 0.310153, 0.251604, 1.793056, 1.734507, 1.675958, 1.617409, 1.558860, 1.500312, 1.441763, 1.383214, 1.324665, 1.266116, 1.207568, 1.149019, 1.090470, 1.031921, 0.973372, 0.914824, 0.856275, 0.797726, 0.739177, 0.680628, 0.622080, 0.563531, 0.504982, 0.446433, 0.387884, 0.329336, 0.270787, 0.212238, 1.753689, 1.695140, 1.636592, 1.578043, 1.519494, 1.460945, 1.402396, 1.343848, 1.285299, 1.226750, 1.168201, 1.109652, 1.051104, 0.992555, 0.934006, 0.875457, 0.816908, 0.758360, 0.699811, 0.641262, 0.582713, 0.524164, 0.465616, 0.407067, 0.348518, 0.289969, 0.231420, 1.772872, 1.714323, 1.655774, 1.597225, 1.538676, 1.480128, 1.421579, 1.363030, 1.304481, 1.245932, 1.187384, 1.128835, 1.070286, 1.011737, 0.953188, 0.894640, 0.836091, 0.777542, 0.718993, 0.660444, 0.601896, 0.543347, 0.484798, 0.426249, 0.367700, 0.309152, 0.250603, 1.792054, 1.733505, 1.674956, 1.616408, 1.557859, 1.499310, 1.440761, 1.382212, 1.323664, 1.265115, 1.206566, 1.148017, 1.089468, 1.030920, 0.972371, 0.913822, 0.855273, 0.796724, 0.738176, 0.679627, 0.621078, 0.562529, 0.503980, 0.445432, 0.386883, 0.328334, 0.269785, 0.211236, 1.752688, 1.694139, 1.635590, 1.577041, 1.518492, 1.459944, 1.401395, 1.342846, 1.284297, 1.225748, 1.167200, 1.108651, 1.050102, 0.991553, 0.933004, 0.874456, 0.815907, 0.757358, 0.698809, 0.640260, 0.581712, 0.523163, 0.464614, 0.406065, 0.347516, 0.288968, 0.230419, 1.771870, 1.713321, 1.654772, 1.596224, 1.537675, 1.479126, 1.420577, 1.362028, 1.303480, 1.244931, 1.186382, 1.127833, 1.069284, 1.010736, 0.952187, 0.893638, 0.835089, 0.776540, 0.717992, 0.659443, 0.600894, 0.542345, 0.483796, 0.425248, 0.366699, 0.308150, 0.249601, 1.791052, 1.732504, 1.673955, 1.615406, 1.556857, 1.498308, 1.439760, 1.381211, 1.322662, 1.264113, 1.205564, 1.147016, 1.088467, 1.029918, 0.971369, 0.912820, 0.854272, 0.795723, 0.737174, 0.678625, 0.620076, 0.561528, 0.502979, 0.444430, 0.385881, 0.327332, 0.268784, 0.210235, 1.751686, 1.693137, 1.634588, 1.576040, 1.517491, 1.458942, 1.400393, 1.341844, 1.283296, 1.224747, 1.166198, 1.107649, 1.049100, 0.990552, 0.932003, 0.873454, 0.814905, 0.756356, 0.697808, 0.639259, 0.580710, 0.522161, 0.463612, 0.405064, 0.346515, 0.287966, 0.229417, 1.770868, 1.712320, 1.653771, 1.595222, 1.536673, 1.478124, 1.419576, 1.361027, 1.302478, 1.243929, 1.185380, 1.126832, 1.068283, 1.009734, 0.951185, 0.892636, 0.834088, 0.775539, 0.716990, 0.658441, 0.599892, 0.541344, 0.482795, 0.424246, 0.365697, 0.307148, 0.248600, 1.790051, 1.731502, 1.672953, 1.614404, 1.555856, 1.497307, 1.438758, 1.380209, 1.321660, 1.263112, 1.204563, 1.146014, 1.087465, 1.028916, 0.970368, 0.911819, 0.853270, 0.794721, 0.736172, 0.677624, 0.619075, 0.560526, 0.501977, 0.443428, 0.384880, 0.326331, 0.267782, 0.209233, 1.750684, 1.692136, 1.633587, 1.575038, 1.516489, 1.457940, 1.399392, 1.340843, 1.282294, 1.223745, 1.165196, 1.106648, 1.048099, 0.989550, 0.931001, 0.872452, 0.813904, 0.755355, 0.696806, 0.638257, 0.579708, 0.521160, 0.462611, 0.404062, 0.345513, 0.286964, 0.228416, 1.769867, 1.711318, 1.652769, 1.594220, 1.535672, 1.477123, 1.418574, 1.360025, 1.301476, 1.242928, 1.184379, 1.125830, 1.067281, 1.008732, 0.950184, 0.891635, 0.833086, 0.774537, 0.715988, 0.657440, 0.598891, 0.540342, 0.481793, 0.423244, 0.364696, 0.306147, 0.247598, 1.789049, 1.730500, 1.671952, 1.613403, 1.554854, 1.496305, 1.437756, 1.379208, 1.320659, 1.262110, 1.203561, 1.145012, 1.086464, 1.027915, 0.969366, 0.910817, 0.852268, 0.793720, 0.735171, 0.676622, 0.618073, 0.559524, 0.500976, 0.442427, 0.383878, 0.325329, 0.266780, 0.208232, 1.749683, 1.691134, 1.632585, 1.574036, 1.515488, 1.456939, 1.398390, 1.339841, 1.281292, 1.222744, 1.164195, 1.105646, 1.047097, 0.988548, 0.930000, 0.871451, 0.812902, 0.754353, 0.695804, 0.637256, 0.578707, 0.520158, 0.461609, 0.403060, 0.344512, 0.285963, 0.227414, 1.768865, 1.710316, 1.651768, 1.593219, 1.534670, 1.476121, 1.417572, 1.359024, 1.300475, 1.241926, 1.183377, 1.124828, 1.066280]))
 
 def hashemiHanger  : Array Float :=
   #[(Float.sqrt ((4.36 : Float) - ((2 : Float) * (Float.sqrt (3.2 : Float))))), (0.010 : Float)]
@@ -1760,6 +1818,261 @@ def hashemiLeg  : Array Float :=
 #eval IO.println ("hashemiLeg " ++ toString ((hashemiLeg).map Float.toBits))
 #eval IO.println ("hashemiLeg " ++ toString ((hashemiLeg).map Float.toBits))
 #eval IO.println ("hashemiLeg " ++ toString ((hashemiLeg).map Float.toBits))
+
+def hashemiLoop (az : Float) (t : Float) (slack : Float) (dt : Float) (elSun : Float) (azSun : Float) (dni : Float) (rDrum : Float) (W : Float) (rcm : Float) (Tmax : Float) (rho : Float) (Fdrive : Float) (L10 : Float) (rodLen : Float) (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (sigmaslope : Float) (sigmaspec : Float) (hsun : Float) (soil : Float) (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Coil : Float) (ToilMax : Float) (Toil : Float) (Twall : Float) (Ta : Float) (tautPrev : Float) (holdsPrev : Float) (tDead : Float) (b2_0 : Float) (b2_1 : Float) (W1 : Array Float) (b1 : Array Float) (W2 : Array Float) (dr : Array Float) : Array Float :=
+  let v857 := (azSun - az)
+  let v860 := ((2 : Float) * (3.141592653589793 : Float))
+  let v865 := (v857 - (v860 * (Float.floor ((v857 + (3.141592653589793 : Float)) / v860))))
+  let v866 := ((3.141592653589793 : Float) / (2 : Float))
+  let v868 := ((v866 - t) - elSun)
+  let v871 := ((Toil - (300 : Float)) / (300 : Float))
+  let v876 := (1.0 / (1.0 + Float.exp (-((elSun - (v866 - tDead)) / (0.01 : Float)))))
+  let v877 := (Float.sin t)
+  let v879 := (v877 * (Float.cos az))
+  let v881 := (v877 * (Float.sin az))
+  let v882 := (Float.cos t)
+  let v883 := (Float.cos elSun)
+  let v885 := (v883 * (Float.cos azSun))
+  let v887 := (v883 * (Float.sin azSun))
+  let v888 := (Float.sin elSun)
+  let v893 := (((v879 * v885) + (v881 * v887)) + (v882 * v888))
+  let v908 := (Float.sqrt (((((v881 * v888) - (v882 * v887)) ^ 2) + (((v882 * v885) - (v879 * v888)) ^ 2)) + (((v879 * v887) - (v881 * v885)) ^ 2)))
+  let v919 := (if (v893 <= (0 : Float)) then (v866 + (Float.atan ((-v893) / (max v908 (0.000000000001 : Float))))) else (Float.atan (v908 / v893)))
+  let v923 := (1.0 / (1.0 + Float.exp (-((v919 - (0.03 : Float)) / (0.01 : Float)))))
+  let v924 := (v876 * v923)
+  let v941 := (Float.tanh (((((((((W1[0 * 8 + 0]! * v865) + (W1[0 * 8 + 1]! * v868)) + (W1[0 * 8 + 2]! * t)) + (W1[0 * 8 + 3]! * tautPrev)) + (W1[0 * 8 + 4]! * holdsPrev)) + (W1[0 * 8 + 5]! * v871)) + (W1[0 * 8 + 6]! * v876)) + (W1[0 * 8 + 7]! * v924)) + b1[0]!))
+  let v958 := (Float.tanh (((((((((W1[1 * 8 + 0]! * v865) + (W1[1 * 8 + 1]! * v868)) + (W1[1 * 8 + 2]! * t)) + (W1[1 * 8 + 3]! * tautPrev)) + (W1[1 * 8 + 4]! * holdsPrev)) + (W1[1 * 8 + 5]! * v871)) + (W1[1 * 8 + 6]! * v876)) + (W1[1 * 8 + 7]! * v924)) + b1[1]!))
+  let v975 := (Float.tanh (((((((((W1[2 * 8 + 0]! * v865) + (W1[2 * 8 + 1]! * v868)) + (W1[2 * 8 + 2]! * t)) + (W1[2 * 8 + 3]! * tautPrev)) + (W1[2 * 8 + 4]! * holdsPrev)) + (W1[2 * 8 + 5]! * v871)) + (W1[2 * 8 + 6]! * v876)) + (W1[2 * 8 + 7]! * v924)) + b1[2]!))
+  let v992 := (Float.tanh (((((((((W1[3 * 8 + 0]! * v865) + (W1[3 * 8 + 1]! * v868)) + (W1[3 * 8 + 2]! * t)) + (W1[3 * 8 + 3]! * tautPrev)) + (W1[3 * 8 + 4]! * holdsPrev)) + (W1[3 * 8 + 5]! * v871)) + (W1[3 * 8 + 6]! * v876)) + (W1[3 * 8 + 7]! * v924)) + b1[3]!))
+  let v1009 := (Float.tanh (((((((((W1[4 * 8 + 0]! * v865) + (W1[4 * 8 + 1]! * v868)) + (W1[4 * 8 + 2]! * t)) + (W1[4 * 8 + 3]! * tautPrev)) + (W1[4 * 8 + 4]! * holdsPrev)) + (W1[4 * 8 + 5]! * v871)) + (W1[4 * 8 + 6]! * v876)) + (W1[4 * 8 + 7]! * v924)) + b1[4]!))
+  let v1026 := (Float.tanh (((((((((W1[5 * 8 + 0]! * v865) + (W1[5 * 8 + 1]! * v868)) + (W1[5 * 8 + 2]! * t)) + (W1[5 * 8 + 3]! * tautPrev)) + (W1[5 * 8 + 4]! * holdsPrev)) + (W1[5 * 8 + 5]! * v871)) + (W1[5 * 8 + 6]! * v876)) + (W1[5 * 8 + 7]! * v924)) + b1[5]!))
+  let v1043 := (Float.tanh (((((((((W1[6 * 8 + 0]! * v865) + (W1[6 * 8 + 1]! * v868)) + (W1[6 * 8 + 2]! * t)) + (W1[6 * 8 + 3]! * tautPrev)) + (W1[6 * 8 + 4]! * holdsPrev)) + (W1[6 * 8 + 5]! * v871)) + (W1[6 * 8 + 6]! * v876)) + (W1[6 * 8 + 7]! * v924)) + b1[6]!))
+  let v1060 := (Float.tanh (((((((((W1[7 * 8 + 0]! * v865) + (W1[7 * 8 + 1]! * v868)) + (W1[7 * 8 + 2]! * t)) + (W1[7 * 8 + 3]! * tautPrev)) + (W1[7 * 8 + 4]! * holdsPrev)) + (W1[7 * 8 + 5]! * v871)) + (W1[7 * 8 + 6]! * v876)) + (W1[7 * 8 + 7]! * v924)) + b1[7]!))
+  let v1077 := (Float.tanh (((((((((W1[8 * 8 + 0]! * v865) + (W1[8 * 8 + 1]! * v868)) + (W1[8 * 8 + 2]! * t)) + (W1[8 * 8 + 3]! * tautPrev)) + (W1[8 * 8 + 4]! * holdsPrev)) + (W1[8 * 8 + 5]! * v871)) + (W1[8 * 8 + 6]! * v876)) + (W1[8 * 8 + 7]! * v924)) + b1[8]!))
+  let v1094 := (Float.tanh (((((((((W1[9 * 8 + 0]! * v865) + (W1[9 * 8 + 1]! * v868)) + (W1[9 * 8 + 2]! * t)) + (W1[9 * 8 + 3]! * tautPrev)) + (W1[9 * 8 + 4]! * holdsPrev)) + (W1[9 * 8 + 5]! * v871)) + (W1[9 * 8 + 6]! * v876)) + (W1[9 * 8 + 7]! * v924)) + b1[9]!))
+  let v1111 := (Float.tanh (((((((((W1[10 * 8 + 0]! * v865) + (W1[10 * 8 + 1]! * v868)) + (W1[10 * 8 + 2]! * t)) + (W1[10 * 8 + 3]! * tautPrev)) + (W1[10 * 8 + 4]! * holdsPrev)) + (W1[10 * 8 + 5]! * v871)) + (W1[10 * 8 + 6]! * v876)) + (W1[10 * 8 + 7]! * v924)) + b1[10]!))
+  let v1128 := (Float.tanh (((((((((W1[11 * 8 + 0]! * v865) + (W1[11 * 8 + 1]! * v868)) + (W1[11 * 8 + 2]! * t)) + (W1[11 * 8 + 3]! * tautPrev)) + (W1[11 * 8 + 4]! * holdsPrev)) + (W1[11 * 8 + 5]! * v871)) + (W1[11 * 8 + 6]! * v876)) + (W1[11 * 8 + 7]! * v924)) + b1[11]!))
+  let v1145 := (Float.tanh (((((((((W1[12 * 8 + 0]! * v865) + (W1[12 * 8 + 1]! * v868)) + (W1[12 * 8 + 2]! * t)) + (W1[12 * 8 + 3]! * tautPrev)) + (W1[12 * 8 + 4]! * holdsPrev)) + (W1[12 * 8 + 5]! * v871)) + (W1[12 * 8 + 6]! * v876)) + (W1[12 * 8 + 7]! * v924)) + b1[12]!))
+  let v1162 := (Float.tanh (((((((((W1[13 * 8 + 0]! * v865) + (W1[13 * 8 + 1]! * v868)) + (W1[13 * 8 + 2]! * t)) + (W1[13 * 8 + 3]! * tautPrev)) + (W1[13 * 8 + 4]! * holdsPrev)) + (W1[13 * 8 + 5]! * v871)) + (W1[13 * 8 + 6]! * v876)) + (W1[13 * 8 + 7]! * v924)) + b1[13]!))
+  let v1179 := (Float.tanh (((((((((W1[14 * 8 + 0]! * v865) + (W1[14 * 8 + 1]! * v868)) + (W1[14 * 8 + 2]! * t)) + (W1[14 * 8 + 3]! * tautPrev)) + (W1[14 * 8 + 4]! * holdsPrev)) + (W1[14 * 8 + 5]! * v871)) + (W1[14 * 8 + 6]! * v876)) + (W1[14 * 8 + 7]! * v924)) + b1[14]!))
+  let v1196 := (Float.tanh (((((((((W1[15 * 8 + 0]! * v865) + (W1[15 * 8 + 1]! * v868)) + (W1[15 * 8 + 2]! * t)) + (W1[15 * 8 + 3]! * tautPrev)) + (W1[15 * 8 + 4]! * holdsPrev)) + (W1[15 * 8 + 5]! * v871)) + (W1[15 * 8 + 6]! * v876)) + (W1[15 * 8 + 7]! * v924)) + b1[15]!))
+  let v1264 := (-(1.22 : Float))
+  let v1267 := (-(0.8 : Float))
+  let v1275 := ((1 : Float) - ((2 : Float) - (Float.sqrt (((2 : Float) ^ 2) - ((0.8 : Float) ^ 2)))))
+  let v1276 := (-v1275)
+  let v1278 := ((v1267 * v882) + (v1276 * v877))
+  let v1279 := (-v1267)
+  let v1282 := ((v1279 * v877) + (v1276 * v882))
+  let v1291 := (Float.sqrt (((v1278 - v1264) ^ 2) + ((v1282 - (0.34 : Float)) ^ 2)))
+  let v1292 := (((v1264 * v1282) - ((0.34 : Float) * v1278)) / v1291)
+  let v1308 := (Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2)))
+  let v1317 := ((1.22 : Float) * (0.8 : Float))
+  let v1318 := ((0.34 : Float) * v1275)
+  let v1326 := (if (v1317 <= v1318) then v866 else (Float.atan ((((1.22 : Float) * v1275) + ((0.34 : Float) * (0.8 : Float))) / (v1317 - v1318))))
+  let v1327 := (Float.cos (0 : Float))
+  let v1329 := (Float.sin (0 : Float))
+  let v1340 := (Float.sqrt (((((v1267 * v1327) + (v1276 * v1329)) - v1264) ^ 2) + ((((v1279 * v1329) + (v1276 * v1327)) - (0.34 : Float)) ^ 2)))
+  let v1341 := (Float.cos v1326)
+  let v1343 := (Float.sin v1326)
+  let v1354 := (Float.sqrt (((((v1267 * v1341) + (v1276 * v1343)) - v1264) ^ 2) + ((((v1279 * v1343) + (v1276 * v1341)) - (0.34 : Float)) ^ 2)))
+  let v1356 := (((((Float.tanh (((((((((((((((((W2[1 * 16 + 0]! * v941) + (W2[1 * 16 + 1]! * v958)) + (W2[1 * 16 + 2]! * v975)) + (W2[1 * 16 + 3]! * v992)) + (W2[1 * 16 + 4]! * v1009)) + (W2[1 * 16 + 5]! * v1026)) + (W2[1 * 16 + 6]! * v1043)) + (W2[1 * 16 + 7]! * v1060)) + (W2[1 * 16 + 8]! * v1077)) + (W2[1 * 16 + 9]! * v1094)) + (W2[1 * 16 + 10]! * v1111)) + (W2[1 * 16 + 11]! * v1128)) + (W2[1 * 16 + 12]! * v1145)) + (W2[1 * 16 + 13]! * v1162)) + (W2[1 * 16 + 14]! * v1179)) + (W2[1 * 16 + 15]! * v1196)) + b2_1)) * (((0.025 : Float) * (3.141592653589793 : Float)) / (180 : Float))) * v1292) / rDrum) * rDrum)
+  let v1358 := ((v1291 + slack) - (v1356 * dt))
+  let v1359 := (v1358 < v1354)
+  let v1360 := (v1340 < v1358)
+  let v1362 := (if v1359 then v1354 else (if v1360 then v1340 else v1358))
+  let v1367 := (((0 : Float) + v1326) / (2 : Float))
+  let v1368 := (Float.cos v1367)
+  let v1370 := (Float.sin v1367)
+  let v1382 := (v1362 < (Float.sqrt (((((v1267 * v1368) + (v1276 * v1370)) - v1264) ^ 2) + ((((v1279 * v1370) + (v1276 * v1368)) - (0.34 : Float)) ^ 2))))
+  let v1383 := (if v1382 then v1367 else (0 : Float))
+  let v1384 := (if v1382 then v1326 else v1367)
+  let v1386 := ((v1383 + v1384) / (2 : Float))
+  let v1387 := (Float.cos v1386)
+  let v1389 := (Float.sin v1386)
+  let v1401 := (v1362 < (Float.sqrt (((((v1267 * v1387) + (v1276 * v1389)) - v1264) ^ 2) + ((((v1279 * v1389) + (v1276 * v1387)) - (0.34 : Float)) ^ 2))))
+  let v1402 := (if v1401 then v1386 else v1383)
+  let v1403 := (if v1401 then v1384 else v1386)
+  let v1405 := ((v1402 + v1403) / (2 : Float))
+  let v1406 := (Float.cos v1405)
+  let v1408 := (Float.sin v1405)
+  let v1420 := (v1362 < (Float.sqrt (((((v1267 * v1406) + (v1276 * v1408)) - v1264) ^ 2) + ((((v1279 * v1408) + (v1276 * v1406)) - (0.34 : Float)) ^ 2))))
+  let v1421 := (if v1420 then v1405 else v1402)
+  let v1422 := (if v1420 then v1403 else v1405)
+  let v1424 := ((v1421 + v1422) / (2 : Float))
+  let v1425 := (Float.cos v1424)
+  let v1427 := (Float.sin v1424)
+  let v1439 := (v1362 < (Float.sqrt (((((v1267 * v1425) + (v1276 * v1427)) - v1264) ^ 2) + ((((v1279 * v1427) + (v1276 * v1425)) - (0.34 : Float)) ^ 2))))
+  let v1440 := (if v1439 then v1424 else v1421)
+  let v1441 := (if v1439 then v1422 else v1424)
+  let v1443 := ((v1440 + v1441) / (2 : Float))
+  let v1444 := (Float.cos v1443)
+  let v1446 := (Float.sin v1443)
+  let v1458 := (v1362 < (Float.sqrt (((((v1267 * v1444) + (v1276 * v1446)) - v1264) ^ 2) + ((((v1279 * v1446) + (v1276 * v1444)) - (0.34 : Float)) ^ 2))))
+  let v1459 := (if v1458 then v1443 else v1440)
+  let v1460 := (if v1458 then v1441 else v1443)
+  let v1462 := ((v1459 + v1460) / (2 : Float))
+  let v1463 := (Float.cos v1462)
+  let v1465 := (Float.sin v1462)
+  let v1477 := (v1362 < (Float.sqrt (((((v1267 * v1463) + (v1276 * v1465)) - v1264) ^ 2) + ((((v1279 * v1465) + (v1276 * v1463)) - (0.34 : Float)) ^ 2))))
+  let v1478 := (if v1477 then v1462 else v1459)
+  let v1479 := (if v1477 then v1460 else v1462)
+  let v1481 := ((v1478 + v1479) / (2 : Float))
+  let v1482 := (Float.cos v1481)
+  let v1484 := (Float.sin v1481)
+  let v1496 := (v1362 < (Float.sqrt (((((v1267 * v1482) + (v1276 * v1484)) - v1264) ^ 2) + ((((v1279 * v1484) + (v1276 * v1482)) - (0.34 : Float)) ^ 2))))
+  let v1497 := (if v1496 then v1481 else v1478)
+  let v1498 := (if v1496 then v1479 else v1481)
+  let v1500 := ((v1497 + v1498) / (2 : Float))
+  let v1501 := (Float.cos v1500)
+  let v1503 := (Float.sin v1500)
+  let v1515 := (v1362 < (Float.sqrt (((((v1267 * v1501) + (v1276 * v1503)) - v1264) ^ 2) + ((((v1279 * v1503) + (v1276 * v1501)) - (0.34 : Float)) ^ 2))))
+  let v1516 := (if v1515 then v1500 else v1497)
+  let v1517 := (if v1515 then v1498 else v1500)
+  let v1519 := ((v1516 + v1517) / (2 : Float))
+  let v1520 := (Float.cos v1519)
+  let v1522 := (Float.sin v1519)
+  let v1534 := (v1362 < (Float.sqrt (((((v1267 * v1520) + (v1276 * v1522)) - v1264) ^ 2) + ((((v1279 * v1522) + (v1276 * v1520)) - (0.34 : Float)) ^ 2))))
+  let v1535 := (if v1534 then v1519 else v1516)
+  let v1536 := (if v1534 then v1517 else v1519)
+  let v1538 := ((v1535 + v1536) / (2 : Float))
+  let v1539 := (Float.cos v1538)
+  let v1541 := (Float.sin v1538)
+  let v1553 := (v1362 < (Float.sqrt (((((v1267 * v1539) + (v1276 * v1541)) - v1264) ^ 2) + ((((v1279 * v1541) + (v1276 * v1539)) - (0.34 : Float)) ^ 2))))
+  let v1554 := (if v1553 then v1538 else v1535)
+  let v1555 := (if v1553 then v1536 else v1538)
+  let v1557 := ((v1554 + v1555) / (2 : Float))
+  let v1558 := (Float.cos v1557)
+  let v1560 := (Float.sin v1557)
+  let v1572 := (v1362 < (Float.sqrt (((((v1267 * v1558) + (v1276 * v1560)) - v1264) ^ 2) + ((((v1279 * v1560) + (v1276 * v1558)) - (0.34 : Float)) ^ 2))))
+  let v1573 := (if v1572 then v1557 else v1554)
+  let v1574 := (if v1572 then v1555 else v1557)
+  let v1576 := ((v1573 + v1574) / (2 : Float))
+  let v1577 := (Float.cos v1576)
+  let v1579 := (Float.sin v1576)
+  let v1591 := (v1362 < (Float.sqrt (((((v1267 * v1577) + (v1276 * v1579)) - v1264) ^ 2) + ((((v1279 * v1579) + (v1276 * v1577)) - (0.34 : Float)) ^ 2))))
+  let v1592 := (if v1591 then v1576 else v1573)
+  let v1593 := (if v1591 then v1574 else v1576)
+  let v1595 := ((v1592 + v1593) / (2 : Float))
+  let v1596 := (Float.cos v1595)
+  let v1598 := (Float.sin v1595)
+  let v1610 := (v1362 < (Float.sqrt (((((v1267 * v1596) + (v1276 * v1598)) - v1264) ^ 2) + ((((v1279 * v1598) + (v1276 * v1596)) - (0.34 : Float)) ^ 2))))
+  let v1611 := (if v1610 then v1595 else v1592)
+  let v1612 := (if v1610 then v1593 else v1595)
+  let v1614 := ((v1611 + v1612) / (2 : Float))
+  let v1615 := (Float.cos v1614)
+  let v1617 := (Float.sin v1614)
+  let v1629 := (v1362 < (Float.sqrt (((((v1267 * v1615) + (v1276 * v1617)) - v1264) ^ 2) + ((((v1279 * v1617) + (v1276 * v1615)) - (0.34 : Float)) ^ 2))))
+  let v1630 := (if v1629 then v1614 else v1611)
+  let v1631 := (if v1629 then v1612 else v1614)
+  let v1633 := ((v1630 + v1631) / (2 : Float))
+  let v1634 := (Float.cos v1633)
+  let v1636 := (Float.sin v1633)
+  let v1648 := (v1362 < (Float.sqrt (((((v1267 * v1634) + (v1276 * v1636)) - v1264) ^ 2) + ((((v1279 * v1636) + (v1276 * v1634)) - (0.34 : Float)) ^ 2))))
+  let v1649 := (if v1648 then v1633 else v1630)
+  let v1650 := (if v1648 then v1631 else v1633)
+  let v1652 := ((v1649 + v1650) / (2 : Float))
+  let v1653 := (Float.cos v1652)
+  let v1655 := (Float.sin v1652)
+  let v1667 := (v1362 < (Float.sqrt (((((v1267 * v1653) + (v1276 * v1655)) - v1264) ^ 2) + ((((v1279 * v1655) + (v1276 * v1653)) - (0.34 : Float)) ^ 2))))
+  let v1668 := (if v1667 then v1652 else v1649)
+  let v1669 := (if v1667 then v1650 else v1652)
+  let v1671 := ((v1668 + v1669) / (2 : Float))
+  let v1672 := (Float.cos v1671)
+  let v1674 := (Float.sin v1671)
+  let v1686 := (v1362 < (Float.sqrt (((((v1267 * v1672) + (v1276 * v1674)) - v1264) ^ 2) + ((((v1279 * v1674) + (v1276 * v1672)) - (0.34 : Float)) ^ 2))))
+  let v1687 := (if v1686 then v1671 else v1668)
+  let v1688 := (if v1686 then v1669 else v1671)
+  let v1690 := ((v1687 + v1688) / (2 : Float))
+  let v1691 := (Float.cos v1690)
+  let v1693 := (Float.sin v1690)
+  let v1705 := (v1362 < (Float.sqrt (((((v1267 * v1691) + (v1276 * v1693)) - v1264) ^ 2) + ((((v1279 * v1693) + (v1276 * v1691)) - (0.34 : Float)) ^ 2))))
+  let v1706 := (if v1705 then v1690 else v1687)
+  let v1707 := (if v1705 then v1688 else v1690)
+  let v1709 := ((v1706 + v1707) / (2 : Float))
+  let v1710 := (Float.cos v1709)
+  let v1712 := (Float.sin v1709)
+  let v1724 := (v1362 < (Float.sqrt (((((v1267 * v1710) + (v1276 * v1712)) - v1264) ^ 2) + ((((v1279 * v1712) + (v1276 * v1710)) - (0.34 : Float)) ^ 2))))
+  let v1725 := (if v1724 then v1709 else v1706)
+  let v1726 := (if v1724 then v1707 else v1709)
+  let v1728 := ((v1725 + v1726) / (2 : Float))
+  let v1729 := (Float.cos v1728)
+  let v1731 := (Float.sin v1728)
+  let v1743 := (v1362 < (Float.sqrt (((((v1267 * v1729) + (v1276 * v1731)) - v1264) ^ 2) + ((((v1279 * v1731) + (v1276 * v1729)) - (0.34 : Float)) ^ 2))))
+  let v1744 := (if v1743 then v1728 else v1725)
+  let v1745 := (if v1743 then v1726 else v1728)
+  let v1747 := ((v1744 + v1745) / (2 : Float))
+  let v1748 := (Float.cos v1747)
+  let v1750 := (Float.sin v1747)
+  let v1762 := (v1362 < (Float.sqrt (((((v1267 * v1748) + (v1276 * v1750)) - v1264) ^ 2) + ((((v1279 * v1750) + (v1276 * v1748)) - (0.34 : Float)) ^ 2))))
+  let v1763 := (if v1762 then v1747 else v1744)
+  let v1764 := (if v1762 then v1745 else v1747)
+  let v1766 := ((v1763 + v1764) / (2 : Float))
+  let v1767 := (Float.cos v1766)
+  let v1769 := (Float.sin v1766)
+  let v1781 := (v1362 < (Float.sqrt (((((v1267 * v1767) + (v1276 * v1769)) - v1264) ^ 2) + ((((v1279 * v1769) + (v1276 * v1767)) - (0.34 : Float)) ^ 2))))
+  let v1782 := (if v1781 then v1766 else v1763)
+  let v1783 := (if v1781 then v1764 else v1766)
+  let v1785 := ((v1782 + v1783) / (2 : Float))
+  let v1786 := (Float.cos v1785)
+  let v1788 := (Float.sin v1785)
+  let v1800 := (v1362 < (Float.sqrt (((((v1267 * v1786) + (v1276 * v1788)) - v1264) ^ 2) + ((((v1279 * v1788) + (v1276 * v1786)) - (0.34 : Float)) ^ 2))))
+  let v1801 := (if v1800 then v1785 else v1782)
+  let v1802 := (if v1800 then v1783 else v1785)
+  let v1804 := ((v1801 + v1802) / (2 : Float))
+  let v1805 := (Float.cos v1804)
+  let v1807 := (Float.sin v1804)
+  let v1819 := (v1362 < (Float.sqrt (((((v1267 * v1805) + (v1276 * v1807)) - v1264) ^ 2) + ((((v1279 * v1807) + (v1276 * v1805)) - (0.34 : Float)) ^ 2))))
+  let v1824 := (if (v1340 <= v1358) then (0 : Float) else (((if v1819 then v1804 else v1801) + (if v1819 then v1802 else v1804)) / (2 : Float)))
+  let v1825 := (W * rcm)
+  let v1826 := (Float.cos v1824)
+  let v1828 := (Float.sin v1824)
+  let v1830 := ((v1267 * v1826) + (v1276 * v1828))
+  let v1833 := ((v1279 * v1828) + (v1276 * v1826))
+  let v1848 := ((t < v1824) && (!(v1825 <= (Tmax * (((v1264 * v1833) - ((0.34 : Float) * v1830)) / (Float.sqrt (((v1830 - v1264) ^ 2) + ((v1833 - (0.34 : Float)) ^ 2))))))))
+  let v1849 := (if v1848 then t else v1824)
+  let v1854 := (az + (((((((Float.tanh (((((((((((((((((W2[0 * 16 + 0]! * v941) + (W2[0 * 16 + 1]! * v958)) + (W2[0 * 16 + 2]! * v975)) + (W2[0 * 16 + 3]! * v992)) + (W2[0 * 16 + 4]! * v1009)) + (W2[0 * 16 + 5]! * v1026)) + (W2[0 * 16 + 6]! * v1043)) + (W2[0 * 16 + 7]! * v1060)) + (W2[0 * 16 + 8]! * v1077)) + (W2[0 * 16 + 9]! * v1094)) + (W2[0 * 16 + 10]! * v1111)) + (W2[0 * 16 + 11]! * v1128)) + (W2[0 * 16 + 12]! * v1145)) + (W2[0 * 16 + 13]! * v1162)) + (W2[0 * 16 + 14]! * v1179)) + (W2[0 * 16 + 15]! * v1196)) + b2_0)) * (((0.035 : Float) * (3.141592653589793 : Float)) / (180 : Float))) * v1308) / (0.05 : Float)) * (0.05 : Float)) / v1308) * dt))
+  let v1859 := (Float.cos v1849)
+  let v1861 := (Float.sin v1849)
+  let v1863 := ((v1267 * v1859) + (v1276 * v1861))
+  let v1866 := ((v1279 * v1861) + (v1276 * v1859))
+  let v1881 := (v866 - v1326)
+  let v1882 := (v1881 <= elSun)
+  let v1891 := (Float.cos v1854)
+  let v1892 := (v1861 * v1891)
+  let v1893 := (Float.sin v1854)
+  let v1894 := (v1861 * v1893)
+  let v1895 := (v1859 * v1891)
+  let v1896 := (v1859 * v1893)
+  let v1897 := (-v1861)
+  let v1922 := ((2 : Float) * a)
+  let v1923 := (v1922 / w)
+  let v1925 := (w / (2 : Float))
+  let v1926 := ((-a) + v1925)
+  let v1945 := ((1 : Float) / (2 : Float))
+  let v1950 := (-(((((v1896 * v1859) - (v1897 * v1894)) * v885) + (((v1897 * v1892) - (v1895 * v1859)) * v887)) + (((v1895 * v1894) - (v1896 * v1892)) * v888)))
+  let v1951 := (-(((v1895 * v885) + (v1896 * v887)) + (v1897 * v888)))
+  let v1952 := (-(((v1892 * v885) + (v1894 * v887)) + (v1859 * v888)))
+  let v1957 := ((Float.abs v1952) < ((9 : Float) / (10 : Float)))
+  let v1958 := (if v1957 then (0 : Float) else (1 : Float))
+  let v1959 := (if v1957 then (1 : Float) else (0 : Float))
+  let v1962 := ((v1951 * v1959) - (v1952 * (0 : Float)))
+  let v1965 := ((v1952 * v1958) - (v1950 * v1959))
+  let v1968 := ((v1950 * (0 : Float)) - (v1951 * v1958))
+  let v1976 := (Float.sqrt (max (((v1962 ^ 2) + (v1965 ^ 2)) + (v1968 ^ 2)) (0.000000000000000001 : Float)))
+  let v1977 := (v1962 / v1976)
+  let v1978 := (v1965 / v1976)
+  let v1979 := (v1968 / v1976)
+  let v2027 := ((2 : Float) * f)
+  let v2028 := ((1 : Float) / R)
+  let v2138 := ((v1922 ^ 2) * rho)
+  let v2144 := ((List.range 64).foldl (fun acc i => acc + (let v1940 := (v1926 + (w * (Float.floor (dr[i * 10 + 0]! * v1923)))); let v1944 := (v1926 + (w * (Float.floor (dr[i * 10 + 1]! * v1923)))); let v1947 := ((dr[i * 10 + 2]! - v1945) * w); let v1949 := ((dr[i * 10 + 3]! - v1945) * w); let v1990 := (hsun * (Float.sqrt dr[i * 10 + 4]!)); let v1991 := (v860 * dr[i * 10 + 5]!); let v1992 := (Float.cos v1990); let v1994 := (Float.sin v1990); let v1995 := (Float.cos v1991); let v1997 := (Float.sin v1991); let v2001 := ((v1992 * v1950) + (v1994 * ((v1995 * v1977) + (v1997 * ((v1951 * v1979) - (v1952 * v1978)))))); let v2007 := ((v1992 * v1951) + (v1994 * ((v1995 * v1978) + (v1997 * ((v1952 * v1977) - (v1950 * v1979)))))); let v2013 := ((v1992 * v1952) + (v1994 * ((v1995 * v1979) + (v1997 * ((v1950 * v1978) - (v1951 * v1977)))))); let v2024 := (((Float.abs v1940) <= a) && (((Float.abs v1944) <= a) && (((Float.abs v1947) <= v1925) && ((Float.abs v1949) <= v1925)))); let v2025 := (v1940 + v1947); let v2026 := (v1944 + v1949); let v2033 := (Float.sqrt (max ((v1940 ^ 2) + (v1944 ^ 2)) (0.000000000000000001 : Float))); let v2034 := (v2033 ^ 2); let v2040 := ((1 : Float) - ((((1 : Float) + k) * (v2028 ^ 2)) * v2034)); let v2048 := ((v2028 * v2033) / (Float.sqrt (max v2040 (0.000000000000000001 : Float)))); let v2051 := (Float.sqrt ((1 : Float) + (v2048 ^ 2))); let v2052 := (-v2048); let v2055 := (((v2052 * v1940) / v2033) / v2051); let v2058 := (((v2052 * v1944) / v2033) / v2051); let v2059 := ((1 : Float) / v2051); let v2061 := (v2055 + (sigmaslope * dr[i * 10 + 6]!)); let v2063 := (v2058 + (sigmaslope * dr[i * 10 + 7]!)); let v2069 := (Float.sqrt (((v2061 ^ 2) + (v2063 ^ 2)) + (v2059 ^ 2))); let v2070 := (v2061 / v2069); let v2071 := (v2063 / v2069); let v2072 := (v2059 / v2069); let v2086 := (((((v1940 - v2025) * v2055) + ((v1944 - v2026) * v2058)) + ((((v2028 * v2034) / ((1 : Float) + (Float.sqrt (max v2040 (0 : Float))))) - v2027) * v2059)) / (((v2001 * v2055) + (v2007 * v2058)) + (v2013 * v2059))); let v2098 := ((2 : Float) * (((v2001 * v2070) + (v2007 * v2071)) + (v2013 * v2072))); let v2104 := (v2013 - (v2098 * v2072)); let v2106 := ((v2001 - (v2098 * v2070)) + (sigmaspec * dr[i * 10 + 8]!)); let v2108 := ((v2007 - (v2098 * v2071)) + (sigmaspec * dr[i * 10 + 9]!)); let v2114 := (Float.sqrt (((v2106 ^ 2) + (v2108 ^ 2)) + (v2104 ^ 2))); let v2117 := (v2104 / v2114); let v2119 := ((f - (v2027 + (v2086 * v2013))) / v2117); let v2127 := (Float.sqrt ((((v2025 + (v2086 * v2001)) + (v2119 * (v2106 / v2114))) ^ 2) + (((v2026 + (v2086 * v2007)) + (v2119 * (v2108 / v2114))) ^ 2))); let v2129 := ((0 : Float) < v2117); let v2130 := ((v2127 <= rc) && v2129); let v2132 := (if (v2024 && v2130) then (1 : Float) else (0 : Float)); v2132)) 0.0)
+  let v2147 := ((List.range 64).foldl (fun acc i => acc + (let v1940 := (v1926 + (w * (Float.floor (dr[i * 10 + 0]! * v1923)))); let v1944 := (v1926 + (w * (Float.floor (dr[i * 10 + 1]! * v1923)))); let v1947 := ((dr[i * 10 + 2]! - v1945) * w); let v1949 := ((dr[i * 10 + 3]! - v1945) * w); let v1990 := (hsun * (Float.sqrt dr[i * 10 + 4]!)); let v1991 := (v860 * dr[i * 10 + 5]!); let v1992 := (Float.cos v1990); let v1994 := (Float.sin v1990); let v1995 := (Float.cos v1991); let v1997 := (Float.sin v1991); let v2001 := ((v1992 * v1950) + (v1994 * ((v1995 * v1977) + (v1997 * ((v1951 * v1979) - (v1952 * v1978)))))); let v2007 := ((v1992 * v1951) + (v1994 * ((v1995 * v1978) + (v1997 * ((v1952 * v1977) - (v1950 * v1979)))))); let v2013 := ((v1992 * v1952) + (v1994 * ((v1995 * v1979) + (v1997 * ((v1950 * v1978) - (v1951 * v1977)))))); let v2024 := (((Float.abs v1940) <= a) && (((Float.abs v1944) <= a) && (((Float.abs v1947) <= v1925) && ((Float.abs v1949) <= v1925)))); let v2025 := (v1940 + v1947); let v2026 := (v1944 + v1949); let v2033 := (Float.sqrt (max ((v1940 ^ 2) + (v1944 ^ 2)) (0.000000000000000001 : Float))); let v2034 := (v2033 ^ 2); let v2040 := ((1 : Float) - ((((1 : Float) + k) * (v2028 ^ 2)) * v2034)); let v2048 := ((v2028 * v2033) / (Float.sqrt (max v2040 (0.000000000000000001 : Float)))); let v2051 := (Float.sqrt ((1 : Float) + (v2048 ^ 2))); let v2052 := (-v2048); let v2055 := (((v2052 * v1940) / v2033) / v2051); let v2058 := (((v2052 * v1944) / v2033) / v2051); let v2059 := ((1 : Float) / v2051); let v2061 := (v2055 + (sigmaslope * dr[i * 10 + 6]!)); let v2063 := (v2058 + (sigmaslope * dr[i * 10 + 7]!)); let v2069 := (Float.sqrt (((v2061 ^ 2) + (v2063 ^ 2)) + (v2059 ^ 2))); let v2070 := (v2061 / v2069); let v2071 := (v2063 / v2069); let v2072 := (v2059 / v2069); let v2086 := (((((v1940 - v2025) * v2055) + ((v1944 - v2026) * v2058)) + ((((v2028 * v2034) / ((1 : Float) + (Float.sqrt (max v2040 (0 : Float))))) - v2027) * v2059)) / (((v2001 * v2055) + (v2007 * v2058)) + (v2013 * v2059))); let v2098 := ((2 : Float) * (((v2001 * v2070) + (v2007 * v2071)) + (v2013 * v2072))); let v2104 := (v2013 - (v2098 * v2072)); let v2106 := ((v2001 - (v2098 * v2070)) + (sigmaspec * dr[i * 10 + 8]!)); let v2108 := ((v2007 - (v2098 * v2071)) + (sigmaspec * dr[i * 10 + 9]!)); let v2114 := (Float.sqrt (((v2106 ^ 2) + (v2108 ^ 2)) + (v2104 ^ 2))); let v2117 := (v2104 / v2114); let v2119 := ((f - (v2027 + (v2086 * v2013))) / v2117); let v2127 := (Float.sqrt ((((v2025 + (v2086 * v2001)) + (v2119 * (v2106 / v2114))) ^ 2) + (((v2026 + (v2086 * v2007)) + (v2119 * (v2108 / v2114))) ^ 2))); let v2129 := ((0 : Float) < v2117); let v2130 := ((v2127 <= rc) && v2129); let v2132 := (if (v2024 && v2130) then (1 : Float) else (0 : Float)); (1.0 / (1.0 + Float.exp (-((rc - v2127) / (0.005 : Float))))))) 0.0)
+  let v2161 := (Toil - Ta)
+  #[v1854, v1849, (if v1360 then (v1358 - v1340) else (0 : Float)), (if v1848 then v1291 else v1362), v1326, (if (v1359 || v1848) then (1 : Float) else (0 : Float)), (if (feq (if v1360 then (v1358 - v1340) else (0 : Float)) (0 : Float)) then (1 : Float) else (0 : Float)), (if (v1825 <= (Tmax * (((v1264 * v1866) - ((0.34 : Float) * v1863)) / (Float.sqrt (((v1863 - v1264) ^ 2) + ((v1866 - (0.34 : Float)) ^ 2)))))) then (1 : Float) else (0 : Float)), v1292, (v1356 / v1292), ((((((Float.tanh (((((((((((((((((W2[0 * 16 + 0]! * v941) + (W2[0 * 16 + 1]! * v958)) + (W2[0 * 16 + 2]! * v975)) + (W2[0 * 16 + 3]! * v992)) + (W2[0 * 16 + 4]! * v1009)) + (W2[0 * 16 + 5]! * v1026)) + (W2[0 * 16 + 6]! * v1043)) + (W2[0 * 16 + 7]! * v1060)) + (W2[0 * 16 + 8]! * v1077)) + (W2[0 * 16 + 9]! * v1094)) + (W2[0 * 16 + 10]! * v1111)) + (W2[0 * 16 + 11]! * v1128)) + (W2[0 * 16 + 12]! * v1145)) + (W2[0 * 16 + 13]! * v1162)) + (W2[0 * 16 + 14]! * v1179)) + (W2[0 * 16 + 15]! * v1196)) + b2_0)) * (((0.035 : Float) * (3.141592653589793 : Float)) / (180 : Float))) * v1308) / (0.05 : Float)) * (0.05 : Float)) / v1308), v919, (v866 - t), (if v1882 then (1 : Float) else (0 : Float)), (if (v1882 && ((0.03 : Float) < v919)) then (1 : Float) else (0 : Float)), (1.0 / (1.0 + Float.exp (-((elSun - v1881) / (0.01 : Float))))), ((1.0 / (1.0 + Float.exp (-((elSun - v1881) / (0.01 : Float))))) * v923), (v2144 / (64 : Float)), (v2147 / (64 : Float)), (v2138 * (v2144 / (64 : Float))), (((v2138 * (v2144 / (64 : Float))) * dni) * soil), (min ToilMax (Toil + ((dt * ((((alpha * (((v2138 * (v2144 / (64 : Float))) * dni) * soil)) - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v2161))) - (Upipe * v2161)) - (max (0 : Float) (UAx * (Toil - Twall))))) / Coil))), (alpha * (((v2138 * (v2144 / (64 : Float))) * dni) * soil)), ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v2161)), (Upipe * v2161), (max (0 : Float) (UAx * (Toil - Twall))), ((((alpha * (((v2138 * (v2144 / (64 : Float))) * dni) * soil)) - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v2161))) - (Upipe * v2161)) - (max (0 : Float) (UAx * (Toil - Twall)))), v865, v868, t, tautPrev, holdsPrev, v871, v876, v924, (Float.tanh (((((((((((((((((W2[0 * 16 + 0]! * v941) + (W2[0 * 16 + 1]! * v958)) + (W2[0 * 16 + 2]! * v975)) + (W2[0 * 16 + 3]! * v992)) + (W2[0 * 16 + 4]! * v1009)) + (W2[0 * 16 + 5]! * v1026)) + (W2[0 * 16 + 6]! * v1043)) + (W2[0 * 16 + 7]! * v1060)) + (W2[0 * 16 + 8]! * v1077)) + (W2[0 * 16 + 9]! * v1094)) + (W2[0 * 16 + 10]! * v1111)) + (W2[0 * 16 + 11]! * v1128)) + (W2[0 * 16 + 12]! * v1145)) + (W2[0 * 16 + 13]! * v1162)) + (W2[0 * 16 + 14]! * v1179)) + (W2[0 * 16 + 15]! * v1196)) + b2_0)), (Float.tanh (((((((((((((((((W2[1 * 16 + 0]! * v941) + (W2[1 * 16 + 1]! * v958)) + (W2[1 * 16 + 2]! * v975)) + (W2[1 * 16 + 3]! * v992)) + (W2[1 * 16 + 4]! * v1009)) + (W2[1 * 16 + 5]! * v1026)) + (W2[1 * 16 + 6]! * v1043)) + (W2[1 * 16 + 7]! * v1060)) + (W2[1 * 16 + 8]! * v1077)) + (W2[1 * 16 + 9]! * v1094)) + (W2[1 * 16 + 10]! * v1111)) + (W2[1 * 16 + 11]! * v1128)) + (W2[1 * 16 + 12]! * v1145)) + (W2[1 * 16 + 13]! * v1162)) + (W2[1 * 16 + 14]! * v1179)) + (W2[1 * 16 + 15]! * v1196)) + b2_1))]
+
+#eval IO.println ("hashemiLoop " ++ toString ((hashemiLoop 1.320123 1.261574 1.203025 1.144476 1.085928 1.027379 0.968830 0.910281 0.851732 0.793184 0.734635 0.676086 0.617537 0.558988 0.500440 0.441891 0.383342 0.324793 0.266244 0.207696 1.749147 1.690598 1.632049 1.573500 1.514952 1.456403 1.397854 1.339305 1.280756 1.222208 1.163659 1.105110 1.046561 0.988012 0.929464 0.870915 0.812366 0.753817 0.695268 0.636720 0.578171 #[1.596739, 1.538190, 1.479641, 1.421092, 1.362544, 1.303995, 1.245446, 1.186897, 1.128348, 1.069800, 1.011251, 0.952702, 0.894153, 0.835604, 0.777056, 0.718507, 0.659958, 0.601409, 0.542860, 0.484312, 0.425763, 0.367214, 0.308665, 0.250116, 1.791568, 1.733019, 1.674470, 1.615921, 1.557372, 1.498824, 1.440275, 1.381726, 1.323177, 1.264628, 1.206080, 1.147531, 1.088982, 1.030433, 0.971884, 0.913336, 0.854787, 0.796238, 0.737689, 0.679140, 0.620592, 0.562043, 0.503494, 0.444945, 0.386396, 0.327848, 0.269299, 0.210750, 1.752201, 1.693652, 1.635104, 1.576555, 1.518006, 1.459457, 1.400908, 1.342360, 1.283811, 1.225262, 1.166713, 1.108164, 1.049616, 0.991067, 0.932518, 0.873969, 0.815420, 0.756872, 0.698323, 0.639774, 0.581225, 0.522676, 0.464128, 0.405579, 0.347030, 0.288481, 0.229932, 1.771384, 1.712835, 1.654286, 1.595737, 1.537188, 1.478640, 1.420091, 1.361542, 1.302993, 1.244444, 1.185896, 1.127347, 1.068798, 1.010249, 0.951700, 0.893152, 0.834603, 0.776054, 0.717505, 0.658956, 0.600408, 0.541859, 0.483310, 0.424761, 0.366212, 0.307664, 0.249115, 1.790566, 1.732017, 1.673468, 1.614920, 1.556371, 1.497822, 1.439273, 1.380724, 1.322176, 1.263627, 1.205078, 1.146529, 1.087980, 1.029432, 0.970883, 0.912334, 0.853785, 0.795236, 0.736688, 0.678139, 0.619590, 0.561041] #[1.596739, 1.538190, 1.479641, 1.421092, 1.362544, 1.303995, 1.245446, 1.186897, 1.128348, 1.069800, 1.011251, 0.952702, 0.894153, 0.835604, 0.777056, 0.718507] #[1.596739, 1.538190, 1.479641, 1.421092, 1.362544, 1.303995, 1.245446, 1.186897, 1.128348, 1.069800, 1.011251, 0.952702, 0.894153, 0.835604, 0.777056, 0.718507, 0.659958, 0.601409, 0.542860, 0.484312, 0.425763, 0.367214, 0.308665, 0.250116, 1.791568, 1.733019, 1.674470, 1.615921, 1.557372, 1.498824, 1.440275, 1.381726] #[1.596739, 1.538190, 1.479641, 1.421092, 1.362544, 1.303995, 1.245446, 1.186897, 1.128348, 1.069800, 1.011251, 0.952702, 0.894153, 0.835604, 0.777056, 0.718507, 0.659958, 0.601409, 0.542860, 0.484312, 0.425763, 0.367214, 0.308665, 0.250116, 1.791568, 1.733019, 1.674470, 1.615921, 1.557372, 1.498824, 1.440275, 1.381726, 1.323177, 1.264628, 1.206080, 1.147531, 1.088982, 1.030433, 0.971884, 0.913336, 0.854787, 0.796238, 0.737689, 0.679140, 0.620592, 0.562043, 0.503494, 0.444945, 0.386396, 0.327848, 0.269299, 0.210750, 1.752201, 1.693652, 1.635104, 1.576555, 1.518006, 1.459457, 1.400908, 1.342360, 1.283811, 1.225262, 1.166713, 1.108164, 1.049616, 0.991067, 0.932518, 0.873969, 0.815420, 0.756872, 0.698323, 0.639774, 0.581225, 0.522676, 0.464128, 0.405579, 0.347030, 0.288481, 0.229932, 1.771384, 1.712835, 1.654286, 1.595737, 1.537188, 1.478640, 1.420091, 1.361542, 1.302993, 1.244444, 1.185896, 1.127347, 1.068798, 1.010249, 0.951700, 0.893152, 0.834603, 0.776054, 0.717505, 0.658956, 0.600408, 0.541859, 0.483310, 0.424761, 0.366212, 0.307664, 0.249115, 1.790566, 1.732017, 1.673468, 1.614920, 1.556371, 1.497822, 1.439273, 1.380724, 1.322176, 1.263627, 1.205078, 1.146529, 1.087980, 1.029432, 0.970883, 0.912334, 0.853785, 0.795236, 0.736688, 0.678139, 0.619590, 0.561041, 0.502492, 0.443944, 0.385395, 0.326846, 0.268297, 0.209748, 1.751200, 1.692651, 1.634102, 1.575553, 1.517004, 1.458456, 1.399907, 1.341358, 1.282809, 1.224260, 1.165712, 1.107163, 1.048614, 0.990065, 0.931516, 0.872968, 0.814419, 0.755870, 0.697321, 0.638772, 0.580224, 0.521675, 0.463126, 0.404577, 0.346028, 0.287480, 0.228931, 1.770382, 1.711833, 1.653284, 1.594736, 1.536187, 1.477638, 1.419089, 1.360540, 1.301992, 1.243443, 1.184894, 1.126345, 1.067796, 1.009248, 0.950699, 0.892150, 0.833601, 0.775052, 0.716504, 0.657955, 0.599406, 0.540857, 0.482308, 0.423760, 0.365211, 0.306662, 0.248113, 1.789564, 1.731016, 1.672467, 1.613918, 1.555369, 1.496820, 1.438272, 1.379723, 1.321174, 1.262625, 1.204076, 1.145528, 1.086979, 1.028430, 0.969881, 0.911332, 0.852784, 0.794235, 0.735686, 0.677137, 0.618588, 0.560040, 0.501491, 0.442942, 0.384393, 0.325844, 0.267296, 0.208747, 1.750198, 1.691649, 1.633100, 1.574552, 1.516003, 1.457454, 1.398905, 1.340356, 1.281808, 1.223259, 1.164710, 1.106161, 1.047612, 0.989064, 0.930515, 0.871966, 0.813417, 0.754868, 0.696320, 0.637771, 0.579222, 0.520673, 0.462124, 0.403576, 0.345027, 0.286478, 0.227929, 1.769380, 1.710832, 1.652283, 1.593734, 1.535185, 1.476636, 1.418088, 1.359539, 1.300990, 1.242441, 1.183892, 1.125344, 1.066795, 1.008246, 0.949697, 0.891148, 0.832600, 0.774051, 0.715502, 0.656953, 0.598404, 0.539856, 0.481307, 0.422758, 0.364209, 0.305660, 0.247112, 1.788563, 1.730014, 1.671465, 1.612916, 1.554368, 1.495819, 1.437270, 1.378721, 1.320172, 1.261624, 1.203075, 1.144526, 1.085977, 1.027428, 0.968880, 0.910331, 0.851782, 0.793233, 0.734684, 0.676136, 0.617587, 0.559038, 0.500489, 0.441940, 0.383392, 0.324843, 0.266294, 0.207745, 1.749196, 1.690648, 1.632099, 1.573550, 1.515001, 1.456452, 1.397904, 1.339355, 1.280806, 1.222257, 1.163708, 1.105160, 1.046611, 0.988062, 0.929513, 0.870964, 0.812416, 0.753867, 0.695318, 0.636769, 0.578220, 0.519672, 0.461123, 0.402574, 0.344025, 0.285476, 0.226928, 1.768379, 1.709830, 1.651281, 1.592732, 1.534184, 1.475635, 1.417086, 1.358537, 1.299988, 1.241440, 1.182891, 1.124342, 1.065793, 1.007244, 0.948696, 0.890147, 0.831598, 0.773049, 0.714500, 0.655952, 0.597403, 0.538854, 0.480305, 0.421756, 0.363208, 0.304659, 0.246110, 1.787561, 1.729012, 1.670464, 1.611915, 1.553366, 1.494817, 1.436268, 1.377720, 1.319171, 1.260622, 1.202073, 1.143524, 1.084976, 1.026427, 0.967878, 0.909329, 0.850780, 0.792232, 0.733683, 0.675134, 0.616585, 0.558036, 0.499488, 0.440939, 0.382390, 0.323841, 0.265292, 0.206744, 1.748195, 1.689646, 1.631097, 1.572548, 1.514000, 1.455451, 1.396902, 1.338353, 1.279804, 1.221256, 1.162707, 1.104158, 1.045609, 0.987060, 0.928512, 0.869963, 0.811414, 0.752865, 0.694316, 0.635768, 0.577219, 0.518670, 0.460121, 0.401572, 0.343024, 0.284475, 0.225926, 1.767377, 1.708828, 1.650280, 1.591731, 1.533182, 1.474633, 1.416084, 1.357536, 1.298987, 1.240438, 1.181889, 1.123340, 1.064792, 1.006243, 0.947694, 0.889145, 0.830596, 0.772048, 0.713499, 0.654950, 0.596401, 0.537852, 0.479304, 0.420755, 0.362206, 0.303657, 0.245108, 1.786560, 1.728011, 1.669462, 1.610913, 1.552364, 1.493816, 1.435267, 1.376718, 1.318169, 1.259620, 1.201072, 1.142523, 1.083974, 1.025425, 0.966876, 0.908328, 0.849779, 0.791230, 0.732681, 0.674132, 0.615584, 0.557035, 0.498486, 0.439937, 0.381388, 0.322840, 0.264291, 0.205742, 1.747193, 1.688644, 1.630096, 1.571547, 1.512998, 1.454449, 1.395900, 1.337352, 1.278803, 1.220254, 1.161705, 1.103156, 1.044608, 0.986059, 0.927510, 0.868961, 0.810412, 0.751864, 0.693315, 0.634766, 0.576217, 0.517668, 0.459120, 0.400571, 0.342022, 0.283473, 0.224924, 1.766376, 1.707827, 1.649278, 1.590729, 1.532180, 1.473632, 1.415083, 1.356534, 1.297985, 1.239436, 1.180888, 1.122339, 1.063790, 1.005241, 0.946692, 0.888144, 0.829595, 0.771046, 0.712497, 0.653948, 0.595400, 0.536851, 0.478302, 0.419753, 0.361204, 0.302656, 0.244107, 1.785558, 1.727009, 1.668460, 1.609912, 1.551363, 1.492814, 1.434265, 1.375716, 1.317168, 1.258619, 1.200070, 1.141521, 1.082972, 1.024424, 0.965875, 0.907326, 0.848777, 0.790228, 0.731680, 0.673131, 0.614582, 0.556033, 0.497484, 0.438936, 0.380387, 0.321838, 0.263289, 0.204740, 1.746192, 1.687643, 1.629094, 1.570545, 1.511996, 1.453448, 1.394899, 1.336350, 1.277801, 1.219252, 1.160704, 1.102155, 1.043606, 0.985057, 0.926508, 0.867960, 0.809411, 0.750862, 0.692313, 0.633764, 0.575216, 0.516667, 0.458118, 0.399569, 0.341020, 0.282472, 0.223923, 1.765374, 1.706825, 1.648276, 1.589728, 1.531179, 1.472630, 1.414081, 1.355532, 1.296984, 1.238435, 1.179886, 1.121337, 1.062788, 1.004240, 0.945691, 0.887142, 0.828593, 0.770044, 0.711496, 0.652947, 0.594398, 0.535849, 0.477300, 0.418752, 0.360203, 0.301654, 0.243105, 1.784556, 1.726008, 1.667459, 1.608910, 1.550361, 1.491812, 1.433264, 1.374715, 1.316166, 1.257617, 1.199068, 1.140520, 1.081971, 1.023422, 0.964873, 0.906324, 0.847776, 0.789227, 0.730678, 0.672129, 0.613580, 0.555032, 0.496483, 0.437934, 0.379385, 0.320836, 0.262288, 0.203739, 1.745190, 1.686641, 1.628092, 1.569544, 1.510995, 1.452446, 1.393897, 1.335348, 1.276800, 1.218251, 1.159702, 1.101153, 1.042604, 0.984056]).map Float.toBits))
+#eval IO.println ("hashemiLoop " ++ toString ((hashemiLoop 0.988931 0.930382 0.871833 0.813284 0.754736 0.696187 0.637638 0.579089 0.520540 0.461992 0.403443 0.344894 0.286345 0.227796 1.769248 1.710699 1.652150 1.593601 1.535052 1.476504 1.417955 1.359406 1.300857 1.242308 1.183760 1.125211 1.066662 1.008113 0.949564 0.891016 0.832467 0.773918 0.715369 0.656820 0.598272 0.539723 0.481174 0.422625 0.364076 0.305528 0.246979 #[1.265547, 1.206998, 1.148449, 1.089900, 1.031352, 0.972803, 0.914254, 0.855705, 0.797156, 0.738608, 0.680059, 0.621510, 0.562961, 0.504412, 0.445864, 0.387315, 0.328766, 0.270217, 0.211668, 1.753120, 1.694571, 1.636022, 1.577473, 1.518924, 1.460376, 1.401827, 1.343278, 1.284729, 1.226180, 1.167632, 1.109083, 1.050534, 0.991985, 0.933436, 0.874888, 0.816339, 0.757790, 0.699241, 0.640692, 0.582144, 0.523595, 0.465046, 0.406497, 0.347948, 0.289400, 0.230851, 1.772302, 1.713753, 1.655204, 1.596656, 1.538107, 1.479558, 1.421009, 1.362460, 1.303912, 1.245363, 1.186814, 1.128265, 1.069716, 1.011168, 0.952619, 0.894070, 0.835521, 0.776972, 0.718424, 0.659875, 0.601326, 0.542777, 0.484228, 0.425680, 0.367131, 0.308582, 0.250033, 1.791484, 1.732936, 1.674387, 1.615838, 1.557289, 1.498740, 1.440192, 1.381643, 1.323094, 1.264545, 1.205996, 1.147448, 1.088899, 1.030350, 0.971801, 0.913252, 0.854704, 0.796155, 0.737606, 0.679057, 0.620508, 0.561960, 0.503411, 0.444862, 0.386313, 0.327764, 0.269216, 0.210667, 1.752118, 1.693569, 1.635020, 1.576472, 1.517923, 1.459374, 1.400825, 1.342276, 1.283728, 1.225179, 1.166630, 1.108081, 1.049532, 0.990984, 0.932435, 0.873886, 0.815337, 0.756788, 0.698240, 0.639691, 0.581142, 0.522593, 0.464044, 0.405496, 0.346947, 0.288398, 0.229849] #[1.265547, 1.206998, 1.148449, 1.089900, 1.031352, 0.972803, 0.914254, 0.855705, 0.797156, 0.738608, 0.680059, 0.621510, 0.562961, 0.504412, 0.445864, 0.387315] #[1.265547, 1.206998, 1.148449, 1.089900, 1.031352, 0.972803, 0.914254, 0.855705, 0.797156, 0.738608, 0.680059, 0.621510, 0.562961, 0.504412, 0.445864, 0.387315, 0.328766, 0.270217, 0.211668, 1.753120, 1.694571, 1.636022, 1.577473, 1.518924, 1.460376, 1.401827, 1.343278, 1.284729, 1.226180, 1.167632, 1.109083, 1.050534] #[1.265547, 1.206998, 1.148449, 1.089900, 1.031352, 0.972803, 0.914254, 0.855705, 0.797156, 0.738608, 0.680059, 0.621510, 0.562961, 0.504412, 0.445864, 0.387315, 0.328766, 0.270217, 0.211668, 1.753120, 1.694571, 1.636022, 1.577473, 1.518924, 1.460376, 1.401827, 1.343278, 1.284729, 1.226180, 1.167632, 1.109083, 1.050534, 0.991985, 0.933436, 0.874888, 0.816339, 0.757790, 0.699241, 0.640692, 0.582144, 0.523595, 0.465046, 0.406497, 0.347948, 0.289400, 0.230851, 1.772302, 1.713753, 1.655204, 1.596656, 1.538107, 1.479558, 1.421009, 1.362460, 1.303912, 1.245363, 1.186814, 1.128265, 1.069716, 1.011168, 0.952619, 0.894070, 0.835521, 0.776972, 0.718424, 0.659875, 0.601326, 0.542777, 0.484228, 0.425680, 0.367131, 0.308582, 0.250033, 1.791484, 1.732936, 1.674387, 1.615838, 1.557289, 1.498740, 1.440192, 1.381643, 1.323094, 1.264545, 1.205996, 1.147448, 1.088899, 1.030350, 0.971801, 0.913252, 0.854704, 0.796155, 0.737606, 0.679057, 0.620508, 0.561960, 0.503411, 0.444862, 0.386313, 0.327764, 0.269216, 0.210667, 1.752118, 1.693569, 1.635020, 1.576472, 1.517923, 1.459374, 1.400825, 1.342276, 1.283728, 1.225179, 1.166630, 1.108081, 1.049532, 0.990984, 0.932435, 0.873886, 0.815337, 0.756788, 0.698240, 0.639691, 0.581142, 0.522593, 0.464044, 0.405496, 0.346947, 0.288398, 0.229849, 1.771300, 1.712752, 1.654203, 1.595654, 1.537105, 1.478556, 1.420008, 1.361459, 1.302910, 1.244361, 1.185812, 1.127264, 1.068715, 1.010166, 0.951617, 0.893068, 0.834520, 0.775971, 0.717422, 0.658873, 0.600324, 0.541776, 0.483227, 0.424678, 0.366129, 0.307580, 0.249032, 1.790483, 1.731934, 1.673385, 1.614836, 1.556288, 1.497739, 1.439190, 1.380641, 1.322092, 1.263544, 1.204995, 1.146446, 1.087897, 1.029348, 0.970800, 0.912251, 0.853702, 0.795153, 0.736604, 0.678056, 0.619507, 0.560958, 0.502409, 0.443860, 0.385312, 0.326763, 0.268214, 0.209665, 1.751116, 1.692568, 1.634019, 1.575470, 1.516921, 1.458372, 1.399824, 1.341275, 1.282726, 1.224177, 1.165628, 1.107080, 1.048531, 0.989982, 0.931433, 0.872884, 0.814336, 0.755787, 0.697238, 0.638689, 0.580140, 0.521592, 0.463043, 0.404494, 0.345945, 0.287396, 0.228848, 1.770299, 1.711750, 1.653201, 1.594652, 1.536104, 1.477555, 1.419006, 1.360457, 1.301908, 1.243360, 1.184811, 1.126262, 1.067713, 1.009164, 0.950616, 0.892067, 0.833518, 0.774969, 0.716420, 0.657872, 0.599323, 0.540774, 0.482225, 0.423676, 0.365128, 0.306579, 0.248030, 1.789481, 1.730932, 1.672384, 1.613835, 1.555286, 1.496737, 1.438188, 1.379640, 1.321091, 1.262542, 1.203993, 1.145444, 1.086896, 1.028347, 0.969798, 0.911249, 0.852700, 0.794152, 0.735603, 0.677054, 0.618505, 0.559956, 0.501408, 0.442859, 0.384310, 0.325761, 0.267212, 0.208664, 1.750115, 1.691566, 1.633017, 1.574468, 1.515920, 1.457371, 1.398822, 1.340273, 1.281724, 1.223176, 1.164627, 1.106078, 1.047529, 0.988980, 0.930432, 0.871883, 0.813334, 0.754785, 0.696236, 0.637688, 0.579139, 0.520590, 0.462041, 0.403492, 0.344944, 0.286395, 0.227846, 1.769297, 1.710748, 1.652200, 1.593651, 1.535102, 1.476553, 1.418004, 1.359456, 1.300907, 1.242358, 1.183809, 1.125260, 1.066712, 1.008163, 0.949614, 0.891065, 0.832516, 0.773968, 0.715419, 0.656870, 0.598321, 0.539772, 0.481224, 0.422675, 0.364126, 0.305577, 0.247028, 1.788480, 1.729931, 1.671382, 1.612833, 1.554284, 1.495736, 1.437187, 1.378638, 1.320089, 1.261540, 1.202992, 1.144443, 1.085894, 1.027345, 0.968796, 0.910248, 0.851699, 0.793150, 0.734601, 0.676052, 0.617504, 0.558955, 0.500406, 0.441857, 0.383308, 0.324760, 0.266211, 0.207662, 1.749113, 1.690564, 1.632016, 1.573467, 1.514918, 1.456369, 1.397820, 1.339272, 1.280723, 1.222174, 1.163625, 1.105076, 1.046528, 0.987979, 0.929430, 0.870881, 0.812332, 0.753784, 0.695235, 0.636686, 0.578137, 0.519588, 0.461040, 0.402491, 0.343942, 0.285393, 0.226844, 1.768296, 1.709747, 1.651198, 1.592649, 1.534100, 1.475552, 1.417003, 1.358454, 1.299905, 1.241356, 1.182808, 1.124259, 1.065710, 1.007161, 0.948612, 0.890064, 0.831515, 0.772966, 0.714417, 0.655868, 0.597320, 0.538771, 0.480222, 0.421673, 0.363124, 0.304576, 0.246027, 1.787478, 1.728929, 1.670380, 1.611832, 1.553283, 1.494734, 1.436185, 1.377636, 1.319088, 1.260539, 1.201990, 1.143441, 1.084892, 1.026344, 0.967795, 0.909246, 0.850697, 0.792148, 0.733600, 0.675051, 0.616502, 0.557953, 0.499404, 0.440856, 0.382307, 0.323758, 0.265209, 0.206660, 1.748112, 1.689563, 1.631014, 1.572465, 1.513916, 1.455368, 1.396819, 1.338270, 1.279721, 1.221172, 1.162624, 1.104075, 1.045526, 0.986977, 0.928428, 0.869880, 0.811331, 0.752782, 0.694233, 0.635684, 0.577136, 0.518587, 0.460038, 0.401489, 0.342940, 0.284392, 0.225843, 1.767294, 1.708745, 1.650196, 1.591648, 1.533099, 1.474550, 1.416001, 1.357452, 1.298904, 1.240355, 1.181806, 1.123257, 1.064708, 1.006160, 0.947611, 0.889062, 0.830513, 0.771964, 0.713416, 0.654867, 0.596318, 0.537769, 0.479220, 0.420672, 0.362123, 0.303574, 0.245025, 1.786476, 1.727928, 1.669379, 1.610830, 1.552281, 1.493732, 1.435184, 1.376635, 1.318086, 1.259537, 1.200988, 1.142440, 1.083891, 1.025342, 0.966793, 0.908244, 0.849696, 0.791147, 0.732598, 0.674049, 0.615500, 0.556952, 0.498403, 0.439854, 0.381305, 0.322756, 0.264208, 0.205659, 1.747110, 1.688561, 1.630012, 1.571464, 1.512915, 1.454366, 1.395817, 1.337268, 1.278720, 1.220171, 1.161622, 1.103073, 1.044524, 0.985976, 0.927427, 0.868878, 0.810329, 0.751780, 0.693232, 0.634683, 0.576134, 0.517585, 0.459036, 0.400488, 0.341939, 0.283390, 0.224841, 1.766292, 1.707744, 1.649195, 1.590646, 1.532097, 1.473548, 1.415000, 1.356451, 1.297902, 1.239353, 1.180804, 1.122256, 1.063707, 1.005158, 0.946609, 0.888060, 0.829512, 0.770963, 0.712414, 0.653865, 0.595316, 0.536768, 0.478219, 0.419670, 0.361121, 0.302572, 0.244024, 1.785475, 1.726926, 1.668377, 1.609828, 1.551280, 1.492731, 1.434182, 1.375633, 1.317084, 1.258536, 1.199987, 1.141438, 1.082889, 1.024340, 0.965792, 0.907243, 0.848694, 0.790145, 0.731596, 0.673048, 0.614499, 0.555950, 0.497401, 0.438852, 0.380304, 0.321755, 0.263206, 0.204657, 1.746108, 1.687560, 1.629011, 1.570462, 1.511913, 1.453364, 1.394816, 1.336267, 1.277718, 1.219169, 1.160620, 1.102072, 1.043523, 0.984974, 0.926425, 0.867876, 0.809328, 0.750779, 0.692230, 0.633681, 0.575132, 0.516584, 0.458035, 0.399486, 0.340937, 0.282388, 0.223840, 1.765291, 1.706742, 1.648193, 1.589644, 1.531096, 1.472547, 1.413998, 1.355449, 1.296900, 1.238352, 1.179803, 1.121254, 1.062705, 1.004156, 0.945608, 0.887059, 0.828510, 0.769961, 0.711412, 0.652864]).map Float.toBits))
+#eval IO.println ("hashemiLoop " ++ toString ((hashemiLoop 0.657739 0.599190 0.540641 0.482092 0.423544 0.364995 0.306446 0.247897 1.789348 1.730800 1.672251 1.613702 1.555153 1.496604 1.438056 1.379507 1.320958 1.262409 1.203860 1.145312 1.086763 1.028214 0.969665 0.911116 0.852568 0.794019 0.735470 0.676921 0.618372 0.559824 0.501275 0.442726 0.384177 0.325628 0.267080 0.208531 1.749982 1.691433 1.632884 1.574336 1.515787 #[0.934355, 0.875806, 0.817257, 0.758708, 0.700160, 0.641611, 0.583062, 0.524513, 0.465964, 0.407416, 0.348867, 0.290318, 0.231769, 1.773220, 1.714672, 1.656123, 1.597574, 1.539025, 1.480476, 1.421928, 1.363379, 1.304830, 1.246281, 1.187732, 1.129184, 1.070635, 1.012086, 0.953537, 0.894988, 0.836440, 0.777891, 0.719342, 0.660793, 0.602244, 0.543696, 0.485147, 0.426598, 0.368049, 0.309500, 0.250952, 1.792403, 1.733854, 1.675305, 1.616756, 1.558208, 1.499659, 1.441110, 1.382561, 1.324012, 1.265464, 1.206915, 1.148366, 1.089817, 1.031268, 0.972720, 0.914171, 0.855622, 0.797073, 0.738524, 0.679976, 0.621427, 0.562878, 0.504329, 0.445780, 0.387232, 0.328683, 0.270134, 0.211585, 1.753036, 1.694488, 1.635939, 1.577390, 1.518841, 1.460292, 1.401744, 1.343195, 1.284646, 1.226097, 1.167548, 1.109000, 1.050451, 0.991902, 0.933353, 0.874804, 0.816256, 0.757707, 0.699158, 0.640609, 0.582060, 0.523512, 0.464963, 0.406414, 0.347865, 0.289316, 0.230768, 1.772219, 1.713670, 1.655121, 1.596572, 1.538024, 1.479475, 1.420926, 1.362377, 1.303828, 1.245280, 1.186731, 1.128182, 1.069633, 1.011084, 0.952536, 0.893987, 0.835438, 0.776889, 0.718340, 0.659792, 0.601243, 0.542694, 0.484145, 0.425596, 0.367048, 0.308499, 0.249950, 1.791401, 1.732852, 1.674304, 1.615755, 1.557206, 1.498657] #[0.934355, 0.875806, 0.817257, 0.758708, 0.700160, 0.641611, 0.583062, 0.524513, 0.465964, 0.407416, 0.348867, 0.290318, 0.231769, 1.773220, 1.714672, 1.656123] #[0.934355, 0.875806, 0.817257, 0.758708, 0.700160, 0.641611, 0.583062, 0.524513, 0.465964, 0.407416, 0.348867, 0.290318, 0.231769, 1.773220, 1.714672, 1.656123, 1.597574, 1.539025, 1.480476, 1.421928, 1.363379, 1.304830, 1.246281, 1.187732, 1.129184, 1.070635, 1.012086, 0.953537, 0.894988, 0.836440, 0.777891, 0.719342] #[0.934355, 0.875806, 0.817257, 0.758708, 0.700160, 0.641611, 0.583062, 0.524513, 0.465964, 0.407416, 0.348867, 0.290318, 0.231769, 1.773220, 1.714672, 1.656123, 1.597574, 1.539025, 1.480476, 1.421928, 1.363379, 1.304830, 1.246281, 1.187732, 1.129184, 1.070635, 1.012086, 0.953537, 0.894988, 0.836440, 0.777891, 0.719342, 0.660793, 0.602244, 0.543696, 0.485147, 0.426598, 0.368049, 0.309500, 0.250952, 1.792403, 1.733854, 1.675305, 1.616756, 1.558208, 1.499659, 1.441110, 1.382561, 1.324012, 1.265464, 1.206915, 1.148366, 1.089817, 1.031268, 0.972720, 0.914171, 0.855622, 0.797073, 0.738524, 0.679976, 0.621427, 0.562878, 0.504329, 0.445780, 0.387232, 0.328683, 0.270134, 0.211585, 1.753036, 1.694488, 1.635939, 1.577390, 1.518841, 1.460292, 1.401744, 1.343195, 1.284646, 1.226097, 1.167548, 1.109000, 1.050451, 0.991902, 0.933353, 0.874804, 0.816256, 0.757707, 0.699158, 0.640609, 0.582060, 0.523512, 0.464963, 0.406414, 0.347865, 0.289316, 0.230768, 1.772219, 1.713670, 1.655121, 1.596572, 1.538024, 1.479475, 1.420926, 1.362377, 1.303828, 1.245280, 1.186731, 1.128182, 1.069633, 1.011084, 0.952536, 0.893987, 0.835438, 0.776889, 0.718340, 0.659792, 0.601243, 0.542694, 0.484145, 0.425596, 0.367048, 0.308499, 0.249950, 1.791401, 1.732852, 1.674304, 1.615755, 1.557206, 1.498657, 1.440108, 1.381560, 1.323011, 1.264462, 1.205913, 1.147364, 1.088816, 1.030267, 0.971718, 0.913169, 0.854620, 0.796072, 0.737523, 0.678974, 0.620425, 0.561876, 0.503328, 0.444779, 0.386230, 0.327681, 0.269132, 0.210584, 1.752035, 1.693486, 1.634937, 1.576388, 1.517840, 1.459291, 1.400742, 1.342193, 1.283644, 1.225096, 1.166547, 1.107998, 1.049449, 0.990900, 0.932352, 0.873803, 0.815254, 0.756705, 0.698156, 0.639608, 0.581059, 0.522510, 0.463961, 0.405412, 0.346864, 0.288315, 0.229766, 1.771217, 1.712668, 1.654120, 1.595571, 1.537022, 1.478473, 1.419924, 1.361376, 1.302827, 1.244278, 1.185729, 1.127180, 1.068632, 1.010083, 0.951534, 0.892985, 0.834436, 0.775888, 0.717339, 0.658790, 0.600241, 0.541692, 0.483144, 0.424595, 0.366046, 0.307497, 0.248948, 1.790400, 1.731851, 1.673302, 1.614753, 1.556204, 1.497656, 1.439107, 1.380558, 1.322009, 1.263460, 1.204912, 1.146363, 1.087814, 1.029265, 0.970716, 0.912168, 0.853619, 0.795070, 0.736521, 0.677972, 0.619424, 0.560875, 0.502326, 0.443777, 0.385228, 0.326680, 0.268131, 0.209582, 1.751033, 1.692484, 1.633936, 1.575387, 1.516838, 1.458289, 1.399740, 1.341192, 1.282643, 1.224094, 1.165545, 1.106996, 1.048448, 0.989899, 0.931350, 0.872801, 0.814252, 0.755704, 0.697155, 0.638606, 0.580057, 0.521508, 0.462960, 0.404411, 0.345862, 0.287313, 0.228764, 1.770216, 1.711667, 1.653118, 1.594569, 1.536020, 1.477472, 1.418923, 1.360374, 1.301825, 1.243276, 1.184728, 1.126179, 1.067630, 1.009081, 0.950532, 0.891984, 0.833435, 0.774886, 0.716337, 0.657788, 0.599240, 0.540691, 0.482142, 0.423593, 0.365044, 0.306496, 0.247947, 1.789398, 1.730849, 1.672300, 1.613752, 1.555203, 1.496654, 1.438105, 1.379556, 1.321008, 1.262459, 1.203910, 1.145361, 1.086812, 1.028264, 0.969715, 0.911166, 0.852617, 0.794068, 0.735520, 0.676971, 0.618422, 0.559873, 0.501324, 0.442776, 0.384227, 0.325678, 0.267129, 0.208580, 1.750032, 1.691483, 1.632934, 1.574385, 1.515836, 1.457288, 1.398739, 1.340190, 1.281641, 1.223092, 1.164544, 1.105995, 1.047446, 0.988897, 0.930348, 0.871800, 0.813251, 0.754702, 0.696153, 0.637604, 0.579056, 0.520507, 0.461958, 0.403409, 0.344860, 0.286312, 0.227763, 1.769214, 1.710665, 1.652116, 1.593568, 1.535019, 1.476470, 1.417921, 1.359372, 1.300824, 1.242275, 1.183726, 1.125177, 1.066628, 1.008080, 0.949531, 0.890982, 0.832433, 0.773884, 0.715336, 0.656787, 0.598238, 0.539689, 0.481140, 0.422592, 0.364043, 0.305494, 0.246945, 1.788396, 1.729848, 1.671299, 1.612750, 1.554201, 1.495652, 1.437104, 1.378555, 1.320006, 1.261457, 1.202908, 1.144360, 1.085811, 1.027262, 0.968713, 0.910164, 0.851616, 0.793067, 0.734518, 0.675969, 0.617420, 0.558872, 0.500323, 0.441774, 0.383225, 0.324676, 0.266128, 0.207579, 1.749030, 1.690481, 1.631932, 1.573384, 1.514835, 1.456286, 1.397737, 1.339188, 1.280640, 1.222091, 1.163542, 1.104993, 1.046444, 0.987896, 0.929347, 0.870798, 0.812249, 0.753700, 0.695152, 0.636603, 0.578054, 0.519505, 0.460956, 0.402408, 0.343859, 0.285310, 0.226761, 1.768212, 1.709664, 1.651115, 1.592566, 1.534017, 1.475468, 1.416920, 1.358371, 1.299822, 1.241273, 1.182724, 1.124176, 1.065627, 1.007078, 0.948529, 0.889980, 0.831432, 0.772883, 0.714334, 0.655785, 0.597236, 0.538688, 0.480139, 0.421590, 0.363041, 0.304492, 0.245944, 1.787395, 1.728846, 1.670297, 1.611748, 1.553200, 1.494651, 1.436102, 1.377553, 1.319004, 1.260456, 1.201907, 1.143358, 1.084809, 1.026260, 0.967712, 0.909163, 0.850614, 0.792065, 0.733516, 0.674968, 0.616419, 0.557870, 0.499321, 0.440772, 0.382224, 0.323675, 0.265126, 0.206577, 1.748028, 1.689480, 1.630931, 1.572382, 1.513833, 1.455284, 1.396736, 1.338187, 1.279638, 1.221089, 1.162540, 1.103992, 1.045443, 0.986894, 0.928345, 0.869796, 0.811248, 0.752699, 0.694150, 0.635601, 0.577052, 0.518504, 0.459955, 0.401406, 0.342857, 0.284308, 0.225760, 1.767211, 1.708662, 1.650113, 1.591564, 1.533016, 1.474467, 1.415918, 1.357369, 1.298820, 1.240272, 1.181723, 1.123174, 1.064625, 1.006076, 0.947528, 0.888979, 0.830430, 0.771881, 0.713332, 0.654784, 0.596235, 0.537686, 0.479137, 0.420588, 0.362040, 0.303491, 0.244942, 1.786393, 1.727844, 1.669296, 1.610747, 1.552198, 1.493649, 1.435100, 1.376552, 1.318003, 1.259454, 1.200905, 1.142356, 1.083808, 1.025259, 0.966710, 0.908161, 0.849612, 0.791064, 0.732515, 0.673966, 0.615417, 0.556868, 0.498320, 0.439771, 0.381222, 0.322673, 0.264124, 0.205576, 1.747027, 1.688478, 1.629929, 1.571380, 1.512832, 1.454283, 1.395734, 1.337185, 1.278636, 1.220088, 1.161539, 1.102990, 1.044441, 0.985892, 0.927344, 0.868795, 0.810246, 0.751697, 0.693148, 0.634600, 0.576051, 0.517502, 0.458953, 0.400404, 0.341856, 0.283307, 0.224758, 1.766209, 1.707660, 1.649112, 1.590563, 1.532014, 1.473465, 1.414916, 1.356368, 1.297819, 1.239270, 1.180721, 1.122172, 1.063624, 1.005075, 0.946526, 0.887977, 0.829428, 0.770880, 0.712331, 0.653782, 0.595233, 0.536684, 0.478136, 0.419587, 0.361038, 0.302489, 0.243940, 1.785392, 1.726843, 1.668294, 1.609745, 1.551196, 1.492648, 1.434099, 1.375550, 1.317001, 1.258452, 1.199904, 1.141355, 1.082806, 1.024257, 0.965708, 0.907160, 0.848611, 0.790062, 0.731513, 0.672964, 0.614416, 0.555867, 0.497318, 0.438769, 0.380220, 0.321672]).map Float.toBits))
 
 def hashemiOutrigger  : Array Float :=
   #[(0.98 : Float), (1.22 : Float), (1.35 : Float), (0.25 : Float)]
@@ -1805,6 +2118,27 @@ def check_hashemi_fits  : Bool :=
 #eval IO.println ("check_hashemi_fits " ++ toString (check_hashemi_fits))
 #eval IO.println ("check_hashemi_fits " ++ toString (check_hashemi_fits))
 
+def headToCmd (h : Float) : Float :=
+  (((min (max h (0 : Float)) (6 : Float)) - (3 : Float)) / (3 : Float))
+
+#eval IO.println ("headToCmd " ++ toString (headToCmd 1.617059).toBits)
+#eval IO.println ("headToCmd " ++ toString (headToCmd 1.285867).toBits)
+#eval IO.println ("headToCmd " ++ toString (headToCmd 0.954675).toBits)
+
+def headToDriveAz (h : Float) (rw : Float) (R : Float) : Float :=
+  ((((((min (max h (0 : Float)) (6 : Float)) - (3 : Float)) / (3 : Float)) * (((0.035 : Float) * (3.141592653589793 : Float)) / (180 : Float))) * R) / rw)
+
+#eval IO.println ("headToDriveAz " ++ toString (headToDriveAz 1.430907 1.372358 1.313809).toBits)
+#eval IO.println ("headToDriveAz " ++ toString (headToDriveAz 1.099715 1.041166 0.982617).toBits)
+#eval IO.println ("headToDriveAz " ++ toString (headToDriveAz 0.768523 0.709974 0.651425).toBits)
+
+def headToDriveEl (h : Float) (arm : Float) (rDrum : Float) : Float :=
+  ((((-(((min (max h (0 : Float)) (6 : Float)) - (3 : Float)) / (3 : Float))) * (((0.025 : Float) * (3.141592653589793 : Float)) / (180 : Float))) * arm) / rDrum)
+
+#eval IO.println ("headToDriveEl " ++ toString (headToDriveEl 1.244755 1.186206 1.127657).toBits)
+#eval IO.println ("headToDriveEl " ++ toString (headToDriveEl 0.913563 0.855014 0.796465).toBits)
+#eval IO.println ("headToDriveEl " ++ toString (headToDriveEl 0.582371 0.523822 0.465273).toBits)
+
 def heatParams  : Array Float :=
   #[(0.9 : Float), (0.8 : Float), (0.03 : Float), (15 : Float), (0.92 : Float), (15 : Float), (6300 : Float), (593 : Float)]
 
@@ -1816,16 +2150,16 @@ def heatStep (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Fl
   let v22 := (Toil - Ta)
   #[(min ToilMax (Toil + ((dt * ((((alpha * Pin) - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v22))) - (Upipe * v22)) - (max (0 : Float) (UAx * (Toil - Twall))))) / Coil))), (alpha * Pin), ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v22)), (Upipe * v22), (max (0 : Float) (UAx * (Toil - Twall))), ((((alpha * Pin) - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v22))) - (Upipe * v22)) - (max (0 : Float) (UAx * (Toil - Twall))))]
 
-#eval IO.println ("heatStep " ++ toString ((heatStep 1.506275 1.447726 1.389177 1.330628 1.272080 1.213531 1.154982 1.096433 1.037884 0.979336 0.920787 0.862238 0.803689).map Float.toBits))
-#eval IO.println ("heatStep " ++ toString ((heatStep 1.175083 1.116534 1.057985 0.999436 0.940888 0.882339 0.823790 0.765241 0.706692 0.648144 0.589595 0.531046 0.472497).map Float.toBits))
-#eval IO.println ("heatStep " ++ toString ((heatStep 0.843891 0.785342 0.726793 0.668244 0.609696 0.551147 0.492598 0.434049 0.375500 0.316952 0.258403 1.799854 1.741305).map Float.toBits))
+#eval IO.println ("heatStep " ++ toString ((heatStep 0.872451 0.813902 0.755353 0.696804 0.638256 0.579707 0.521158 0.462609 0.404060 0.345512 0.286963 0.228414 1.769865).map Float.toBits))
+#eval IO.println ("heatStep " ++ toString ((heatStep 0.541259 0.482710 0.424161 0.365612 0.307064 0.248515 1.789966 1.731417 1.672868 1.614320 1.555771 1.497222 1.438673).map Float.toBits))
+#eval IO.println ("heatStep " ++ toString ((heatStep 0.210067 1.751518 1.692969 1.634420 1.575872 1.517323 1.458774 1.400225 1.341676 1.283128 1.224579 1.166030 1.107481).map Float.toBits))
 
 def helixAdvance (pitch : Float) (phi : Float) : Float :=
   ((pitch * phi) / ((2 : Float) * (3.141592653589793 : Float)))
 
-#eval IO.println ("helixAdvance " ++ toString (helixAdvance 1.320123 1.261574).toBits)
-#eval IO.println ("helixAdvance " ++ toString (helixAdvance 0.988931 0.930382).toBits)
-#eval IO.println ("helixAdvance " ++ toString (helixAdvance 0.657739 0.599190).toBits)
+#eval IO.println ("helixAdvance " ++ toString (helixAdvance 0.686299 0.627750).toBits)
+#eval IO.println ("helixAdvance " ++ toString (helixAdvance 0.355107 0.296558).toBits)
+#eval IO.println ("helixAdvance " ++ toString (helixAdvance 1.623915 1.565366).toBits)
 
 def check_helixAdvance_small  : Bool :=
   ((((0.00175 : Float) * (((62 : Float) * (3.141592653589793 : Float)) / (180 : Float))) / ((2 : Float) * (3.141592653589793 : Float))) < (0.00031 : Float))
@@ -1843,9 +2177,9 @@ def hingeWrench (xh : Float) (zBolt : Float) : Array Float :=
   let v14 := (xh * (1 : Float))
   #[(1 : Float), (0 : Float), (0 : Float), (v4 - v5), (v7 - v8), (v8 - v10), (0 : Float), (1 : Float), (0 : Float), (v4 - v7), (v5 - v8), (v14 - v4), (0 : Float), (0 : Float), (1 : Float), (v10 - v5), (v5 - v14), (v8 - v4), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (1 : Float), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (1 : Float)]
 
-#eval IO.println ("hingeWrench " ++ toString ((hingeWrench 0.947819 0.889270).map Float.toBits))
-#eval IO.println ("hingeWrench " ++ toString ((hingeWrench 0.616627 0.558078).map Float.toBits))
-#eval IO.println ("hingeWrench " ++ toString ((hingeWrench 0.285435 0.226886).map Float.toBits))
+#eval IO.println ("hingeWrench " ++ toString ((hingeWrench 0.313995 0.255446).map Float.toBits))
+#eval IO.println ("hingeWrench " ++ toString ((hingeWrench 1.582803 1.524254).map Float.toBits))
+#eval IO.println ("hingeWrench " ++ toString ((hingeWrench 1.251611 1.193062).map Float.toBits))
 
 def check_hinge_freedom (xh : Float) (zBolt : Float) (t_0 : Float) (t_1 : Float) (t_2 : Float) (t_3 : Float) (t_4 : Float) (t_5 : Float) : Bool :=
   let v10 := ((0 : Float) * (0 : Float))
@@ -1860,9 +2194,9 @@ def check_hinge_freedom (xh : Float) (zBolt : Float) (t_0 : Float) (t_1 : Float)
   let v58 := (t_0 * (0 : Float))
   (!((feq ((((((t_0 * (v10 - v11)) + (t_1 * (v13 - v14))) + (t_2 * (v14 - v16))) + (t_3 * (1 : Float))) + v32) + v34) (0 : Float)) && ((feq ((((((t_0 * (v10 - v13)) + (t_1 * (v11 - v14))) + (t_2 * (v20 - v10))) + v42) + (t_4 * (1 : Float))) + v34) (0 : Float)) && ((feq ((((((t_0 * (v16 - v11)) + (t_1 * (v11 - v20))) + (t_2 * (v14 - v10))) + v42) + v32) + (t_5 * (1 : Float))) (0 : Float)) && ((feq (((((v58 + (t_1 * (1 : Float))) + (t_2 * (0 : Float))) + v42) + v32) + v34) (0 : Float)) && (feq (((((v58 + (t_1 * (0 : Float))) + (t_2 * (1 : Float))) + v42) + v32) + v34) (0 : Float)))))) || ((feq t_1 (0 : Float)) && ((feq t_2 (0 : Float)) && ((feq t_3 (0 : Float)) && ((feq t_4 (t_0 * zBolt)) && (feq t_5 (0 : Float)))))))
 
-#eval IO.println ("check_hinge_freedom " ++ toString (check_hinge_freedom 0.761667 0.703118 0.644569 0.586020 0.527472 0.468923 0.410374 0.351825))
-#eval IO.println ("check_hinge_freedom " ++ toString (check_hinge_freedom 0.430475 0.371926 0.313377 0.254828 1.796280 1.737731 1.679182 1.620633))
-#eval IO.println ("check_hinge_freedom " ++ toString (check_hinge_freedom 1.699283 1.640734 1.582185 1.523636 1.465088 1.406539 1.347990 1.289441))
+#eval IO.println ("check_hinge_freedom " ++ toString (check_hinge_freedom 1.727843 1.669294 1.610745 1.552196 1.493648 1.435099 1.376550 1.318001))
+#eval IO.println ("check_hinge_freedom " ++ toString (check_hinge_freedom 1.396651 1.338102 1.279553 1.221004 1.162456 1.103907 1.045358 0.986809))
+#eval IO.println ("check_hinge_freedom " ++ toString (check_hinge_freedom 1.065459 1.006910 0.948361 0.889812 0.831264 0.772715 0.714166 0.655617))
 
 def check_hinge_freedom_smul (xh : Float) (zBolt : Float) (apexH : Float) (t_0 : Float) (t_1 : Float) (t_2 : Float) (t_3 : Float) (t_4 : Float) (t_5 : Float) : Bool :=
   let v11 := ((0 : Float) * (0 : Float))
@@ -1879,9 +2213,9 @@ def check_hinge_freedom_smul (xh : Float) (zBolt : Float) (apexH : Float) (t_0 :
   let v80 := (apexH * (0 : Float))
   (!((feq (((((v26 + (t_1 * (v14 - v15))) + (t_2 * (v15 - v17))) + (t_3 * (1 : Float))) + v33) + v35) (0 : Float)) && ((feq ((((((t_0 * (v11 - v14)) + (t_1 * (v12 - v15))) + (t_2 * (v21 - v11))) + v43) + (t_4 * (1 : Float))) + v35) (0 : Float)) && ((feq ((((((t_0 * (v17 - v12)) + (t_1 * (v12 - v21))) + (t_2 * (v15 - v11))) + v43) + v33) + (t_5 * (1 : Float))) (0 : Float)) && ((feq (((((v59 + (t_1 * (1 : Float))) + (t_2 * (0 : Float))) + v43) + v33) + v35) (0 : Float)) && (feq (((((v59 + (t_1 * (0 : Float))) + (t_2 * (1 : Float))) + v43) + v33) + v35) (0 : Float)))))) || ((feq t_0 (t_0 * (1 : Float))) && ((feq t_1 v59) && ((feq t_2 v59) && ((feq t_3 v26) && ((feq t_4 (t_0 * (v14 - v80))) && (feq t_5 (t_0 * (v80 - v17)))))))))
 
-#eval IO.println ("check_hinge_freedom_smul " ++ toString (check_hinge_freedom_smul 0.575515 0.516966 0.458417 0.399868 0.341320 0.282771 0.224222 1.765673 1.707124))
-#eval IO.println ("check_hinge_freedom_smul " ++ toString (check_hinge_freedom_smul 0.244323 1.785774 1.727225 1.668676 1.610128 1.551579 1.493030 1.434481 1.375932))
-#eval IO.println ("check_hinge_freedom_smul " ++ toString (check_hinge_freedom_smul 1.513131 1.454582 1.396033 1.337484 1.278936 1.220387 1.161838 1.103289 1.044740))
+#eval IO.println ("check_hinge_freedom_smul " ++ toString (check_hinge_freedom_smul 1.541691 1.483142 1.424593 1.366044 1.307496 1.248947 1.190398 1.131849 1.073300))
+#eval IO.println ("check_hinge_freedom_smul " ++ toString (check_hinge_freedom_smul 1.210499 1.151950 1.093401 1.034852 0.976304 0.917755 0.859206 0.800657 0.742108))
+#eval IO.println ("check_hinge_freedom_smul " ++ toString (check_hinge_freedom_smul 0.879307 0.820758 0.762209 0.703660 0.645112 0.586563 0.528014 0.469465 0.410916))
 
 def check_hinge_reciprocal_swing (xh : Float) (zBolt : Float) (apexH : Float) : Bool :=
   let v5 := ((0 : Float) * (0 : Float))
@@ -1900,9 +2234,9 @@ def check_hinge_reciprocal_swing (xh : Float) (zBolt : Float) (apexH : Float) : 
   let v56 := ((1 : Float) * (0 : Float))
   ((feq (((((((1 : Float) * v7) + ((0 : Float) * (v8 - v13))) + ((0 : Float) * (v13 - v11))) + (v7 * (1 : Float))) + v30) + v32) (0 : Float)) && ((feq (((((((1 : Float) * (v5 - v8)) + ((0 : Float) * (v6 - v13))) + ((0 : Float) * (v18 - v5))) + v40) + (v10 * (1 : Float))) + v32) (0 : Float)) && ((feq (((((((1 : Float) * (v11 - v6)) + ((0 : Float) * (v6 - v18))) + ((0 : Float) * (v13 - v5))) + v40) + v30) + (v12 * (1 : Float))) (0 : Float)) && ((feq (((((v56 + v11) + v5) + v40) + v30) + v32) (0 : Float)) && (feq (((((v56 + v5) + v11) + v40) + v30) + v32) (0 : Float))))))
 
-#eval IO.println ("check_hinge_reciprocal_swing " ++ toString (check_hinge_reciprocal_swing 0.389363 0.330814 0.272265))
-#eval IO.println ("check_hinge_reciprocal_swing " ++ toString (check_hinge_reciprocal_swing 1.658171 1.599622 1.541073))
-#eval IO.println ("check_hinge_reciprocal_swing " ++ toString (check_hinge_reciprocal_swing 1.326979 1.268430 1.209881))
+#eval IO.println ("check_hinge_reciprocal_swing " ++ toString (check_hinge_reciprocal_swing 1.355539 1.296990 1.238441))
+#eval IO.println ("check_hinge_reciprocal_swing " ++ toString (check_hinge_reciprocal_swing 1.024347 0.965798 0.907249))
+#eval IO.println ("check_hinge_reciprocal_swing " ++ toString (check_hinge_reciprocal_swing 0.693155 0.634606 0.576057))
 
 def hpHashemi  : Float :=
   (0.34 : Float)
@@ -1915,9 +2249,9 @@ def landAt (H_0 : Float) (H_1 : Float) (H_2 : Float) (r_0 : Float) (r_1 : Float)
   let v8 := ((p - H_2) / r_2)
   #[(H_0 + (v8 * r_0)), (H_1 + (v8 * r_1))]
 
-#eval IO.println ("landAt " ++ toString ((landAt 1.617059 1.558510 1.499961 1.441412 1.382864 1.324315 1.265766).map Float.toBits))
-#eval IO.println ("landAt " ++ toString ((landAt 1.285867 1.227318 1.168769 1.110220 1.051672 0.993123 0.934574).map Float.toBits))
-#eval IO.println ("landAt " ++ toString ((landAt 0.954675 0.896126 0.837577 0.779028 0.720480 0.661931 0.603382).map Float.toBits))
+#eval IO.println ("landAt " ++ toString ((landAt 0.983235 0.924686 0.866137 0.807588 0.749040 0.690491 0.631942).map Float.toBits))
+#eval IO.println ("landAt " ++ toString ((landAt 0.652043 0.593494 0.534945 0.476396 0.417848 0.359299 0.300750).map Float.toBits))
+#eval IO.println ("landAt " ++ toString ((landAt 0.320851 0.262302 0.203753 1.745204 1.686656 1.628107 1.569558).map Float.toBits))
 
 def check_lean_one_degree  : Bool :=
   ((0.02 : Float) < ((1.25 : Float) * (Float.sin ((3.141592653589793 : Float) / (180 : Float)))))
@@ -1936,9 +2270,9 @@ def leverAt (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Flo
   let v16 := (((-v6) * v10) + (v9 * v7))
   (((v5 * v16) - (hp * v12)) / (Float.sqrt (((v12 - v5) ^ 2) + ((v16 - hp) ^ 2))))
 
-#eval IO.println ("leverAt " ++ toString (leverAt 1.244755 1.186206 1.127657 1.069108 1.010560).toBits)
-#eval IO.println ("leverAt " ++ toString (leverAt 0.913563 0.855014 0.796465 0.737916 0.679368).toBits)
-#eval IO.println ("leverAt " ++ toString (leverAt 0.582371 0.523822 0.465273 0.406724 0.348176).toBits)
+#eval IO.println ("leverAt " ++ toString (leverAt 0.610931 0.552382 0.493833 0.435284 0.376736).toBits)
+#eval IO.println ("leverAt " ++ toString (leverAt 0.279739 0.221190 1.762641 1.704092 1.645544).toBits)
+#eval IO.println ("leverAt " ++ toString (leverAt 1.548547 1.489998 1.431449 1.372900 1.314352).toBits)
 
 def lostSunS (tDead : Float) (az : Float) (t : Float) (elSun : Float) (azSun : Float) (eps : Float) : Float :=
   let v8 := ((3.141592653589793 : Float) / (2 : Float))
@@ -1954,9 +2288,9 @@ def lostSunS (tDead : Float) (az : Float) (t : Float) (elSun : Float) (azSun : F
   let v45 := (Float.sqrt (((((v18 * v25) - (v19 * v24)) ^ 2) + (((v19 * v22) - (v16 * v25)) ^ 2)) + (((v16 * v24) - (v18 * v22)) ^ 2)))
   ((1.0 / (1.0 + Float.exp (-((elSun - (v8 - tDead)) / (0.01 : Float))))) * (1.0 / (1.0 + Float.exp (-(((if (v30 <= (0 : Float)) then (v8 + (Float.atan ((-v30) / (max v45 (0.000000000001 : Float))))) else (Float.atan (v45 / v30))) - eps) / (0.01 : Float))))))
 
-#eval IO.println ("lostSunS " ++ toString (lostSunS 1.058603 1.000054 0.941505 0.882956 0.824408 0.765859).toBits)
-#eval IO.println ("lostSunS " ++ toString (lostSunS 0.727411 0.668862 0.610313 0.551764 0.493216 0.434667).toBits)
-#eval IO.println ("lostSunS " ++ toString (lostSunS 0.396219 0.337670 0.279121 0.220572 1.762024 1.703475).toBits)
+#eval IO.println ("lostSunS " ++ toString (lostSunS 0.424779 0.366230 0.307681 0.249132 1.790584 1.732035).toBits)
+#eval IO.println ("lostSunS " ++ toString (lostSunS 1.693587 1.635038 1.576489 1.517940 1.459392 1.400843).toBits)
+#eval IO.println ("lostSunS " ++ toString (lostSunS 1.362395 1.303846 1.245297 1.186748 1.128200 1.069651).toBits)
 
 def check_lostSunS_le_reach (tDead : Float) (az : Float) (t : Float) (elSun : Float) (azSun : Float) (eps : Float) : Bool :=
   let v8 := ((3.141592653589793 : Float) / (2 : Float))
@@ -1973,9 +2307,9 @@ def check_lostSunS_le_reach (tDead : Float) (az : Float) (t : Float) (elSun : Fl
   let v45 := (Float.sqrt (((((v18 * v25) - (v19 * v24)) ^ 2) + (((v19 * v22) - (v16 * v25)) ^ 2)) + (((v16 * v24) - (v18 * v22)) ^ 2)))
   ((v13 * (1.0 / (1.0 + Float.exp (-(((if (v30 <= (0 : Float)) then (v8 + (Float.atan ((-v30) / (max v45 (0.000000000001 : Float))))) else (Float.atan (v45 / v30))) - eps) / (0.01 : Float)))))) <= v13)
 
-#eval IO.println ("check_lostSunS_le_reach " ++ toString (check_lostSunS_le_reach 0.872451 0.813902 0.755353 0.696804 0.638256 0.579707))
-#eval IO.println ("check_lostSunS_le_reach " ++ toString (check_lostSunS_le_reach 0.541259 0.482710 0.424161 0.365612 0.307064 0.248515))
-#eval IO.println ("check_lostSunS_le_reach " ++ toString (check_lostSunS_le_reach 0.210067 1.751518 1.692969 1.634420 1.575872 1.517323))
+#eval IO.println ("check_lostSunS_le_reach " ++ toString (check_lostSunS_le_reach 0.238627 1.780078 1.721529 1.662980 1.604432 1.545883))
+#eval IO.println ("check_lostSunS_le_reach " ++ toString (check_lostSunS_le_reach 1.507435 1.448886 1.390337 1.331788 1.273240 1.214691))
+#eval IO.println ("check_lostSunS_le_reach " ++ toString (check_lostSunS_le_reach 1.176243 1.117694 1.059145 1.000596 0.942048 0.883499))
 
 def check_lostSun_unreachable (tDead : Float) (az : Float) (t : Float) (elSun : Float) (azSun : Float) (eps : Float) : Bool :=
   let v8 := ((3.141592653589793 : Float) / (2 : Float))
@@ -1992,9 +2326,9 @@ def check_lostSun_unreachable (tDead : Float) (az : Float) (t : Float) (elSun : 
   let v43 := (Float.sqrt (((((v16 * v23) - (v17 * v22)) ^ 2) + (((v17 * v20) - (v14 * v23)) ^ 2)) + (((v14 * v22) - (v16 * v20)) ^ 2)))
   (!(!v10) || (!(v10 && (eps < (if (v28 <= (0 : Float)) then (v8 + (Float.atan ((-v28) / (max v43 (0.000000000001 : Float))))) else (Float.atan (v43 / v28)))))))
 
-#eval IO.println ("check_lostSun_unreachable " ++ toString (check_lostSun_unreachable 0.686299 0.627750 0.569201 0.510652 0.452104 0.393555))
-#eval IO.println ("check_lostSun_unreachable " ++ toString (check_lostSun_unreachable 0.355107 0.296558 0.238009 1.779460 1.720912 1.662363))
-#eval IO.println ("check_lostSun_unreachable " ++ toString (check_lostSun_unreachable 1.623915 1.565366 1.506817 1.448268 1.389720 1.331171))
+#eval IO.println ("check_lostSun_unreachable " ++ toString (check_lostSun_unreachable 1.652475 1.593926 1.535377 1.476828 1.418280 1.359731))
+#eval IO.println ("check_lostSun_unreachable " ++ toString (check_lostSun_unreachable 1.321283 1.262734 1.204185 1.145636 1.087088 1.028539))
+#eval IO.println ("check_lostSun_unreachable " ++ toString (check_lostSun_unreachable 0.990091 0.931542 0.872993 0.814444 0.755896 0.697347))
 
 def check_lostSun_within_budget (tDead : Float) (az : Float) (t : Float) (elSun : Float) (azSun : Float) (eps : Float) : Bool :=
   let v6 := (Float.sin t)
@@ -2011,9 +2345,9 @@ def check_lostSun_within_budget (tDead : Float) (az : Float) (t : Float) (elSun 
   let v51 := (if (v22 <= (0 : Float)) then (v42 + (Float.atan ((-v22) / (max v37 (0.000000000001 : Float))))) else (Float.atan (v37 / v22)))
   (!(v51 <= eps) || (!(((v42 - tDead) <= elSun) && (eps < v51))))
 
-#eval IO.println ("check_lostSun_within_budget " ++ toString (check_lostSun_within_budget 0.500147 0.441598 0.383049 0.324500 0.265952 0.207403))
-#eval IO.println ("check_lostSun_within_budget " ++ toString (check_lostSun_within_budget 1.768955 1.710406 1.651857 1.593308 1.534760 1.476211))
-#eval IO.println ("check_lostSun_within_budget " ++ toString (check_lostSun_within_budget 1.437763 1.379214 1.320665 1.262116 1.203568 1.145019))
+#eval IO.println ("check_lostSun_within_budget " ++ toString (check_lostSun_within_budget 1.466323 1.407774 1.349225 1.290676 1.232128 1.173579))
+#eval IO.println ("check_lostSun_within_budget " ++ toString (check_lostSun_within_budget 1.135131 1.076582 1.018033 0.959484 0.900936 0.842387))
+#eval IO.println ("check_lostSun_within_budget " ++ toString (check_lostSun_within_budget 0.803939 0.745390 0.686841 0.628292 0.569744 0.511195))
 
 def check_lowestSun_tan_at_ym  : Bool :=
   let v5 := ((Float.sqrt (3.36 : Float)) - (1 : Float))
@@ -2027,9 +2361,9 @@ def check_lowestSun_tan_at_ym  : Bool :=
 def check_m12_carries_dish (W : Float) : Bool :=
   (!(W <= (1000 : Float)) || ((((W / (2 : Float)) * (0.03 : Float)) / (((3.141592653589793 : Float) * ((0.0101 : Float) ^ 3)) / (32 : Float))) < (16e7 : Float)))
 
-#eval IO.println ("check_m12_carries_dish " ++ toString (check_m12_carries_dish 1.727843))
-#eval IO.println ("check_m12_carries_dish " ++ toString (check_m12_carries_dish 1.396651))
-#eval IO.println ("check_m12_carries_dish " ++ toString (check_m12_carries_dish 1.065459))
+#eval IO.println ("check_m12_carries_dish " ++ toString (check_m12_carries_dish 1.094019))
+#eval IO.println ("check_m12_carries_dish " ++ toString (check_m12_carries_dish 0.762827))
+#eval IO.println ("check_m12_carries_dish " ++ toString (check_m12_carries_dish 0.431635))
 
 def check_mastClears_hashemi  : Bool :=
   ((Float.sqrt (((0.8 : Float) ^ 2) + (((Float.sqrt (3.36 : Float)) - (1 : Float)) ^ 2))) < (1.22 : Float))
@@ -2042,9 +2376,9 @@ def check_mastClears_hashemi_iff (ym : Float) : Bool :=
   let v4 := (Float.sqrt (3.36 : Float))
   (((Float.sqrt (((0.8 : Float) ^ 2) + ((v4 - (1 : Float)) ^ 2))) < ym) == ((Float.sqrt ((5 : Float) - ((2 : Float) * v4))) < ym))
 
-#eval IO.println ("check_mastClears_hashemi_iff " ++ toString (check_mastClears_hashemi_iff 1.355539))
-#eval IO.println ("check_mastClears_hashemi_iff " ++ toString (check_mastClears_hashemi_iff 1.024347))
-#eval IO.println ("check_mastClears_hashemi_iff " ++ toString (check_mastClears_hashemi_iff 0.693155))
+#eval IO.println ("check_mastClears_hashemi_iff " ++ toString (check_mastClears_hashemi_iff 0.721715))
+#eval IO.println ("check_mastClears_hashemi_iff " ++ toString (check_mastClears_hashemi_iff 0.390523))
+#eval IO.println ("check_mastClears_hashemi_iff " ++ toString (check_mastClears_hashemi_iff 1.659331))
 
 def check_mast_beyond_ring  : Bool :=
   ((Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2))) < ((0.80 : Float) + (1.22 : Float)))
@@ -2112,9 +2446,9 @@ def megaGeom (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad :
   let v267 := ((W * rcm) * v33)
   #[(2 : Float), (1 : Float), (0.8 : Float), v175, v25, v27, (v205 - v25), (Float.sqrt ((((0 : Float) ^ 2) + v209) + ((v205 - ((2 : Float) - (Float.sqrt (v21 - ((Float.sqrt (v22 + v209)) ^ 2))))) ^ 2))), ((0.4 : Float) / (v222 - (1 : Float))), (((3.36 : Float) - v222) / ((2 : Float) * v230)), (Float.sqrt ((v192 ^ 2) + ((0.80 : Float) ^ 2))), (1.84 : Float), (0.80 : Float), (0.55 : Float), (0.62 : Float), ((0.62 : Float) - (0.175 : Float)), (Float.sqrt (((0.96 : Float) ^ 2) - (((0.62 : Float) - (0.175 : Float)) ^ 2))), (1.59 : Float), (1.84 : Float), (1.35 : Float), (v96 + (v97 * v33)), (v101 + (v97 * v30)), (v96 + ((1 : Float) * v33)), (v101 + ((1 : Float) * v30)), ((0 : Float) + ((1 : Float) * v109)), ((0 : Float) - v113), (-v109), v112, (Float.sqrt (((((0 : Float) + ((1 : Float) * v109)) + v116) ^ 2) + ((((0 : Float) - v113) + v113) ^ 2))), (Float.sqrt (((((0 : Float) + (v120 * v109)) + v116) ^ 2) + ((((0 : Float) - (v120 * v112)) + v113) ^ 2))), v28, (0.34 : Float), v35, v39, v49, (if (v256 <= v257) then v85 else (Float.atan ((((1.22 : Float) * v27) + ((0.34 : Float) * (0.8 : Float))) / (v256 - v257)))), (Float.sqrt (((v35 - v28) ^ 2) + ((v39 - (0.34 : Float)) ^ 2))), (v267 / v49), (v267 * ((omegad * rDrum) / v49)), ((((2 : Float) * (1 : Float)) * slack) / v49), (Float.atan ((0.8 : Float) / v27)), ((1 : Float) * (Float.tan t)), ((v27 * (Float.sin v95)) + ((0.8 : Float) * (Float.cos v95))), (((1.30 : Float) - (0.05 : Float)) - ((v27 * (Float.sin v95)) + ((0.8 : Float) * (Float.cos v95)))), (((0.8 : Float) * v33) + (v27 * v30)), (((1.84 : Float) - v175) / (2 : Float)), ((1.30 : Float) - (0.05 : Float)), ((v52 * (0.80 : Float)) - (v54 * (0 : Float))), ((v54 * (0.80 : Float)) + (v52 * (0 : Float))), (Float.sqrt ((((v52 * (0.80 : Float)) - (v54 * (0 : Float))) ^ 2) + (((v54 * (0.80 : Float)) + (v52 * (0 : Float))) ^ 2))), v128, ((0.05 : Float) + ((1 : Float) * (0.0093 : Float))), (if ((v133 + (0.06 : Float)) <= v128) then (0 : Float) else (if (v128 <= ((0.06 : Float) - v133)) then (1 : Float) else ((((v139 * (Float.acos (((v140 + v139) - v142) / (v144 * v133)))) + (v142 * (Float.acos (((v140 + v142) - v139) / (v144 * (0.06 : Float)))))) - ((Float.sqrt ((((((-v128) + v133) + (0.06 : Float)) * (v159 - (0.06 : Float))) * ((v128 - v133) + (0.06 : Float))) * (v159 + (0.06 : Float)))) / (2 : Float))) / ((3.141592653589793 : Float) * v139)))), (if ((0 : Float) < elSun) then (((dni * (v175 ^ 2)) * rho) * (if ((v133 + (0.06 : Float)) <= v128) then (0 : Float) else (if (v128 <= ((0.06 : Float) - v133)) then (1 : Float) else ((((v139 * (Float.acos (((v140 + v139) - v142) / (v144 * v133)))) + (v142 * (Float.acos (((v140 + v142) - v139) / (v144 * (0.06 : Float)))))) - ((Float.sqrt ((((((-v128) + v133) + (0.06 : Float)) * (v159 - (0.06 : Float))) * ((v128 - v133) + (0.06 : Float))) * (v159 + (0.06 : Float)))) / (2 : Float))) / ((3.141592653589793 : Float) * v139))))) else (0 : Float)), ((1.25 : Float) * (Float.sin (0.0005 : Float))), ((0.0015 : Float) / v175), (rodLen - (rodLen - v230)), (((0.00175 : Float) * t) / ((2 : Float) * (3.141592653589793 : Float))), ((((0.0000000172 : Float) * ((2 : Float) * (4 : Float))) * ((5 : Float) / (12 : Float))) / (0.0000015 : Float)), (((((0.80 : Float) - ((0.80 : Float) + (1.22 : Float))) * (-(0.0005 : Float))) + ((((1 : Float) * (v192 - (0 : Float))) - (0 : Float)) * (0 : Float))) + (((1.30 : Float) - (0 : Float)) * (0 : Float)))]
 
-#eval IO.println ("megaGeom " ++ toString ((megaGeom 0.797083 0.738534 0.679985 0.621436 0.562888 0.504339 0.445790 0.387241 0.328692 0.270144 0.211595 1.753046 1.694497 1.635948 1.577400 1.518851 1.460302).map Float.toBits))
-#eval IO.println ("megaGeom " ++ toString ((megaGeom 0.465891 0.407342 0.348793 0.290244 0.231696 1.773147 1.714598 1.656049 1.597500 1.538952 1.480403 1.421854 1.363305 1.304756 1.246208 1.187659 1.129110).map Float.toBits))
-#eval IO.println ("megaGeom " ++ toString ((megaGeom 1.734699 1.676150 1.617601 1.559052 1.500504 1.441955 1.383406 1.324857 1.266308 1.207760 1.149211 1.090662 1.032113 0.973564 0.915016 0.856467 0.797918).map Float.toBits))
+#eval IO.println ("megaGeom " ++ toString ((megaGeom 1.763259 1.704710 1.646161 1.587612 1.529064 1.470515 1.411966 1.353417 1.294868 1.236320 1.177771 1.119222 1.060673 1.002124 0.943576 0.885027 0.826478).map Float.toBits))
+#eval IO.println ("megaGeom " ++ toString ((megaGeom 1.432067 1.373518 1.314969 1.256420 1.197872 1.139323 1.080774 1.022225 0.963676 0.905128 0.846579 0.788030 0.729481 0.670932 0.612384 0.553835 0.495286).map Float.toBits))
+#eval IO.println ("megaGeom " ++ toString ((megaGeom 1.100875 1.042326 0.983777 0.925228 0.866680 0.808131 0.749582 0.691033 0.632484 0.573936 0.515387 0.456838 0.398289 0.339740 0.281192 0.222643 1.764094).map Float.toBits))
 
 def megaParams  : Array Float :=
   #[(0.03 : Float), (300 : Float), (0.9 : Float), (2000 : Float), (0.85 : Float), (10 : Float), (1000000 : Float), (1 : Float)]
@@ -2146,9 +2480,9 @@ def megaReqs (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad :
   let v135 := ((1 : Float) * (Float.tan (if (v64 <= (0 : Float)) then (((3.141592653589793 : Float) / (2 : Float)) + (Float.atan ((-v64) / (max v79 (0.000000000001 : Float))))) else (Float.atan (v79 / v64)))))
   #[(if (feq v103 v103) then (1 : Float) else (0 : Float)), (if (((0.010 : Float) / (2 : Float)) < (0.010 : Float)) then (1 : Float) else (0 : Float)), (if ((W * rcm) <= (Tmax * v49)) then (1 : Float) else (0 : Float)), (if ((Float.sqrt (v23 + (v27 ^ 2))) < (1.22 : Float)) then (1 : Float) else (0 : Float)), (if (((1.22 : Float) * (0.8 : Float)) <= ((0.34 : Float) * v27)) then (1 : Float) else (0 : Float)), (if ((v135 + ((((2 : Float) * (1 : Float)) * slack) / v49)) <= (0.03 : Float)) then (1 : Float) else (0 : Float)), (if (v135 <= (0.03 : Float)) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("megaReqs " ++ toString ((megaReqs 0.424779 0.366230 0.307681 0.249132 1.790584 1.732035 1.673486 1.614937 1.556388 1.497840 1.439291 1.380742 1.322193 1.263644 1.205096 1.146547 1.087998).map Float.toBits))
-#eval IO.println ("megaReqs " ++ toString ((megaReqs 1.693587 1.635038 1.576489 1.517940 1.459392 1.400843 1.342294 1.283745 1.225196 1.166648 1.108099 1.049550 0.991001 0.932452 0.873904 0.815355 0.756806).map Float.toBits))
-#eval IO.println ("megaReqs " ++ toString ((megaReqs 1.362395 1.303846 1.245297 1.186748 1.128200 1.069651 1.011102 0.952553 0.894004 0.835456 0.776907 0.718358 0.659809 0.601260 0.542712 0.484163 0.425614).map Float.toBits))
+#eval IO.println ("megaReqs " ++ toString ((megaReqs 1.390955 1.332406 1.273857 1.215308 1.156760 1.098211 1.039662 0.981113 0.922564 0.864016 0.805467 0.746918 0.688369 0.629820 0.571272 0.512723 0.454174).map Float.toBits))
+#eval IO.println ("megaReqs " ++ toString ((megaReqs 1.059763 1.001214 0.942665 0.884116 0.825568 0.767019 0.708470 0.649921 0.591372 0.532824 0.474275 0.415726 0.357177 0.298628 0.240080 1.781531 1.722982).map Float.toBits))
+#eval IO.println ("megaReqs " ++ toString ((megaReqs 0.728571 0.670022 0.611473 0.552924 0.494376 0.435827 0.377278 0.318729 0.260180 0.201632 1.743083 1.684534 1.625985 1.567436 1.508888 1.450339 1.391790).map Float.toBits))
 
 def megaScrew (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Float) (dt : Float) (elSun : Float) (azSun : Float) (dni : Float) (rDrum : Float) (W : Float) (rcm : Float) (Tmax : Float) (rho : Float) (Fdrive : Float) (L10 : Float) (rodLen : Float) : Array Float :=
   let v28 := (-(1.22 : Float))
@@ -2224,9 +2558,9 @@ def megaScrew (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad 
   let v317 := (v125 * (0 : Float))
   #[((((v172 + v75) + ((v75 - v76) * (0 : Float))) + ((v78 - v75) * (0 : Float))) + ((v75 - v80) * (1 : Float))), (((((v75 + v134) + v75) + ((v75 - v78) * (0 : Float))) + ((v76 - v75) * (0 : Float))) + ((v80 - v75) * (1 : Float))), (((v189 + ((v80 - v76) * (0 : Float))) + ((v76 - v80) * (0 : Float))) + ((v75 - v75) * (1 : Float))), (((v189 + (((v56 * (1 : Float)) - v89) * (0 : Float))) + v198) + ((v93 - v94) * (1 : Float))), (((v189 + (((v96 * (1 : Float)) - v89) * (0 : Float))) + v198) + ((v93 - v99) * (1 : Float))), ((((v172 + v75) + ((v75 - v76) * (0 : Float))) + ((v78 - v75) * (0 : Float))) + ((v75 - v80) * (1 : Float))), (((((v75 + v134) + v75) + ((v75 - v78) * (0 : Float))) + ((v76 - v75) * (0 : Float))) + ((v80 - v75) * (1 : Float))), (((v189 + ((v80 - v76) * (0 : Float))) + ((v76 - v80) * (0 : Float))) + ((v75 - v75) * (1 : Float))), (((v189 + (((v56 * (1 : Float)) - v89) * (0 : Float))) + v198) + ((v93 - v94) * (1 : Float))), (((v189 + (((v96 * (1 : Float)) - v89) * (0 : Float))) + v198) + ((v93 - v99) * (1 : Float))), (((((v93 + v94) + v75) + ((v94 - ((0.55 : Float) * v56)) * (0 : Float))) + v211) + ((((0.80 : Float) * v56) - (v56 * (0.80 : Float))) * (1 : Float))), (((((v93 + v99) + v75) + ((v99 - ((0.55 : Float) * v96)) * (0 : Float))) + v211) + ((((0.80 : Float) * v96) - (v96 * (0.80 : Float))) * (1 : Float))), (((((((0 : Float) * (v94 - ((0.55 : Float) * v226))) + ((0 : Float) * (((0.55 : Float) * v224) - v93))) + ((1 : Float) * (((0.80 : Float) * v226) - (v56 * v224)))) + ((0 : Float) * v224)) + ((0 : Float) * v226)) + v75), (((((((1 : Float) * v114) + ((0 : Float) * v123)) + v247) + (v114 * (1 : Float))) + v251) + v253), (((v259 + v260) + (v116 * (1 : Float))) + v253), (((v269 + v260) + v251) + (v117 * (1 : Float))), (((v275 + v260) + v251) + v253), (((v279 + v260) + v251) + v253), (((v259 + v283) + v115) + v75), (((v269 + v283) + v113) + v80), (((v275 + v283) + v113) + v75), (((v279 + v283) + v113) + v75), (((((((1 : Float) * (-v121)) + v133) + v75) + (v121 * (1 : Float))) + v113) + v75), (((((((0 : Float) * v114) + ((1 : Float) * v123)) + v247) + (v125 * (1 : Float))) + v309) + v311), (((((((0 : Float) * v125) + ((1 : Float) * v126)) + v258) + v317) + (v150 * (1 : Float))) + v311), (((((((0 : Float) * v129) + ((1 : Float) * v130)) + v268) + v317) + v309) + (v151 * (1 : Float))), ((v133 - v134) + (0 : Float)), ((v137 - v133) + (0 : Float)), ((v75 - v140) + (0 : Float)), ((v133 - v75) + v114), ((v140 - v145) + v116), ((v134 - v140) + v117), ((v153 - v137) + v151), (((((((1 : Float) * (((0 : Float) * v171) - (v161 * (0 : Float)))) + ((0 : Float) * ((v161 * v168) - (v160 * v171)))) + ((0 : Float) * ((v160 * (0 : Float)) - ((0 : Float) * v168)))) + (v114 * v168)) + v251) + (v117 * v171)), (((W / (2 : Float)) * (0.03 : Float)) / (((3.141592653589793 : Float) * ((0.0101 : Float) ^ 3)) / (32 : Float))), v121, ((5 : Float) / (12 : Float)), (v163 * ((omegad * rDrum) / v49)), ((((omegam * (0.05 : Float)) / v60) * (60 : Float)) / v120), ((omegam * (60 : Float)) / v120)]
 
-#eval IO.println ("megaScrew " ++ toString ((megaScrew 0.238627 1.780078 1.721529 1.662980 1.604432 1.545883 1.487334 1.428785 1.370236 1.311688 1.253139 1.194590 1.136041 1.077492 1.018944 0.960395 0.901846).map Float.toBits))
-#eval IO.println ("megaScrew " ++ toString ((megaScrew 1.507435 1.448886 1.390337 1.331788 1.273240 1.214691 1.156142 1.097593 1.039044 0.980496 0.921947 0.863398 0.804849 0.746300 0.687752 0.629203 0.570654).map Float.toBits))
-#eval IO.println ("megaScrew " ++ toString ((megaScrew 1.176243 1.117694 1.059145 1.000596 0.942048 0.883499 0.824950 0.766401 0.707852 0.649304 0.590755 0.532206 0.473657 0.415108 0.356560 0.298011 0.239462).map Float.toBits))
+#eval IO.println ("megaScrew " ++ toString ((megaScrew 1.204803 1.146254 1.087705 1.029156 0.970608 0.912059 0.853510 0.794961 0.736412 0.677864 0.619315 0.560766 0.502217 0.443668 0.385120 0.326571 0.268022).map Float.toBits))
+#eval IO.println ("megaScrew " ++ toString ((megaScrew 0.873611 0.815062 0.756513 0.697964 0.639416 0.580867 0.522318 0.463769 0.405220 0.346672 0.288123 0.229574 1.771025 1.712476 1.653928 1.595379 1.536830).map Float.toBits))
+#eval IO.println ("megaScrew " ++ toString ((megaScrew 0.542419 0.483870 0.425321 0.366772 0.308224 0.249675 1.791126 1.732577 1.674028 1.615480 1.556931 1.498382 1.439833 1.381284 1.322736 1.264187 1.205638).map Float.toBits))
 
 def megaScrew_ω (t : Float) (omegad : Float) (rDrum : Float) : Float :=
   let v5 := (-(1.22 : Float))
@@ -2238,9 +2572,9 @@ def megaScrew_ω (t : Float) (omegad : Float) (rDrum : Float) : Float :=
   let v26 := (((-v8) * v20) + (v19 * v9))
   ((omegad * rDrum) / (((v5 * v26) - ((0.34 : Float) * v22)) / (Float.sqrt (((v22 - v5) ^ 2) + ((v26 - (0.34 : Float)) ^ 2)))))
 
-#eval IO.println ("megaScrew_ω " ++ toString (megaScrew_ω 1.652475 1.593926 1.535377).toBits)
-#eval IO.println ("megaScrew_ω " ++ toString (megaScrew_ω 1.321283 1.262734 1.204185).toBits)
-#eval IO.println ("megaScrew_ω " ++ toString (megaScrew_ω 0.990091 0.931542 0.872993).toBits)
+#eval IO.println ("megaScrew_ω " ++ toString (megaScrew_ω 1.018651 0.960102 0.901553).toBits)
+#eval IO.println ("megaScrew_ω " ++ toString (megaScrew_ω 0.687459 0.628910 0.570361).toBits)
+#eval IO.println ("megaScrew_ω " ++ toString (megaScrew_ω 0.356267 0.297718 0.239169).toBits)
 
 def megaStep (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Float) (dt : Float) (elSun : Float) (azSun : Float) (dni : Float) (rDrum : Float) (W : Float) (rcm : Float) (Tmax : Float) (rho : Float) (Fdrive : Float) (L10 : Float) (rodLen : Float) : Array Float :=
   let v27 := ((1 : Float) - ((2 : Float) - (Float.sqrt (((2 : Float) ^ 2) - ((0.8 : Float) ^ 2)))))
@@ -2435,9 +2769,9 @@ def megaStep (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad :
   let v670 := (v669 <= elSun)
   #[(az + (((omegam * (0.05 : Float)) / (Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2)))) * dt)), v592, (if v103 then (v101 - v69) else (0 : Float)), (if v591 then v97 else v105), v50, (if (v102 || v591) then (1 : Float) else (0 : Float)), (if (feq (if v103 then (v101 - v69) else (0 : Float)) (0 : Float)) then (1 : Float) else (0 : Float)), (if (v568 <= (Tmax * (((v51 * v609) - ((0.34 : Float) * v606)) / (Float.sqrt (((v606 - v51) ^ 2) + ((v609 - (0.34 : Float)) ^ 2)))))) then (1 : Float) else (0 : Float)), (((v51 * v91) - ((0.34 : Float) * v88)) / v97), (v99 / (((v51 * v91) - ((0.34 : Float) * v88)) / v97)), ((omegam * (0.05 : Float)) / (Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2)))), v667, (v43 - t), (if v670 then (1 : Float) else (0 : Float)), (if (v670 && ((0.03 : Float) < v667)) then (1 : Float) else (0 : Float)), (1.0 / (1.0 + Float.exp (-((elSun - v669) / (0.01 : Float))))), ((1.0 / (1.0 + Float.exp (-((elSun - v669) / (0.01 : Float))))) * (1.0 / (1.0 + Float.exp (-((v667 - (0.03 : Float)) / (0.01 : Float))))))]
 
-#eval IO.println ("megaStep " ++ toString ((megaStep 1.466323 1.407774 1.349225 1.290676 1.232128 1.173579 1.115030 1.056481 0.997932 0.939384 0.880835 0.822286 0.763737 0.705188 0.646640 0.588091 0.529542).map Float.toBits))
-#eval IO.println ("megaStep " ++ toString ((megaStep 1.135131 1.076582 1.018033 0.959484 0.900936 0.842387 0.783838 0.725289 0.666740 0.608192 0.549643 0.491094 0.432545 0.373996 0.315448 0.256899 1.798350).map Float.toBits))
-#eval IO.println ("megaStep " ++ toString ((megaStep 0.803939 0.745390 0.686841 0.628292 0.569744 0.511195 0.452646 0.394097 0.335548 0.277000 0.218451 1.759902 1.701353 1.642804 1.584256 1.525707 1.467158).map Float.toBits))
+#eval IO.println ("megaStep " ++ toString ((megaStep 0.832499 0.773950 0.715401 0.656852 0.598304 0.539755 0.481206 0.422657 0.364108 0.305560 0.247011 1.788462 1.729913 1.671364 1.612816 1.554267 1.495718).map Float.toBits))
+#eval IO.println ("megaStep " ++ toString ((megaStep 0.501307 0.442758 0.384209 0.325660 0.267112 0.208563 1.750014 1.691465 1.632916 1.574368 1.515819 1.457270 1.398721 1.340172 1.281624 1.223075 1.164526).map Float.toBits))
+#eval IO.println ("megaStep " ++ toString ((megaStep 1.770115 1.711566 1.653017 1.594468 1.535920 1.477371 1.418822 1.360273 1.301724 1.243176 1.184627 1.126078 1.067529 1.008980 0.950432 0.891883 0.833334).map Float.toBits))
 
 def megaThmsClosed (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Float) (dt : Float) (elSun : Float) (azSun : Float) (dni : Float) (rDrum : Float) (W : Float) (rcm : Float) (Tmax : Float) (rho : Float) (Fdrive : Float) (L10 : Float) (rodLen : Float) : Array Float :=
   let v18 := (Float.sqrt (3.36 : Float))
@@ -2502,9 +2836,9 @@ def megaThmsClosed (az : Float) (t : Float) (slack : Float) (omegam : Float) (om
   let v448 := (Float.tan (if (v421 <= (0 : Float)) then (((3.141592653589793 : Float) / (2 : Float)) + (Float.atan ((-v421) / (max v436 (0.000000000001 : Float))))) else (Float.atan (v436 / v421))))
   #[(if (((1.833 : Float) < v18) && (v18 < (1.8331 : Float))) then (1 : Float) else (0 : Float)), (if (((1.154 : Float) < v31) && (v31 < (1.1551 : Float))) then (1 : Float) else (0 : Float)), (if (feq (Float.sqrt ((((1 : Float) - v43) ^ 2) + v39)) v31) then (1 : Float) else (0 : Float)), (if (((0.833 : Float) < v51) && (v51 < (0.8331 : Float))) then (1 : Float) else (0 : Float)), (if (feq v51 v58) then (1 : Float) else (0 : Float)), (if (((0.166 : Float) < v43) && (v43 < (0.168 : Float))) then (1 : Float) else (0 : Float)), (if (feq v43 ((2 : Float) - v18)) then (1 : Float) else (0 : Float)), (if (((0.85 : Float) < v77) && (v77 < (0.851 : Float))) then (1 : Float) else (0 : Float)), (if (v86 < (0.35 : Float)) then (1 : Float) else (0 : Float)), (if ((v86 ^ 3) < ((1 : Float) / (24 : Float))) then (1 : Float) else (0 : Float)), (if (((0.888 : Float) < v103) && (v103 < (0.889 : Float))) then (1 : Float) else (0 : Float)), (if (((1.859 : Float) < v118) && (v118 < (1.86 : Float))) then (1 : Float) else (0 : Float)), (if (((1.878 : Float) < v130) && (v130 < (1.88 : Float))) then (1 : Float) else (0 : Float)), (if (v137 < (1.84 : Float)) then (1 : Float) else (0 : Float)), (if ((0.8 : Float) < v142) then (1 : Float) else (0 : Float)), (if (feq ((0.05 : Float) + ((1 : Float) * (0.0093 : Float))) (0.0593 : Float)) then (1 : Float) else (0 : Float)), (if (((0.884 : Float) < v101) && (v101 < (0.8846 : Float))) then (1 : Float) else (0 : Float)), (if (feq v170 v101) then (1 : Float) else (0 : Float)), (if (feq v101 v170) then (1 : Float) else (0 : Float)), (if (((0.1449 : Float) < v175) && (v175 < (0.146 : Float))) then (1 : Float) else (0 : Float)), (if (((0.010 : Float) / (2 : Float)) < (0.010 : Float)) then (1 : Float) else (0 : Float)), (if (feq v191 v191) then (1 : Float) else (0 : Float)), (if ((((0.00175 : Float) * (((62 : Float) * (3.141592653589793 : Float)) / (180 : Float))) / ((2 : Float) * (3.141592653589793 : Float))) < (0.00031 : Float)) then (1 : Float) else (0 : Float)), (if ((0.02 : Float) < ((1.25 : Float) * (Float.sin ((3.141592653589793 : Float) / (180 : Float))))) then (1 : Float) else (0 : Float)), (if (((0.537 : Float) < v213) && (v213 < (0.538 : Float))) then (1 : Float) else (0 : Float)), (if v223 then (1 : Float) else (0 : Float)), (if (v191 < ((0.80 : Float) + (1.22 : Float))) then (1 : Float) else (0 : Float)), (if ((1.17 : Float) < (v115 / v58)) then (1 : Float) else (0 : Float)), (if ((v233 < (0.001 : Float)) && ((((4 : Float) * v233) < (0.00465 : Float)) && (((1 : Float) * v233) < (0.001 : Float)))) then (1 : Float) else (0 : Float)), (if (v246 < (0.5 : Float)) then (1 : Float) else (0 : Float)), (if (feq ((1.59 : Float) - v142) (0.34 : Float)) then (1 : Float) else (0 : Float)), (if (feq v142 (1.25 : Float)) then (1 : Float) else (0 : Float)), (if (((0.507 : Float) < v257) && (v257 < (0.5072 : Float))) then (1 : Float) else (0 : Float)), (if (feq v191 (Float.sqrt (1.4864 : Float))) then (1 : Float) else (0 : Float)), (if (((1.219 : Float) < v191) && (v191 < (1.2195 : Float))) then (1 : Float) else (0 : Float)), (if (((0.13 : Float) < v278) && (v278 < (0.14 : Float))) then (1 : Float) else (0 : Float)), (if (feq v289 ((Float.sqrt (3 : Float)) - (1 : Float))) then (1 : Float) else (0 : Float)), (if (((0.732 : Float) < v289) && (v289 < (0.7321 : Float))) then (1 : Float) else (0 : Float)), (if ((0.0005 : Float) < ((0.01 : Float) * (0.06 : Float))) then (1 : Float) else (0 : Float)), (if (feq (((1.84 : Float) - v137) / (2 : Float)) (0.12 : Float)) then (1 : Float) else (0 : Float)), (if ((v313 * v129) < (v315 * v127)) then (1 : Float) else (0 : Float)), (if (((0.960 : Float) < v319) && (v319 < (0.9605 : Float))) then (1 : Float) else (0 : Float)), (if (((1.7888 : Float) < v96) && (v96 < (1.78886 : Float))) then (1 : Float) else (0 : Float)), (if (((0.111 : Float) < v336) && (v336 < (0.113 : Float))) then (1 : Float) else (0 : Float)), (if (((1.033 : Float) < v349) && (v349 < (1.035 : Float))) then (1 : Float) else (0 : Float)), (if (((0.37 : Float) < v375) && (v375 < (0.38 : Float))) then (1 : Float) else (0 : Float)), (if ((v116 - v115) < (0 : Float)) then (1 : Float) else (0 : Float)), (if (feq (1.22 : Float) (1.22 : Float)) then (1 : Float) else (0 : Float)), (if ((((0.1449 : Float) - (0.05 : Float)) < v387) && (v387 < ((0.146 : Float) - (0.05 : Float)))) then (1 : Float) else (0 : Float)), (if (feq ((((v357 * v394) + (v358 * v395)) ^ 2) + (((v362 * v395) + (v358 * v394)) ^ 2)) v30) then (1 : Float) else (0 : Float)), (if ((((1 : Float) * v448) <= (0.03 : Float)) == (v448 <= (0.03 : Float))) then (1 : Float) else (0 : Float)), (if (v223 == (v31 < (1.22 : Float))) then (1 : Float) else (0 : Float)), (if (!((0 : Float) <= (0.0005 : Float)) || (!((0.0005 : Float) <= (0.0005 : Float)) || (((1.30 : Float) * (Float.sin (0.0005 : Float))) <= (0.00065 : Float)))) then (1 : Float) else (0 : Float)), (if (!((4 : Float) <= (4 : Float)) || (!((0 : Float) <= v246) || (!(v246 <= (1 : Float)) || (((((0.0000000172 : Float) * ((2 : Float) * (4 : Float))) * v246) / (0.0000015 : Float)) < (0.1 : Float))))) then (1 : Float) else (0 : Float)), (if (!(((10 : Float) ^ 6) <= L10) || (((100 : Float) * ((20 : Float) * (365.25 : Float))) < L10)) then (1 : Float) else (0 : Float)), (if (!(W <= (1000 : Float)) || ((((W / (2 : Float)) * (0.03 : Float)) / (((3.141592653589793 : Float) * ((0.0101 : Float) ^ 3)) / (32 : Float))) < (16e7 : Float))) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("megaThmsClosed " ++ toString ((megaThmsClosed 1.280171 1.221622 1.163073 1.104524 1.045976 0.987427 0.928878 0.870329 0.811780 0.753232 0.694683 0.636134 0.577585 0.519036 0.460488 0.401939 0.343390).map Float.toBits))
-#eval IO.println ("megaThmsClosed " ++ toString ((megaThmsClosed 0.948979 0.890430 0.831881 0.773332 0.714784 0.656235 0.597686 0.539137 0.480588 0.422040 0.363491 0.304942 0.246393 1.787844 1.729296 1.670747 1.612198).map Float.toBits))
-#eval IO.println ("megaThmsClosed " ++ toString ((megaThmsClosed 0.617787 0.559238 0.500689 0.442140 0.383592 0.325043 0.266494 0.207945 1.749396 1.690848 1.632299 1.573750 1.515201 1.456652 1.398104 1.339555 1.281006).map Float.toBits))
+#eval IO.println ("megaThmsClosed " ++ toString ((megaThmsClosed 0.646347 0.587798 0.529249 0.470700 0.412152 0.353603 0.295054 0.236505 1.777956 1.719408 1.660859 1.602310 1.543761 1.485212 1.426664 1.368115 1.309566).map Float.toBits))
+#eval IO.println ("megaThmsClosed " ++ toString ((megaThmsClosed 0.315155 0.256606 1.798057 1.739508 1.680960 1.622411 1.563862 1.505313 1.446764 1.388216 1.329667 1.271118 1.212569 1.154020 1.095472 1.036923 0.978374).map Float.toBits))
+#eval IO.println ("megaThmsClosed " ++ toString ((megaThmsClosed 1.583963 1.525414 1.466865 1.408316 1.349768 1.291219 1.232670 1.174121 1.115572 1.057024 0.998475 0.939926 0.881377 0.822828 0.764280 0.705731 0.647182).map Float.toBits))
 
 def megaThmsState (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Float) (dt : Float) (elSun : Float) (azSun : Float) (dni : Float) (rDrum : Float) (W : Float) (rcm : Float) (Tmax : Float) (rho : Float) (Fdrive : Float) (L10 : Float) (rodLen : Float) : Array Float :=
   let v22 := ((0.8 : Float) ^ 2)
@@ -2660,33 +2994,99 @@ def megaThmsState (az : Float) (t : Float) (slack : Float) (omegam : Float) (ome
   let v798 := ((0 : Float) * v142)
   #[(if (!((0 : Float) < omegam) || (!((0 : Float) < (0.05 : Float)) || (!v152 || ((0 : Float) < ((omegam * (0.05 : Float)) / v106))))) then (1 : Float) else (0 : Float)), (if (feq v182 (Fdrive * v106)) then (1 : Float) else (0 : Float)), (if (!(!(feq Fdrive (0 : Float))) || (!(feq v182 (0 : Float)))) then (1 : Float) else (0 : Float)), (if (feq v42 v198) then (1 : Float) else (0 : Float)), (if (feq ((v35 ^ 2) + (v39 ^ 2)) v205) then (1 : Float) else (0 : Float)), (if ((Float.abs v35) <= (Float.sqrt v205)) then (1 : Float) else (0 : Float)), (if (feq ((v27 * v212) + ((0.8 : Float) * v214)) (0.8 : Float)) then (1 : Float) else (0 : Float)), (if (((v27 * (Float.sin v95)) + ((0.8 : Float) * (Float.cos v95))) <= (Float.sqrt (v204 + v22))) then (1 : Float) else (0 : Float)), (if (feq ((v27 * (Float.sin v85)) + ((0.8 : Float) * (Float.cos v85))) v27) then (1 : Float) else (0 : Float)), (if (!(feq v236 v237) || (feq v42 (0 : Float))) then (1 : Float) else (0 : Float)), (if (!v242 || (v243 == (v236 < v237))) then (1 : Float) else (0 : Float)), (if (!(!(feq v49 (0 : Float))) || (feq (v133 * (v49 * v51)) v251)) then (1 : Float) else (0 : Float)), (if (!v255 || (!v256 || (!v257 || (v251 <= (v131 * v51))))) then (1 : Float) else (0 : Float)), (if (!(!(feq v52 (1 : Float))) || (!((feq ((v52 * (0.80 : Float)) - (v54 * (0 : Float))) (0.80 : Float)) && (feq ((v54 * (0.80 : Float)) + (v52 * (0 : Float))) (0 : Float))) || ((feq (0.80 : Float) (0 : Float)) && v275))) then (1 : Float) else (0 : Float)), (if ((feq ((((0.80 : Float) + (0.80 : Float)) - (v285 * (1 : Float))) + v294) (0 : Float)) && ((feq (((v102 + v282) - v287) + v294) (0 : Float)) && ((feq ((v284 - v287) + (v288 * (((1 : Float) + (1 : Float)) - v306))) (0 : Float)) && ((feq (((v312 + v314) - (v285 * (v120 - v286))) + (v288 * ((v320 + v322) - ((2 : Float) * (v126 - v286))))) (0 : Float)) && ((feq (((v281 + v281) - (v285 * (v331 - v120))) + (v288 * ((v291 + v291) - ((2 : Float) * (v286 - v126))))) (0 : Float)) && (feq (((v344 + v347) - (v285 * (v120 - v126))) + (v288 * ((v352 + v353) - ((2 : Float) * (v120 - v120))))) (0 : Float))))))) then (1 : Float) else (0 : Float)), (if ((feq ((((0.80 : Float) - (0.80 : Float)) - v368) - v370) (0 : Float)) && ((feq (((v102 - v282) - ((1.84 : Float) * (1 : Float))) - v370) (0 : Float)) && ((feq ((v367 - v368) - (v369 * v381)) (0 : Float)) && ((feq (((v312 - v314) - ((1.84 : Float) * (v120 - v331))) - (v369 * (v320 - v322))) (0 : Float)) && ((feq (((v281 - v281) - ((1.84 : Float) * (v286 - v120))) - (v369 * (v291 - v291))) (0 : Float)) && (feq (((v344 - v347) - ((1.84 : Float) * (v126 - v120))) - (v369 * (v352 - v353))) (0 : Float))))))) then (1 : Float) else (0 : Float)), (if (!v474 || (v275 && (v275 && ((feq v122 (0 : Float)) && ((feq v125 v476) && (feq v127 (0 : Float))))))) then (1 : Float) else (0 : Float)), (if (!v474 || ((feq (1 : Float) ((1 : Float) * (1 : Float))) && (v487 && (v487 && ((feq v122 v421) && ((feq v125 ((1 : Float) * v125)) && (feq v127 ((1 : Float) * v127)))))))) then (1 : Float) else (0 : Float)), (if (!v503 || (!v505 || (!v506 || (!(v507 < (0.34 : Float)) || (!((0.34 : Float) < v509) || (!((0 : Float) <= v507) || (((v502 * v509) < v500) && (v500 < (v504 * v507))))))))) then (1 : Float) else (0 : Float)), (if (!(v525 < (0.8 : Float)) || (!((0.8 : Float) < v527) || (!((0 : Float) <= v525) || (!(v530 < v27) || (!(v27 < v532) || (!((0 : Float) <= v530) || (((v525 * v530) < v524) && (v524 < (v527 * v532))))))))) then (1 : Float) else (0 : Float)), (if (!(v548 <= ((0.03 : Float) - v550)) || ((v548 + v550) <= (0.03 : Float))) then (1 : Float) else (0 : Float)), (if (!(feq v557 (1 : Float)) || (feq (v104 + (v144 ^ 2)) v561)) then (1 : Float) else (0 : Float)), (if (feq (v144 - ((-(1 : Float)) * v143)) ((1.84 : Float) - v292)) then (1 : Float) else (0 : Float)), (if (feq (1.30 : Float) (1.30 : Float)) then (1 : Float) else (0 : Float)), (if (feq (0.80 : Float) (0.80 : Float)) then (1 : Float) else (0 : Float)), (if (!v575 || ((v195 <= v194) == ((v195 / v27) <= (0.34 : Float)))) then (1 : Float) else (0 : Float)), (if (!v575 || (!((0 : Float) < v30) || ((feq (v583 + v34) (0 : Float)) == (feq (Float.tan t) ((0.8 : Float) / v27))))) then (1 : Float) else (0 : Float)), (if v152 then (1 : Float) else (0 : Float)), (if (feq v561 v105) then (1 : Float) else (0 : Float)), (if (feq (((2 : Float) / (2 : Float)) - v25) (((2 : Float) - ((2 : Float) / ((2 : Float) * (Float.cos (Float.asin ((0 : Float) / (2 : Float))))))) - v25)) then (1 : Float) else (0 : Float)), (if ((feq (1 : Float) (1 : Float)) && (v275 && (v275 && ((feq (0 : Float) v122) && ((feq v117 v125) && (feq (0 : Float) v127)))))) then (1 : Float) else (0 : Float)), (if (!((feq (((v440 + v617) + v123) + v120) (0 : Float)) && ((feq (((v453 + v617) + v121) + v126) (0 : Float)) && ((feq (((v460 + v617) + v121) + v120) (0 : Float)) && ((feq (((v466 + v617) + v121) + v120) (0 : Float)) && (feq (((((((1 : Float) * (-v130)) + ((0 : Float) * v117)) + v120) + (v130 * (1 : Float))) + v121) + v120) (0 : Float)))))) || (v275 && (v275 && ((feq v130 ((1 : Float) * v130)) && ((feq v117 v476) && v275))))) then (1 : Float) else (0 : Float)), (if (!(v548 <= ((0.03 : Float) - v550)) || ((v548 + v550) <= (0.03 : Float))) then (1 : Float) else (0 : Float)), (if (!(v548 <= ((0.03 : Float) - v550)) || ((v548 + v550) <= (0.03 : Float))) then (1 : Float) else (0 : Float)), (if (!v503 || (!v505 || (!v506 || (((v504 ^ 2) < v657) && (v657 < (v502 ^ 2)))))) then (1 : Float) else (0 : Float)), (if (!((0 : Float) < (0.0005 : Float)) || (!(v147 < (0.80 : Float)) || (!(feq v149 v149) || (!v275 || (!v275 || ((((((0.80 : Float) - v147) * v149) + ((v144 - (0 : Float)) * (0 : Float))) + (((1.30 : Float) - (0 : Float)) * (0 : Float))) < (0 : Float))))))) then (1 : Float) else (0 : Float)), (if (feq ((((v689 + ((1 : Float) * v690)) - (0 : Float)) ^ 2) + (((v696 + v695) - (0 : Float)) ^ 2)) (v381 ^ 2)) then (1 : Float) else (0 : Float)), (if (feq ((v690 ^ 2) + (v687 ^ 2)) (1 : Float)) then (1 : Float) else (0 : Float)), (if (feq (((v689 - (0 : Float)) ^ 2) + ((v696 - (0 : Float)) ^ 2)) v557) then (1 : Float) else (0 : Float)), (if (feq ((v420 - v716) + v127) (0 : Float)) then (1 : Float) else (0 : Float)), (if (!v255 || (!v256 || (!v243 || (!(v131 <= (Tmax * v49)) || (v133 <= Tmax))))) then (1 : Float) else (0 : Float)), (if (!((0 : Float) < (1 : Float)) || ((v548 <= (0.03 : Float)) == (v547 <= ((0.03 : Float) / (1 : Float))))) then (1 : Float) else (0 : Float)), (if (!v255 || (!(W <= (1000 : Float)) || (!v256 || (!(rcm <= (1 : Float)) || (!v257 || (!(v51 <= (0.000073 : Float)) || ((v251 <= (0.073 : Float)) && ((0.073 : Float) < ((0.015 : Float) * (5 : Float)))))))))) then (1 : Float) else (0 : Float)), (if (feq v49 (v198 / (Float.sqrt (((((1.22 : Float) - v583) - (v27 * v33)) ^ 2) + (((((0.8 : Float) * v33) - (v27 * v30)) - (0.34 : Float)) ^ 2))))) then (1 : Float) else (0 : Float)), (if (!v242 || (v243 == ((0 : Float) < v42))) then (1 : Float) else (0 : Float)), (if (feq (((v28 * v778) - ((0.34 : Float) * v775)) / (Float.sqrt (((v775 - v28) ^ 2) + ((v778 - (0.34 : Float)) ^ 2)))) (v192 / (Float.sqrt ((((1.22 : Float) - (0.8 : Float)) ^ 2) + (((0.34 : Float) + v27) ^ 2))))) then (1 : Float) else (0 : Float)), (if (feq (((((((1 : Float) * (v798 - (v135 * (0 : Float)))) + ((0 : Float) * ((v135 * v139) - (v134 * v142)))) + ((0 : Float) * ((v134 * (0 : Float)) - ((0 : Float) * v139)))) + (v122 * v139)) + v417) + (v127 * v142)) (v798 - ((v135 - v117) * (0 : Float)))) then (1 : Float) else (0 : Float)), (if (!((0 : Float) < W) || (!((0 : Float) < rcm) || (!v243 || (((0 : Float) <= v133) == ((0 : Float) <= v33))))) then (1 : Float) else (0 : Float)), (if (feq ((v120 - v716) + (0 : Float)) (0 : Float)) then (1 : Float) else (0 : Float)), (if (!(((10 : Float) ^ 6) <= L10) || (((100 : Float) * ((20 : Float) * (365.25 : Float))) < L10)) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("megaThmsState " ++ toString ((megaThmsState 1.094019 1.035470 0.976921 0.918372 0.859824 0.801275 0.742726 0.684177 0.625628 0.567080 0.508531 0.449982 0.391433 0.332884 0.274336 0.215787 1.757238).map Float.toBits))
-#eval IO.println ("megaThmsState " ++ toString ((megaThmsState 0.762827 0.704278 0.645729 0.587180 0.528632 0.470083 0.411534 0.352985 0.294436 0.235888 1.777339 1.718790 1.660241 1.601692 1.543144 1.484595 1.426046).map Float.toBits))
-#eval IO.println ("megaThmsState " ++ toString ((megaThmsState 0.431635 0.373086 0.314537 0.255988 1.797440 1.738891 1.680342 1.621793 1.563244 1.504696 1.446147 1.387598 1.329049 1.270500 1.211952 1.153403 1.094854).map Float.toBits))
+#eval IO.println ("megaThmsState " ++ toString ((megaThmsState 0.460195 0.401646 0.343097 0.284548 0.226000 1.767451 1.708902 1.650353 1.591804 1.533256 1.474707 1.416158 1.357609 1.299060 1.240512 1.181963 1.123414).map Float.toBits))
+#eval IO.println ("megaThmsState " ++ toString ((megaThmsState 1.729003 1.670454 1.611905 1.553356 1.494808 1.436259 1.377710 1.319161 1.260612 1.202064 1.143515 1.084966 1.026417 0.967868 0.909320 0.850771 0.792222).map Float.toBits))
+#eval IO.println ("megaThmsState " ++ toString ((megaThmsState 1.397811 1.339262 1.280713 1.222164 1.163616 1.105067 1.046518 0.987969 0.929420 0.870872 0.812323 0.753774 0.695225 0.636676 0.578128 0.519579 0.461030).map Float.toBits))
+
+def mlpPolicy (b2_0 : Float) (b2_1 : Float) (o_0 : Float) (o_1 : Float) (o_2 : Float) (o_3 : Float) (o_4 : Float) (o_5 : Float) (o_6 : Float) (o_7 : Float) (W1 : Array Float) (b1 : Array Float) (W2 : Array Float) : Array Float :=
+  let v202 := (Float.tanh (((((((((W1[0 * 8 + 0]! * o_0) + (W1[0 * 8 + 1]! * o_1)) + (W1[0 * 8 + 2]! * o_2)) + (W1[0 * 8 + 3]! * o_3)) + (W1[0 * 8 + 4]! * o_4)) + (W1[0 * 8 + 5]! * o_5)) + (W1[0 * 8 + 6]! * o_6)) + (W1[0 * 8 + 7]! * o_7)) + b1[0]!))
+  let v219 := (Float.tanh (((((((((W1[1 * 8 + 0]! * o_0) + (W1[1 * 8 + 1]! * o_1)) + (W1[1 * 8 + 2]! * o_2)) + (W1[1 * 8 + 3]! * o_3)) + (W1[1 * 8 + 4]! * o_4)) + (W1[1 * 8 + 5]! * o_5)) + (W1[1 * 8 + 6]! * o_6)) + (W1[1 * 8 + 7]! * o_7)) + b1[1]!))
+  let v236 := (Float.tanh (((((((((W1[2 * 8 + 0]! * o_0) + (W1[2 * 8 + 1]! * o_1)) + (W1[2 * 8 + 2]! * o_2)) + (W1[2 * 8 + 3]! * o_3)) + (W1[2 * 8 + 4]! * o_4)) + (W1[2 * 8 + 5]! * o_5)) + (W1[2 * 8 + 6]! * o_6)) + (W1[2 * 8 + 7]! * o_7)) + b1[2]!))
+  let v253 := (Float.tanh (((((((((W1[3 * 8 + 0]! * o_0) + (W1[3 * 8 + 1]! * o_1)) + (W1[3 * 8 + 2]! * o_2)) + (W1[3 * 8 + 3]! * o_3)) + (W1[3 * 8 + 4]! * o_4)) + (W1[3 * 8 + 5]! * o_5)) + (W1[3 * 8 + 6]! * o_6)) + (W1[3 * 8 + 7]! * o_7)) + b1[3]!))
+  let v270 := (Float.tanh (((((((((W1[4 * 8 + 0]! * o_0) + (W1[4 * 8 + 1]! * o_1)) + (W1[4 * 8 + 2]! * o_2)) + (W1[4 * 8 + 3]! * o_3)) + (W1[4 * 8 + 4]! * o_4)) + (W1[4 * 8 + 5]! * o_5)) + (W1[4 * 8 + 6]! * o_6)) + (W1[4 * 8 + 7]! * o_7)) + b1[4]!))
+  let v287 := (Float.tanh (((((((((W1[5 * 8 + 0]! * o_0) + (W1[5 * 8 + 1]! * o_1)) + (W1[5 * 8 + 2]! * o_2)) + (W1[5 * 8 + 3]! * o_3)) + (W1[5 * 8 + 4]! * o_4)) + (W1[5 * 8 + 5]! * o_5)) + (W1[5 * 8 + 6]! * o_6)) + (W1[5 * 8 + 7]! * o_7)) + b1[5]!))
+  let v304 := (Float.tanh (((((((((W1[6 * 8 + 0]! * o_0) + (W1[6 * 8 + 1]! * o_1)) + (W1[6 * 8 + 2]! * o_2)) + (W1[6 * 8 + 3]! * o_3)) + (W1[6 * 8 + 4]! * o_4)) + (W1[6 * 8 + 5]! * o_5)) + (W1[6 * 8 + 6]! * o_6)) + (W1[6 * 8 + 7]! * o_7)) + b1[6]!))
+  let v321 := (Float.tanh (((((((((W1[7 * 8 + 0]! * o_0) + (W1[7 * 8 + 1]! * o_1)) + (W1[7 * 8 + 2]! * o_2)) + (W1[7 * 8 + 3]! * o_3)) + (W1[7 * 8 + 4]! * o_4)) + (W1[7 * 8 + 5]! * o_5)) + (W1[7 * 8 + 6]! * o_6)) + (W1[7 * 8 + 7]! * o_7)) + b1[7]!))
+  let v338 := (Float.tanh (((((((((W1[8 * 8 + 0]! * o_0) + (W1[8 * 8 + 1]! * o_1)) + (W1[8 * 8 + 2]! * o_2)) + (W1[8 * 8 + 3]! * o_3)) + (W1[8 * 8 + 4]! * o_4)) + (W1[8 * 8 + 5]! * o_5)) + (W1[8 * 8 + 6]! * o_6)) + (W1[8 * 8 + 7]! * o_7)) + b1[8]!))
+  let v355 := (Float.tanh (((((((((W1[9 * 8 + 0]! * o_0) + (W1[9 * 8 + 1]! * o_1)) + (W1[9 * 8 + 2]! * o_2)) + (W1[9 * 8 + 3]! * o_3)) + (W1[9 * 8 + 4]! * o_4)) + (W1[9 * 8 + 5]! * o_5)) + (W1[9 * 8 + 6]! * o_6)) + (W1[9 * 8 + 7]! * o_7)) + b1[9]!))
+  let v372 := (Float.tanh (((((((((W1[10 * 8 + 0]! * o_0) + (W1[10 * 8 + 1]! * o_1)) + (W1[10 * 8 + 2]! * o_2)) + (W1[10 * 8 + 3]! * o_3)) + (W1[10 * 8 + 4]! * o_4)) + (W1[10 * 8 + 5]! * o_5)) + (W1[10 * 8 + 6]! * o_6)) + (W1[10 * 8 + 7]! * o_7)) + b1[10]!))
+  let v389 := (Float.tanh (((((((((W1[11 * 8 + 0]! * o_0) + (W1[11 * 8 + 1]! * o_1)) + (W1[11 * 8 + 2]! * o_2)) + (W1[11 * 8 + 3]! * o_3)) + (W1[11 * 8 + 4]! * o_4)) + (W1[11 * 8 + 5]! * o_5)) + (W1[11 * 8 + 6]! * o_6)) + (W1[11 * 8 + 7]! * o_7)) + b1[11]!))
+  let v406 := (Float.tanh (((((((((W1[12 * 8 + 0]! * o_0) + (W1[12 * 8 + 1]! * o_1)) + (W1[12 * 8 + 2]! * o_2)) + (W1[12 * 8 + 3]! * o_3)) + (W1[12 * 8 + 4]! * o_4)) + (W1[12 * 8 + 5]! * o_5)) + (W1[12 * 8 + 6]! * o_6)) + (W1[12 * 8 + 7]! * o_7)) + b1[12]!))
+  let v423 := (Float.tanh (((((((((W1[13 * 8 + 0]! * o_0) + (W1[13 * 8 + 1]! * o_1)) + (W1[13 * 8 + 2]! * o_2)) + (W1[13 * 8 + 3]! * o_3)) + (W1[13 * 8 + 4]! * o_4)) + (W1[13 * 8 + 5]! * o_5)) + (W1[13 * 8 + 6]! * o_6)) + (W1[13 * 8 + 7]! * o_7)) + b1[13]!))
+  let v440 := (Float.tanh (((((((((W1[14 * 8 + 0]! * o_0) + (W1[14 * 8 + 1]! * o_1)) + (W1[14 * 8 + 2]! * o_2)) + (W1[14 * 8 + 3]! * o_3)) + (W1[14 * 8 + 4]! * o_4)) + (W1[14 * 8 + 5]! * o_5)) + (W1[14 * 8 + 6]! * o_6)) + (W1[14 * 8 + 7]! * o_7)) + b1[14]!))
+  let v457 := (Float.tanh (((((((((W1[15 * 8 + 0]! * o_0) + (W1[15 * 8 + 1]! * o_1)) + (W1[15 * 8 + 2]! * o_2)) + (W1[15 * 8 + 3]! * o_3)) + (W1[15 * 8 + 4]! * o_4)) + (W1[15 * 8 + 5]! * o_5)) + (W1[15 * 8 + 6]! * o_6)) + (W1[15 * 8 + 7]! * o_7)) + b1[15]!))
+  #[(Float.tanh (((((((((((((((((W2[0 * 16 + 0]! * v202) + (W2[0 * 16 + 1]! * v219)) + (W2[0 * 16 + 2]! * v236)) + (W2[0 * 16 + 3]! * v253)) + (W2[0 * 16 + 4]! * v270)) + (W2[0 * 16 + 5]! * v287)) + (W2[0 * 16 + 6]! * v304)) + (W2[0 * 16 + 7]! * v321)) + (W2[0 * 16 + 8]! * v338)) + (W2[0 * 16 + 9]! * v355)) + (W2[0 * 16 + 10]! * v372)) + (W2[0 * 16 + 11]! * v389)) + (W2[0 * 16 + 12]! * v406)) + (W2[0 * 16 + 13]! * v423)) + (W2[0 * 16 + 14]! * v440)) + (W2[0 * 16 + 15]! * v457)) + b2_0)), (Float.tanh (((((((((((((((((W2[1 * 16 + 0]! * v202) + (W2[1 * 16 + 1]! * v219)) + (W2[1 * 16 + 2]! * v236)) + (W2[1 * 16 + 3]! * v253)) + (W2[1 * 16 + 4]! * v270)) + (W2[1 * 16 + 5]! * v287)) + (W2[1 * 16 + 6]! * v304)) + (W2[1 * 16 + 7]! * v321)) + (W2[1 * 16 + 8]! * v338)) + (W2[1 * 16 + 9]! * v355)) + (W2[1 * 16 + 10]! * v372)) + (W2[1 * 16 + 11]! * v389)) + (W2[1 * 16 + 12]! * v406)) + (W2[1 * 16 + 13]! * v423)) + (W2[1 * 16 + 14]! * v440)) + (W2[1 * 16 + 15]! * v457)) + b2_1))]
+
+#eval IO.println ("mlpPolicy " ++ toString ((mlpPolicy 0.274043 0.215494 1.756945 1.698396 1.639848 1.581299 1.522750 1.464201 1.405652 1.347104 #[0.550659, 0.492110, 0.433561, 0.375012, 0.316464, 0.257915, 1.799366, 1.740817, 1.682268, 1.623720, 1.565171, 1.506622, 1.448073, 1.389524, 1.330976, 1.272427, 1.213878, 1.155329, 1.096780, 1.038232, 0.979683, 0.921134, 0.862585, 0.804036, 0.745488, 0.686939, 0.628390, 0.569841, 0.511292, 0.452744, 0.394195, 0.335646, 0.277097, 0.218548, 1.760000, 1.701451, 1.642902, 1.584353, 1.525804, 1.467256, 1.408707, 1.350158, 1.291609, 1.233060, 1.174512, 1.115963, 1.057414, 0.998865, 0.940316, 0.881768, 0.823219, 0.764670, 0.706121, 0.647572, 0.589024, 0.530475, 0.471926, 0.413377, 0.354828, 0.296280, 0.237731, 1.779182, 1.720633, 1.662084, 1.603536, 1.544987, 1.486438, 1.427889, 1.369340, 1.310792, 1.252243, 1.193694, 1.135145, 1.076596, 1.018048, 0.959499, 0.900950, 0.842401, 0.783852, 0.725304, 0.666755, 0.608206, 0.549657, 0.491108, 0.432560, 0.374011, 0.315462, 0.256913, 1.798364, 1.739816, 1.681267, 1.622718, 1.564169, 1.505620, 1.447072, 1.388523, 1.329974, 1.271425, 1.212876, 1.154328, 1.095779, 1.037230, 0.978681, 0.920132, 0.861584, 0.803035, 0.744486, 0.685937, 0.627388, 0.568840, 0.510291, 0.451742, 0.393193, 0.334644, 0.276096, 0.217547, 1.758998, 1.700449, 1.641900, 1.583352, 1.524803, 1.466254, 1.407705, 1.349156, 1.290608, 1.232059, 1.173510, 1.114961] #[0.550659, 0.492110, 0.433561, 0.375012, 0.316464, 0.257915, 1.799366, 1.740817, 1.682268, 1.623720, 1.565171, 1.506622, 1.448073, 1.389524, 1.330976, 1.272427] #[0.550659, 0.492110, 0.433561, 0.375012, 0.316464, 0.257915, 1.799366, 1.740817, 1.682268, 1.623720, 1.565171, 1.506622, 1.448073, 1.389524, 1.330976, 1.272427, 1.213878, 1.155329, 1.096780, 1.038232, 0.979683, 0.921134, 0.862585, 0.804036, 0.745488, 0.686939, 0.628390, 0.569841, 0.511292, 0.452744, 0.394195, 0.335646]).map Float.toBits))
+#eval IO.println ("mlpPolicy " ++ toString ((mlpPolicy 1.542851 1.484302 1.425753 1.367204 1.308656 1.250107 1.191558 1.133009 1.074460 1.015912 #[0.219467, 1.760918, 1.702369, 1.643820, 1.585272, 1.526723, 1.468174, 1.409625, 1.351076, 1.292528, 1.233979, 1.175430, 1.116881, 1.058332, 0.999784, 0.941235, 0.882686, 0.824137, 0.765588, 0.707040, 0.648491, 0.589942, 0.531393, 0.472844, 0.414296, 0.355747, 0.297198, 0.238649, 1.780100, 1.721552, 1.663003, 1.604454, 1.545905, 1.487356, 1.428808, 1.370259, 1.311710, 1.253161, 1.194612, 1.136064, 1.077515, 1.018966, 0.960417, 0.901868, 0.843320, 0.784771, 0.726222, 0.667673, 0.609124, 0.550576, 0.492027, 0.433478, 0.374929, 0.316380, 0.257832, 1.799283, 1.740734, 1.682185, 1.623636, 1.565088, 1.506539, 1.447990, 1.389441, 1.330892, 1.272344, 1.213795, 1.155246, 1.096697, 1.038148, 0.979600, 0.921051, 0.862502, 0.803953, 0.745404, 0.686856, 0.628307, 0.569758, 0.511209, 0.452660, 0.394112, 0.335563, 0.277014, 0.218465, 1.759916, 1.701368, 1.642819, 1.584270, 1.525721, 1.467172, 1.408624, 1.350075, 1.291526, 1.232977, 1.174428, 1.115880, 1.057331, 0.998782, 0.940233, 0.881684, 0.823136, 0.764587, 0.706038, 0.647489, 0.588940, 0.530392, 0.471843, 0.413294, 0.354745, 0.296196, 0.237648, 1.779099, 1.720550, 1.662001, 1.603452, 1.544904, 1.486355, 1.427806, 1.369257, 1.310708, 1.252160, 1.193611, 1.135062, 1.076513, 1.017964, 0.959416, 0.900867, 0.842318, 0.783769] #[0.219467, 1.760918, 1.702369, 1.643820, 1.585272, 1.526723, 1.468174, 1.409625, 1.351076, 1.292528, 1.233979, 1.175430, 1.116881, 1.058332, 0.999784, 0.941235] #[0.219467, 1.760918, 1.702369, 1.643820, 1.585272, 1.526723, 1.468174, 1.409625, 1.351076, 1.292528, 1.233979, 1.175430, 1.116881, 1.058332, 0.999784, 0.941235, 0.882686, 0.824137, 0.765588, 0.707040, 0.648491, 0.589942, 0.531393, 0.472844, 0.414296, 0.355747, 0.297198, 0.238649, 1.780100, 1.721552, 1.663003, 1.604454]).map Float.toBits))
+#eval IO.println ("mlpPolicy " ++ toString ((mlpPolicy 1.211659 1.153110 1.094561 1.036012 0.977464 0.918915 0.860366 0.801817 0.743268 0.684720 #[1.488275, 1.429726, 1.371177, 1.312628, 1.254080, 1.195531, 1.136982, 1.078433, 1.019884, 0.961336, 0.902787, 0.844238, 0.785689, 0.727140, 0.668592, 0.610043, 0.551494, 0.492945, 0.434396, 0.375848, 0.317299, 0.258750, 0.200201, 1.741652, 1.683104, 1.624555, 1.566006, 1.507457, 1.448908, 1.390360, 1.331811, 1.273262, 1.214713, 1.156164, 1.097616, 1.039067, 0.980518, 0.921969, 0.863420, 0.804872, 0.746323, 0.687774, 0.629225, 0.570676, 0.512128, 0.453579, 0.395030, 0.336481, 0.277932, 0.219384, 1.760835, 1.702286, 1.643737, 1.585188, 1.526640, 1.468091, 1.409542, 1.350993, 1.292444, 1.233896, 1.175347, 1.116798, 1.058249, 0.999700, 0.941152, 0.882603, 0.824054, 0.765505, 0.706956, 0.648408, 0.589859, 0.531310, 0.472761, 0.414212, 0.355664, 0.297115, 0.238566, 1.780017, 1.721468, 1.662920, 1.604371, 1.545822, 1.487273, 1.428724, 1.370176, 1.311627, 1.253078, 1.194529, 1.135980, 1.077432, 1.018883, 0.960334, 0.901785, 0.843236, 0.784688, 0.726139, 0.667590, 0.609041, 0.550492, 0.491944, 0.433395, 0.374846, 0.316297, 0.257748, 1.799200, 1.740651, 1.682102, 1.623553, 1.565004, 1.506456, 1.447907, 1.389358, 1.330809, 1.272260, 1.213712, 1.155163, 1.096614, 1.038065, 0.979516, 0.920968, 0.862419, 0.803870, 0.745321, 0.686772, 0.628224, 0.569675, 0.511126, 0.452577] #[1.488275, 1.429726, 1.371177, 1.312628, 1.254080, 1.195531, 1.136982, 1.078433, 1.019884, 0.961336, 0.902787, 0.844238, 0.785689, 0.727140, 0.668592, 0.610043] #[1.488275, 1.429726, 1.371177, 1.312628, 1.254080, 1.195531, 1.136982, 1.078433, 1.019884, 0.961336, 0.902787, 0.844238, 0.785689, 0.727140, 0.668592, 0.610043, 0.551494, 0.492945, 0.434396, 0.375848, 0.317299, 0.258750, 0.200201, 1.741652, 1.683104, 1.624555, 1.566006, 1.507457, 1.448908, 1.390360, 1.331811, 1.273262]).map Float.toBits))
+
+def check_mlpPolicy_bounded (b2_0 : Float) (b2_1 : Float) (o_0 : Float) (o_1 : Float) (o_2 : Float) (o_3 : Float) (o_4 : Float) (o_5 : Float) (o_6 : Float) (o_7 : Float) (W1 : Array Float) (b1 : Array Float) (W2 : Array Float) : Bool :=
+  let v202 := (Float.tanh (((((((((W1[0 * 8 + 0]! * o_0) + (W1[0 * 8 + 1]! * o_1)) + (W1[0 * 8 + 2]! * o_2)) + (W1[0 * 8 + 3]! * o_3)) + (W1[0 * 8 + 4]! * o_4)) + (W1[0 * 8 + 5]! * o_5)) + (W1[0 * 8 + 6]! * o_6)) + (W1[0 * 8 + 7]! * o_7)) + b1[0]!))
+  let v219 := (Float.tanh (((((((((W1[1 * 8 + 0]! * o_0) + (W1[1 * 8 + 1]! * o_1)) + (W1[1 * 8 + 2]! * o_2)) + (W1[1 * 8 + 3]! * o_3)) + (W1[1 * 8 + 4]! * o_4)) + (W1[1 * 8 + 5]! * o_5)) + (W1[1 * 8 + 6]! * o_6)) + (W1[1 * 8 + 7]! * o_7)) + b1[1]!))
+  let v236 := (Float.tanh (((((((((W1[2 * 8 + 0]! * o_0) + (W1[2 * 8 + 1]! * o_1)) + (W1[2 * 8 + 2]! * o_2)) + (W1[2 * 8 + 3]! * o_3)) + (W1[2 * 8 + 4]! * o_4)) + (W1[2 * 8 + 5]! * o_5)) + (W1[2 * 8 + 6]! * o_6)) + (W1[2 * 8 + 7]! * o_7)) + b1[2]!))
+  let v253 := (Float.tanh (((((((((W1[3 * 8 + 0]! * o_0) + (W1[3 * 8 + 1]! * o_1)) + (W1[3 * 8 + 2]! * o_2)) + (W1[3 * 8 + 3]! * o_3)) + (W1[3 * 8 + 4]! * o_4)) + (W1[3 * 8 + 5]! * o_5)) + (W1[3 * 8 + 6]! * o_6)) + (W1[3 * 8 + 7]! * o_7)) + b1[3]!))
+  let v270 := (Float.tanh (((((((((W1[4 * 8 + 0]! * o_0) + (W1[4 * 8 + 1]! * o_1)) + (W1[4 * 8 + 2]! * o_2)) + (W1[4 * 8 + 3]! * o_3)) + (W1[4 * 8 + 4]! * o_4)) + (W1[4 * 8 + 5]! * o_5)) + (W1[4 * 8 + 6]! * o_6)) + (W1[4 * 8 + 7]! * o_7)) + b1[4]!))
+  let v287 := (Float.tanh (((((((((W1[5 * 8 + 0]! * o_0) + (W1[5 * 8 + 1]! * o_1)) + (W1[5 * 8 + 2]! * o_2)) + (W1[5 * 8 + 3]! * o_3)) + (W1[5 * 8 + 4]! * o_4)) + (W1[5 * 8 + 5]! * o_5)) + (W1[5 * 8 + 6]! * o_6)) + (W1[5 * 8 + 7]! * o_7)) + b1[5]!))
+  let v304 := (Float.tanh (((((((((W1[6 * 8 + 0]! * o_0) + (W1[6 * 8 + 1]! * o_1)) + (W1[6 * 8 + 2]! * o_2)) + (W1[6 * 8 + 3]! * o_3)) + (W1[6 * 8 + 4]! * o_4)) + (W1[6 * 8 + 5]! * o_5)) + (W1[6 * 8 + 6]! * o_6)) + (W1[6 * 8 + 7]! * o_7)) + b1[6]!))
+  let v321 := (Float.tanh (((((((((W1[7 * 8 + 0]! * o_0) + (W1[7 * 8 + 1]! * o_1)) + (W1[7 * 8 + 2]! * o_2)) + (W1[7 * 8 + 3]! * o_3)) + (W1[7 * 8 + 4]! * o_4)) + (W1[7 * 8 + 5]! * o_5)) + (W1[7 * 8 + 6]! * o_6)) + (W1[7 * 8 + 7]! * o_7)) + b1[7]!))
+  let v338 := (Float.tanh (((((((((W1[8 * 8 + 0]! * o_0) + (W1[8 * 8 + 1]! * o_1)) + (W1[8 * 8 + 2]! * o_2)) + (W1[8 * 8 + 3]! * o_3)) + (W1[8 * 8 + 4]! * o_4)) + (W1[8 * 8 + 5]! * o_5)) + (W1[8 * 8 + 6]! * o_6)) + (W1[8 * 8 + 7]! * o_7)) + b1[8]!))
+  let v355 := (Float.tanh (((((((((W1[9 * 8 + 0]! * o_0) + (W1[9 * 8 + 1]! * o_1)) + (W1[9 * 8 + 2]! * o_2)) + (W1[9 * 8 + 3]! * o_3)) + (W1[9 * 8 + 4]! * o_4)) + (W1[9 * 8 + 5]! * o_5)) + (W1[9 * 8 + 6]! * o_6)) + (W1[9 * 8 + 7]! * o_7)) + b1[9]!))
+  let v372 := (Float.tanh (((((((((W1[10 * 8 + 0]! * o_0) + (W1[10 * 8 + 1]! * o_1)) + (W1[10 * 8 + 2]! * o_2)) + (W1[10 * 8 + 3]! * o_3)) + (W1[10 * 8 + 4]! * o_4)) + (W1[10 * 8 + 5]! * o_5)) + (W1[10 * 8 + 6]! * o_6)) + (W1[10 * 8 + 7]! * o_7)) + b1[10]!))
+  let v389 := (Float.tanh (((((((((W1[11 * 8 + 0]! * o_0) + (W1[11 * 8 + 1]! * o_1)) + (W1[11 * 8 + 2]! * o_2)) + (W1[11 * 8 + 3]! * o_3)) + (W1[11 * 8 + 4]! * o_4)) + (W1[11 * 8 + 5]! * o_5)) + (W1[11 * 8 + 6]! * o_6)) + (W1[11 * 8 + 7]! * o_7)) + b1[11]!))
+  let v406 := (Float.tanh (((((((((W1[12 * 8 + 0]! * o_0) + (W1[12 * 8 + 1]! * o_1)) + (W1[12 * 8 + 2]! * o_2)) + (W1[12 * 8 + 3]! * o_3)) + (W1[12 * 8 + 4]! * o_4)) + (W1[12 * 8 + 5]! * o_5)) + (W1[12 * 8 + 6]! * o_6)) + (W1[12 * 8 + 7]! * o_7)) + b1[12]!))
+  let v423 := (Float.tanh (((((((((W1[13 * 8 + 0]! * o_0) + (W1[13 * 8 + 1]! * o_1)) + (W1[13 * 8 + 2]! * o_2)) + (W1[13 * 8 + 3]! * o_3)) + (W1[13 * 8 + 4]! * o_4)) + (W1[13 * 8 + 5]! * o_5)) + (W1[13 * 8 + 6]! * o_6)) + (W1[13 * 8 + 7]! * o_7)) + b1[13]!))
+  let v440 := (Float.tanh (((((((((W1[14 * 8 + 0]! * o_0) + (W1[14 * 8 + 1]! * o_1)) + (W1[14 * 8 + 2]! * o_2)) + (W1[14 * 8 + 3]! * o_3)) + (W1[14 * 8 + 4]! * o_4)) + (W1[14 * 8 + 5]! * o_5)) + (W1[14 * 8 + 6]! * o_6)) + (W1[14 * 8 + 7]! * o_7)) + b1[14]!))
+  let v457 := (Float.tanh (((((((((W1[15 * 8 + 0]! * o_0) + (W1[15 * 8 + 1]! * o_1)) + (W1[15 * 8 + 2]! * o_2)) + (W1[15 * 8 + 3]! * o_3)) + (W1[15 * 8 + 4]! * o_4)) + (W1[15 * 8 + 5]! * o_5)) + (W1[15 * 8 + 6]! * o_6)) + (W1[15 * 8 + 7]! * o_7)) + b1[15]!))
+  (((Float.abs (Float.tanh (((((((((((((((((W2[0 * 16 + 0]! * v202) + (W2[0 * 16 + 1]! * v219)) + (W2[0 * 16 + 2]! * v236)) + (W2[0 * 16 + 3]! * v253)) + (W2[0 * 16 + 4]! * v270)) + (W2[0 * 16 + 5]! * v287)) + (W2[0 * 16 + 6]! * v304)) + (W2[0 * 16 + 7]! * v321)) + (W2[0 * 16 + 8]! * v338)) + (W2[0 * 16 + 9]! * v355)) + (W2[0 * 16 + 10]! * v372)) + (W2[0 * 16 + 11]! * v389)) + (W2[0 * 16 + 12]! * v406)) + (W2[0 * 16 + 13]! * v423)) + (W2[0 * 16 + 14]! * v440)) + (W2[0 * 16 + 15]! * v457)) + b2_0))) <= (1 : Float)) && ((Float.abs (Float.tanh (((((((((((((((((W2[1 * 16 + 0]! * v202) + (W2[1 * 16 + 1]! * v219)) + (W2[1 * 16 + 2]! * v236)) + (W2[1 * 16 + 3]! * v253)) + (W2[1 * 16 + 4]! * v270)) + (W2[1 * 16 + 5]! * v287)) + (W2[1 * 16 + 6]! * v304)) + (W2[1 * 16 + 7]! * v321)) + (W2[1 * 16 + 8]! * v338)) + (W2[1 * 16 + 9]! * v355)) + (W2[1 * 16 + 10]! * v372)) + (W2[1 * 16 + 11]! * v389)) + (W2[1 * 16 + 12]! * v406)) + (W2[1 * 16 + 13]! * v423)) + (W2[1 * 16 + 14]! * v440)) + (W2[1 * 16 + 15]! * v457)) + b2_1))) <= (1 : Float)))
+
+#eval IO.println ("check_mlpPolicy_bounded " ++ toString (check_mlpPolicy_bounded 1.687891 1.629342 1.570793 1.512244 1.453696 1.395147 1.336598 1.278049 1.219500 1.160952 #[0.364507, 0.305958, 0.247409, 1.788860, 1.730312, 1.671763, 1.613214, 1.554665, 1.496116, 1.437568, 1.379019, 1.320470, 1.261921, 1.203372, 1.144824, 1.086275, 1.027726, 0.969177, 0.910628, 0.852080, 0.793531, 0.734982, 0.676433, 0.617884, 0.559336, 0.500787, 0.442238, 0.383689, 0.325140, 0.266592, 0.208043, 1.749494, 1.690945, 1.632396, 1.573848, 1.515299, 1.456750, 1.398201, 1.339652, 1.281104, 1.222555, 1.164006, 1.105457, 1.046908, 0.988360, 0.929811, 0.871262, 0.812713, 0.754164, 0.695616, 0.637067, 0.578518, 0.519969, 0.461420, 0.402872, 0.344323, 0.285774, 0.227225, 1.768676, 1.710128, 1.651579, 1.593030, 1.534481, 1.475932, 1.417384, 1.358835, 1.300286, 1.241737, 1.183188, 1.124640, 1.066091, 1.007542, 0.948993, 0.890444, 0.831896, 0.773347, 0.714798, 0.656249, 0.597700, 0.539152, 0.480603, 0.422054, 0.363505, 0.304956, 0.246408, 1.787859, 1.729310, 1.670761, 1.612212, 1.553664, 1.495115, 1.436566, 1.378017, 1.319468, 1.260920, 1.202371, 1.143822, 1.085273, 1.026724, 0.968176, 0.909627, 0.851078, 0.792529, 0.733980, 0.675432, 0.616883, 0.558334, 0.499785, 0.441236, 0.382688, 0.324139, 0.265590, 0.207041, 1.748492, 1.689944, 1.631395, 1.572846, 1.514297, 1.455748, 1.397200, 1.338651, 1.280102, 1.221553, 1.163004, 1.104456, 1.045907, 0.987358, 0.928809] #[0.364507, 0.305958, 0.247409, 1.788860, 1.730312, 1.671763, 1.613214, 1.554665, 1.496116, 1.437568, 1.379019, 1.320470, 1.261921, 1.203372, 1.144824, 1.086275] #[0.364507, 0.305958, 0.247409, 1.788860, 1.730312, 1.671763, 1.613214, 1.554665, 1.496116, 1.437568, 1.379019, 1.320470, 1.261921, 1.203372, 1.144824, 1.086275, 1.027726, 0.969177, 0.910628, 0.852080, 0.793531, 0.734982, 0.676433, 0.617884, 0.559336, 0.500787, 0.442238, 0.383689, 0.325140, 0.266592, 0.208043, 1.749494]))
+#eval IO.println ("check_mlpPolicy_bounded " ++ toString (check_mlpPolicy_bounded 1.356699 1.298150 1.239601 1.181052 1.122504 1.063955 1.005406 0.946857 0.888308 0.829760 #[1.633315, 1.574766, 1.516217, 1.457668, 1.399120, 1.340571, 1.282022, 1.223473, 1.164924, 1.106376, 1.047827, 0.989278, 0.930729, 0.872180, 0.813632, 0.755083, 0.696534, 0.637985, 0.579436, 0.520888, 0.462339, 0.403790, 0.345241, 0.286692, 0.228144, 1.769595, 1.711046, 1.652497, 1.593948, 1.535400, 1.476851, 1.418302, 1.359753, 1.301204, 1.242656, 1.184107, 1.125558, 1.067009, 1.008460, 0.949912, 0.891363, 0.832814, 0.774265, 0.715716, 0.657168, 0.598619, 0.540070, 0.481521, 0.422972, 0.364424, 0.305875, 0.247326, 1.788777, 1.730228, 1.671680, 1.613131, 1.554582, 1.496033, 1.437484, 1.378936, 1.320387, 1.261838, 1.203289, 1.144740, 1.086192, 1.027643, 0.969094, 0.910545, 0.851996, 0.793448, 0.734899, 0.676350, 0.617801, 0.559252, 0.500704, 0.442155, 0.383606, 0.325057, 0.266508, 0.207960, 1.749411, 1.690862, 1.632313, 1.573764, 1.515216, 1.456667, 1.398118, 1.339569, 1.281020, 1.222472, 1.163923, 1.105374, 1.046825, 0.988276, 0.929728, 0.871179, 0.812630, 0.754081, 0.695532, 0.636984, 0.578435, 0.519886, 0.461337, 0.402788, 0.344240, 0.285691, 0.227142, 1.768593, 1.710044, 1.651496, 1.592947, 1.534398, 1.475849, 1.417300, 1.358752, 1.300203, 1.241654, 1.183105, 1.124556, 1.066008, 1.007459, 0.948910, 0.890361, 0.831812, 0.773264, 0.714715, 0.656166, 0.597617] #[1.633315, 1.574766, 1.516217, 1.457668, 1.399120, 1.340571, 1.282022, 1.223473, 1.164924, 1.106376, 1.047827, 0.989278, 0.930729, 0.872180, 0.813632, 0.755083] #[1.633315, 1.574766, 1.516217, 1.457668, 1.399120, 1.340571, 1.282022, 1.223473, 1.164924, 1.106376, 1.047827, 0.989278, 0.930729, 0.872180, 0.813632, 0.755083, 0.696534, 0.637985, 0.579436, 0.520888, 0.462339, 0.403790, 0.345241, 0.286692, 0.228144, 1.769595, 1.711046, 1.652497, 1.593948, 1.535400, 1.476851, 1.418302]))
+#eval IO.println ("check_mlpPolicy_bounded " ++ toString (check_mlpPolicy_bounded 1.025507 0.966958 0.908409 0.849860 0.791312 0.732763 0.674214 0.615665 0.557116 0.498568 #[1.302123, 1.243574, 1.185025, 1.126476, 1.067928, 1.009379, 0.950830, 0.892281, 0.833732, 0.775184, 0.716635, 0.658086, 0.599537, 0.540988, 0.482440, 0.423891, 0.365342, 0.306793, 0.248244, 1.789696, 1.731147, 1.672598, 1.614049, 1.555500, 1.496952, 1.438403, 1.379854, 1.321305, 1.262756, 1.204208, 1.145659, 1.087110, 1.028561, 0.970012, 0.911464, 0.852915, 0.794366, 0.735817, 0.677268, 0.618720, 0.560171, 0.501622, 0.443073, 0.384524, 0.325976, 0.267427, 0.208878, 1.750329, 1.691780, 1.633232, 1.574683, 1.516134, 1.457585, 1.399036, 1.340488, 1.281939, 1.223390, 1.164841, 1.106292, 1.047744, 0.989195, 0.930646, 0.872097, 0.813548, 0.755000, 0.696451, 0.637902, 0.579353, 0.520804, 0.462256, 0.403707, 0.345158, 0.286609, 0.228060, 1.769512, 1.710963, 1.652414, 1.593865, 1.535316, 1.476768, 1.418219, 1.359670, 1.301121, 1.242572, 1.184024, 1.125475, 1.066926, 1.008377, 0.949828, 0.891280, 0.832731, 0.774182, 0.715633, 0.657084, 0.598536, 0.539987, 0.481438, 0.422889, 0.364340, 0.305792, 0.247243, 1.788694, 1.730145, 1.671596, 1.613048, 1.554499, 1.495950, 1.437401, 1.378852, 1.320304, 1.261755, 1.203206, 1.144657, 1.086108, 1.027560, 0.969011, 0.910462, 0.851913, 0.793364, 0.734816, 0.676267, 0.617718, 0.559169, 0.500620, 0.442072, 0.383523, 0.324974, 0.266425] #[1.302123, 1.243574, 1.185025, 1.126476, 1.067928, 1.009379, 0.950830, 0.892281, 0.833732, 0.775184, 0.716635, 0.658086, 0.599537, 0.540988, 0.482440, 0.423891] #[1.302123, 1.243574, 1.185025, 1.126476, 1.067928, 1.009379, 0.950830, 0.892281, 0.833732, 0.775184, 0.716635, 0.658086, 0.599537, 0.540988, 0.482440, 0.423891, 0.365342, 0.306793, 0.248244, 1.789696, 1.731147, 1.672598, 1.614049, 1.555500, 1.496952, 1.438403, 1.379854, 1.321305, 1.262756, 1.204208, 1.145659, 1.087110]))
 
 def check_mul_bounds_neg_pos (b : Float) (r : Float) (blo : Float) (bhi : Float) (rlo : Float) (rhi : Float) : Bool :=
   let v14 := (b * r)
   (!(blo < b) || (!(b < bhi) || (!(bhi <= (0 : Float)) || (!(rlo < r) || (!(r < rhi) || (!((0 : Float) <= rlo) || (((blo * rhi) < v14) && (v14 < (bhi * rlo)))))))))
 
-#eval IO.println ("check_mul_bounds_neg_pos " ++ toString (check_mul_bounds_neg_pos 0.907867 0.849318 0.790769 0.732220 0.673672 0.615123))
-#eval IO.println ("check_mul_bounds_neg_pos " ++ toString (check_mul_bounds_neg_pos 0.576675 0.518126 0.459577 0.401028 0.342480 0.283931))
-#eval IO.println ("check_mul_bounds_neg_pos " ++ toString (check_mul_bounds_neg_pos 0.245483 1.786934 1.728385 1.669836 1.611288 1.552739))
+#eval IO.println ("check_mul_bounds_neg_pos " ++ toString (check_mul_bounds_neg_pos 1.501739 1.443190 1.384641 1.326092 1.267544 1.208995))
+#eval IO.println ("check_mul_bounds_neg_pos " ++ toString (check_mul_bounds_neg_pos 1.170547 1.111998 1.053449 0.994900 0.936352 0.877803))
+#eval IO.println ("check_mul_bounds_neg_pos " ++ toString (check_mul_bounds_neg_pos 0.839355 0.780806 0.722257 0.663708 0.605160 0.546611))
 
 def check_mul_bounds_pos_pos (x : Float) (r : Float) (xlo : Float) (xhi : Float) (rlo : Float) (rhi : Float) : Bool :=
   let v14 := (x * r)
   (!(xlo < x) || (!(x < xhi) || (!((0 : Float) <= xlo) || (!(rlo < r) || (!(r < rhi) || (!((0 : Float) <= rlo) || (((xlo * rlo) < v14) && (v14 < (xhi * rhi)))))))))
 
-#eval IO.println ("check_mul_bounds_pos_pos " ++ toString (check_mul_bounds_pos_pos 0.721715 0.663166 0.604617 0.546068 0.487520 0.428971))
-#eval IO.println ("check_mul_bounds_pos_pos " ++ toString (check_mul_bounds_pos_pos 0.390523 0.331974 0.273425 0.214876 1.756328 1.697779))
-#eval IO.println ("check_mul_bounds_pos_pos " ++ toString (check_mul_bounds_pos_pos 1.659331 1.600782 1.542233 1.483684 1.425136 1.366587))
+#eval IO.println ("check_mul_bounds_pos_pos " ++ toString (check_mul_bounds_pos_pos 1.315587 1.257038 1.198489 1.139940 1.081392 1.022843))
+#eval IO.println ("check_mul_bounds_pos_pos " ++ toString (check_mul_bounds_pos_pos 0.984395 0.925846 0.867297 0.808748 0.750200 0.691651))
+#eval IO.println ("check_mul_bounds_pos_pos " ++ toString (check_mul_bounds_pos_pos 0.653203 0.594654 0.536105 0.477556 0.419008 0.360459))
+
+def obsOf (az : Float) (t : Float) (elSun : Float) (azSun : Float) (taut : Float) (holds : Float) (Toil : Float) (tDead : Float) : Array Float :=
+  let v8 := (azSun - az)
+  let v11 := ((2 : Float) * (3.141592653589793 : Float))
+  let v17 := ((3.141592653589793 : Float) / (2 : Float))
+  let v28 := (Float.sin t)
+  let v30 := (v28 * (Float.cos az))
+  let v32 := (v28 * (Float.sin az))
+  let v33 := (Float.cos t)
+  let v34 := (Float.cos elSun)
+  let v36 := (v34 * (Float.cos azSun))
+  let v38 := (v34 * (Float.sin azSun))
+  let v39 := (Float.sin elSun)
+  let v44 := (((v30 * v36) + (v32 * v38)) + (v33 * v39))
+  let v59 := (Float.sqrt (((((v32 * v39) - (v33 * v38)) ^ 2) + (((v33 * v36) - (v30 * v39)) ^ 2)) + (((v30 * v38) - (v32 * v36)) ^ 2)))
+  #[(v8 - (v11 * (Float.floor ((v8 + (3.141592653589793 : Float)) / v11)))), ((v17 - t) - elSun), t, taut, holds, ((Toil - (300 : Float)) / (300 : Float)), (1.0 / (1.0 + Float.exp (-((elSun - (v17 - tDead)) / (0.01 : Float))))), ((1.0 / (1.0 + Float.exp (-((elSun - (v17 - tDead)) / (0.01 : Float))))) * (1.0 / (1.0 + Float.exp (-(((if (v44 <= (0 : Float)) then (v17 + (Float.atan ((-v44) / (max v59 (0.000000000001 : Float))))) else (Float.atan (v59 / v44))) - (0.03 : Float)) / (0.01 : Float))))))]
+
+#eval IO.println ("obsOf " ++ toString ((obsOf 1.129435 1.070886 1.012337 0.953788 0.895240 0.836691 0.778142 0.719593).map Float.toBits))
+#eval IO.println ("obsOf " ++ toString ((obsOf 0.798243 0.739694 0.681145 0.622596 0.564048 0.505499 0.446950 0.388401).map Float.toBits))
+#eval IO.println ("obsOf " ++ toString ((obsOf 0.467051 0.408502 0.349953 0.291404 0.232856 1.774307 1.715758 1.657209).map Float.toBits))
 
 def oilStep (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Coil : Float) (ToilMax : Float) (Pin : Float) (Toil : Float) (Twall : Float) (Ta : Float) (dt : Float) : Float :=
   let v22 := (Toil - Ta)
   (min ToilMax (Toil + ((dt * ((((alpha * Pin) - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v22))) - (Upipe * v22)) - (max (0 : Float) (UAx * (Toil - Twall))))) / Coil)))
 
-#eval IO.println ("oilStep " ++ toString (oilStep 0.535563 0.477014 0.418465 0.359916 0.301368 0.242819 1.784270 1.725721 1.667172 1.608624 1.550075 1.491526 1.432977).toBits)
-#eval IO.println ("oilStep " ++ toString (oilStep 0.204371 1.745822 1.687273 1.628724 1.570176 1.511627 1.453078 1.394529 1.335980 1.277432 1.218883 1.160334 1.101785).toBits)
-#eval IO.println ("oilStep " ++ toString (oilStep 1.473179 1.414630 1.356081 1.297532 1.238984 1.180435 1.121886 1.063337 1.004788 0.946240 0.887691 0.829142 0.770593).toBits)
+#eval IO.println ("oilStep " ++ toString (oilStep 0.943283 0.884734 0.826185 0.767636 0.709088 0.650539 0.591990 0.533441 0.474892 0.416344 0.357795 0.299246 0.240697).toBits)
+#eval IO.println ("oilStep " ++ toString (oilStep 0.612091 0.553542 0.494993 0.436444 0.377896 0.319347 0.260798 0.202249 1.743700 1.685152 1.626603 1.568054 1.509505).toBits)
+#eval IO.println ("oilStep " ++ toString (oilStep 0.280899 0.222350 1.763801 1.705252 1.646704 1.588155 1.529606 1.471057 1.412508 1.353960 1.295411 1.236862 1.178313).toBits)
 
 def check_oilStep_lipschitz (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Coil : Float) (ToilMax : Float) (Pin : Float) (Twall : Float) (Ta : Float) (dt : Float) (T1 : Float) (T2 : Float) (M : Float) : Bool :=
   let v27 := (alpha * Pin)
@@ -2697,9 +3097,9 @@ def check_oilStep_lipschitz (alpha : Float) (eps : Float) (Ac : Float) (hC : Flo
   let v53 := (T2 - Ta)
   (!((0 : Float) <= eps) || (!((0 : Float) <= Ac) || (!((0 : Float) <= hC) || (!((0 : Float) <= Upipe) || (!((0 : Float) <= UAx) || (!((0 : Float) < Coil) || (!((0 : Float) <= dt) || (!((0 : Float) <= T1) || (!(T1 <= M) || (!((0 : Float) <= T2) || (!(T2 <= M) || ((Float.abs ((min ToilMax (T1 + ((dt * (((v27 - ((v30 * ((T1 ^ 4) - v32)) + (v35 * v36))) - (Upipe * v36)) - (max (0 : Float) (UAx * (T1 - Twall))))) / Coil))) - (min ToilMax (T2 + ((dt * (((v27 - ((v30 * ((T2 ^ 4) - v32)) + (v35 * v53))) - (Upipe * v53)) - (max (0 : Float) (UAx * (T2 - Twall))))) / Coil))))) <= (((1 : Float) + ((dt * ((((((((4 : Float) * eps) * (0.0000000567 : Float)) * Ac) * (M ^ 3)) + v35) + Upipe) + UAx)) / Coil)) * (Float.abs (T1 - T2)))))))))))))))
 
-#eval IO.println ("check_oilStep_lipschitz " ++ toString (check_oilStep_lipschitz 0.349411 0.290862 0.232313 1.773764 1.715216 1.656667 1.598118 1.539569 1.481020 1.422472 1.363923 1.305374 1.246825 1.188276 1.129728))
-#eval IO.println ("check_oilStep_lipschitz " ++ toString (check_oilStep_lipschitz 1.618219 1.559670 1.501121 1.442572 1.384024 1.325475 1.266926 1.208377 1.149828 1.091280 1.032731 0.974182 0.915633 0.857084 0.798536))
-#eval IO.println ("check_oilStep_lipschitz " ++ toString (check_oilStep_lipschitz 1.287027 1.228478 1.169929 1.111380 1.052832 0.994283 0.935734 0.877185 0.818636 0.760088 0.701539 0.642990 0.584441 0.525892 0.467344))
+#eval IO.println ("check_oilStep_lipschitz " ++ toString (check_oilStep_lipschitz 0.757131 0.698582 0.640033 0.581484 0.522936 0.464387 0.405838 0.347289 0.288740 0.230192 1.771643 1.713094 1.654545 1.595996 1.537448))
+#eval IO.println ("check_oilStep_lipschitz " ++ toString (check_oilStep_lipschitz 0.425939 0.367390 0.308841 0.250292 1.791744 1.733195 1.674646 1.616097 1.557548 1.499000 1.440451 1.381902 1.323353 1.264804 1.206256))
+#eval IO.println ("check_oilStep_lipschitz " ++ toString (check_oilStep_lipschitz 1.694747 1.636198 1.577649 1.519100 1.460552 1.402003 1.343454 1.284905 1.226356 1.167808 1.109259 1.050710 0.992161 0.933612 0.875064))
 
 def check_one_turn_tilt  : Bool :=
   let v4 := ((0.0015 : Float) / ((2 : Float) * (0.8 : Float)))
@@ -2720,23 +3120,23 @@ def check_play_budget (f : Float) (eps : Float) (h : Float) (delta : Float) : Bo
   let v5 := (f * (Float.tan eps))
   (!(v5 <= (h - delta)) || ((v5 + delta) <= h))
 
-#eval IO.println ("check_play_budget " ++ toString (check_play_budget 1.390955 1.332406 1.273857 1.215308))
-#eval IO.println ("check_play_budget " ++ toString (check_play_budget 1.059763 1.001214 0.942665 0.884116))
-#eval IO.println ("check_play_budget " ++ toString (check_play_budget 0.728571 0.670022 0.611473 0.552924))
+#eval IO.println ("check_play_budget " ++ toString (check_play_budget 1.798675 1.740126 1.681577 1.623028))
+#eval IO.println ("check_play_budget " ++ toString (check_play_budget 1.467483 1.408934 1.350385 1.291836))
+#eval IO.println ("check_play_budget " ++ toString (check_play_budget 1.136291 1.077742 1.019193 0.960644))
 
 def check_plumbed_shift (eps : Float) : Bool :=
   (!((0 : Float) <= eps) || (!(eps <= (0.0005 : Float)) || (((1.30 : Float) * (Float.sin eps)) <= (0.00065 : Float))))
 
-#eval IO.println ("check_plumbed_shift " ++ toString (check_plumbed_shift 1.204803))
-#eval IO.println ("check_plumbed_shift " ++ toString (check_plumbed_shift 0.873611))
-#eval IO.println ("check_plumbed_shift " ++ toString (check_plumbed_shift 0.542419))
+#eval IO.println ("check_plumbed_shift " ++ toString (check_plumbed_shift 1.612523))
+#eval IO.println ("check_plumbed_shift " ++ toString (check_plumbed_shift 1.281331))
+#eval IO.println ("check_plumbed_shift " ++ toString (check_plumbed_shift 0.950139))
 
 def pointVel (t_0 : Float) (t_1 : Float) (t_2 : Float) (t_3 : Float) (t_4 : Float) (t_5 : Float) (p_0 : Float) (p_1 : Float) (p_2 : Float) : Array Float :=
   #[(((t_1 * p_2) - (t_2 * p_1)) + t_3), (((t_2 * p_0) - (t_0 * p_2)) + t_4), (((t_0 * p_1) - (t_1 * p_0)) + t_5)]
 
-#eval IO.println ("pointVel " ++ toString ((pointVel 1.018651 0.960102 0.901553 0.843004 0.784456 0.725907 0.667358 0.608809 0.550260).map Float.toBits))
-#eval IO.println ("pointVel " ++ toString ((pointVel 0.687459 0.628910 0.570361 0.511812 0.453264 0.394715 0.336166 0.277617 0.219068).map Float.toBits))
-#eval IO.println ("pointVel " ++ toString ((pointVel 0.356267 0.297718 0.239169 1.780620 1.722072 1.663523 1.604974 1.546425 1.487876).map Float.toBits))
+#eval IO.println ("pointVel " ++ toString ((pointVel 1.426371 1.367822 1.309273 1.250724 1.192176 1.133627 1.075078 1.016529 0.957980).map Float.toBits))
+#eval IO.println ("pointVel " ++ toString ((pointVel 1.095179 1.036630 0.978081 0.919532 0.860984 0.802435 0.743886 0.685337 0.626788).map Float.toBits))
+#eval IO.println ("pointVel " ++ toString ((pointVel 0.763987 0.705438 0.646889 0.588340 0.529792 0.471243 0.412694 0.354145 0.295596).map Float.toBits))
 
 def pointingError (az : Float) (t : Float) (elSun : Float) (azSun : Float) : Float :=
   let v4 := (Float.sin t)
@@ -2751,54 +3151,54 @@ def pointingError (az : Float) (t : Float) (elSun : Float) (azSun : Float) : Flo
   let v35 := (Float.sqrt (((((v8 * v15) - (v9 * v14)) ^ 2) + (((v9 * v12) - (v6 * v15)) ^ 2)) + (((v6 * v14) - (v8 * v12)) ^ 2)))
   (if (v20 <= (0 : Float)) then (((3.141592653589793 : Float) / (2 : Float)) + (Float.atan ((-v20) / (max v35 (0.000000000001 : Float))))) else (Float.atan (v35 / v20)))
 
-#eval IO.println ("pointingError " ++ toString (pointingError 0.832499 0.773950 0.715401 0.656852).toBits)
-#eval IO.println ("pointingError " ++ toString (pointingError 0.501307 0.442758 0.384209 0.325660).toBits)
-#eval IO.println ("pointingError " ++ toString (pointingError 1.770115 1.711566 1.653017 1.594468).toBits)
+#eval IO.println ("pointingError " ++ toString (pointingError 1.240219 1.181670 1.123121 1.064572).toBits)
+#eval IO.println ("pointingError " ++ toString (pointingError 0.909027 0.850478 0.791929 0.733380).toBits)
+#eval IO.println ("pointingError " ++ toString (pointingError 0.577835 0.519286 0.460737 0.402188).toBits)
 
 def postTop (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (endIn : Float) (sg : Float) : Array Float :=
   #[c_apexH, (sg * ((c_chord / (2 : Float)) - endIn)), l_upright]
 
-#eval IO.println ("postTop " ++ toString ((postTop 0.646347 0.587798 0.529249 0.470700 0.412152 0.353603 0.295054 0.236505 1.777956 1.719408 1.660859 1.602310 1.543761).map Float.toBits))
-#eval IO.println ("postTop " ++ toString ((postTop 0.315155 0.256606 1.798057 1.739508 1.680960 1.622411 1.563862 1.505313 1.446764 1.388216 1.329667 1.271118 1.212569).map Float.toBits))
-#eval IO.println ("postTop " ++ toString ((postTop 1.583963 1.525414 1.466865 1.408316 1.349768 1.291219 1.232670 1.174121 1.115572 1.057024 0.998475 0.939926 0.881377).map Float.toBits))
+#eval IO.println ("postTop " ++ toString ((postTop 1.054067 0.995518 0.936969 0.878420 0.819872 0.761323 0.702774 0.644225 0.585676 0.527128 0.468579 0.410030 0.351481).map Float.toBits))
+#eval IO.println ("postTop " ++ toString ((postTop 0.722875 0.664326 0.605777 0.547228 0.488680 0.430131 0.371582 0.313033 0.254484 1.795936 1.737387 1.678838 1.620289).map Float.toBits))
+#eval IO.println ("postTop " ++ toString ((postTop 0.391683 0.333134 0.274585 0.216036 1.757488 1.698939 1.640390 1.581841 1.523292 1.464744 1.406195 1.347646 1.289097).map Float.toBits))
 
 def check_postTop_on_rail (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (sg : Float) : Bool :=
   let v16 := (c_chord / (2 : Float))
   let v20 := (c_apexH ^ 2)
   (!(feq (sg ^ 2) (1 : Float)) || (feq (v20 + ((sg * (v16 - (0 : Float))) ^ 2)) ((Float.sqrt ((v16 ^ 2) + v20)) ^ 2)))
 
-#eval IO.println ("check_postTop_on_rail " ++ toString (check_postTop_on_rail 0.460195 0.401646 0.343097 0.284548 0.226000 1.767451 1.708902 1.650353 1.591804 1.533256 1.474707 1.416158))
-#eval IO.println ("check_postTop_on_rail " ++ toString (check_postTop_on_rail 1.729003 1.670454 1.611905 1.553356 1.494808 1.436259 1.377710 1.319161 1.260612 1.202064 1.143515 1.084966))
-#eval IO.println ("check_postTop_on_rail " ++ toString (check_postTop_on_rail 1.397811 1.339262 1.280713 1.222164 1.163616 1.105067 1.046518 0.987969 0.929420 0.870872 0.812323 0.753774))
+#eval IO.println ("check_postTop_on_rail " ++ toString (check_postTop_on_rail 0.867915 0.809366 0.750817 0.692268 0.633720 0.575171 0.516622 0.458073 0.399524 0.340976 0.282427 0.223878))
+#eval IO.println ("check_postTop_on_rail " ++ toString (check_postTop_on_rail 0.536723 0.478174 0.419625 0.361076 0.302528 0.243979 1.785430 1.726881 1.668332 1.609784 1.551235 1.492686))
+#eval IO.println ("check_postTop_on_rail " ++ toString (check_postTop_on_rail 0.205531 1.746982 1.688433 1.629884 1.571336 1.512787 1.454238 1.395689 1.337140 1.278592 1.220043 1.161494))
 
 def check_postTops_apart (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (endIn : Float) : Bool :=
   let v15 := ((c_chord / (2 : Float)) - endIn)
   (feq (((1 : Float) * v15) - ((-(1 : Float)) * v15)) (c_chord - ((2 : Float) * endIn)))
 
-#eval IO.println ("check_postTops_apart " ++ toString (check_postTops_apart 0.274043 0.215494 1.756945 1.698396 1.639848 1.581299 1.522750 1.464201 1.405652 1.347104 1.288555 1.230006))
-#eval IO.println ("check_postTops_apart " ++ toString (check_postTops_apart 1.542851 1.484302 1.425753 1.367204 1.308656 1.250107 1.191558 1.133009 1.074460 1.015912 0.957363 0.898814))
-#eval IO.println ("check_postTops_apart " ++ toString (check_postTops_apart 1.211659 1.153110 1.094561 1.036012 0.977464 0.918915 0.860366 0.801817 0.743268 0.684720 0.626171 0.567622))
+#eval IO.println ("check_postTops_apart " ++ toString (check_postTops_apart 0.681763 0.623214 0.564665 0.506116 0.447568 0.389019 0.330470 0.271921 0.213372 1.754824 1.696275 1.637726))
+#eval IO.println ("check_postTops_apart " ++ toString (check_postTops_apart 0.350571 0.292022 0.233473 1.774924 1.716376 1.657827 1.599278 1.540729 1.482180 1.423632 1.365083 1.306534))
+#eval IO.println ("check_postTops_apart " ++ toString (check_postTops_apart 1.619379 1.560830 1.502281 1.443732 1.385184 1.326635 1.268086 1.209537 1.150988 1.092440 1.033891 0.975342))
 
 def check_postTops_level (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (endIn : Float) : Bool :=
   (feq l_upright l_upright)
 
-#eval IO.println ("check_postTops_level " ++ toString (check_postTops_level 1.687891 1.629342 1.570793 1.512244 1.453696 1.395147 1.336598 1.278049 1.219500 1.160952 1.102403 1.043854))
-#eval IO.println ("check_postTops_level " ++ toString (check_postTops_level 1.356699 1.298150 1.239601 1.181052 1.122504 1.063955 1.005406 0.946857 0.888308 0.829760 0.771211 0.712662))
-#eval IO.println ("check_postTops_level " ++ toString (check_postTops_level 1.025507 0.966958 0.908409 0.849860 0.791312 0.732763 0.674214 0.615665 0.557116 0.498568 0.440019 0.381470))
+#eval IO.println ("check_postTops_level " ++ toString (check_postTops_level 0.495611 0.437062 0.378513 0.319964 0.261416 0.202867 1.744318 1.685769 1.627220 1.568672 1.510123 1.451574))
+#eval IO.println ("check_postTops_level " ++ toString (check_postTops_level 1.764419 1.705870 1.647321 1.588772 1.530224 1.471675 1.413126 1.354577 1.296028 1.237480 1.178931 1.120382))
+#eval IO.println ("check_postTops_level " ++ toString (check_postTops_level 1.433227 1.374678 1.316129 1.257580 1.199032 1.140483 1.081934 1.023385 0.964836 0.906288 0.847739 0.789190))
 
 def check_postTops_offAxis (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (endIn : Float) (sg : Float) : Bool :=
   (feq c_apexH c_apexH)
 
-#eval IO.println ("check_postTops_offAxis " ++ toString (check_postTops_offAxis 1.501739 1.443190 1.384641 1.326092 1.267544 1.208995 1.150446 1.091897 1.033348 0.974800 0.916251 0.857702 0.799153))
-#eval IO.println ("check_postTops_offAxis " ++ toString (check_postTops_offAxis 1.170547 1.111998 1.053449 0.994900 0.936352 0.877803 0.819254 0.760705 0.702156 0.643608 0.585059 0.526510 0.467961))
-#eval IO.println ("check_postTops_offAxis " ++ toString (check_postTops_offAxis 0.839355 0.780806 0.722257 0.663708 0.605160 0.546611 0.488062 0.429513 0.370964 0.312416 0.253867 1.795318 1.736769))
+#eval IO.println ("check_postTops_offAxis " ++ toString (check_postTops_offAxis 0.309459 0.250910 1.792361 1.733812 1.675264 1.616715 1.558166 1.499617 1.441068 1.382520 1.323971 1.265422 1.206873))
+#eval IO.println ("check_postTops_offAxis " ++ toString (check_postTops_offAxis 1.578267 1.519718 1.461169 1.402620 1.344072 1.285523 1.226974 1.168425 1.109876 1.051328 0.992779 0.934230 0.875681))
+#eval IO.println ("check_postTops_offAxis " ++ toString (check_postTops_offAxis 1.247075 1.188526 1.129977 1.071428 1.012880 0.954331 0.895782 0.837233 0.778684 0.720136 0.661587 0.603038 0.544489))
 
 def check_pow4_lipschitz (T1 : Float) (T2 : Float) (M : Float) : Bool :=
   (!((0 : Float) <= T1) || (!(T1 <= M) || (!((0 : Float) <= T2) || (!(T2 <= M) || ((Float.abs ((T1 ^ 4) - (T2 ^ 4))) <= (((4 : Float) * (M ^ 3)) * (Float.abs (T1 - T2))))))))
 
-#eval IO.println ("check_pow4_lipschitz " ++ toString (check_pow4_lipschitz 1.315587 1.257038 1.198489))
-#eval IO.println ("check_pow4_lipschitz " ++ toString (check_pow4_lipschitz 0.984395 0.925846 0.867297))
-#eval IO.println ("check_pow4_lipschitz " ++ toString (check_pow4_lipschitz 0.653203 0.594654 0.536105))
+#eval IO.println ("check_pow4_lipschitz " ++ toString (check_pow4_lipschitz 1.723307 1.664758 1.606209))
+#eval IO.println ("check_pow4_lipschitz " ++ toString (check_pow4_lipschitz 1.392115 1.333566 1.275017))
+#eval IO.println ("check_pow4_lipschitz " ++ toString (check_pow4_lipschitz 1.060923 1.002374 0.943825))
 
 def prop_AH_bounds  : Bool :=
   let v1 := (Float.sqrt (3.36 : Float))
@@ -2857,16 +3257,16 @@ def prop_HD_eq  : Bool :=
 def prop_azRate_pos (omegam : Float) (rw : Float) (R : Float) : Bool :=
   (!((0 : Float) < omegam) || (!((0 : Float) < rw) || (!((0 : Float) < R) || ((0 : Float) < ((omegam * rw) / R)))))
 
-#eval IO.println ("prop_azRate_pos " ++ toString (prop_azRate_pos 1.426371 1.367822 1.309273))
-#eval IO.println ("prop_azRate_pos " ++ toString (prop_azRate_pos 1.095179 1.036630 0.978081))
-#eval IO.println ("prop_azRate_pos " ++ toString (prop_azRate_pos 0.763987 0.705438 0.646889))
+#eval IO.println ("prop_azRate_pos " ++ toString (prop_azRate_pos 0.234091 1.775542 1.716993))
+#eval IO.println ("prop_azRate_pos " ++ toString (prop_azRate_pos 1.502899 1.444350 1.385801))
+#eval IO.println ("prop_azRate_pos " ++ toString (prop_azRate_pos 1.171707 1.113158 1.054609))
 
 def prop_bearing_life (L10 : Float) : Bool :=
   (!(((10 : Float) ^ 6) <= L10) || (((100 : Float) * ((20 : Float) * (365.25 : Float))) < L10))
 
-#eval IO.println ("prop_bearing_life " ++ toString (prop_bearing_life 1.240219))
-#eval IO.println ("prop_bearing_life " ++ toString (prop_bearing_life 0.909027))
-#eval IO.println ("prop_bearing_life " ++ toString (prop_bearing_life 0.577835))
+#eval IO.println ("prop_bearing_life " ++ toString (prop_bearing_life 1.647939))
+#eval IO.println ("prop_bearing_life " ++ toString (prop_bearing_life 1.316747))
+#eval IO.println ("prop_bearing_life " ++ toString (prop_bearing_life 0.985555))
 
 def prop_braceHeight_hashemi  : Bool :=
   let v7 := (Float.sqrt (((0.96 : Float) ^ 2) - (((0.62 : Float) - (0.175 : Float)) ^ 2)))
@@ -2893,33 +3293,33 @@ def prop_brace_stiffens  : Bool :=
 def prop_cable_drop_small (L : Float) (I : Float) : Bool :=
   (!(L <= (4 : Float)) || (!((0 : Float) <= I) || (!(I <= (1 : Float)) || (((((0.0000000172 : Float) * ((2 : Float) * L)) * I) / (0.0000015 : Float)) < (0.1 : Float)))))
 
-#eval IO.println ("prop_cable_drop_small " ++ toString (prop_cable_drop_small 0.495611 0.437062))
-#eval IO.println ("prop_cable_drop_small " ++ toString (prop_cable_drop_small 1.764419 1.705870))
-#eval IO.println ("prop_cable_drop_small " ++ toString (prop_cable_drop_small 1.433227 1.374678))
+#eval IO.println ("prop_cable_drop_small " ++ toString (prop_cable_drop_small 0.903331 0.844782))
+#eval IO.println ("prop_cable_drop_small " ++ toString (prop_cable_drop_small 0.572139 0.513590))
+#eval IO.println ("prop_cable_drop_small " ++ toString (prop_cable_drop_small 0.240947 1.782398))
 
 def prop_captureS_slope (rc : Float) (r1 : Float) (r2 : Float) : Bool :=
   ((Float.abs ((1.0 / (1.0 + Float.exp (-((rc - r1) / (0.005 : Float))))) - (1.0 / (1.0 + Float.exp (-((rc - r2) / (0.005 : Float))))))) <= ((Float.abs (r1 - r2)) / ((4 : Float) * (0.005 : Float))))
 
-#eval IO.println ("prop_captureS_slope " ++ toString (prop_captureS_slope 0.309459 0.250910 1.792361))
-#eval IO.println ("prop_captureS_slope " ++ toString (prop_captureS_slope 1.578267 1.519718 1.461169))
-#eval IO.println ("prop_captureS_slope " ++ toString (prop_captureS_slope 1.247075 1.188526 1.129977))
+#eval IO.println ("prop_captureS_slope " ++ toString (prop_captureS_slope 0.717179 0.658630 0.600081))
+#eval IO.println ("prop_captureS_slope " ++ toString (prop_captureS_slope 0.385987 0.327438 0.268889))
+#eval IO.println ("prop_captureS_slope " ++ toString (prop_captureS_slope 1.654795 1.596246 1.537697))
 
 def prop_clearance_hashemi (holeDown : Float) : Bool :=
   let v10 := (((1.30 : Float) - holeDown) - (Float.sqrt ((5 : Float) - ((2 : Float) * (Float.sqrt (3.36 : Float))))))
   ((((0.1449 : Float) - holeDown) < v10) && (v10 < ((0.146 : Float) - holeDown)))
 
-#eval IO.println ("prop_clearance_hashemi " ++ toString (prop_clearance_hashemi 1.723307))
-#eval IO.println ("prop_clearance_hashemi " ++ toString (prop_clearance_hashemi 1.392115))
-#eval IO.println ("prop_clearance_hashemi " ++ toString (prop_clearance_hashemi 1.060923))
+#eval IO.println ("prop_clearance_hashemi " ++ toString (prop_clearance_hashemi 0.531027))
+#eval IO.println ("prop_clearance_hashemi " ++ toString (prop_clearance_hashemi 1.799835))
+#eval IO.println ("prop_clearance_hashemi " ++ toString (prop_clearance_hashemi 1.468643))
 
 def prop_conicZ_paraboloid (c : Float) (r : Float) : Bool :=
   let v2 := (r ^ 2)
   let v3 := (c * v2)
   (feq (v3 / ((1 : Float) + (Float.sqrt (max ((1 : Float) - ((((1 : Float) + (-(1 : Float))) * (c ^ 2)) * v2)) (0 : Float))))) (v3 / (2 : Float)))
 
-#eval IO.println ("prop_conicZ_paraboloid " ++ toString (prop_conicZ_paraboloid 1.537155 1.478606))
-#eval IO.println ("prop_conicZ_paraboloid " ++ toString (prop_conicZ_paraboloid 1.205963 1.147414))
-#eval IO.println ("prop_conicZ_paraboloid " ++ toString (prop_conicZ_paraboloid 0.874771 0.816222))
+#eval IO.println ("prop_conicZ_paraboloid " ++ toString (prop_conicZ_paraboloid 0.344875 0.286326))
+#eval IO.println ("prop_conicZ_paraboloid " ++ toString (prop_conicZ_paraboloid 1.613683 1.555134))
+#eval IO.println ("prop_conicZ_paraboloid " ++ toString (prop_conicZ_paraboloid 1.282491 1.223942))
 
 def prop_conicZ_sphere (c : Float) (r : Float) : Bool :=
   let v2 := (c ^ 2)
@@ -2927,9 +3327,9 @@ def prop_conicZ_sphere (c : Float) (r : Float) : Bool :=
   let v5 := ((1 : Float) / c)
   (!((0 : Float) < c) || (!((v2 * v3) <= (1 : Float)) || (feq ((c * v3) / ((1 : Float) + (Float.sqrt (max ((1 : Float) - ((((1 : Float) + (0 : Float)) * v2) * v3)) (0 : Float))))) (v5 - (Float.sqrt ((v5 ^ 2) - v3))))))
 
-#eval IO.println ("prop_conicZ_sphere " ++ toString (prop_conicZ_sphere 1.351003 1.292454))
-#eval IO.println ("prop_conicZ_sphere " ++ toString (prop_conicZ_sphere 1.019811 0.961262))
-#eval IO.println ("prop_conicZ_sphere " ++ toString (prop_conicZ_sphere 0.688619 0.630070))
+#eval IO.println ("prop_conicZ_sphere " ++ toString (prop_conicZ_sphere 1.758723 1.700174))
+#eval IO.println ("prop_conicZ_sphere " ++ toString (prop_conicZ_sphere 1.427531 1.368982))
+#eval IO.println ("prop_conicZ_sphere " ++ toString (prop_conicZ_sphere 1.096339 1.037790))
 
 def prop_constraints_reciprocal_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Bool :=
   let v13 := ((0 : Float) * (0 : Float))
@@ -2943,9 +3343,9 @@ def prop_constraints_reciprocal_yaw (c_chord : Float) (c_apexH : Float) (c_aBase
   let v25 := ((0 : Float) * (v20 - (c_apexH * (1 : Float))))
   ((feq (((((((0 : Float) * (v13 - v14)) + ((0 : Float) * (v16 - v13))) + ((1 : Float) * (v13 - v17))) + v17) + v13) + v13) (0 : Float)) && ((feq (((((((0 : Float) * (v13 - v16)) + ((0 : Float) * (v14 - v13))) + ((1 : Float) * (v17 - v13))) + v13) + v17) + v13) (0 : Float)) && ((feq (((((((0 : Float) * (v17 - v14)) + ((0 : Float) * (v14 - v17))) + ((1 : Float) * (v13 - v13))) + v13) + v13) + v17) (0 : Float)) && ((feq (((((((0 : Float) * ((v19 * (1 : Float)) - v20)) + v25) + ((1 : Float) * (v21 - (v19 * (0 : Float))))) + v13) + v13) + v17) (0 : Float)) && (feq (((((((0 : Float) * ((v22 * (1 : Float)) - v20)) + v25) + ((1 : Float) * (v21 - (v22 * (0 : Float))))) + v13) + v13) + v17) (0 : Float))))))
 
-#eval IO.println ("prop_constraints_reciprocal_yaw " ++ toString (prop_constraints_reciprocal_yaw 1.164851 1.106302 1.047753 0.989204 0.930656 0.872107 0.813558 0.755009 0.696460 0.637912 0.579363 0.520814))
-#eval IO.println ("prop_constraints_reciprocal_yaw " ++ toString (prop_constraints_reciprocal_yaw 0.833659 0.775110 0.716561 0.658012 0.599464 0.540915 0.482366 0.423817 0.365268 0.306720 0.248171 1.789622))
-#eval IO.println ("prop_constraints_reciprocal_yaw " ++ toString (prop_constraints_reciprocal_yaw 0.502467 0.443918 0.385369 0.326820 0.268272 0.209723 1.751174 1.692625 1.634076 1.575528 1.516979 1.458430))
+#eval IO.println ("prop_constraints_reciprocal_yaw " ++ toString (prop_constraints_reciprocal_yaw 1.572571 1.514022 1.455473 1.396924 1.338376 1.279827 1.221278 1.162729 1.104180 1.045632 0.987083 0.928534))
+#eval IO.println ("prop_constraints_reciprocal_yaw " ++ toString (prop_constraints_reciprocal_yaw 1.241379 1.182830 1.124281 1.065732 1.007184 0.948635 0.890086 0.831537 0.772988 0.714440 0.655891 0.597342))
+#eval IO.println ("prop_constraints_reciprocal_yaw " ++ toString (prop_constraints_reciprocal_yaw 0.910187 0.851638 0.793089 0.734540 0.675992 0.617443 0.558894 0.500345 0.441796 0.383248 0.324699 0.266150))
 
 def prop_cosTubeCut_bounds  : Bool :=
   let v1 := (Float.sqrt (3.2 : Float))
@@ -2997,9 +3397,9 @@ def prop_dishAxes_rot (az : Float) (t : Float) (delta : Float) : Bool :=
   let v26 := (Float.sin delta)
   (((feq ((v11 * v9) - (v12 * v8)) ((v13 * v22) - (v26 * v25))) && ((feq ((v12 * v6) - (v10 * v9)) ((v26 * v22) + (v13 * v25))) && (feq ((v10 * v8) - (v11 * v6)) ((v18 * v17) - (v19 * v15))))) && (((feq v10 ((v13 * v18) - (v26 * v19))) && ((feq v11 ((v26 * v18) + (v13 * v19))) && (feq v12 v12))) && ((feq v6 ((v13 * v15) - (v26 * v17))) && ((feq v8 ((v26 * v15) + (v13 * v17))) && (feq v9 v9)))))
 
-#eval IO.println ("prop_dishAxes_rot " ++ toString (prop_dishAxes_rot 0.420243 0.361694 0.303145))
-#eval IO.println ("prop_dishAxes_rot " ++ toString (prop_dishAxes_rot 1.689051 1.630502 1.571953))
-#eval IO.println ("prop_dishAxes_rot " ++ toString (prop_dishAxes_rot 1.357859 1.299310 1.240761))
+#eval IO.println ("prop_dishAxes_rot " ++ toString (prop_dishAxes_rot 0.827963 0.769414 0.710865))
+#eval IO.println ("prop_dishAxes_rot " ++ toString (prop_dishAxes_rot 0.496771 0.438222 0.379673))
+#eval IO.println ("prop_dishAxes_rot " ++ toString (prop_dishAxes_rot 1.765579 1.707030 1.648481))
 
 def prop_dish_between_posts  : Bool :=
   (((2 : Float) * (0.8 : Float)) < (1.84 : Float))
@@ -3022,9 +3422,9 @@ def prop_drive_recip_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (
   let v23 := ((F * c_apexH) / v18)
   (feq (((((((0 : Float) * ((v14 * (0 : Float)) - (b_zRail * v23))) + ((0 : Float) * ((b_zRail * v21) - (c_apexH * (0 : Float))))) + ((1 : Float) * ((c_apexH * v23) - (v14 * v21)))) + ((0 : Float) * v21)) + ((0 : Float) * v23)) + ((0 : Float) * (0 : Float))) (F * v18))
 
-#eval IO.println ("prop_drive_recip_yaw " ++ toString (prop_drive_recip_yaw 1.461787 1.403238 1.344689 1.286140 1.227592 1.169043 1.110494 1.051945 0.993396 0.934848 0.876299 0.817750 0.759201))
-#eval IO.println ("prop_drive_recip_yaw " ++ toString (prop_drive_recip_yaw 1.130595 1.072046 1.013497 0.954948 0.896400 0.837851 0.779302 0.720753 0.662204 0.603656 0.545107 0.486558 0.428009))
-#eval IO.println ("prop_drive_recip_yaw " ++ toString (prop_drive_recip_yaw 0.799403 0.740854 0.682305 0.623756 0.565208 0.506659 0.448110 0.389561 0.331012 0.272464 0.213915 1.755366 1.696817))
+#eval IO.println ("prop_drive_recip_yaw " ++ toString (prop_drive_recip_yaw 0.269507 0.210958 1.752409 1.693860 1.635312 1.576763 1.518214 1.459665 1.401116 1.342568 1.284019 1.225470 1.166921))
+#eval IO.println ("prop_drive_recip_yaw " ++ toString (prop_drive_recip_yaw 1.538315 1.479766 1.421217 1.362668 1.304120 1.245571 1.187022 1.128473 1.069924 1.011376 0.952827 0.894278 0.835729))
+#eval IO.println ("prop_drive_recip_yaw " ++ toString (prop_drive_recip_yaw 1.207123 1.148574 1.090025 1.031476 0.972928 0.914379 0.855830 0.797281 0.738732 0.680184 0.621635 0.563086 0.504537))
 
 def prop_drive_works_on_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) (F : Float) : Bool :=
   let v14 := (c_chord / (2 : Float))
@@ -3033,9 +3433,9 @@ def prop_drive_works_on_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Float
   let v23 := ((F * c_apexH) / v18)
   (!(!(feq F (0 : Float))) || (!(feq (((((((0 : Float) * ((v14 * (0 : Float)) - (b_zRail * v23))) + ((0 : Float) * ((b_zRail * v21) - (c_apexH * (0 : Float))))) + ((1 : Float) * ((c_apexH * v23) - (v14 * v21)))) + ((0 : Float) * v21)) + ((0 : Float) * v23)) + ((0 : Float) * (0 : Float))) (0 : Float))))
 
-#eval IO.println ("prop_drive_works_on_yaw " ++ toString (prop_drive_works_on_yaw 1.275635 1.217086 1.158537 1.099988 1.041440 0.982891 0.924342 0.865793 0.807244 0.748696 0.690147 0.631598 0.573049))
-#eval IO.println ("prop_drive_works_on_yaw " ++ toString (prop_drive_works_on_yaw 0.944443 0.885894 0.827345 0.768796 0.710248 0.651699 0.593150 0.534601 0.476052 0.417504 0.358955 0.300406 0.241857))
-#eval IO.println ("prop_drive_works_on_yaw " ++ toString (prop_drive_works_on_yaw 0.613251 0.554702 0.496153 0.437604 0.379056 0.320507 0.261958 0.203409 1.744860 1.686312 1.627763 1.569214 1.510665))
+#eval IO.println ("prop_drive_works_on_yaw " ++ toString (prop_drive_works_on_yaw 1.683355 1.624806 1.566257 1.507708 1.449160 1.390611 1.332062 1.273513 1.214964 1.156416 1.097867 1.039318 0.980769))
+#eval IO.println ("prop_drive_works_on_yaw " ++ toString (prop_drive_works_on_yaw 1.352163 1.293614 1.235065 1.176516 1.117968 1.059419 1.000870 0.942321 0.883772 0.825224 0.766675 0.708126 0.649577))
+#eval IO.println ("prop_drive_works_on_yaw " ++ toString (prop_drive_works_on_yaw 1.020971 0.962422 0.903873 0.845324 0.786776 0.728227 0.669678 0.611129 0.552580 0.494032 0.435483 0.376934 0.318385))
 
 def prop_edgeClip_cross (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Bool :=
   let v5 := (-a)
@@ -3044,9 +3444,9 @@ def prop_edgeClip_cross (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : 
   let v8 := (Float.sin t)
   (feq (((-ym) * (((-v5) * v8) + (v7 * v6))) - (hp * ((v5 * v6) + (v7 * v8)))) ((((ym * ze) + (hp * a)) * v6) + (((hp * ze) - (ym * a)) * v8)))
 
-#eval IO.println ("prop_edgeClip_cross " ++ toString (prop_edgeClip_cross 1.089483 1.030934 0.972385 0.913836 0.855288))
-#eval IO.println ("prop_edgeClip_cross " ++ toString (prop_edgeClip_cross 0.758291 0.699742 0.641193 0.582644 0.524096))
-#eval IO.println ("prop_edgeClip_cross " ++ toString (prop_edgeClip_cross 0.427099 0.368550 0.310001 0.251452 1.792904))
+#eval IO.println ("prop_edgeClip_cross " ++ toString (prop_edgeClip_cross 1.497203 1.438654 1.380105 1.321556 1.263008))
+#eval IO.println ("prop_edgeClip_cross " ++ toString (prop_edgeClip_cross 1.166011 1.107462 1.048913 0.990364 0.931816))
+#eval IO.println ("prop_edgeClip_cross " ++ toString (prop_edgeClip_cross 0.834819 0.776270 0.717721 0.659172 0.600624))
 
 def prop_edgeClip_radius (a : Float) (ze : Float) (t : Float) : Bool :=
   let v3 := (-a)
@@ -3055,9 +3455,9 @@ def prop_edgeClip_radius (a : Float) (ze : Float) (t : Float) : Bool :=
   let v6 := (Float.sin t)
   (feq ((((v3 * v4) + (v5 * v6)) ^ 2) + ((((-v3) * v6) + (v5 * v4)) ^ 2)) ((a ^ 2) + (ze ^ 2)))
 
-#eval IO.println ("prop_edgeClip_radius " ++ toString (prop_edgeClip_radius 0.903331 0.844782 0.786233))
-#eval IO.println ("prop_edgeClip_radius " ++ toString (prop_edgeClip_radius 0.572139 0.513590 0.455041))
-#eval IO.println ("prop_edgeClip_radius " ++ toString (prop_edgeClip_radius 0.240947 1.782398 1.723849))
+#eval IO.println ("prop_edgeClip_radius " ++ toString (prop_edgeClip_radius 1.311051 1.252502 1.193953))
+#eval IO.println ("prop_edgeClip_radius " ++ toString (prop_edgeClip_radius 0.979859 0.921310 0.862761))
+#eval IO.println ("prop_edgeClip_radius " ++ toString (prop_edgeClip_radius 0.648667 0.590118 0.531569))
 
 def prop_edgeClip_radius_hashemi (t : Float) : Bool :=
   let v2 := (-(0.8 : Float))
@@ -3067,40 +3467,40 @@ def prop_edgeClip_radius_hashemi (t : Float) : Bool :=
   let v9 := (Float.sin t)
   (feq ((((v2 * v3) + (v8 * v9)) ^ 2) + ((((-v2) * v9) + (v8 * v3)) ^ 2)) ((5 : Float) - ((2 : Float) * v5)))
 
-#eval IO.println ("prop_edgeClip_radius_hashemi " ++ toString (prop_edgeClip_radius_hashemi 0.717179))
-#eval IO.println ("prop_edgeClip_radius_hashemi " ++ toString (prop_edgeClip_radius_hashemi 0.385987))
-#eval IO.println ("prop_edgeClip_radius_hashemi " ++ toString (prop_edgeClip_radius_hashemi 1.654795))
+#eval IO.println ("prop_edgeClip_radius_hashemi " ++ toString (prop_edgeClip_radius_hashemi 1.124899))
+#eval IO.println ("prop_edgeClip_radius_hashemi " ++ toString (prop_edgeClip_radius_hashemi 0.793707))
+#eval IO.println ("prop_edgeClip_radius_hashemi " ++ toString (prop_edgeClip_radius_hashemi 0.462515))
 
 def prop_edgeClip_reach (a : Float) (ze : Float) (t : Float) : Bool :=
   ((Float.abs (((-a) * (Float.cos t)) + ((-ze) * (Float.sin t)))) <= (Float.sqrt ((a ^ 2) + (ze ^ 2))))
 
-#eval IO.println ("prop_edgeClip_reach " ++ toString (prop_edgeClip_reach 0.531027 0.472478 0.413929))
-#eval IO.println ("prop_edgeClip_reach " ++ toString (prop_edgeClip_reach 1.799835 1.741286 1.682737))
-#eval IO.println ("prop_edgeClip_reach " ++ toString (prop_edgeClip_reach 1.468643 1.410094 1.351545))
+#eval IO.println ("prop_edgeClip_reach " ++ toString (prop_edgeClip_reach 0.938747 0.880198 0.821649))
+#eval IO.println ("prop_edgeClip_reach " ++ toString (prop_edgeClip_reach 0.607555 0.549006 0.490457))
+#eval IO.println ("prop_edgeClip_reach " ++ toString (prop_edgeClip_reach 0.276363 0.217814 1.759265))
 
 def prop_edgeDepth_horizon (f : Float) (a : Float) (sag : Float) : Bool :=
   (feq (((f - sag) * (Float.sin (0 : Float))) + (a * (Float.cos (0 : Float)))) a)
 
-#eval IO.println ("prop_edgeDepth_horizon " ++ toString (prop_edgeDepth_horizon 0.344875 0.286326 0.227777))
-#eval IO.println ("prop_edgeDepth_horizon " ++ toString (prop_edgeDepth_horizon 1.613683 1.555134 1.496585))
-#eval IO.println ("prop_edgeDepth_horizon " ++ toString (prop_edgeDepth_horizon 1.282491 1.223942 1.165393))
+#eval IO.println ("prop_edgeDepth_horizon " ++ toString (prop_edgeDepth_horizon 0.752595 0.694046 0.635497))
+#eval IO.println ("prop_edgeDepth_horizon " ++ toString (prop_edgeDepth_horizon 0.421403 0.362854 0.304305))
+#eval IO.println ("prop_edgeDepth_horizon " ++ toString (prop_edgeDepth_horizon 1.690211 1.631662 1.573113))
 
 def prop_edgeDepth_le (f : Float) (a : Float) (sag : Float) (el : Float) : Bool :=
   let v4 := (f - sag)
   (((v4 * (Float.sin el)) + (a * (Float.cos el))) <= (Float.sqrt ((v4 ^ 2) + (a ^ 2))))
 
-#eval IO.println ("prop_edgeDepth_le " ++ toString (prop_edgeDepth_le 1.758723 1.700174 1.641625 1.583076))
-#eval IO.println ("prop_edgeDepth_le " ++ toString (prop_edgeDepth_le 1.427531 1.368982 1.310433 1.251884))
-#eval IO.println ("prop_edgeDepth_le " ++ toString (prop_edgeDepth_le 1.096339 1.037790 0.979241 0.920692))
+#eval IO.println ("prop_edgeDepth_le " ++ toString (prop_edgeDepth_le 0.566443 0.507894 0.449345 0.390796))
+#eval IO.println ("prop_edgeDepth_le " ++ toString (prop_edgeDepth_le 0.235251 1.776702 1.718153 1.659604))
+#eval IO.println ("prop_edgeDepth_le " ++ toString (prop_edgeDepth_le 1.504059 1.445510 1.386961 1.328412))
 
 def prop_edgeDepth_noon (f : Float) (a : Float) (sag : Float) : Bool :=
   let v3 := (f - sag)
   let v6 := ((3.141592653589793 : Float) / (2 : Float))
   (feq ((v3 * (Float.sin v6)) + (a * (Float.cos v6))) v3)
 
-#eval IO.println ("prop_edgeDepth_noon " ++ toString (prop_edgeDepth_noon 1.572571 1.514022 1.455473))
-#eval IO.println ("prop_edgeDepth_noon " ++ toString (prop_edgeDepth_noon 1.241379 1.182830 1.124281))
-#eval IO.println ("prop_edgeDepth_noon " ++ toString (prop_edgeDepth_noon 0.910187 0.851638 0.793089))
+#eval IO.println ("prop_edgeDepth_noon " ++ toString (prop_edgeDepth_noon 0.380291 0.321742 0.263193))
+#eval IO.println ("prop_edgeDepth_noon " ++ toString (prop_edgeDepth_noon 1.649099 1.590550 1.532001))
+#eval IO.println ("prop_edgeDepth_noon " ++ toString (prop_edgeDepth_noon 1.317907 1.259358 1.200809))
 
 def prop_edgeLever_dead (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Bool :=
   let v5 := (Float.sin t)
@@ -3109,9 +3509,9 @@ def prop_edgeLever_dead (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : 
   let v8 := (-ze)
   (!(feq (v5 * ((ym * a) - (hp * ze))) (v6 * ((ym * ze) + (hp * a)))) || (feq (((-ym) * (((-v7) * v5) + (v8 * v6))) - (hp * ((v7 * v6) + (v8 * v5)))) (0 : Float)))
 
-#eval IO.println ("prop_edgeLever_dead " ++ toString (prop_edgeLever_dead 1.386419 1.327870 1.269321 1.210772 1.152224))
-#eval IO.println ("prop_edgeLever_dead " ++ toString (prop_edgeLever_dead 1.055227 0.996678 0.938129 0.879580 0.821032))
-#eval IO.println ("prop_edgeLever_dead " ++ toString (prop_edgeLever_dead 0.724035 0.665486 0.606937 0.548388 0.489840))
+#eval IO.println ("prop_edgeLever_dead " ++ toString (prop_edgeLever_dead 1.794139 1.735590 1.677041 1.618492 1.559944))
+#eval IO.println ("prop_edgeLever_dead " ++ toString (prop_edgeLever_dead 1.462947 1.404398 1.345849 1.287300 1.228752))
+#eval IO.println ("prop_edgeLever_dead " ++ toString (prop_edgeLever_dead 1.131755 1.073206 1.014657 0.956108 0.897560))
 
 def prop_edgeLever_pos_iff (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Bool :=
   let v5 := (-a)
@@ -3124,25 +3524,25 @@ def prop_edgeLever_pos_iff (ym : Float) (hp : Float) (a : Float) (ze : Float) (t
   let v21 := (((v11 - v16) ^ 2) + ((v15 - hp) ^ 2))
   (!((0 : Float) < v21) || (((0 : Float) < (((v16 * v15) - (hp * v11)) / (Float.sqrt v21))) == ((v8 * ((ym * a) - (hp * ze))) < (v6 * ((ym * ze) + (hp * a))))))
 
-#eval IO.println ("prop_edgeLever_pos_iff " ++ toString (prop_edgeLever_pos_iff 1.200267 1.141718 1.083169 1.024620 0.966072))
-#eval IO.println ("prop_edgeLever_pos_iff " ++ toString (prop_edgeLever_pos_iff 0.869075 0.810526 0.751977 0.693428 0.634880))
-#eval IO.println ("prop_edgeLever_pos_iff " ++ toString (prop_edgeLever_pos_iff 0.537883 0.479334 0.420785 0.362236 0.303688))
+#eval IO.println ("prop_edgeLever_pos_iff " ++ toString (prop_edgeLever_pos_iff 1.607987 1.549438 1.490889 1.432340 1.373792))
+#eval IO.println ("prop_edgeLever_pos_iff " ++ toString (prop_edgeLever_pos_iff 1.276795 1.218246 1.159697 1.101148 1.042600))
+#eval IO.println ("prop_edgeLever_pos_iff " ++ toString (prop_edgeLever_pos_iff 0.945603 0.887054 0.828505 0.769956 0.711408))
 
 def prop_elPower_eq_wire (rw : Float) (W : Float) (rcm : Float) (t : Float) (omega : Float) : Bool :=
   let v7 := ((W * rcm) * (Float.sin t))
   (!(!(feq rw (0 : Float))) || (feq ((v7 / rw) * (rw * omega)) (v7 * omega)))
 
-#eval IO.println ("prop_elPower_eq_wire " ++ toString (prop_elPower_eq_wire 1.014115 0.955566 0.897017 0.838468 0.779920))
-#eval IO.println ("prop_elPower_eq_wire " ++ toString (prop_elPower_eq_wire 0.682923 0.624374 0.565825 0.507276 0.448728))
-#eval IO.println ("prop_elPower_eq_wire " ++ toString (prop_elPower_eq_wire 0.351731 0.293182 0.234633 1.776084 1.717536))
+#eval IO.println ("prop_elPower_eq_wire " ++ toString (prop_elPower_eq_wire 1.421835 1.363286 1.304737 1.246188 1.187640))
+#eval IO.println ("prop_elPower_eq_wire " ++ toString (prop_elPower_eq_wire 1.090643 1.032094 0.973545 0.914996 0.856448))
+#eval IO.println ("prop_elPower_eq_wire " ++ toString (prop_elPower_eq_wire 0.759451 0.700902 0.642353 0.583804 0.525256))
 
 def prop_elPower_le (W : Float) (rcm : Float) (omega : Float) (t : Float) : Bool :=
   let v4 := (W * rcm)
   (!((0 : Float) <= W) || (!((0 : Float) <= rcm) || (!((0 : Float) <= omega) || (((v4 * (Float.sin t)) * omega) <= (v4 * omega)))))
 
-#eval IO.println ("prop_elPower_le " ++ toString (prop_elPower_le 0.827963 0.769414 0.710865 0.652316))
-#eval IO.println ("prop_elPower_le " ++ toString (prop_elPower_le 0.496771 0.438222 0.379673 0.321124))
-#eval IO.println ("prop_elPower_le " ++ toString (prop_elPower_le 1.765579 1.707030 1.648481 1.589932))
+#eval IO.println ("prop_elPower_le " ++ toString (prop_elPower_le 1.235683 1.177134 1.118585 1.060036))
+#eval IO.println ("prop_elPower_le " ++ toString (prop_elPower_le 0.904491 0.845942 0.787393 0.728844))
+#eval IO.println ("prop_elPower_le " ++ toString (prop_elPower_le 0.573299 0.514750 0.456201 0.397652))
 
 def prop_facetSpot_hashemi  : Bool :=
   (feq ((0.05 : Float) + ((1 : Float) * (0.0093 : Float))) (0.0593 : Float))
@@ -3156,9 +3556,9 @@ def prop_focus_on_axis (psi : Float) (p_1 : Float) (p_2 : Float) : Bool :=
   let v4 := (Float.sin psi)
   (!(!(feq v3 (1 : Float))) || (!((feq ((v3 * p_1) - (v4 * p_2)) p_1) && (feq ((v4 * p_1) + (v3 * p_2)) p_2)) || ((feq p_1 (0 : Float)) && (feq p_2 (0 : Float)))))
 
-#eval IO.println ("prop_focus_on_axis " ++ toString (prop_focus_on_axis 0.455659 0.397110 0.338561))
-#eval IO.println ("prop_focus_on_axis " ++ toString (prop_focus_on_axis 1.724467 1.665918 1.607369))
-#eval IO.println ("prop_focus_on_axis " ++ toString (prop_focus_on_axis 1.393275 1.334726 1.276177))
+#eval IO.println ("prop_focus_on_axis " ++ toString (prop_focus_on_axis 0.863379 0.804830 0.746281))
+#eval IO.println ("prop_focus_on_axis " ++ toString (prop_focus_on_axis 0.532187 0.473638 0.415089))
+#eval IO.println ("prop_focus_on_axis " ++ toString (prop_focus_on_axis 0.200995 1.742446 1.683897))
 
 def prop_grooved_reciprocal_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Bool :=
   let v13 := ((0 : Float) * (0 : Float))
@@ -3176,9 +3576,9 @@ def prop_grooved_reciprocal_yaw (c_chord : Float) (c_apexH : Float) (c_aBase : F
   let v31 := ((0 : Float) * c_apexH)
   ((feq (((((((0 : Float) * (v13 - v14)) + ((0 : Float) * (v16 - v13))) + ((1 : Float) * (v13 - v17))) + v17) + v13) + v13) (0 : Float)) && ((feq (((((((0 : Float) * (v13 - v16)) + ((0 : Float) * (v14 - v13))) + ((1 : Float) * (v17 - v13))) + v13) + v17) + v13) (0 : Float)) && ((feq (((((((0 : Float) * (v17 - v14)) + ((0 : Float) * (v14 - v17))) + ((1 : Float) * (v13 - v13))) + v13) + v13) + v17) (0 : Float)) && ((feq (((((((0 : Float) * ((v19 * (1 : Float)) - v20)) + v27) + ((1 : Float) * (v21 - v22))) + v13) + v13) + v17) (0 : Float)) && ((feq (((((((0 : Float) * ((v23 * (1 : Float)) - v20)) + v27) + ((1 : Float) * (v21 - v24))) + v13) + v13) + v17) (0 : Float)) && ((feq (((((((0 : Float) * (v22 - (b_zRail * v19))) + v30) + ((1 : Float) * ((c_apexH * v19) - (v19 * c_apexH)))) + v31) + ((0 : Float) * v19)) + v13) (0 : Float)) && (feq (((((((0 : Float) * (v24 - (b_zRail * v23))) + v30) + ((1 : Float) * ((c_apexH * v23) - (v23 * c_apexH)))) + v31) + ((0 : Float) * v23)) + v13) (0 : Float))))))))
 
-#eval IO.println ("prop_grooved_reciprocal_yaw " ++ toString (prop_grooved_reciprocal_yaw 0.269507 0.210958 1.752409 1.693860 1.635312 1.576763 1.518214 1.459665 1.401116 1.342568 1.284019 1.225470))
-#eval IO.println ("prop_grooved_reciprocal_yaw " ++ toString (prop_grooved_reciprocal_yaw 1.538315 1.479766 1.421217 1.362668 1.304120 1.245571 1.187022 1.128473 1.069924 1.011376 0.952827 0.894278))
-#eval IO.println ("prop_grooved_reciprocal_yaw " ++ toString (prop_grooved_reciprocal_yaw 1.207123 1.148574 1.090025 1.031476 0.972928 0.914379 0.855830 0.797281 0.738732 0.680184 0.621635 0.563086))
+#eval IO.println ("prop_grooved_reciprocal_yaw " ++ toString (prop_grooved_reciprocal_yaw 0.677227 0.618678 0.560129 0.501580 0.443032 0.384483 0.325934 0.267385 0.208836 1.750288 1.691739 1.633190))
+#eval IO.println ("prop_grooved_reciprocal_yaw " ++ toString (prop_grooved_reciprocal_yaw 0.346035 0.287486 0.228937 1.770388 1.711840 1.653291 1.594742 1.536193 1.477644 1.419096 1.360547 1.301998))
+#eval IO.println ("prop_grooved_reciprocal_yaw " ++ toString (prop_grooved_reciprocal_yaw 1.614843 1.556294 1.497745 1.439196 1.380648 1.322099 1.263550 1.205001 1.146452 1.087904 1.029355 0.970806))
 
 def prop_grooved_relation_x (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Bool :=
   let v13 := (c_chord / (2 : Float))
@@ -3199,9 +3599,9 @@ def prop_grooved_relation_x (c_chord : Float) (c_apexH : Float) (c_aBase : Float
   let v34 := (v28 * (v21 - ((2 : Float) * (0 : Float))))
   ((feq (((c_apexH + c_apexH) - (v22 * (1 : Float))) + v34) (0 : Float)) && ((feq (((v13 + v19) - v27) + v34) (0 : Float)) && ((feq ((v21 - v27) + (v28 * (((1 : Float) + (1 : Float)) - ((2 : Float) * (1 : Float))))) (0 : Float)) && ((feq ((((v15 - (b_zRail * v13)) + (v20 - (b_zRail * v19))) - (v22 * (v23 - v24))) + (v28 * ((((v13 * (1 : Float)) - v29) + ((v19 * (1 : Float)) - v29)) - ((2 : Float) * (v26 - v24))))) (0 : Float)) && ((feq (((v18 + v18) - (v22 * ((b_zBearing * (1 : Float)) - v23))) + (v28 * ((v31 + v31) - ((2 : Float) * (v24 - v26))))) (0 : Float)) && (feq (((((c_apexH * v13) - (v13 * c_apexH)) + ((c_apexH * v19) - (v19 * c_apexH))) - (v22 * (v23 - v26))) + (v28 * (((v16 - v15) + (v16 - v20)) - ((2 : Float) * (v23 - v23))))) (0 : Float)))))))
 
-#eval IO.println ("prop_grooved_relation_x " ++ toString (prop_grooved_relation_x 1.683355 1.624806 1.566257 1.507708 1.449160 1.390611 1.332062 1.273513 1.214964 1.156416 1.097867 1.039318))
-#eval IO.println ("prop_grooved_relation_x " ++ toString (prop_grooved_relation_x 1.352163 1.293614 1.235065 1.176516 1.117968 1.059419 1.000870 0.942321 0.883772 0.825224 0.766675 0.708126))
-#eval IO.println ("prop_grooved_relation_x " ++ toString (prop_grooved_relation_x 1.020971 0.962422 0.903873 0.845324 0.786776 0.728227 0.669678 0.611129 0.552580 0.494032 0.435483 0.376934))
+#eval IO.println ("prop_grooved_relation_x " ++ toString (prop_grooved_relation_x 0.491075 0.432526 0.373977 0.315428 0.256880 1.798331 1.739782 1.681233 1.622684 1.564136 1.505587 1.447038))
+#eval IO.println ("prop_grooved_relation_x " ++ toString (prop_grooved_relation_x 1.759883 1.701334 1.642785 1.584236 1.525688 1.467139 1.408590 1.350041 1.291492 1.232944 1.174395 1.115846))
+#eval IO.println ("prop_grooved_relation_x " ++ toString (prop_grooved_relation_x 1.428691 1.370142 1.311593 1.253044 1.194496 1.135947 1.077398 1.018849 0.960300 0.901752 0.843203 0.784654))
 
 def prop_grooved_relation_y (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Bool :=
   let v13 := (c_chord / (2 : Float))
@@ -3219,9 +3619,9 @@ def prop_grooved_relation_y (c_chord : Float) (c_apexH : Float) (c_aBase : Float
   let v29 := (v24 * v21)
   ((feq (((c_apexH - c_apexH) - v23) - v29) (0 : Float)) && ((feq (((v13 - v19) - (c_chord * (1 : Float))) - v29) (0 : Float)) && ((feq ((v21 - v23) - (v24 * ((1 : Float) - (1 : Float)))) (0 : Float)) && ((feq ((((v15 - (b_zRail * v13)) - (v20 - (b_zRail * v19))) - (c_chord * (v22 - (b_zBearing * (1 : Float))))) - (v24 * (((v13 * (1 : Float)) - v25) - ((v19 * (1 : Float)) - v25)))) (0 : Float)) && ((feq (((v18 - v18) - (c_chord * ((b_zBearing * (0 : Float)) - v22))) - (v24 * (v28 - v28))) (0 : Float)) && (feq (((((c_apexH * v13) - (v13 * c_apexH)) - ((c_apexH * v19) - (v19 * c_apexH))) - (c_chord * (((0 : Float) * (1 : Float)) - v22))) - (v24 * ((v16 - v15) - (v16 - v20)))) (0 : Float)))))))
 
-#eval IO.println ("prop_grooved_relation_y " ++ toString (prop_grooved_relation_y 1.497203 1.438654 1.380105 1.321556 1.263008 1.204459 1.145910 1.087361 1.028812 0.970264 0.911715 0.853166))
-#eval IO.println ("prop_grooved_relation_y " ++ toString (prop_grooved_relation_y 1.166011 1.107462 1.048913 0.990364 0.931816 0.873267 0.814718 0.756169 0.697620 0.639072 0.580523 0.521974))
-#eval IO.println ("prop_grooved_relation_y " ++ toString (prop_grooved_relation_y 0.834819 0.776270 0.717721 0.659172 0.600624 0.542075 0.483526 0.424977 0.366428 0.307880 0.249331 1.790782))
+#eval IO.println ("prop_grooved_relation_y " ++ toString (prop_grooved_relation_y 0.304923 0.246374 1.787825 1.729276 1.670728 1.612179 1.553630 1.495081 1.436532 1.377984 1.319435 1.260886))
+#eval IO.println ("prop_grooved_relation_y " ++ toString (prop_grooved_relation_y 1.573731 1.515182 1.456633 1.398084 1.339536 1.280987 1.222438 1.163889 1.105340 1.046792 0.988243 0.929694))
+#eval IO.println ("prop_grooved_relation_y " ++ toString (prop_grooved_relation_y 1.242539 1.183990 1.125441 1.066892 1.008344 0.949795 0.891246 0.832697 0.774148 0.715600 0.657051 0.598502))
 
 def prop_hangerLength_bounds  : Bool :=
   let v6 := (Float.sqrt ((4.36 : Float) - ((2 : Float) * (Float.sqrt (3.2 : Float)))))
@@ -3290,9 +3690,9 @@ def prop_hinge_freedom (xh : Float) (zBolt : Float) (t_0 : Float) (t_1 : Float) 
   let v19 := (t_0 * (0 : Float))
   (!((feq ((((((t_0 * (v9 - v10)) + (t_1 * (v12 - v13))) + (t_2 * (v13 - v14))) + (t_3 * (1 : Float))) + v16) + v17) (0 : Float)) && ((feq ((((((t_0 * (v9 - v12)) + (t_1 * (v10 - v13))) + (t_2 * (v15 - v9))) + v18) + (t_4 * (1 : Float))) + v17) (0 : Float)) && ((feq ((((((t_0 * (v14 - v10)) + (t_1 * (v10 - v15))) + (t_2 * (v13 - v9))) + v18) + v16) + (t_5 * (1 : Float))) (0 : Float)) && ((feq (((((v19 + (t_1 * (1 : Float))) + (t_2 * (0 : Float))) + v18) + v16) + v17) (0 : Float)) && (feq (((((v19 + (t_1 * (0 : Float))) + (t_2 * (1 : Float))) + v18) + v16) + v17) (0 : Float)))))) || ((feq t_1 (0 : Float)) && ((feq t_2 (0 : Float)) && ((feq t_3 (0 : Float)) && ((feq t_4 (t_0 * zBolt)) && (feq t_5 (0 : Float)))))))
 
-#eval IO.println ("prop_hinge_freedom " ++ toString (prop_hinge_freedom 1.607987 1.549438 1.490889 1.432340 1.373792 1.315243 1.256694 1.198145))
-#eval IO.println ("prop_hinge_freedom " ++ toString (prop_hinge_freedom 1.276795 1.218246 1.159697 1.101148 1.042600 0.984051 0.925502 0.866953))
-#eval IO.println ("prop_hinge_freedom " ++ toString (prop_hinge_freedom 0.945603 0.887054 0.828505 0.769956 0.711408 0.652859 0.594310 0.535761))
+#eval IO.println ("prop_hinge_freedom " ++ toString (prop_hinge_freedom 0.415707 0.357158 0.298609 0.240060 1.781512 1.722963 1.664414 1.605865))
+#eval IO.println ("prop_hinge_freedom " ++ toString (prop_hinge_freedom 1.684515 1.625966 1.567417 1.508868 1.450320 1.391771 1.333222 1.274673))
+#eval IO.println ("prop_hinge_freedom " ++ toString (prop_hinge_freedom 1.353323 1.294774 1.236225 1.177676 1.119128 1.060579 1.002030 0.943481))
 
 def prop_hinge_freedom_smul (xh : Float) (zBolt : Float) (apexH : Float) (t_0 : Float) (t_1 : Float) (t_2 : Float) (t_3 : Float) (t_4 : Float) (t_5 : Float) : Bool :=
   let v10 := ((0 : Float) * (0 : Float))
@@ -3309,9 +3709,9 @@ def prop_hinge_freedom_smul (xh : Float) (zBolt : Float) (apexH : Float) (t_0 : 
   let v23 := (apexH * (0 : Float))
   (!((feq (((((v18 + (t_1 * (v13 - v14))) + (t_2 * (v14 - v15))) + (t_3 * (1 : Float))) + v19) + v20) (0 : Float)) && ((feq ((((((t_0 * (v10 - v13)) + (t_1 * (v11 - v14))) + (t_2 * (v16 - v10))) + v21) + (t_4 * (1 : Float))) + v20) (0 : Float)) && ((feq ((((((t_0 * (v15 - v11)) + (t_1 * (v11 - v16))) + (t_2 * (v14 - v10))) + v21) + v19) + (t_5 * (1 : Float))) (0 : Float)) && ((feq (((((v22 + (t_1 * (1 : Float))) + (t_2 * (0 : Float))) + v21) + v19) + v20) (0 : Float)) && (feq (((((v22 + (t_1 * (0 : Float))) + (t_2 * (1 : Float))) + v21) + v19) + v20) (0 : Float)))))) || ((feq t_0 (t_0 * (1 : Float))) && ((feq t_1 v22) && ((feq t_2 v22) && ((feq t_3 v18) && ((feq t_4 (t_0 * (v13 - v23))) && (feq t_5 (t_0 * (v23 - v15)))))))))
 
-#eval IO.println ("prop_hinge_freedom_smul " ++ toString (prop_hinge_freedom_smul 1.421835 1.363286 1.304737 1.246188 1.187640 1.129091 1.070542 1.011993 0.953444))
-#eval IO.println ("prop_hinge_freedom_smul " ++ toString (prop_hinge_freedom_smul 1.090643 1.032094 0.973545 0.914996 0.856448 0.797899 0.739350 0.680801 0.622252))
-#eval IO.println ("prop_hinge_freedom_smul " ++ toString (prop_hinge_freedom_smul 0.759451 0.700902 0.642353 0.583804 0.525256 0.466707 0.408158 0.349609 0.291060))
+#eval IO.println ("prop_hinge_freedom_smul " ++ toString (prop_hinge_freedom_smul 0.229555 1.771006 1.712457 1.653908 1.595360 1.536811 1.478262 1.419713 1.361164))
+#eval IO.println ("prop_hinge_freedom_smul " ++ toString (prop_hinge_freedom_smul 1.498363 1.439814 1.381265 1.322716 1.264168 1.205619 1.147070 1.088521 1.029972))
+#eval IO.println ("prop_hinge_freedom_smul " ++ toString (prop_hinge_freedom_smul 1.167171 1.108622 1.050073 0.991524 0.932976 0.874427 0.815878 0.757329 0.698780))
 
 def prop_hinge_reciprocal_swing (xh : Float) (zBolt : Float) (apexH : Float) : Bool :=
   let v4 := ((0 : Float) * (0 : Float))
@@ -3330,9 +3730,9 @@ def prop_hinge_reciprocal_swing (xh : Float) (zBolt : Float) (apexH : Float) : B
   let v18 := ((1 : Float) * (0 : Float))
   ((feq (((((((1 : Float) * v6) + ((0 : Float) * (v8 - v13))) + ((0 : Float) * (v13 - v11))) + (v6 * (1 : Float))) + v15) + v16) (0 : Float)) && ((feq (((((((1 : Float) * (v4 - v8)) + ((0 : Float) * (v5 - v13))) + ((0 : Float) * (v14 - v4))) + v17) + (v10 * (1 : Float))) + v16) (0 : Float)) && ((feq (((((((1 : Float) * (v11 - v5)) + ((0 : Float) * (v5 - v14))) + ((0 : Float) * (v13 - v4))) + v17) + v15) + (v12 * (1 : Float))) (0 : Float)) && ((feq (((((v18 + v11) + v4) + v17) + v15) + v16) (0 : Float)) && (feq (((((v18 + v4) + v11) + v17) + v15) + v16) (0 : Float))))))
 
-#eval IO.println ("prop_hinge_reciprocal_swing " ++ toString (prop_hinge_reciprocal_swing 1.235683 1.177134 1.118585))
-#eval IO.println ("prop_hinge_reciprocal_swing " ++ toString (prop_hinge_reciprocal_swing 0.904491 0.845942 0.787393))
-#eval IO.println ("prop_hinge_reciprocal_swing " ++ toString (prop_hinge_reciprocal_swing 0.573299 0.514750 0.456201))
+#eval IO.println ("prop_hinge_reciprocal_swing " ++ toString (prop_hinge_reciprocal_swing 1.643403 1.584854 1.526305))
+#eval IO.println ("prop_hinge_reciprocal_swing " ++ toString (prop_hinge_reciprocal_swing 1.312211 1.253662 1.195113))
+#eval IO.println ("prop_hinge_reciprocal_swing " ++ toString (prop_hinge_reciprocal_swing 0.981019 0.922470 0.863921))
 
 def prop_lean_one_degree  : Bool :=
   ((0.02 : Float) < ((1.25 : Float) * (Float.sin ((3.141592653589793 : Float) / (180 : Float)))))
@@ -3353,9 +3753,9 @@ def prop_lowestSun_tan_at_ym  : Bool :=
 def prop_m12_carries_dish (W : Float) : Bool :=
   (!(W <= (1000 : Float)) || ((((W / (2 : Float)) * (0.03 : Float)) / (((3.141592653589793 : Float) * ((0.0101 : Float) ^ 3)) / (32 : Float))) < (16e7 : Float)))
 
-#eval IO.println ("prop_m12_carries_dish " ++ toString (prop_m12_carries_dish 0.677227))
-#eval IO.println ("prop_m12_carries_dish " ++ toString (prop_m12_carries_dish 0.346035))
-#eval IO.println ("prop_m12_carries_dish " ++ toString (prop_m12_carries_dish 1.614843))
+#eval IO.println ("prop_m12_carries_dish " ++ toString (prop_m12_carries_dish 1.084947))
+#eval IO.println ("prop_m12_carries_dish " ++ toString (prop_m12_carries_dish 0.753755))
+#eval IO.println ("prop_m12_carries_dish " ++ toString (prop_m12_carries_dish 0.422563))
 
 def prop_mastClears_hashemi  : Bool :=
   ((Float.sqrt (((0.8 : Float) ^ 2) + (((Float.sqrt (3.36 : Float)) - (1 : Float)) ^ 2))) < (1.22 : Float))
@@ -3368,9 +3768,9 @@ def prop_mastClears_hashemi_iff (ym : Float) : Bool :=
   let v2 := (Float.sqrt (3.36 : Float))
   (((Float.sqrt (((0.8 : Float) ^ 2) + ((v2 - (1 : Float)) ^ 2))) < ym) == ((Float.sqrt ((5 : Float) - ((2 : Float) * v2))) < ym))
 
-#eval IO.println ("prop_mastClears_hashemi_iff " ++ toString (prop_mastClears_hashemi_iff 0.304923))
-#eval IO.println ("prop_mastClears_hashemi_iff " ++ toString (prop_mastClears_hashemi_iff 1.573731))
-#eval IO.println ("prop_mastClears_hashemi_iff " ++ toString (prop_mastClears_hashemi_iff 1.242539))
+#eval IO.println ("prop_mastClears_hashemi_iff " ++ toString (prop_mastClears_hashemi_iff 0.712643))
+#eval IO.println ("prop_mastClears_hashemi_iff " ++ toString (prop_mastClears_hashemi_iff 0.381451))
+#eval IO.println ("prop_mastClears_hashemi_iff " ++ toString (prop_mastClears_hashemi_iff 1.650259))
 
 def prop_mast_beyond_ring  : Bool :=
   ((Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2))) < ((0.80 : Float) + (1.22 : Float)))
@@ -3390,17 +3790,17 @@ def prop_mul_bounds_neg_pos (b : Float) (r : Float) (blo : Float) (bhi : Float) 
   let v6 := (b * r)
   (!(blo < b) || (!(b < bhi) || (!(bhi <= (0 : Float)) || (!(rlo < r) || (!(r < rhi) || (!((0 : Float) <= rlo) || (((blo * rhi) < v6) && (v6 < (bhi * rlo)))))))))
 
-#eval IO.println ("prop_mul_bounds_neg_pos " ++ toString (prop_mul_bounds_neg_pos 1.346467 1.287918 1.229369 1.170820 1.112272 1.053723))
-#eval IO.println ("prop_mul_bounds_neg_pos " ++ toString (prop_mul_bounds_neg_pos 1.015275 0.956726 0.898177 0.839628 0.781080 0.722531))
-#eval IO.println ("prop_mul_bounds_neg_pos " ++ toString (prop_mul_bounds_neg_pos 0.684083 0.625534 0.566985 0.508436 0.449888 0.391339))
+#eval IO.println ("prop_mul_bounds_neg_pos " ++ toString (prop_mul_bounds_neg_pos 1.754187 1.695638 1.637089 1.578540 1.519992 1.461443))
+#eval IO.println ("prop_mul_bounds_neg_pos " ++ toString (prop_mul_bounds_neg_pos 1.422995 1.364446 1.305897 1.247348 1.188800 1.130251))
+#eval IO.println ("prop_mul_bounds_neg_pos " ++ toString (prop_mul_bounds_neg_pos 1.091803 1.033254 0.974705 0.916156 0.857608 0.799059))
 
 def prop_mul_bounds_pos_pos (x : Float) (r : Float) (xlo : Float) (xhi : Float) (rlo : Float) (rhi : Float) : Bool :=
   let v6 := (x * r)
   (!(xlo < x) || (!(x < xhi) || (!((0 : Float) <= xlo) || (!(rlo < r) || (!(r < rhi) || (!((0 : Float) <= rlo) || (((xlo * rlo) < v6) && (v6 < (xhi * rhi)))))))))
 
-#eval IO.println ("prop_mul_bounds_pos_pos " ++ toString (prop_mul_bounds_pos_pos 1.160315 1.101766 1.043217 0.984668 0.926120 0.867571))
-#eval IO.println ("prop_mul_bounds_pos_pos " ++ toString (prop_mul_bounds_pos_pos 0.829123 0.770574 0.712025 0.653476 0.594928 0.536379))
-#eval IO.println ("prop_mul_bounds_pos_pos " ++ toString (prop_mul_bounds_pos_pos 0.497931 0.439382 0.380833 0.322284 0.263736 0.205187))
+#eval IO.println ("prop_mul_bounds_pos_pos " ++ toString (prop_mul_bounds_pos_pos 1.568035 1.509486 1.450937 1.392388 1.333840 1.275291))
+#eval IO.println ("prop_mul_bounds_pos_pos " ++ toString (prop_mul_bounds_pos_pos 1.236843 1.178294 1.119745 1.061196 1.002648 0.944099))
+#eval IO.println ("prop_mul_bounds_pos_pos " ++ toString (prop_mul_bounds_pos_pos 0.905651 0.847102 0.788553 0.730004 0.671456 0.612907))
 
 def prop_one_turn_tilt  : Bool :=
   let v4 := ((0.0015 : Float) / ((2 : Float) * (0.8 : Float)))
@@ -3421,47 +3821,47 @@ def prop_play_budget (f : Float) (eps : Float) (h : Float) (delta : Float) : Boo
   let v5 := (f * (Float.tan eps))
   (!(v5 <= (h - delta)) || ((v5 + delta) <= h))
 
-#eval IO.println ("prop_play_budget " ++ toString (prop_play_budget 0.601859 0.543310 0.484761 0.426212))
-#eval IO.println ("prop_play_budget " ++ toString (prop_play_budget 0.270667 0.212118 1.753569 1.695020))
-#eval IO.println ("prop_play_budget " ++ toString (prop_play_budget 1.539475 1.480926 1.422377 1.363828))
+#eval IO.println ("prop_play_budget " ++ toString (prop_play_budget 1.009579 0.951030 0.892481 0.833932))
+#eval IO.println ("prop_play_budget " ++ toString (prop_play_budget 0.678387 0.619838 0.561289 0.502740))
+#eval IO.println ("prop_play_budget " ++ toString (prop_play_budget 0.347195 0.288646 0.230097 1.771548))
 
 def prop_plumbed_shift (eps : Float) : Bool :=
   (!((0 : Float) <= eps) || (!(eps <= (0.0005 : Float)) || (((1.30 : Float) * (Float.sin eps)) <= (0.00065 : Float))))
 
-#eval IO.println ("prop_plumbed_shift " ++ toString (prop_plumbed_shift 0.415707))
-#eval IO.println ("prop_plumbed_shift " ++ toString (prop_plumbed_shift 1.684515))
-#eval IO.println ("prop_plumbed_shift " ++ toString (prop_plumbed_shift 1.353323))
+#eval IO.println ("prop_plumbed_shift " ++ toString (prop_plumbed_shift 0.823427))
+#eval IO.println ("prop_plumbed_shift " ++ toString (prop_plumbed_shift 0.492235))
+#eval IO.println ("prop_plumbed_shift " ++ toString (prop_plumbed_shift 1.761043))
 
 def prop_postTop_on_rail (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (sg : Float) : Bool :=
   let v13 := (c_chord / (2 : Float))
   let v14 := (c_apexH ^ 2)
   (!(feq (sg ^ 2) (1 : Float)) || (feq (v14 + ((sg * (v13 - (0 : Float))) ^ 2)) ((Float.sqrt ((v13 ^ 2) + v14)) ^ 2)))
 
-#eval IO.println ("prop_postTop_on_rail " ++ toString (prop_postTop_on_rail 0.229555 1.771006 1.712457 1.653908 1.595360 1.536811 1.478262 1.419713 1.361164 1.302616 1.244067 1.185518))
-#eval IO.println ("prop_postTop_on_rail " ++ toString (prop_postTop_on_rail 1.498363 1.439814 1.381265 1.322716 1.264168 1.205619 1.147070 1.088521 1.029972 0.971424 0.912875 0.854326))
-#eval IO.println ("prop_postTop_on_rail " ++ toString (prop_postTop_on_rail 1.167171 1.108622 1.050073 0.991524 0.932976 0.874427 0.815878 0.757329 0.698780 0.640232 0.581683 0.523134))
+#eval IO.println ("prop_postTop_on_rail " ++ toString (prop_postTop_on_rail 0.637275 0.578726 0.520177 0.461628 0.403080 0.344531 0.285982 0.227433 1.768884 1.710336 1.651787 1.593238))
+#eval IO.println ("prop_postTop_on_rail " ++ toString (prop_postTop_on_rail 0.306083 0.247534 1.788985 1.730436 1.671888 1.613339 1.554790 1.496241 1.437692 1.379144 1.320595 1.262046))
+#eval IO.println ("prop_postTop_on_rail " ++ toString (prop_postTop_on_rail 1.574891 1.516342 1.457793 1.399244 1.340696 1.282147 1.223598 1.165049 1.106500 1.047952 0.989403 0.930854))
 
 def prop_postTops_apart (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (endIn : Float) : Bool :=
   let v14 := ((c_chord / (2 : Float)) - endIn)
   (feq (((1 : Float) * v14) - ((-(1 : Float)) * v14)) (c_chord - ((2 : Float) * endIn)))
 
-#eval IO.println ("prop_postTops_apart " ++ toString (prop_postTops_apart 1.643403 1.584854 1.526305 1.467756 1.409208 1.350659 1.292110 1.233561 1.175012 1.116464 1.057915 0.999366))
-#eval IO.println ("prop_postTops_apart " ++ toString (prop_postTops_apart 1.312211 1.253662 1.195113 1.136564 1.078016 1.019467 0.960918 0.902369 0.843820 0.785272 0.726723 0.668174))
-#eval IO.println ("prop_postTops_apart " ++ toString (prop_postTops_apart 0.981019 0.922470 0.863921 0.805372 0.746824 0.688275 0.629726 0.571177 0.512628 0.454080 0.395531 0.336982))
+#eval IO.println ("prop_postTops_apart " ++ toString (prop_postTops_apart 0.451123 0.392574 0.334025 0.275476 0.216928 1.758379 1.699830 1.641281 1.582732 1.524184 1.465635 1.407086))
+#eval IO.println ("prop_postTops_apart " ++ toString (prop_postTops_apart 1.719931 1.661382 1.602833 1.544284 1.485736 1.427187 1.368638 1.310089 1.251540 1.192992 1.134443 1.075894))
+#eval IO.println ("prop_postTops_apart " ++ toString (prop_postTops_apart 1.388739 1.330190 1.271641 1.213092 1.154544 1.095995 1.037446 0.978897 0.920348 0.861800 0.803251 0.744702))
 
 def prop_postTops_level (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (endIn : Float) : Bool :=
   (feq l_upright l_upright)
 
-#eval IO.println ("prop_postTops_level " ++ toString (prop_postTops_level 1.457251 1.398702 1.340153 1.281604 1.223056 1.164507 1.105958 1.047409 0.988860 0.930312 0.871763 0.813214))
-#eval IO.println ("prop_postTops_level " ++ toString (prop_postTops_level 1.126059 1.067510 1.008961 0.950412 0.891864 0.833315 0.774766 0.716217 0.657668 0.599120 0.540571 0.482022))
-#eval IO.println ("prop_postTops_level " ++ toString (prop_postTops_level 0.794867 0.736318 0.677769 0.619220 0.560672 0.502123 0.443574 0.385025 0.326476 0.267928 0.209379 1.750830))
+#eval IO.println ("prop_postTops_level " ++ toString (prop_postTops_level 0.264971 0.206422 1.747873 1.689324 1.630776 1.572227 1.513678 1.455129 1.396580 1.338032 1.279483 1.220934))
+#eval IO.println ("prop_postTops_level " ++ toString (prop_postTops_level 1.533779 1.475230 1.416681 1.358132 1.299584 1.241035 1.182486 1.123937 1.065388 1.006840 0.948291 0.889742))
+#eval IO.println ("prop_postTops_level " ++ toString (prop_postTops_level 1.202587 1.144038 1.085489 1.026940 0.968392 0.909843 0.851294 0.792745 0.734196 0.675648 0.617099 0.558550))
 
 def prop_postTops_offAxis (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (l_upright : Float) (l_foot : Float) (l_brace : Float) (l_footShort : Float) (l_holes : Float) (endIn : Float) (sg : Float) : Bool :=
   (feq c_apexH c_apexH)
 
-#eval IO.println ("prop_postTops_offAxis " ++ toString (prop_postTops_offAxis 1.271099 1.212550 1.154001 1.095452 1.036904 0.978355 0.919806 0.861257 0.802708 0.744160 0.685611 0.627062 0.568513))
-#eval IO.println ("prop_postTops_offAxis " ++ toString (prop_postTops_offAxis 0.939907 0.881358 0.822809 0.764260 0.705712 0.647163 0.588614 0.530065 0.471516 0.412968 0.354419 0.295870 0.237321))
-#eval IO.println ("prop_postTops_offAxis " ++ toString (prop_postTops_offAxis 0.608715 0.550166 0.491617 0.433068 0.374520 0.315971 0.257422 1.798873 1.740324 1.681776 1.623227 1.564678 1.506129))
+#eval IO.println ("prop_postTops_offAxis " ++ toString (prop_postTops_offAxis 1.678819 1.620270 1.561721 1.503172 1.444624 1.386075 1.327526 1.268977 1.210428 1.151880 1.093331 1.034782 0.976233))
+#eval IO.println ("prop_postTops_offAxis " ++ toString (prop_postTops_offAxis 1.347627 1.289078 1.230529 1.171980 1.113432 1.054883 0.996334 0.937785 0.879236 0.820688 0.762139 0.703590 0.645041))
+#eval IO.println ("prop_postTops_offAxis " ++ toString (prop_postTops_offAxis 1.016435 0.957886 0.899337 0.840788 0.782240 0.723691 0.665142 0.606593 0.548044 0.489496 0.430947 0.372398 0.313849))
 
 def prop_pulley_above_pivot  : Bool :=
   (feq ((1.59 : Float) - ((1.30 : Float) - (0.05 : Float))) (0.34 : Float))
@@ -3474,9 +3874,9 @@ def prop_reachesVertical_iff (ym : Float) (hp : Float) (a : Float) (ze : Float) 
   let v4 := (ym * a)
   (!((0 : Float) < ze) || ((v4 <= (hp * ze)) == ((v4 / ze) <= hp)))
 
-#eval IO.println ("prop_reachesVertical_iff " ++ toString (prop_reachesVertical_iff 0.898795 0.840246 0.781697 0.723148))
-#eval IO.println ("prop_reachesVertical_iff " ++ toString (prop_reachesVertical_iff 0.567603 0.509054 0.450505 0.391956))
-#eval IO.println ("prop_reachesVertical_iff " ++ toString (prop_reachesVertical_iff 0.236411 1.777862 1.719313 1.660764))
+#eval IO.println ("prop_reachesVertical_iff " ++ toString (prop_reachesVertical_iff 1.306515 1.247966 1.189417 1.130868))
+#eval IO.println ("prop_reachesVertical_iff " ++ toString (prop_reachesVertical_iff 0.975323 0.916774 0.858225 0.799676))
+#eval IO.println ("prop_reachesVertical_iff " ++ toString (prop_reachesVertical_iff 0.644131 0.585582 0.527033 0.468484))
 
 def prop_receiverPost_height  : Bool :=
   (feq ((1.30 : Float) - (0.05 : Float)) (1.25 : Float))
@@ -3489,9 +3889,9 @@ def prop_rim_under_F_iff (a : Float) (ze : Float) (t : Float) : Bool :=
   let v3 := (Float.cos t)
   (!((0 : Float) < ze) || (!((0 : Float) < v3) || ((feq ((a * v3) + ((-ze) * (Float.sin t))) (0 : Float)) == (feq (Float.tan t) (a / ze)))))
 
-#eval IO.println ("prop_rim_under_F_iff " ++ toString (prop_rim_under_F_iff 0.526491 0.467942 0.409393))
-#eval IO.println ("prop_rim_under_F_iff " ++ toString (prop_rim_under_F_iff 1.795299 1.736750 1.678201))
-#eval IO.println ("prop_rim_under_F_iff " ++ toString (prop_rim_under_F_iff 1.464107 1.405558 1.347009))
+#eval IO.println ("prop_rim_under_F_iff " ++ toString (prop_rim_under_F_iff 0.934211 0.875662 0.817113))
+#eval IO.println ("prop_rim_under_F_iff " ++ toString (prop_rim_under_F_iff 0.603019 0.544470 0.485921))
+#eval IO.println ("prop_rim_under_F_iff " ++ toString (prop_rim_under_F_iff 0.271827 0.213278 1.754729))
 
 def prop_rodTan_bounds  : Bool :=
   let v5 := ((0.4 : Float) / ((Float.sqrt (3.2 : Float)) - (1 : Float)))
@@ -3519,17 +3919,17 @@ def prop_rollerRadius_hashemi_bounds  : Bool :=
 def prop_rollerRadius_pos (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) : Bool :=
   ((0 : Float) < (Float.sqrt (((c_chord / (2 : Float)) ^ 2) + (c_apexH ^ 2))))
 
-#eval IO.println ("prop_rollerRadius_pos " ++ toString (prop_rollerRadius_pos 1.381883 1.323334 1.264785 1.206236 1.147688 1.089139))
-#eval IO.println ("prop_rollerRadius_pos " ++ toString (prop_rollerRadius_pos 1.050691 0.992142 0.933593 0.875044 0.816496 0.757947))
-#eval IO.println ("prop_rollerRadius_pos " ++ toString (prop_rollerRadius_pos 0.719499 0.660950 0.602401 0.543852 0.485304 0.426755))
+#eval IO.println ("prop_rollerRadius_pos " ++ toString (prop_rollerRadius_pos 1.789603 1.731054 1.672505 1.613956 1.555408 1.496859))
+#eval IO.println ("prop_rollerRadius_pos " ++ toString (prop_rollerRadius_pos 1.458411 1.399862 1.341313 1.282764 1.224216 1.165667))
+#eval IO.println ("prop_rollerRadius_pos " ++ toString (prop_rollerRadius_pos 1.127219 1.068670 1.010121 0.951572 0.893024 0.834475))
 
 def prop_rollerRadius_sq (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) : Bool :=
   let v10 := (((c_chord / (2 : Float)) ^ 2) + (c_apexH ^ 2))
   (feq ((Float.sqrt v10) ^ 2) v10)
 
-#eval IO.println ("prop_rollerRadius_sq " ++ toString (prop_rollerRadius_sq 1.195731 1.137182 1.078633 1.020084 0.961536 0.902987))
-#eval IO.println ("prop_rollerRadius_sq " ++ toString (prop_rollerRadius_sq 0.864539 0.805990 0.747441 0.688892 0.630344 0.571795))
-#eval IO.println ("prop_rollerRadius_sq " ++ toString (prop_rollerRadius_sq 0.533347 0.474798 0.416249 0.357700 0.299152 0.240603))
+#eval IO.println ("prop_rollerRadius_sq " ++ toString (prop_rollerRadius_sq 1.603451 1.544902 1.486353 1.427804 1.369256 1.310707))
+#eval IO.println ("prop_rollerRadius_sq " ++ toString (prop_rollerRadius_sq 1.272259 1.213710 1.155161 1.096612 1.038064 0.979515))
+#eval IO.println ("prop_rollerRadius_sq " ++ toString (prop_rollerRadius_sq 0.941067 0.882518 0.823969 0.765420 0.706872 0.648323))
 
 def prop_roller_rpm_hashemi  : Bool :=
   let v6 := ((((2 : Float) / (360 : Float)) * (1.2192 : Float)) / (0.05 : Float))
@@ -3545,17 +3945,17 @@ def prop_rotz_dot (delta : Float) (u_0 : Float) (u_1 : Float) (u_2 : Float) (v_0
   let v9 := (u_2 * v_2)
   (feq (((((v7 * u_0) - (v8 * u_1)) * ((v7 * v_0) - (v8 * v_1))) + (((v8 * u_0) + (v7 * u_1)) * ((v8 * v_0) + (v7 * v_1)))) + v9) (((u_0 * v_0) + (u_1 * v_1)) + v9))
 
-#eval IO.println ("prop_rotz_dot " ++ toString (prop_rotz_dot 0.823427 0.764878 0.706329 0.647780 0.589232 0.530683 0.472134))
-#eval IO.println ("prop_rotz_dot " ++ toString (prop_rotz_dot 0.492235 0.433686 0.375137 0.316588 0.258040 1.799491 1.740942))
-#eval IO.println ("prop_rotz_dot " ++ toString (prop_rotz_dot 1.761043 1.702494 1.643945 1.585396 1.526848 1.468299 1.409750))
+#eval IO.println ("prop_rotz_dot " ++ toString (prop_rotz_dot 1.231147 1.172598 1.114049 1.055500 0.996952 0.938403 0.879854))
+#eval IO.println ("prop_rotz_dot " ++ toString (prop_rotz_dot 0.899955 0.841406 0.782857 0.724308 0.665760 0.607211 0.548662))
+#eval IO.println ("prop_rotz_dot " ++ toString (prop_rotz_dot 0.568763 0.510214 0.451665 0.393116 0.334568 0.276019 0.217470))
 
 def prop_screwLength_eq_focal (R : Float) (a : Float) : Bool :=
   let v6 := (R - (Float.sqrt ((R ^ 2) - (a ^ 2))))
   (feq ((R / (2 : Float)) - v6) ((R - (R / ((2 : Float) * (Float.cos (Float.asin ((0 : Float) / R)))))) - v6))
 
-#eval IO.println ("prop_screwLength_eq_focal " ++ toString (prop_screwLength_eq_focal 0.637275 0.578726))
-#eval IO.println ("prop_screwLength_eq_focal " ++ toString (prop_screwLength_eq_focal 0.306083 0.247534))
-#eval IO.println ("prop_screwLength_eq_focal " ++ toString (prop_screwLength_eq_focal 1.574891 1.516342))
+#eval IO.println ("prop_screwLength_eq_focal " ++ toString (prop_screwLength_eq_focal 1.044995 0.986446))
+#eval IO.println ("prop_screwLength_eq_focal " ++ toString (prop_screwLength_eq_focal 0.713803 0.655254))
+#eval IO.println ("prop_screwLength_eq_focal " ++ toString (prop_screwLength_eq_focal 0.382611 0.324062))
 
 def prop_screwLength_hashemi  : Bool :=
   (feq (((2 : Float) / (2 : Float)) - ((2 : Float) - (Float.sqrt (((2 : Float) ^ 2) - ((1 : Float) ^ 2))))) ((Float.sqrt (3 : Float)) - (1 : Float)))
@@ -3577,9 +3977,9 @@ def prop_screwTwist_zero (apexH : Float) (zBolt : Float) : Bool :=
   let v4 := (feq (0 : Float) (0 : Float))
   ((feq (1 : Float) (1 : Float)) && (v4 && (v4 && ((feq (0 : Float) (((0 : Float) * (0 : Float)) - (zBolt * (0 : Float)))) && ((feq zBolt ((zBolt * (1 : Float)) - v3)) && (feq (0 : Float) (v3 - ((0 : Float) * (1 : Float)))))))))
 
-#eval IO.println ("prop_screwTwist_zero " ++ toString (prop_screwTwist_zero 1.678819 1.620270))
-#eval IO.println ("prop_screwTwist_zero " ++ toString (prop_screwTwist_zero 1.347627 1.289078))
-#eval IO.println ("prop_screwTwist_zero " ++ toString (prop_screwTwist_zero 1.016435 0.957886))
+#eval IO.println ("prop_screwTwist_zero " ++ toString (prop_screwTwist_zero 0.486539 0.427990))
+#eval IO.println ("prop_screwTwist_zero " ++ toString (prop_screwTwist_zero 1.755347 1.696798))
+#eval IO.println ("prop_screwTwist_zero " ++ toString (prop_screwTwist_zero 1.424155 1.365606))
 
 def prop_screw_freedom (xh : Float) (zBolt : Float) (h : Float) (t_0 : Float) (t_1 : Float) (t_2 : Float) (t_3 : Float) (t_4 : Float) (t_5 : Float) : Bool :=
   let v10 := ((0 : Float) * (0 : Float))
@@ -3593,9 +3993,9 @@ def prop_screw_freedom (xh : Float) (zBolt : Float) (h : Float) (t_0 : Float) (t
   let v19 := (t_2 * (0 : Float))
   (!((feq ((((((t_0 * (v10 - (zBolt * (1 : Float)))) + (t_1 * (v11 - v12))) + (t_2 * (v14 - v10))) + v15) + (t_4 * (1 : Float))) + v16) (0 : Float)) && ((feq ((((((t_0 * (((0 : Float) * (1 : Float)) - v11)) + (t_1 * (v11 - v14))) + (t_2 * (v12 - v10))) + v15) + v17) + (t_5 * (1 : Float))) (0 : Float)) && ((feq (((((v18 + (t_1 * (1 : Float))) + v19) + v15) + v17) + v16) (0 : Float)) && ((feq (((((v18 + (t_1 * (0 : Float))) + (t_2 * (1 : Float))) + v15) + v17) + v16) (0 : Float)) && (feq ((((((t_0 * (-h)) + (t_1 * zBolt)) + v19) + (t_3 * (1 : Float))) + v17) + v16) (0 : Float)))))) || ((feq t_1 (0 : Float)) && ((feq t_2 (0 : Float)) && ((feq t_3 (t_0 * h)) && ((feq t_4 (t_0 * zBolt)) && (feq t_5 (0 : Float)))))))
 
-#eval IO.println ("prop_screw_freedom " ++ toString (prop_screw_freedom 1.492667 1.434118 1.375569 1.317020 1.258472 1.199923 1.141374 1.082825 1.024276))
-#eval IO.println ("prop_screw_freedom " ++ toString (prop_screw_freedom 1.161475 1.102926 1.044377 0.985828 0.927280 0.868731 0.810182 0.751633 0.693084))
-#eval IO.println ("prop_screw_freedom " ++ toString (prop_screw_freedom 0.830283 0.771734 0.713185 0.654636 0.596088 0.537539 0.478990 0.420441 0.361892))
+#eval IO.println ("prop_screw_freedom " ++ toString (prop_screw_freedom 0.300387 0.241838 1.783289 1.724740 1.666192 1.607643 1.549094 1.490545 1.431996))
+#eval IO.println ("prop_screw_freedom " ++ toString (prop_screw_freedom 1.569195 1.510646 1.452097 1.393548 1.335000 1.276451 1.217902 1.159353 1.100804))
+#eval IO.println ("prop_screw_freedom " ++ toString (prop_screw_freedom 1.238003 1.179454 1.120905 1.062356 1.003808 0.945259 0.886710 0.828161 0.769612))
 
 def prop_screw_reciprocal (xh : Float) (zBolt : Float) (h : Float) : Bool :=
   let v4 := ((0 : Float) * (0 : Float))
@@ -3608,9 +4008,9 @@ def prop_screw_reciprocal (xh : Float) (zBolt : Float) (h : Float) : Bool :=
   let v12 := ((1 : Float) * (0 : Float))
   ((feq (((((((1 : Float) * (v4 - v6)) + ((0 : Float) * (v7 - v8))) + ((0 : Float) * (v9 - v4))) + v11) + v6) + v4) (0 : Float)) && ((feq (((((((1 : Float) * (v10 - v7)) + ((0 : Float) * (v7 - v9))) + ((0 : Float) * (v8 - v4))) + v11) + v7) + v10) (0 : Float)) && ((feq (((((v12 + v10) + v4) + v11) + v7) + v4) (0 : Float)) && ((feq (((((v12 + v4) + v10) + v11) + v7) + v4) (0 : Float)) && (feq (((((((1 : Float) * (-h)) + ((0 : Float) * zBolt)) + v4) + (h * (1 : Float))) + v7) + v4) (0 : Float))))))
 
-#eval IO.println ("prop_screw_reciprocal " ++ toString (prop_screw_reciprocal 1.306515 1.247966 1.189417))
-#eval IO.println ("prop_screw_reciprocal " ++ toString (prop_screw_reciprocal 0.975323 0.916774 0.858225))
-#eval IO.println ("prop_screw_reciprocal " ++ toString (prop_screw_reciprocal 0.644131 0.585582 0.527033))
+#eval IO.println ("prop_screw_reciprocal " ++ toString (prop_screw_reciprocal 1.714235 1.655686 1.597137))
+#eval IO.println ("prop_screw_reciprocal " ++ toString (prop_screw_reciprocal 1.383043 1.324494 1.265945))
+#eval IO.println ("prop_screw_reciprocal " ++ toString (prop_screw_reciprocal 1.051851 0.993302 0.934753))
 
 def prop_shim_negligible  : Bool :=
   ((0.0005 : Float) < ((0.01 : Float) * (0.06 : Float)))
@@ -3639,18 +4039,18 @@ def prop_slackHarmless_of_budget (f : Float) (eps : Float) (delta : Float) (h : 
   let v5 := (f * (Float.tan eps))
   (!(v5 <= (h - delta)) || ((v5 + delta) <= h))
 
-#eval IO.println ("prop_slackHarmless_of_budget " ++ toString (prop_slackHarmless_of_budget 0.561907 0.503358 0.444809 0.386260))
-#eval IO.println ("prop_slackHarmless_of_budget " ++ toString (prop_slackHarmless_of_budget 0.230715 1.772166 1.713617 1.655068))
-#eval IO.println ("prop_slackHarmless_of_budget " ++ toString (prop_slackHarmless_of_budget 1.499523 1.440974 1.382425 1.323876))
+#eval IO.println ("prop_slackHarmless_of_budget " ++ toString (prop_slackHarmless_of_budget 0.969627 0.911078 0.852529 0.793980))
+#eval IO.println ("prop_slackHarmless_of_budget " ++ toString (prop_slackHarmless_of_budget 0.638435 0.579886 0.521337 0.462788))
+#eval IO.println ("prop_slackHarmless_of_budget " ++ toString (prop_slackHarmless_of_budget 0.307243 0.248694 1.790145 1.731596))
 
 def prop_slackHarmless_of_lever (f : Float) (eps : Float) (delta : Float) (rw : Float) (h : Float) : Bool :=
   let v6 := (f * (Float.tan eps))
   let v10 := ((((2 : Float) * f) * delta) / rw)
   (!(v6 <= (h - v10)) || ((v6 + v10) <= h))
 
-#eval IO.println ("prop_slackHarmless_of_lever " ++ toString (prop_slackHarmless_of_lever 0.375755 0.317206 0.258657 0.200108 1.741560))
-#eval IO.println ("prop_slackHarmless_of_lever " ++ toString (prop_slackHarmless_of_lever 1.644563 1.586014 1.527465 1.468916 1.410368))
-#eval IO.println ("prop_slackHarmless_of_lever " ++ toString (prop_slackHarmless_of_lever 1.313371 1.254822 1.196273 1.137724 1.079176))
+#eval IO.println ("prop_slackHarmless_of_lever " ++ toString (prop_slackHarmless_of_lever 0.783475 0.724926 0.666377 0.607828 0.549280))
+#eval IO.println ("prop_slackHarmless_of_lever " ++ toString (prop_slackHarmless_of_lever 0.452283 0.393734 0.335185 0.276636 0.218088))
+#eval IO.println ("prop_slackHarmless_of_lever " ++ toString (prop_slackHarmless_of_lever 1.721091 1.662542 1.603993 1.545444 1.486896))
 
 def prop_slot_exit_hashemi  : Bool :=
   let v5 := ((0.8 : Float) / ((Float.sqrt (3.36 : Float)) - (1 : Float)))
@@ -3664,9 +4064,9 @@ def prop_sq_bounds_neg (x : Float) (lo : Float) (hi : Float) : Bool :=
   let v3 := (x ^ 2)
   (!(lo < x) || (!(x < hi) || (!(hi <= (0 : Float)) || (((hi ^ 2) < v3) && (v3 < (lo ^ 2))))))
 
-#eval IO.println ("prop_sq_bounds_neg " ++ toString (prop_sq_bounds_neg 1.603451 1.544902 1.486353))
-#eval IO.println ("prop_sq_bounds_neg " ++ toString (prop_sq_bounds_neg 1.272259 1.213710 1.155161))
-#eval IO.println ("prop_sq_bounds_neg " ++ toString (prop_sq_bounds_neg 0.941067 0.882518 0.823969))
+#eval IO.println ("prop_sq_bounds_neg " ++ toString (prop_sq_bounds_neg 0.411171 0.352622 0.294073))
+#eval IO.println ("prop_sq_bounds_neg " ++ toString (prop_sq_bounds_neg 1.679979 1.621430 1.562881))
+#eval IO.println ("prop_sq_bounds_neg " ++ toString (prop_sq_bounds_neg 1.348787 1.290238 1.231689))
 
 def prop_sqrt32_bounds  : Bool :=
   let v1 := (Float.sqrt (3.2 : Float))
@@ -3679,9 +4079,9 @@ def prop_sqrt32_bounds  : Bool :=
 def prop_strut_resists_lean (P_0 : Float) (P_1 : Float) (P_2 : Float) (Q_0 : Float) (Q_1 : Float) (Q_2 : Float) (delta_0 : Float) (delta_1 : Float) (delta_2 : Float) (eps : Float) : Bool :=
   (!((0 : Float) < eps) || (!(Q_0 < P_0) || (!(feq delta_0 (-eps)) || (!(feq delta_1 (0 : Float)) || (!(feq delta_2 (0 : Float)) || (((((P_0 - Q_0) * delta_0) + ((P_1 - Q_1) * delta_1)) + ((P_2 - Q_2) * delta_2)) < (0 : Float)))))))
 
-#eval IO.println ("prop_strut_resists_lean " ++ toString (prop_strut_resists_lean 1.231147 1.172598 1.114049 1.055500 0.996952 0.938403 0.879854 0.821305 0.762756 0.704208))
-#eval IO.println ("prop_strut_resists_lean " ++ toString (prop_strut_resists_lean 0.899955 0.841406 0.782857 0.724308 0.665760 0.607211 0.548662 0.490113 0.431564 0.373016))
-#eval IO.println ("prop_strut_resists_lean " ++ toString (prop_strut_resists_lean 0.568763 0.510214 0.451665 0.393116 0.334568 0.276019 0.217470 1.758921 1.700372 1.641824))
+#eval IO.println ("prop_strut_resists_lean " ++ toString (prop_strut_resists_lean 1.638867 1.580318 1.521769 1.463220 1.404672 1.346123 1.287574 1.229025 1.170476 1.111928))
+#eval IO.println ("prop_strut_resists_lean " ++ toString (prop_strut_resists_lean 1.307675 1.249126 1.190577 1.132028 1.073480 1.014931 0.956382 0.897833 0.839284 0.780736))
+#eval IO.println ("prop_strut_resists_lean " ++ toString (prop_strut_resists_lean 0.976483 0.917934 0.859385 0.800836 0.742288 0.683739 0.625190 0.566641 0.508092 0.449544))
 
 def prop_sunDir_rot (elSun : Float) (azSun : Float) (delta : Float) : Bool :=
   let v3 := (Float.cos elSun)
@@ -3693,9 +4093,9 @@ def prop_sunDir_rot (elSun : Float) (azSun : Float) (delta : Float) : Bool :=
   let v11 := (Float.sin delta)
   ((feq (v3 * (Float.cos v4)) ((v6 * v8) - (v11 * v10))) && ((feq (v3 * (Float.sin v4)) ((v11 * v8) + (v6 * v10))) && (feq v5 v5)))
 
-#eval IO.println ("prop_sunDir_rot " ++ toString (prop_sunDir_rot 1.044995 0.986446 0.927897))
-#eval IO.println ("prop_sunDir_rot " ++ toString (prop_sunDir_rot 0.713803 0.655254 0.596705))
-#eval IO.println ("prop_sunDir_rot " ++ toString (prop_sunDir_rot 0.382611 0.324062 0.265513))
+#eval IO.println ("prop_sunDir_rot " ++ toString (prop_sunDir_rot 1.452715 1.394166 1.335617))
+#eval IO.println ("prop_sunDir_rot " ++ toString (prop_sunDir_rot 1.121523 1.062974 1.004425))
+#eval IO.println ("prop_sunDir_rot " ++ toString (prop_sunDir_rot 0.790331 0.731782 0.673233))
 
 def prop_sunInDish_equivariant (az : Float) (t : Float) (elSun : Float) (azSun : Float) (delta : Float) : Bool :=
   let v5 := (Float.sin t)
@@ -3725,70 +4125,70 @@ def prop_sunInDish_equivariant (az : Float) (t : Float) (elSun : Float) (azSun :
   let v33 := (v15 * (Float.sin azSun))
   ((feq (((((v13 * v11) - (v14 * v10)) * v18) + (((v14 * v8) - (v12 * v11)) * v20)) + (((v12 * v10) - (v13 * v8)) * v21)) (((((v29 * v11) - (v14 * v27)) * v31) + (((v14 * v25) - (v28 * v11)) * v33)) + (((v28 * v27) - (v29 * v25)) * v21))) && ((feq (((v12 * v18) + (v13 * v20)) + v22) (((v28 * v31) + (v29 * v33)) + v22)) && (feq (((v8 * v18) + (v10 * v20)) + v23) (((v25 * v31) + (v27 * v33)) + v23))))
 
-#eval IO.println ("prop_sunInDish_equivariant " ++ toString (prop_sunInDish_equivariant 0.858843 0.800294 0.741745 0.683196 0.624648))
-#eval IO.println ("prop_sunInDish_equivariant " ++ toString (prop_sunInDish_equivariant 0.527651 0.469102 0.410553 0.352004 0.293456))
-#eval IO.println ("prop_sunInDish_equivariant " ++ toString (prop_sunInDish_equivariant 1.796459 1.737910 1.679361 1.620812 1.562264))
+#eval IO.println ("prop_sunInDish_equivariant " ++ toString (prop_sunInDish_equivariant 1.266563 1.208014 1.149465 1.090916 1.032368))
+#eval IO.println ("prop_sunInDish_equivariant " ++ toString (prop_sunInDish_equivariant 0.935371 0.876822 0.818273 0.759724 0.701176))
+#eval IO.println ("prop_sunInDish_equivariant " ++ toString (prop_sunInDish_equivariant 0.604179 0.545630 0.487081 0.428532 0.369984))
 
 def prop_swingFocus_circle (P_1 : Float) (P_2 : Float) (d : Float) (f : Float) (t : Float) : Bool :=
   let v5 := (Float.sin t)
   let v6 := (Float.cos t)
   (feq (((((P_1 + (d * v5)) + (f * (-v5))) - P_1) ^ 2) + ((((P_2 - (d * v6)) + (f * v6)) - P_2) ^ 2)) ((d - f) ^ 2))
 
-#eval IO.println ("prop_swingFocus_circle " ++ toString (prop_swingFocus_circle 0.672691 0.614142 0.555593 0.497044 0.438496))
-#eval IO.println ("prop_swingFocus_circle " ++ toString (prop_swingFocus_circle 0.341499 0.282950 0.224401 1.765852 1.707304))
-#eval IO.println ("prop_swingFocus_circle " ++ toString (prop_swingFocus_circle 1.610307 1.551758 1.493209 1.434660 1.376112))
+#eval IO.println ("prop_swingFocus_circle " ++ toString (prop_swingFocus_circle 1.080411 1.021862 0.963313 0.904764 0.846216))
+#eval IO.println ("prop_swingFocus_circle " ++ toString (prop_swingFocus_circle 0.749219 0.690670 0.632121 0.573572 0.515024))
+#eval IO.println ("prop_swingFocus_circle " ++ toString (prop_swingFocus_circle 0.418027 0.359478 0.300929 0.242380 1.783832))
 
 def prop_swingNormal_unit (t : Float) : Bool :=
   (feq (((-(Float.sin t)) ^ 2) + ((Float.cos t) ^ 2)) (1 : Float))
 
-#eval IO.println ("prop_swingNormal_unit " ++ toString (prop_swingNormal_unit 0.486539))
-#eval IO.println ("prop_swingNormal_unit " ++ toString (prop_swingNormal_unit 1.755347))
-#eval IO.println ("prop_swingNormal_unit " ++ toString (prop_swingNormal_unit 1.424155))
+#eval IO.println ("prop_swingNormal_unit " ++ toString (prop_swingNormal_unit 0.894259))
+#eval IO.println ("prop_swingNormal_unit " ++ toString (prop_swingNormal_unit 0.563067))
+#eval IO.println ("prop_swingNormal_unit " ++ toString (prop_swingNormal_unit 0.231875))
 
 def prop_swing_focusCircle (P_1 : Float) (P_2 : Float) (f : Float) (t : Float) : Bool :=
   (feq ((((P_1 + (f * (Float.sin t))) - P_1) ^ 2) + (((P_2 - (f * (Float.cos t))) - P_2) ^ 2)) (f ^ 2))
 
-#eval IO.println ("prop_swing_focusCircle " ++ toString (prop_swing_focusCircle 0.300387 0.241838 1.783289 1.724740))
-#eval IO.println ("prop_swing_focusCircle " ++ toString (prop_swing_focusCircle 1.569195 1.510646 1.452097 1.393548))
-#eval IO.println ("prop_swing_focusCircle " ++ toString (prop_swing_focusCircle 1.238003 1.179454 1.120905 1.062356))
+#eval IO.println ("prop_swing_focusCircle " ++ toString (prop_swing_focusCircle 0.708107 0.649558 0.591009 0.532460))
+#eval IO.println ("prop_swing_focusCircle " ++ toString (prop_swing_focusCircle 0.376915 0.318366 0.259817 0.201268))
+#eval IO.println ("prop_swing_focusCircle " ++ toString (prop_swing_focusCircle 1.645723 1.587174 1.528625 1.470076))
 
 def prop_swing_lift (apexH : Float) (zBolt : Float) (p_0 : Float) (p_1 : Float) (p_2 : Float) : Bool :=
   (feq ((((1 : Float) * p_1) - ((0 : Float) * p_0)) + ((apexH * (0 : Float)) - ((0 : Float) * (1 : Float)))) p_1)
 
-#eval IO.println ("prop_swing_lift " ++ toString (prop_swing_lift 1.714235 1.655686 1.597137 1.538588 1.480040))
-#eval IO.println ("prop_swing_lift " ++ toString (prop_swing_lift 1.383043 1.324494 1.265945 1.207396 1.148848))
-#eval IO.println ("prop_swing_lift " ++ toString (prop_swing_lift 1.051851 0.993302 0.934753 0.876204 0.817656))
+#eval IO.println ("prop_swing_lift " ++ toString (prop_swing_lift 0.521955 0.463406 0.404857 0.346308 0.287760))
+#eval IO.println ("prop_swing_lift " ++ toString (prop_swing_lift 1.790763 1.732214 1.673665 1.615116 1.556568))
+#eval IO.println ("prop_swing_lift " ++ toString (prop_swing_lift 1.459571 1.401022 1.342473 1.283924 1.225376))
 
 def prop_tension_le_of_holds (Tmax : Float) (W : Float) (rcm : Float) (rw : Float) (t : Float) : Bool :=
   let v5 := (W * rcm)
   (!((0 : Float) <= W) || (!((0 : Float) <= rcm) || (!((0 : Float) < rw) || (!(v5 <= (Tmax * rw)) || (((v5 * (Float.sin t)) / rw) <= Tmax)))))
 
-#eval IO.println ("prop_tension_le_of_holds " ++ toString (prop_tension_le_of_holds 1.528083 1.469534 1.410985 1.352436 1.293888))
-#eval IO.println ("prop_tension_le_of_holds " ++ toString (prop_tension_le_of_holds 1.196891 1.138342 1.079793 1.021244 0.962696))
-#eval IO.println ("prop_tension_le_of_holds " ++ toString (prop_tension_le_of_holds 0.865699 0.807150 0.748601 0.690052 0.631504))
+#eval IO.println ("prop_tension_le_of_holds " ++ toString (prop_tension_le_of_holds 0.335803 0.277254 0.218705 1.760156 1.701608))
+#eval IO.println ("prop_tension_le_of_holds " ++ toString (prop_tension_le_of_holds 1.604611 1.546062 1.487513 1.428964 1.370416))
+#eval IO.println ("prop_tension_le_of_holds " ++ toString (prop_tension_le_of_holds 1.273419 1.214870 1.156321 1.097772 1.039224))
 
 def prop_trackerBudget_iff (f : Float) (eps : Float) (h : Float) : Bool :=
   let v3 := (Float.tan eps)
   (!((0 : Float) < f) || (((f * v3) <= h) == (v3 <= (h / f))))
 
-#eval IO.println ("prop_trackerBudget_iff " ++ toString (prop_trackerBudget_iff 1.341931 1.283382 1.224833))
-#eval IO.println ("prop_trackerBudget_iff " ++ toString (prop_trackerBudget_iff 1.010739 0.952190 0.893641))
-#eval IO.println ("prop_trackerBudget_iff " ++ toString (prop_trackerBudget_iff 0.679547 0.620998 0.562449))
+#eval IO.println ("prop_trackerBudget_iff " ++ toString (prop_trackerBudget_iff 1.749651 1.691102 1.632553))
+#eval IO.println ("prop_trackerBudget_iff " ++ toString (prop_trackerBudget_iff 1.418459 1.359910 1.301361))
+#eval IO.println ("prop_trackerBudget_iff " ++ toString (prop_trackerBudget_iff 1.087267 1.028718 0.970169))
 
 def prop_tracker_margin_hashemi (eps : Float) : Bool :=
   let v1 := (Float.tan eps)
   ((((1 : Float) * v1) <= (0.03 : Float)) == (v1 <= (0.03 : Float)))
 
-#eval IO.println ("prop_tracker_margin_hashemi " ++ toString (prop_tracker_margin_hashemi 1.155779))
-#eval IO.println ("prop_tracker_margin_hashemi " ++ toString (prop_tracker_margin_hashemi 0.824587))
-#eval IO.println ("prop_tracker_margin_hashemi " ++ toString (prop_tracker_margin_hashemi 0.493395))
+#eval IO.println ("prop_tracker_margin_hashemi " ++ toString (prop_tracker_margin_hashemi 1.563499))
+#eval IO.println ("prop_tracker_margin_hashemi " ++ toString (prop_tracker_margin_hashemi 1.232307))
+#eval IO.println ("prop_tracker_margin_hashemi " ++ toString (prop_tracker_margin_hashemi 0.901115))
 
 def prop_tracking_power_tiny (W : Float) (rcm : Float) (omega : Float) (t : Float) : Bool :=
   (!((0 : Float) <= W) || (!(W <= (1000 : Float)) || (!((0 : Float) <= rcm) || (!(rcm <= (1 : Float)) || (!((0 : Float) <= omega) || (!(omega <= (0.000073 : Float)) || (((((W * rcm) * (Float.sin t)) * omega) <= (0.073 : Float)) && ((0.073 : Float) < ((0.015 : Float) * (5 : Float))))))))))
 
-#eval IO.println ("prop_tracking_power_tiny " ++ toString (prop_tracking_power_tiny 0.969627 0.911078 0.852529 0.793980))
-#eval IO.println ("prop_tracking_power_tiny " ++ toString (prop_tracking_power_tiny 0.638435 0.579886 0.521337 0.462788))
-#eval IO.println ("prop_tracking_power_tiny " ++ toString (prop_tracking_power_tiny 0.307243 0.248694 1.790145 1.731596))
+#eval IO.println ("prop_tracking_power_tiny " ++ toString (prop_tracking_power_tiny 1.377347 1.318798 1.260249 1.201700))
+#eval IO.println ("prop_tracking_power_tiny " ++ toString (prop_tracking_power_tiny 1.046155 0.987606 0.929057 0.870508))
+#eval IO.println ("prop_tracking_power_tiny " ++ toString (prop_tracking_power_tiny 0.714963 0.656414 0.597865 0.539316))
 
 def prop_wireLeft_at_ym  : Bool :=
   let v13 := ((Float.sqrt (((1.22 : Float) ^ 2) + ((0.34 : Float) ^ 2))) - (Float.sqrt ((5 : Float) - ((2 : Float) * (Float.sqrt (3.36 : Float))))))
@@ -3808,18 +4208,18 @@ def prop_wireLever_edge_formula (ym : Float) (hp : Float) (a : Float) (ze : Floa
   let v16 := (((-v6) * v9) + (v8 * v7))
   (feq (((v5 * v16) - (hp * v12)) / (Float.sqrt (((v12 - v5) ^ 2) + ((v16 - hp) ^ 2)))) (((((ym * ze) + (hp * a)) * v7) + (((hp * ze) - (ym * a)) * v9)) / (Float.sqrt ((((ym - (a * v7)) - (ze * v9)) ^ 2) + ((((a * v9) - (ze * v7)) - hp) ^ 2)))))
 
-#eval IO.println ("prop_wireLever_edge_formula " ++ toString (prop_wireLever_edge_formula 0.597323 0.538774 0.480225 0.421676 0.363128))
-#eval IO.println ("prop_wireLever_edge_formula " ++ toString (prop_wireLever_edge_formula 0.266131 0.207582 1.749033 1.690484 1.631936))
-#eval IO.println ("prop_wireLever_edge_formula " ++ toString (prop_wireLever_edge_formula 1.534939 1.476390 1.417841 1.359292 1.300744))
+#eval IO.println ("prop_wireLever_edge_formula " ++ toString (prop_wireLever_edge_formula 1.005043 0.946494 0.887945 0.829396 0.770848))
+#eval IO.println ("prop_wireLever_edge_formula " ++ toString (prop_wireLever_edge_formula 0.673851 0.615302 0.556753 0.498204 0.439656))
+#eval IO.println ("prop_wireLever_edge_formula " ++ toString (prop_wireLever_edge_formula 0.342659 0.284110 0.225561 1.767012 1.708464))
 
 def prop_wireLever_pos_iff (P_1 : Float) (P_2 : Float) (B_1 : Float) (B_2 : Float) : Bool :=
   let v8 := (((B_1 - P_1) ^ 2) + ((B_2 - P_2) ^ 2))
   let v11 := ((P_1 * B_2) - (P_2 * B_1))
   (!((0 : Float) < v8) || (((0 : Float) < (v11 / (Float.sqrt v8))) == ((0 : Float) < v11)))
 
-#eval IO.println ("prop_wireLever_pos_iff " ++ toString (prop_wireLever_pos_iff 0.411171 0.352622 0.294073 0.235524))
-#eval IO.println ("prop_wireLever_pos_iff " ++ toString (prop_wireLever_pos_iff 1.679979 1.621430 1.562881 1.504332))
-#eval IO.println ("prop_wireLever_pos_iff " ++ toString (prop_wireLever_pos_iff 1.348787 1.290238 1.231689 1.173140))
+#eval IO.println ("prop_wireLever_pos_iff " ++ toString (prop_wireLever_pos_iff 0.818891 0.760342 0.701793 0.643244))
+#eval IO.println ("prop_wireLever_pos_iff " ++ toString (prop_wireLever_pos_iff 0.487699 0.429150 0.370601 0.312052))
+#eval IO.println ("prop_wireLever_pos_iff " ++ toString (prop_wireLever_pos_iff 1.756507 1.697958 1.639409 1.580860))
 
 def prop_wireLever_rest (ym : Float) (hp : Float) (a : Float) (ze : Float) : Bool :=
   let v4 := (-ym)
@@ -3831,9 +4231,9 @@ def prop_wireLever_rest (ym : Float) (hp : Float) (a : Float) (ze : Float) : Boo
   let v16 := (((-v5) * v9) + (v8 * v7))
   (feq (((v4 * v16) - (hp * v12)) / (Float.sqrt (((v12 - v4) ^ 2) + ((v16 - hp) ^ 2)))) (((ym * ze) + (hp * a)) / (Float.sqrt (((ym - a) ^ 2) + ((hp + ze) ^ 2)))))
 
-#eval IO.println ("prop_wireLever_rest " ++ toString (prop_wireLever_rest 0.225019 1.766470 1.707921 1.649372))
-#eval IO.println ("prop_wireLever_rest " ++ toString (prop_wireLever_rest 1.493827 1.435278 1.376729 1.318180))
-#eval IO.println ("prop_wireLever_rest " ++ toString (prop_wireLever_rest 1.162635 1.104086 1.045537 0.986988))
+#eval IO.println ("prop_wireLever_rest " ++ toString (prop_wireLever_rest 0.632739 0.574190 0.515641 0.457092))
+#eval IO.println ("prop_wireLever_rest " ++ toString (prop_wireLever_rest 0.301547 0.242998 1.784449 1.725900))
+#eval IO.println ("prop_wireLever_rest " ++ toString (prop_wireLever_rest 1.570355 1.511806 1.453257 1.394708))
 
 def prop_wireLever_rest_at_ym  : Bool :=
   let v3 := ((Float.sqrt (3.36 : Float)) - (1 : Float))
@@ -3865,9 +4265,9 @@ def prop_wire_recip_swing (apexH : Float) (zBolt : Float) (q_0 : Float) (q_1 : F
   let v10 := (q_1 * f_2)
   (feq (((((((1 : Float) * (v10 - (q_2 * f_1))) + ((0 : Float) * ((q_2 * f_0) - (q_0 * f_2)))) + ((0 : Float) * ((q_0 * f_1) - (q_1 * f_0)))) + ((((0 : Float) * (0 : Float)) - (zBolt * (0 : Float))) * f_0)) + (((zBolt * (1 : Float)) - v9) * f_1)) + ((v9 - ((0 : Float) * (1 : Float))) * f_2)) (v10 - ((q_2 - zBolt) * f_1)))
 
-#eval IO.println ("prop_wire_recip_swing " ++ toString (prop_wire_recip_swing 1.266563 1.208014 1.149465 1.090916 1.032368 0.973819 0.915270 0.856721))
-#eval IO.println ("prop_wire_recip_swing " ++ toString (prop_wire_recip_swing 0.935371 0.876822 0.818273 0.759724 0.701176 0.642627 0.584078 0.525529))
-#eval IO.println ("prop_wire_recip_swing " ++ toString (prop_wire_recip_swing 0.604179 0.545630 0.487081 0.428532 0.369984 0.311435 0.252886 1.794337))
+#eval IO.println ("prop_wire_recip_swing " ++ toString (prop_wire_recip_swing 1.674283 1.615734 1.557185 1.498636 1.440088 1.381539 1.322990 1.264441))
+#eval IO.println ("prop_wire_recip_swing " ++ toString (prop_wire_recip_swing 1.343091 1.284542 1.225993 1.167444 1.108896 1.050347 0.991798 0.933249))
+#eval IO.println ("prop_wire_recip_swing " ++ toString (prop_wire_recip_swing 1.011899 0.953350 0.894801 0.836252 0.777704 0.719155 0.660606 0.602057))
 
 def prop_wire_short_of_vertical  : Bool :=
   ((((0.34 : Float) * ((Float.sqrt (3.36 : Float)) - (1 : Float))) - ((1.22 : Float) * (0.8 : Float))) < (0 : Float))
@@ -3880,16 +4280,16 @@ def prop_wire_taut_iff (W : Float) (rcm : Float) (rw : Float) (t : Float) : Bool
   let v4 := (Float.sin t)
   (!((0 : Float) < W) || (!((0 : Float) < rcm) || (!((0 : Float) < rw) || (((0 : Float) <= (((W * rcm) * v4) / rw)) == ((0 : Float) <= v4)))))
 
-#eval IO.println ("prop_wire_taut_iff " ++ toString (prop_wire_taut_iff 0.894259 0.835710 0.777161 0.718612))
-#eval IO.println ("prop_wire_taut_iff " ++ toString (prop_wire_taut_iff 0.563067 0.504518 0.445969 0.387420))
-#eval IO.println ("prop_wire_taut_iff " ++ toString (prop_wire_taut_iff 0.231875 1.773326 1.714777 1.656228))
+#eval IO.println ("prop_wire_taut_iff " ++ toString (prop_wire_taut_iff 1.301979 1.243430 1.184881 1.126332))
+#eval IO.println ("prop_wire_taut_iff " ++ toString (prop_wire_taut_iff 0.970787 0.912238 0.853689 0.795140))
+#eval IO.println ("prop_wire_taut_iff " ++ toString (prop_wire_taut_iff 0.639595 0.581046 0.522497 0.463948))
 
 def prop_yaw_lifts_nothing (p_0 : Float) (p_1 : Float) (p_2 : Float) : Bool :=
   (feq ((((0 : Float) * p_1) - ((0 : Float) * p_0)) + (0 : Float)) (0 : Float))
 
-#eval IO.println ("prop_yaw_lifts_nothing " ++ toString (prop_yaw_lifts_nothing 0.708107 0.649558 0.591009))
-#eval IO.println ("prop_yaw_lifts_nothing " ++ toString (prop_yaw_lifts_nothing 0.376915 0.318366 0.259817))
-#eval IO.println ("prop_yaw_lifts_nothing " ++ toString (prop_yaw_lifts_nothing 1.645723 1.587174 1.528625))
+#eval IO.println ("prop_yaw_lifts_nothing " ++ toString (prop_yaw_lifts_nothing 1.115827 1.057278 0.998729))
+#eval IO.println ("prop_yaw_lifts_nothing " ++ toString (prop_yaw_lifts_nothing 0.784635 0.726086 0.667537))
+#eval IO.println ("prop_yaw_lifts_nothing " ++ toString (prop_yaw_lifts_nothing 0.453443 0.394894 0.336345))
 
 def prop_ym_is_standStation  : Bool :=
   (feq (1.22 : Float) (1.22 : Float))
@@ -3901,9 +4301,9 @@ def prop_ym_is_standStation  : Bool :=
 def pulleyAt (ym : Float) (hp : Float) : Array Float :=
   #[(-ym), hp]
 
-#eval IO.println ("pulleyAt " ++ toString ((pulleyAt 0.335803 0.277254).map Float.toBits))
-#eval IO.println ("pulleyAt " ++ toString ((pulleyAt 1.604611 1.546062).map Float.toBits))
-#eval IO.println ("pulleyAt " ++ toString ((pulleyAt 1.273419 1.214870).map Float.toBits))
+#eval IO.println ("pulleyAt " ++ toString ((pulleyAt 0.743523 0.684974).map Float.toBits))
+#eval IO.println ("pulleyAt " ++ toString ((pulleyAt 0.412331 0.353782).map Float.toBits))
+#eval IO.println ("pulleyAt " ++ toString ((pulleyAt 1.681139 1.622590).map Float.toBits))
 
 def check_pulley_above_pivot  : Bool :=
   (feq ((1.59 : Float) - ((1.30 : Float) - (0.05 : Float))) (0.34 : Float))
@@ -3915,24 +4315,24 @@ def check_pulley_above_pivot  : Bool :=
 def qAbs (alpha : Float) (Pin : Float) : Float :=
   (alpha * Pin)
 
-#eval IO.println ("qAbs " ++ toString (qAbs 1.563499 1.504950).toBits)
-#eval IO.println ("qAbs " ++ toString (qAbs 1.232307 1.173758).toBits)
-#eval IO.println ("qAbs " ++ toString (qAbs 0.901115 0.842566).toBits)
+#eval IO.println ("qAbs " ++ toString (qAbs 0.371219 0.312670).toBits)
+#eval IO.println ("qAbs " ++ toString (qAbs 1.640027 1.581478).toBits)
+#eval IO.println ("qAbs " ++ toString (qAbs 1.308835 1.250286).toBits)
 
 def qCoilLoss (eps : Float) (Ac : Float) (hC : Float) (Toil : Float) (Ta : Float) : Float :=
   ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * (Toil - Ta)))
 
-#eval IO.println ("qCoilLoss " ++ toString (qCoilLoss 1.377347 1.318798 1.260249 1.201700 1.143152).toBits)
-#eval IO.println ("qCoilLoss " ++ toString (qCoilLoss 1.046155 0.987606 0.929057 0.870508 0.811960).toBits)
-#eval IO.println ("qCoilLoss " ++ toString (qCoilLoss 0.714963 0.656414 0.597865 0.539316 0.480768).toBits)
+#eval IO.println ("qCoilLoss " ++ toString (qCoilLoss 1.785067 1.726518 1.667969 1.609420 1.550872).toBits)
+#eval IO.println ("qCoilLoss " ++ toString (qCoilLoss 1.453875 1.395326 1.336777 1.278228 1.219680).toBits)
+#eval IO.println ("qCoilLoss " ++ toString (qCoilLoss 1.122683 1.064134 1.005585 0.947036 0.888488).toBits)
 
 def qNet (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Pin : Float) (Toil : Float) (Twall : Float) (Ta : Float) : Float :=
   let v19 := (Toil - Ta)
   ((((alpha * Pin) - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v19))) - (Upipe * v19)) - (max (0 : Float) (UAx * (Toil - Twall))))
 
-#eval IO.println ("qNet " ++ toString (qNet 1.191195 1.132646 1.074097 1.015548 0.957000 0.898451 0.839902 0.781353 0.722804 0.664256).toBits)
-#eval IO.println ("qNet " ++ toString (qNet 0.860003 0.801454 0.742905 0.684356 0.625808 0.567259 0.508710 0.450161 0.391612 0.333064).toBits)
-#eval IO.println ("qNet " ++ toString (qNet 0.528811 0.470262 0.411713 0.353164 0.294616 0.236067 1.777518 1.718969 1.660420 1.601872).toBits)
+#eval IO.println ("qNet " ++ toString (qNet 1.598915 1.540366 1.481817 1.423268 1.364720 1.306171 1.247622 1.189073 1.130524 1.071976).toBits)
+#eval IO.println ("qNet " ++ toString (qNet 1.267723 1.209174 1.150625 1.092076 1.033528 0.974979 0.916430 0.857881 0.799332 0.740784).toBits)
+#eval IO.println ("qNet " ++ toString (qNet 0.936531 0.877982 0.819433 0.760884 0.702336 0.643787 0.585238 0.526689 0.468140 0.409592).toBits)
 
 def check_qNet_antitone (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Pin : Float) (Twall : Float) (Ta : Float) (T1 : Float) (T2 : Float) : Bool :=
   let v19 := (alpha * Pin)
@@ -3943,9 +4343,9 @@ def check_qNet_antitone (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) 
   let v41 := (T1 - Ta)
   (!((0 : Float) <= eps) || (!((0 : Float) <= Ac) || (!((0 : Float) <= hC) || (!((0 : Float) <= Upipe) || (!((0 : Float) <= UAx) || (!((0 : Float) <= T1) || (!(T1 <= T2) || ((((v19 - ((v22 * ((T2 ^ 4) - v24)) + (v27 * v28))) - (Upipe * v28)) - (max (0 : Float) (UAx * (T2 - Twall)))) <= (((v19 - ((v22 * ((T1 ^ 4) - v24)) + (v27 * v41))) - (Upipe * v41)) - (max (0 : Float) (UAx * (T1 - Twall))))))))))))
 
-#eval IO.println ("check_qNet_antitone " ++ toString (check_qNet_antitone 1.005043 0.946494 0.887945 0.829396 0.770848 0.712299 0.653750 0.595201 0.536652 0.478104 0.419555))
-#eval IO.println ("check_qNet_antitone " ++ toString (check_qNet_antitone 0.673851 0.615302 0.556753 0.498204 0.439656 0.381107 0.322558 0.264009 0.205460 1.746912 1.688363))
-#eval IO.println ("check_qNet_antitone " ++ toString (check_qNet_antitone 0.342659 0.284110 0.225561 1.767012 1.708464 1.649915 1.591366 1.532817 1.474268 1.415720 1.357171))
+#eval IO.println ("check_qNet_antitone " ++ toString (check_qNet_antitone 1.412763 1.354214 1.295665 1.237116 1.178568 1.120019 1.061470 1.002921 0.944372 0.885824 0.827275))
+#eval IO.println ("check_qNet_antitone " ++ toString (check_qNet_antitone 1.081571 1.023022 0.964473 0.905924 0.847376 0.788827 0.730278 0.671729 0.613180 0.554632 0.496083))
+#eval IO.println ("check_qNet_antitone " ++ toString (check_qNet_antitone 0.750379 0.691830 0.633281 0.574732 0.516184 0.457635 0.399086 0.340537 0.281988 0.223440 1.764891))
 
 def check_qNet_lipschitz (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Pin : Float) (Twall : Float) (Ta : Float) (T1 : Float) (T2 : Float) (M : Float) : Bool :=
   let v22 := (alpha * Pin)
@@ -3956,9 +4356,9 @@ def check_qNet_lipschitz (alpha : Float) (eps : Float) (Ac : Float) (hC : Float)
   let v44 := (T2 - Ta)
   (!((0 : Float) <= eps) || (!((0 : Float) <= Ac) || (!((0 : Float) <= hC) || (!((0 : Float) <= Upipe) || (!((0 : Float) <= UAx) || (!((0 : Float) <= T1) || (!(T1 <= M) || (!((0 : Float) <= T2) || (!(T2 <= M) || ((Float.abs ((((v22 - ((v25 * ((T1 ^ 4) - v27)) + (v30 * v31))) - (Upipe * v31)) - (max (0 : Float) (UAx * (T1 - Twall)))) - (((v22 - ((v25 * ((T2 ^ 4) - v27)) + (v30 * v44))) - (Upipe * v44)) - (max (0 : Float) (UAx * (T2 - Twall)))))) <= (((((((((4 : Float) * eps) * (0.0000000567 : Float)) * Ac) * (M ^ 3)) + v30) + Upipe) + UAx) * (Float.abs (T1 - T2)))))))))))))
 
-#eval IO.println ("check_qNet_lipschitz " ++ toString (check_qNet_lipschitz 0.818891 0.760342 0.701793 0.643244 0.584696 0.526147 0.467598 0.409049 0.350500 0.291952 0.233403 1.774854))
-#eval IO.println ("check_qNet_lipschitz " ++ toString (check_qNet_lipschitz 0.487699 0.429150 0.370601 0.312052 0.253504 1.794955 1.736406 1.677857 1.619308 1.560760 1.502211 1.443662))
-#eval IO.println ("check_qNet_lipschitz " ++ toString (check_qNet_lipschitz 1.756507 1.697958 1.639409 1.580860 1.522312 1.463763 1.405214 1.346665 1.288116 1.229568 1.171019 1.112470))
+#eval IO.println ("check_qNet_lipschitz " ++ toString (check_qNet_lipschitz 1.226611 1.168062 1.109513 1.050964 0.992416 0.933867 0.875318 0.816769 0.758220 0.699672 0.641123 0.582574))
+#eval IO.println ("check_qNet_lipschitz " ++ toString (check_qNet_lipschitz 0.895419 0.836870 0.778321 0.719772 0.661224 0.602675 0.544126 0.485577 0.427028 0.368480 0.309931 0.251382))
+#eval IO.println ("check_qNet_lipschitz " ++ toString (check_qNet_lipschitz 0.564227 0.505678 0.447129 0.388580 0.330032 0.271483 0.212934 1.754385 1.695836 1.637288 1.578739 1.520190))
 
 def check_qNet_strictAnti (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Pin : Float) (Twall : Float) (Ta : Float) (T1 : Float) (T2 : Float) : Bool :=
   let v19 := (alpha * Pin)
@@ -3969,46 +4369,60 @@ def check_qNet_strictAnti (alpha : Float) (eps : Float) (Ac : Float) (hC : Float
   let v41 := (T1 - Ta)
   (!((0 : Float) <= eps) || (!((0 : Float) <= Ac) || (!((0 : Float) <= hC) || (!((0 : Float) < Upipe) || (!((0 : Float) <= UAx) || (!((0 : Float) <= T1) || (!(T1 < T2) || ((((v19 - ((v22 * ((T2 ^ 4) - v24)) + (v27 * v28))) - (Upipe * v28)) - (max (0 : Float) (UAx * (T2 - Twall)))) < (((v19 - ((v22 * ((T1 ^ 4) - v24)) + (v27 * v41))) - (Upipe * v41)) - (max (0 : Float) (UAx * (T1 - Twall))))))))))))
 
-#eval IO.println ("check_qNet_strictAnti " ++ toString (check_qNet_strictAnti 0.632739 0.574190 0.515641 0.457092 0.398544 0.339995 0.281446 0.222897 1.764348 1.705800 1.647251))
-#eval IO.println ("check_qNet_strictAnti " ++ toString (check_qNet_strictAnti 0.301547 0.242998 1.784449 1.725900 1.667352 1.608803 1.550254 1.491705 1.433156 1.374608 1.316059))
-#eval IO.println ("check_qNet_strictAnti " ++ toString (check_qNet_strictAnti 1.570355 1.511806 1.453257 1.394708 1.336160 1.277611 1.219062 1.160513 1.101964 1.043416 0.984867))
+#eval IO.println ("check_qNet_strictAnti " ++ toString (check_qNet_strictAnti 1.040459 0.981910 0.923361 0.864812 0.806264 0.747715 0.689166 0.630617 0.572068 0.513520 0.454971))
+#eval IO.println ("check_qNet_strictAnti " ++ toString (check_qNet_strictAnti 0.709267 0.650718 0.592169 0.533620 0.475072 0.416523 0.357974 0.299425 0.240876 1.782328 1.723779))
+#eval IO.println ("check_qNet_strictAnti " ++ toString (check_qNet_strictAnti 0.378075 0.319526 0.260977 0.202428 1.743880 1.685331 1.626782 1.568233 1.509684 1.451136 1.392587))
 
 def qPipe (Upipe : Float) (Toil : Float) (Ta : Float) : Float :=
   (Upipe * (Toil - Ta))
 
-#eval IO.println ("qPipe " ++ toString (qPipe 0.446587 0.388038 0.329489).toBits)
-#eval IO.println ("qPipe " ++ toString (qPipe 1.715395 1.656846 1.598297).toBits)
-#eval IO.println ("qPipe " ++ toString (qPipe 1.384203 1.325654 1.267105).toBits)
+#eval IO.println ("qPipe " ++ toString (qPipe 0.854307 0.795758 0.737209).toBits)
+#eval IO.println ("qPipe " ++ toString (qPipe 0.523115 0.464566 0.406017).toBits)
+#eval IO.println ("qPipe " ++ toString (qPipe 1.791923 1.733374 1.674825).toBits)
 
 def qPot (UAx : Float) (Toil : Float) (Twall : Float) : Float :=
   (max (0 : Float) (UAx * (Toil - Twall)))
 
-#eval IO.println ("qPot " ++ toString (qPot 0.260435 0.201886 1.743337).toBits)
-#eval IO.println ("qPot " ++ toString (qPot 1.529243 1.470694 1.412145).toBits)
-#eval IO.println ("qPot " ++ toString (qPot 1.198051 1.139502 1.080953).toBits)
+#eval IO.println ("qPot " ++ toString (qPot 0.668155 0.609606 0.551057).toBits)
+#eval IO.println ("qPot " ++ toString (qPot 0.336963 0.278414 0.219865).toBits)
+#eval IO.println ("qPot " ++ toString (qPot 1.605771 1.547222 1.488673).toBits)
 
 def check_qPot_le (UAx : Float) (Toil : Float) (Twall : Float) : Bool :=
   let v5 := (Toil - Twall)
   (!((0 : Float) <= UAx) || ((max (0 : Float) (UAx * v5)) <= (UAx * (max (0 : Float) v5))))
 
-#eval IO.println ("check_qPot_le " ++ toString (check_qPot_le 1.674283 1.615734 1.557185))
-#eval IO.println ("check_qPot_le " ++ toString (check_qPot_le 1.343091 1.284542 1.225993))
-#eval IO.println ("check_qPot_le " ++ toString (check_qPot_le 1.011899 0.953350 0.894801))
+#eval IO.println ("check_qPot_le " ++ toString (check_qPot_le 0.482003 0.423454 0.364905))
+#eval IO.println ("check_qPot_le " ++ toString (check_qPot_le 1.750811 1.692262 1.633713))
+#eval IO.println ("check_qPot_le " ++ toString (check_qPot_le 1.419619 1.361070 1.302521))
 
 def check_qPot_nonneg (UAx : Float) (Toil : Float) (Twall : Float) : Bool :=
   ((0 : Float) <= (max (0 : Float) (UAx * (Toil - Twall))))
 
-#eval IO.println ("check_qPot_nonneg " ++ toString (check_qPot_nonneg 1.488131 1.429582 1.371033))
-#eval IO.println ("check_qPot_nonneg " ++ toString (check_qPot_nonneg 1.156939 1.098390 1.039841))
-#eval IO.println ("check_qPot_nonneg " ++ toString (check_qPot_nonneg 0.825747 0.767198 0.708649))
+#eval IO.println ("check_qPot_nonneg " ++ toString (check_qPot_nonneg 0.295851 0.237302 1.778753))
+#eval IO.println ("check_qPot_nonneg " ++ toString (check_qPot_nonneg 1.564659 1.506110 1.447561))
+#eval IO.println ("check_qPot_nonneg " ++ toString (check_qPot_nonneg 1.233467 1.174918 1.116369))
+
+def check_quantum_outruns_sun  : Bool :=
+  (((0.000073 : Float) < ((((0.025 : Float) * (3.141592653589793 : Float)) / (180 : Float)) / (3 : Float))) && ((0.000073 : Float) < ((((0.035 : Float) * (3.141592653589793 : Float)) / (180 : Float)) / (3 : Float))))
+
+#eval IO.println ("check_quantum_outruns_sun " ++ toString (check_quantum_outruns_sun))
+#eval IO.println ("check_quantum_outruns_sun " ++ toString (check_quantum_outruns_sun))
+#eval IO.println ("check_quantum_outruns_sun " ++ toString (check_quantum_outruns_sun))
+
+def check_quantum_within_budget  : Bool :=
+  (((((((0.035 : Float) * (3.141592653589793 : Float)) / (180 : Float)) / (3 : Float)) * (15 : Float)) < (0.03 : Float)) && ((((((0.025 : Float) * (3.141592653589793 : Float)) / (180 : Float)) / (3 : Float)) * (15 : Float)) < (0.03 : Float)))
+
+#eval IO.println ("check_quantum_within_budget " ++ toString (check_quantum_within_budget))
+#eval IO.println ("check_quantum_within_budget " ++ toString (check_quantum_within_budget))
+#eval IO.println ("check_quantum_within_budget " ++ toString (check_quantum_within_budget))
 
 def check_reachesVertical_iff (ym : Float) (hp : Float) (a : Float) (ze : Float) : Bool :=
   let v6 := (ym * a)
   (!((0 : Float) < ze) || ((v6 <= (hp * ze)) == ((v6 / ze) <= hp)))
 
-#eval IO.println ("check_reachesVertical_iff " ++ toString (check_reachesVertical_iff 1.301979 1.243430 1.184881 1.126332))
-#eval IO.println ("check_reachesVertical_iff " ++ toString (check_reachesVertical_iff 0.970787 0.912238 0.853689 0.795140))
-#eval IO.println ("check_reachesVertical_iff " ++ toString (check_reachesVertical_iff 0.639595 0.581046 0.522497 0.463948))
+#eval IO.println ("check_reachesVertical_iff " ++ toString (check_reachesVertical_iff 1.337395 1.278846 1.220297 1.161748))
+#eval IO.println ("check_reachesVertical_iff " ++ toString (check_reachesVertical_iff 1.006203 0.947654 0.889105 0.830556))
+#eval IO.println ("check_reachesVertical_iff " ++ toString (check_reachesVertical_iff 0.675011 0.616462 0.557913 0.499364))
 
 def check_receiverPost_height  : Bool :=
   (feq ((1.30 : Float) - (0.05 : Float)) (1.25 : Float))
@@ -4020,17 +4434,17 @@ def check_receiverPost_height  : Bool :=
 def recip (t_0 : Float) (t_1 : Float) (t_2 : Float) (t_3 : Float) (t_4 : Float) (t_5 : Float) (w_0 : Float) (w_1 : Float) (w_2 : Float) (w_3 : Float) (w_4 : Float) (w_5 : Float) : Float :=
   ((((((t_0 * w_3) + (t_1 * w_4)) + (t_2 * w_5)) + (t_3 * w_0)) + (t_4 * w_1)) + (t_5 * w_2))
 
-#eval IO.println ("recip " ++ toString (recip 0.929675 0.871126 0.812577 0.754028 0.695480 0.636931 0.578382 0.519833 0.461284 0.402736 0.344187 0.285638).toBits)
-#eval IO.println ("recip " ++ toString (recip 0.598483 0.539934 0.481385 0.422836 0.364288 0.305739 0.247190 1.788641 1.730092 1.671544 1.612995 1.554446).toBits)
-#eval IO.println ("recip " ++ toString (recip 0.267291 0.208742 1.750193 1.691644 1.633096 1.574547 1.515998 1.457449 1.398900 1.340352 1.281803 1.223254).toBits)
+#eval IO.println ("recip " ++ toString (recip 0.965091 0.906542 0.847993 0.789444 0.730896 0.672347 0.613798 0.555249 0.496700 0.438152 0.379603 0.321054).toBits)
+#eval IO.println ("recip " ++ toString (recip 0.633899 0.575350 0.516801 0.458252 0.399704 0.341155 0.282606 0.224057 1.765508 1.706960 1.648411 1.589862).toBits)
+#eval IO.println ("recip " ++ toString (recip 0.302707 0.244158 1.785609 1.727060 1.668512 1.609963 1.551414 1.492865 1.434316 1.375768 1.317219 1.258670).toBits)
 
 def reflect3 (n_0 : Float) (n_1 : Float) (n_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Array Float :=
   let v12 := ((2 : Float) * (((d_0 * n_0) + (d_1 * n_1)) + (d_2 * n_2)))
   #[(d_0 - (v12 * n_0)), (d_1 - (v12 * n_1)), (d_2 - (v12 * n_2))]
 
-#eval IO.println ("reflect3 " ++ toString ((reflect3 0.743523 0.684974 0.626425 0.567876 0.509328 0.450779).map Float.toBits))
-#eval IO.println ("reflect3 " ++ toString ((reflect3 0.412331 0.353782 0.295233 0.236684 1.778136 1.719587).map Float.toBits))
-#eval IO.println ("reflect3 " ++ toString ((reflect3 1.681139 1.622590 1.564041 1.505492 1.446944 1.388395).map Float.toBits))
+#eval IO.println ("reflect3 " ++ toString ((reflect3 0.778939 0.720390 0.661841 0.603292 0.544744 0.486195).map Float.toBits))
+#eval IO.println ("reflect3 " ++ toString ((reflect3 0.447747 0.389198 0.330649 0.272100 0.213552 1.755003).map Float.toBits))
+#eval IO.println ("reflect3 " ++ toString ((reflect3 1.716555 1.658006 1.599457 1.540908 1.482360 1.423811).map Float.toBits))
 
 def rhoCu  : Float :=
   (0.0000000172 : Float)
@@ -4045,9 +4459,9 @@ def check_rim_under_F_iff (a : Float) (ze : Float) (t : Float) : Bool :=
   let v9 := (Float.sin t)
   (!((0 : Float) < ze) || (!((0 : Float) < v5) || ((feq ((a * v5) + (v8 * v9)) (0 : Float)) == (feq (Float.tan t) (a / ze)))))
 
-#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 0.371219 0.312670 0.254121))
-#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 1.640027 1.581478 1.522929))
-#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 1.308835 1.250286 1.191737))
+#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 0.406635 0.348086 0.289537))
+#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 1.675443 1.616894 1.558345))
+#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 1.344251 1.285702 1.227153))
 
 def rodTan  : Float :=
   ((0.4 : Float) / ((Float.sqrt (3.2 : Float)) - (1 : Float)))
@@ -4068,16 +4482,16 @@ def rollY (p_0 : Float) (p_1 : Float) (p_2 : Float) : Array Float :=
   let v5 := (p_1 * (0 : Float))
   #[(0 : Float), (1 : Float), (0 : Float), (v5 - (p_2 * (1 : Float))), ((p_2 * (0 : Float)) - (p_0 * (0 : Float))), ((p_0 * (1 : Float)) - v5)]
 
-#eval IO.println ("rollY " ++ toString ((rollY 1.412763 1.354214 1.295665).map Float.toBits))
-#eval IO.println ("rollY " ++ toString ((rollY 1.081571 1.023022 0.964473).map Float.toBits))
-#eval IO.println ("rollY " ++ toString ((rollY 0.750379 0.691830 0.633281).map Float.toBits))
+#eval IO.println ("rollY " ++ toString ((rollY 1.448179 1.389630 1.331081).map Float.toBits))
+#eval IO.println ("rollY " ++ toString ((rollY 1.116987 1.058438 0.999889).map Float.toBits))
+#eval IO.println ("rollY " ++ toString ((rollY 0.785795 0.727246 0.668697).map Float.toBits))
 
 def rollerRadius (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) : Float :=
   (Float.sqrt (((c_chord / (2 : Float)) ^ 2) + (c_apexH ^ 2)))
 
-#eval IO.println ("rollerRadius " ++ toString (rollerRadius 1.226611 1.168062 1.109513 1.050964 0.992416 0.933867).toBits)
-#eval IO.println ("rollerRadius " ++ toString (rollerRadius 0.895419 0.836870 0.778321 0.719772 0.661224 0.602675).toBits)
-#eval IO.println ("rollerRadius " ++ toString (rollerRadius 0.564227 0.505678 0.447129 0.388580 0.330032 0.271483).toBits)
+#eval IO.println ("rollerRadius " ++ toString (rollerRadius 1.262027 1.203478 1.144929 1.086380 1.027832 0.969283).toBits)
+#eval IO.println ("rollerRadius " ++ toString (rollerRadius 0.930835 0.872286 0.813737 0.755188 0.696640 0.638091).toBits)
+#eval IO.println ("rollerRadius " ++ toString (rollerRadius 0.599643 0.541094 0.482545 0.423996 0.365448 0.306899).toBits)
 
 def check_rollerRadius_hashemi  : Bool :=
   (feq (Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2))) (Float.sqrt (1.4864 : Float)))
@@ -4097,17 +4511,17 @@ def check_rollerRadius_hashemi_bounds  : Bool :=
 def check_rollerRadius_pos (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) : Bool :=
   ((0 : Float) < (Float.sqrt (((c_chord / (2 : Float)) ^ 2) + (c_apexH ^ 2))))
 
-#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 0.668155 0.609606 0.551057 0.492508 0.433960 0.375411))
-#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 0.336963 0.278414 0.219865 1.761316 1.702768 1.644219))
-#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 1.605771 1.547222 1.488673 1.430124 1.371576 1.313027))
+#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 0.703571 0.645022 0.586473 0.527924 0.469376 0.410827))
+#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 0.372379 0.313830 0.255281 1.796732 1.738184 1.679635))
+#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 1.641187 1.582638 1.524089 1.465540 1.406992 1.348443))
 
 def check_rollerRadius_sq (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) : Bool :=
   let v10 := (((c_chord / (2 : Float)) ^ 2) + (c_apexH ^ 2))
   (feq ((Float.sqrt v10) ^ 2) v10)
 
-#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 0.482003 0.423454 0.364905 0.306356 0.247808 1.789259))
-#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 1.750811 1.692262 1.633713 1.575164 1.516616 1.458067))
-#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 1.419619 1.361070 1.302521 1.243972 1.185424 1.126875))
+#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 0.517419 0.458870 0.400321 0.341772 0.283224 0.224675))
+#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 1.786227 1.727678 1.669129 1.610580 1.552032 1.493483))
+#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 1.455035 1.396486 1.337937 1.279388 1.220840 1.162291))
 
 def check_roller_rpm_hashemi  : Bool :=
   let v7 := ((((2 : Float) / (360 : Float)) * (1.2192 : Float)) / (0.05 : Float))
@@ -4122,18 +4536,18 @@ def rot (psi : Float) (p_1 : Float) (p_2 : Float) : Array Float :=
   let v5 := (Float.sin psi)
   #[((v3 * p_1) - (v5 * p_2)), ((v5 * p_1) + (v3 * p_2))]
 
-#eval IO.println ("rot " ++ toString ((rot 1.709699 1.651150 1.592601).map Float.toBits))
-#eval IO.println ("rot " ++ toString ((rot 1.378507 1.319958 1.261409).map Float.toBits))
-#eval IO.println ("rot " ++ toString ((rot 1.047315 0.988766 0.930217).map Float.toBits))
+#eval IO.println ("rot " ++ toString ((rot 1.745115 1.686566 1.628017).map Float.toBits))
+#eval IO.println ("rot " ++ toString ((rot 1.413923 1.355374 1.296825).map Float.toBits))
+#eval IO.println ("rot " ++ toString ((rot 1.082731 1.024182 0.965633).map Float.toBits))
 
 def rotz (delta : Float) (v_0 : Float) (v_1 : Float) (v_2 : Float) : Array Float :=
   let v4 := (Float.cos delta)
   let v6 := (Float.sin delta)
   #[((v4 * v_0) - (v6 * v_1)), ((v6 * v_0) + (v4 * v_1)), v_2]
 
-#eval IO.println ("rotz " ++ toString ((rotz 1.523547 1.464998 1.406449 1.347900).map Float.toBits))
-#eval IO.println ("rotz " ++ toString ((rotz 1.192355 1.133806 1.075257 1.016708).map Float.toBits))
-#eval IO.println ("rotz " ++ toString ((rotz 0.861163 0.802614 0.744065 0.685516).map Float.toBits))
+#eval IO.println ("rotz " ++ toString ((rotz 1.558963 1.500414 1.441865 1.383316).map Float.toBits))
+#eval IO.println ("rotz " ++ toString ((rotz 1.227771 1.169222 1.110673 1.052124).map Float.toBits))
+#eval IO.println ("rotz " ++ toString ((rotz 0.896579 0.838030 0.779481 0.720932).map Float.toBits))
 
 def check_rotz_dot (delta : Float) (u_0 : Float) (u_1 : Float) (u_2 : Float) (v_0 : Float) (v_1 : Float) (v_2 : Float) : Bool :=
   let v7 := (Float.cos delta)
@@ -4141,9 +4555,9 @@ def check_rotz_dot (delta : Float) (u_0 : Float) (u_1 : Float) (u_2 : Float) (v_
   let v24 := (u_2 * v_2)
   (feq (((((v7 * u_0) - (v9 * u_1)) * ((v7 * v_0) - (v9 * v_1))) + (((v9 * u_0) + (v7 * u_1)) * ((v9 * v_0) + (v7 * v_1)))) + v24) (((u_0 * v_0) + (u_1 * v_1)) + v24))
 
-#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 1.337395 1.278846 1.220297 1.161748 1.103200 1.044651 0.986102))
-#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 1.006203 0.947654 0.889105 0.830556 0.772008 0.713459 0.654910))
-#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 0.675011 0.616462 0.557913 0.499364 0.440816 0.382267 0.323718))
+#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 1.372811 1.314262 1.255713 1.197164 1.138616 1.080067 1.021518))
+#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 1.041619 0.983070 0.924521 0.865972 0.807424 0.748875 0.690326))
+#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 0.710427 0.651878 0.593329 0.534780 0.476232 0.417683 0.359134))
 
 def sampleRay (a : Float) (w : Float) (hsun : Float) (sd_0 : Float) (sd_1 : Float) (sd_2 : Float) (u1 : Float) (u2 : Float) (u3 : Float) (u4 : Float) (u5 : Float) (u6 : Float) : Array Float :=
   let v14 := (((2 : Float) * a) / w)
@@ -4170,24 +4584,24 @@ def sampleRay (a : Float) (w : Float) (hsun : Float) (sd_0 : Float) (sd_1 : Floa
   let v82 := (Float.sin v76)
   #[(v17 + (w * (Float.floor (u1 * v14)))), (v17 + (w * (Float.floor (u2 * v14)))), ((u3 - v27) * w), ((u4 - v27) * w), ((v77 * v32) + (v79 * ((v80 * v60) + (v82 * ((v33 * v62) - (v34 * v61)))))), ((v77 * v33) + (v79 * ((v80 * v61) + (v82 * ((v34 * v60) - (v32 * v62)))))), ((v77 * v34) + (v79 * ((v80 * v62) + (v82 * ((v32 * v61) - (v33 * v60))))))]
 
-#eval IO.println ("sampleRay " ++ toString ((sampleRay 1.151243 1.092694 1.034145 0.975596 0.917048 0.858499 0.799950 0.741401 0.682852 0.624304 0.565755 0.507206).map Float.toBits))
-#eval IO.println ("sampleRay " ++ toString ((sampleRay 0.820051 0.761502 0.702953 0.644404 0.585856 0.527307 0.468758 0.410209 0.351660 0.293112 0.234563 1.776014).map Float.toBits))
-#eval IO.println ("sampleRay " ++ toString ((sampleRay 0.488859 0.430310 0.371761 0.313212 0.254664 1.796115 1.737566 1.679017 1.620468 1.561920 1.503371 1.444822).map Float.toBits))
+#eval IO.println ("sampleRay " ++ toString ((sampleRay 1.186659 1.128110 1.069561 1.011012 0.952464 0.893915 0.835366 0.776817 0.718268 0.659720 0.601171 0.542622).map Float.toBits))
+#eval IO.println ("sampleRay " ++ toString ((sampleRay 0.855467 0.796918 0.738369 0.679820 0.621272 0.562723 0.504174 0.445625 0.387076 0.328528 0.269979 0.211430).map Float.toBits))
+#eval IO.println ("sampleRay " ++ toString ((sampleRay 0.524275 0.465726 0.407177 0.348628 0.290080 0.231531 1.772982 1.714433 1.655884 1.597336 1.538787 1.480238).map Float.toBits))
 
 def screwLength (R : Float) (a : Float) : Float :=
   ((R / (2 : Float)) - (R - (Float.sqrt ((R ^ 2) - (a ^ 2)))))
 
-#eval IO.println ("screwLength " ++ toString (screwLength 0.965091 0.906542).toBits)
-#eval IO.println ("screwLength " ++ toString (screwLength 0.633899 0.575350).toBits)
-#eval IO.println ("screwLength " ++ toString (screwLength 0.302707 0.244158).toBits)
+#eval IO.println ("screwLength " ++ toString (screwLength 1.000507 0.941958).toBits)
+#eval IO.println ("screwLength " ++ toString (screwLength 0.669315 0.610766).toBits)
+#eval IO.println ("screwLength " ++ toString (screwLength 0.338123 0.279574).toBits)
 
 def check_screwLength_eq_focal (R : Float) (a : Float) : Bool :=
   let v8 := (R - (Float.sqrt ((R ^ 2) - (a ^ 2))))
   (feq ((R / (2 : Float)) - v8) ((R - (R / ((2 : Float) * (Float.cos (Float.asin ((0 : Float) / R)))))) - v8))
 
-#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 0.778939 0.720390))
-#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 0.447747 0.389198))
-#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 1.716555 1.658006))
+#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 0.814355 0.755806))
+#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 0.483163 0.424614))
+#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 1.751971 1.693422))
 
 def check_screwLength_hashemi  : Bool :=
   (feq (((2 : Float) / (2 : Float)) - ((2 : Float) - (Float.sqrt (((2 : Float) ^ 2) - ((1 : Float) ^ 2))))) ((Float.sqrt (3 : Float)) - (1 : Float)))
@@ -4207,18 +4621,18 @@ def check_screwLength_hashemi_bounds  : Bool :=
 def screwTwist (h : Float) (zBolt : Float) : Array Float :=
   #[(1 : Float), (0 : Float), (0 : Float), h, zBolt, (0 : Float)]
 
-#eval IO.println ("screwTwist " ++ toString ((screwTwist 0.220483 1.761934).map Float.toBits))
-#eval IO.println ("screwTwist " ++ toString ((screwTwist 1.489291 1.430742).map Float.toBits))
-#eval IO.println ("screwTwist " ++ toString ((screwTwist 1.158099 1.099550).map Float.toBits))
+#eval IO.println ("screwTwist " ++ toString ((screwTwist 0.255899 1.797350).map Float.toBits))
+#eval IO.println ("screwTwist " ++ toString ((screwTwist 1.524707 1.466158).map Float.toBits))
+#eval IO.println ("screwTwist " ++ toString ((screwTwist 1.193515 1.134966).map Float.toBits))
 
 def check_screwTwist_zero (apexH : Float) (zBolt : Float) : Bool :=
   let v8 := (apexH * (0 : Float))
   let v13 := (feq (0 : Float) (0 : Float))
   ((feq (1 : Float) (1 : Float)) && (v13 && (v13 && ((feq (0 : Float) (((0 : Float) * (0 : Float)) - (zBolt * (0 : Float)))) && ((feq zBolt ((zBolt * (1 : Float)) - v8)) && (feq (0 : Float) (v8 - ((0 : Float) * (1 : Float)))))))))
 
-#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 1.634331 1.575782))
-#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 1.303139 1.244590))
-#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 0.971947 0.913398))
+#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 1.669747 1.611198))
+#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 1.338555 1.280006))
+#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 1.007363 0.948814))
 
 def screwWrench (xh : Float) (zBolt : Float) (h : Float) : Array Float :=
   let v5 := ((0 : Float) * (0 : Float))
@@ -4227,9 +4641,9 @@ def screwWrench (xh : Float) (zBolt : Float) (h : Float) : Array Float :=
   let v11 := (xh * (1 : Float))
   #[(0 : Float), (1 : Float), (0 : Float), (v5 - (zBolt * (1 : Float))), (v8 - v9), (v11 - v5), (0 : Float), (0 : Float), (1 : Float), (((0 : Float) * (1 : Float)) - v8), (v8 - v11), (v9 - v5), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (1 : Float), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (1 : Float), (1 : Float), (0 : Float), (0 : Float), (-h), zBolt, (0 : Float)]
 
-#eval IO.println ("screwWrench " ++ toString ((screwWrench 1.448179 1.389630 1.331081).map Float.toBits))
-#eval IO.println ("screwWrench " ++ toString ((screwWrench 1.116987 1.058438 0.999889).map Float.toBits))
-#eval IO.println ("screwWrench " ++ toString ((screwWrench 0.785795 0.727246 0.668697).map Float.toBits))
+#eval IO.println ("screwWrench " ++ toString ((screwWrench 1.483595 1.425046 1.366497).map Float.toBits))
+#eval IO.println ("screwWrench " ++ toString ((screwWrench 1.152403 1.093854 1.035305).map Float.toBits))
+#eval IO.println ("screwWrench " ++ toString ((screwWrench 0.821211 0.762662 0.704113).map Float.toBits))
 
 def check_screw_freedom (xh : Float) (zBolt : Float) (h : Float) (t_0 : Float) (t_1 : Float) (t_2 : Float) (t_3 : Float) (t_4 : Float) (t_5 : Float) : Bool :=
   let v11 := ((0 : Float) * (0 : Float))
@@ -4243,9 +4657,9 @@ def check_screw_freedom (xh : Float) (zBolt : Float) (h : Float) (t_0 : Float) (
   let v50 := (t_2 * (0 : Float))
   (!((feq ((((((t_0 * (v11 - (zBolt * (1 : Float)))) + (t_1 * (v14 - v15))) + (t_2 * (v17 - v11))) + v29) + (t_4 * (1 : Float))) + v33) (0 : Float)) && ((feq ((((((t_0 * (((0 : Float) * (1 : Float)) - v14)) + (t_1 * (v14 - v17))) + (t_2 * (v15 - v11))) + v29) + v42) + (t_5 * (1 : Float))) (0 : Float)) && ((feq (((((v47 + (t_1 * (1 : Float))) + v50) + v29) + v42) + v33) (0 : Float)) && ((feq (((((v47 + (t_1 * (0 : Float))) + (t_2 * (1 : Float))) + v29) + v42) + v33) (0 : Float)) && (feq ((((((t_0 * (-h)) + (t_1 * zBolt)) + v50) + (t_3 * (1 : Float))) + v42) + v33) (0 : Float)))))) || ((feq t_1 (0 : Float)) && ((feq t_2 (0 : Float)) && ((feq t_3 (t_0 * h)) && ((feq t_4 (t_0 * zBolt)) && (feq t_5 (0 : Float)))))))
 
-#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 1.262027 1.203478 1.144929 1.086380 1.027832 0.969283 0.910734 0.852185 0.793636))
-#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 0.930835 0.872286 0.813737 0.755188 0.696640 0.638091 0.579542 0.520993 0.462444))
-#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 0.599643 0.541094 0.482545 0.423996 0.365448 0.306899 0.248350 1.789801 1.731252))
+#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 1.297443 1.238894 1.180345 1.121796 1.063248 1.004699 0.946150 0.887601 0.829052))
+#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 0.966251 0.907702 0.849153 0.790604 0.732056 0.673507 0.614958 0.556409 0.497860))
+#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 0.635059 0.576510 0.517961 0.459412 0.400864 0.342315 0.283766 0.225217 1.766668))
 
 def check_screw_reciprocal (xh : Float) (zBolt : Float) (h : Float) : Bool :=
   let v5 := ((0 : Float) * (0 : Float))
@@ -4258,16 +4672,16 @@ def check_screw_reciprocal (xh : Float) (zBolt : Float) (h : Float) : Bool :=
   let v37 := ((1 : Float) * (0 : Float))
   ((feq (((((((1 : Float) * (v5 - v6)) + ((0 : Float) * (v8 - v9))) + ((0 : Float) * (v11 - v5))) + v23) + v6) + v5) (0 : Float)) && ((feq (((((((1 : Float) * (v13 - v8)) + ((0 : Float) * (v8 - v11))) + ((0 : Float) * (v9 - v5))) + v23) + v8) + v13) (0 : Float)) && ((feq (((((v37 + v13) + v5) + v23) + v8) + v5) (0 : Float)) && ((feq (((((v37 + v5) + v13) + v23) + v8) + v5) (0 : Float)) && (feq (((((((1 : Float) * (-h)) + ((0 : Float) * zBolt)) + v5) + (h * (1 : Float))) + v8) + v5) (0 : Float))))))
 
-#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 1.075875 1.017326 0.958777))
-#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 0.744683 0.686134 0.627585))
-#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 0.413491 0.354942 0.296393))
+#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 1.111291 1.052742 0.994193))
+#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 0.780099 0.721550 0.663001))
+#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 0.448907 0.390358 0.331809))
 
 def setLength (rod : Float) (excess : Float) : Float :=
   (rod - excess)
 
-#eval IO.println ("setLength " ++ toString (setLength 0.889723 0.831174).toBits)
-#eval IO.println ("setLength " ++ toString (setLength 0.558531 0.499982).toBits)
-#eval IO.println ("setLength " ++ toString (setLength 0.227339 1.768790).toBits)
+#eval IO.println ("setLength " ++ toString (setLength 0.925139 0.866590).toBits)
+#eval IO.println ("setLength " ++ toString (setLength 0.593947 0.535398).toBits)
+#eval IO.println ("setLength " ++ toString (setLength 0.262755 0.204206).toBits)
 
 def check_shim_negligible  : Bool :=
   ((0.0005 : Float) < ((0.01 : Float) * (0.06 : Float)))
@@ -4300,17 +4714,17 @@ def sigmaSB  : Float :=
 def check_sigmoid_ge_of_nonneg (x : Float) : Bool :=
   (!((0 : Float) <= x) || (((1 : Float) - ((1 : Float) / ((2 : Float) + x))) <= (1.0 / (1.0 + Float.exp (-x)))))
 
-#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 1.558963))
-#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 1.227771))
-#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 0.896579))
+#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 1.594379))
+#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 1.263187))
+#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 0.931995))
 
 def check_sigmoid_slope_le (x : Float) : Bool :=
   let v1 := (1.0 / (1.0 + Float.exp (-x)))
   ((v1 * ((1 : Float) - v1)) <= ((1 : Float) / (4 : Float)))
 
-#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 1.372811))
-#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 1.041619))
-#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 0.710427))
+#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 1.408227))
+#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 1.077035))
+#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 0.745843))
 
 def check_sixty_reachable  : Bool :=
   let v2 := ((3.141592653589793 : Float) / (3 : Float))
@@ -4325,32 +4739,32 @@ def check_slackHarmless_of_budget (f : Float) (eps : Float) (delta : Float) (h :
   let v5 := (f * (Float.tan eps))
   (!(v5 <= (h - delta)) || ((v5 + delta) <= h))
 
-#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 1.000507 0.941958 0.883409 0.824860))
-#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 0.669315 0.610766 0.552217 0.493668))
-#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 0.338123 0.279574 0.221025 1.762476))
+#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 1.035923 0.977374 0.918825 0.860276))
+#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 0.704731 0.646182 0.587633 0.529084))
+#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 0.373539 0.314990 0.256441 1.797892))
 
 def check_slackHarmless_of_lever (f : Float) (eps : Float) (delta : Float) (rw : Float) (h : Float) : Bool :=
   let v6 := (f * (Float.tan eps))
   let v10 := ((((2 : Float) * f) * delta) / rw)
   (!(v6 <= (h - v10)) || ((v6 + v10) <= h))
 
-#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 0.814355 0.755806 0.697257 0.638708 0.580160))
-#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 0.483163 0.424614 0.366065 0.307516 0.248968))
-#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 1.751971 1.693422 1.634873 1.576324 1.517776))
+#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 0.849771 0.791222 0.732673 0.674124 0.615576))
+#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 0.518579 0.460030 0.401481 0.342932 0.284384))
+#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 1.787387 1.728838 1.670289 1.611740 1.553192))
 
 def slackSpot (f : Float) (delta : Float) (rw : Float) : Float :=
   ((((2 : Float) * f) * delta) / rw)
 
-#eval IO.println ("slackSpot " ++ toString (slackSpot 0.628203 0.569654 0.511105).toBits)
-#eval IO.println ("slackSpot " ++ toString (slackSpot 0.297011 0.238462 1.779913).toBits)
-#eval IO.println ("slackSpot " ++ toString (slackSpot 1.565819 1.507270 1.448721).toBits)
+#eval IO.println ("slackSpot " ++ toString (slackSpot 0.663619 0.605070 0.546521).toBits)
+#eval IO.println ("slackSpot " ++ toString (slackSpot 0.332427 0.273878 0.215329).toBits)
+#eval IO.println ("slackSpot " ++ toString (slackSpot 1.601235 1.542686 1.484137).toBits)
 
 def slotExit (a : Float) (ze : Float) : Float :=
   (Float.atan (a / ze))
 
-#eval IO.println ("slotExit " ++ toString (slotExit 0.442051 0.383502).toBits)
-#eval IO.println ("slotExit " ++ toString (slotExit 1.710859 1.652310).toBits)
-#eval IO.println ("slotExit " ++ toString (slotExit 1.379667 1.321118).toBits)
+#eval IO.println ("slotExit " ++ toString (slotExit 0.477467 0.418918).toBits)
+#eval IO.println ("slotExit " ++ toString (slotExit 1.746275 1.687726).toBits)
+#eval IO.println ("slotExit " ++ toString (slotExit 1.415083 1.356534).toBits)
 
 def check_slot_exit_hashemi  : Bool :=
   let v6 := ((0.8 : Float) / ((Float.sqrt (3.36 : Float)) - (1 : Float)))
@@ -4363,18 +4777,18 @@ def check_slot_exit_hashemi  : Bool :=
 def sphereBestFocus (R : Float) (H : Float) : Float :=
   (((R / (2 : Float)) + (R / ((2 : Float) * (Float.sqrt ((1 : Float) - ((H / R) ^ 2)))))) / (2 : Float))
 
-#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 1.669747 1.611198).toBits)
-#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 1.338555 1.280006).toBits)
-#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 1.007363 0.948814).toBits)
+#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 1.705163 1.646614).toBits)
+#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 1.373971 1.315422).toBits)
+#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 1.042779 0.984230).toBits)
 
 def sphereBlur (R : Float) (H : Float) : Float :=
   let v4 := (H / R)
   let v13 := (v4 ^ 2)
   (((R / (2 : Float)) - (R - (R / ((2 : Float) * (Float.cos (Float.asin v4)))))) * ((((2 : Float) * v4) * (Float.sqrt ((1 : Float) - v13))) / ((1 : Float) - ((2 : Float) * v13))))
 
-#eval IO.println ("sphereBlur " ++ toString (sphereBlur 1.483595 1.425046).toBits)
-#eval IO.println ("sphereBlur " ++ toString (sphereBlur 1.152403 1.093854).toBits)
-#eval IO.println ("sphereBlur " ++ toString (sphereBlur 0.821211 0.762662).toBits)
+#eval IO.println ("sphereBlur " ++ toString (sphereBlur 1.519011 1.460462).toBits)
+#eval IO.println ("sphereBlur " ++ toString (sphereBlur 1.187819 1.129270).toBits)
+#eval IO.println ("sphereBlur " ++ toString (sphereBlur 0.856627 0.798078).toBits)
 
 def sphereDev (R : Float) (h : Float) (p : Float) : Float :=
   let v5 := (h / R)
@@ -4382,16 +4796,16 @@ def sphereDev (R : Float) (h : Float) (p : Float) : Float :=
   let v8 := (Float.sqrt ((1 : Float) - v6))
   (((R / ((2 : Float) * v8)) - p) * ((((2 : Float) * v5) * v8) / ((1 : Float) - ((2 : Float) * v6))))
 
-#eval IO.println ("sphereDev " ++ toString (sphereDev 1.297443 1.238894 1.180345).toBits)
-#eval IO.println ("sphereDev " ++ toString (sphereDev 0.966251 0.907702 0.849153).toBits)
-#eval IO.println ("sphereDev " ++ toString (sphereDev 0.635059 0.576510 0.517961).toBits)
+#eval IO.println ("sphereDev " ++ toString (sphereDev 1.332859 1.274310 1.215761).toBits)
+#eval IO.println ("sphereDev " ++ toString (sphereDev 1.001667 0.943118 0.884569).toBits)
+#eval IO.println ("sphereDev " ++ toString (sphereDev 0.670475 0.611926 0.553377).toBits)
 
 def sphereFocal (R : Float) (h : Float) : Float :=
   (R - (R / ((2 : Float) * (Float.cos (Float.asin (h / R))))))
 
-#eval IO.println ("sphereFocal " ++ toString (sphereFocal 1.111291 1.052742).toBits)
-#eval IO.println ("sphereFocal " ++ toString (sphereFocal 0.780099 0.721550).toBits)
-#eval IO.println ("sphereFocal " ++ toString (sphereFocal 0.448907 0.390358).toBits)
+#eval IO.println ("sphereFocal " ++ toString (sphereFocal 1.146707 1.088158).toBits)
+#eval IO.println ("sphereFocal " ++ toString (sphereFocal 0.815515 0.756966).toBits)
+#eval IO.println ("sphereFocal " ++ toString (sphereFocal 0.484323 0.425774).toBits)
 
 def sphereHit (R : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Array Float :=
   let v7 := (O_2 - R)
@@ -4399,9 +4813,9 @@ def sphereHit (R : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float
   let v24 := ((-v12) + (Float.sqrt ((v12 ^ 2) - ((((O_0 ^ 2) + (O_1 ^ 2)) + (v7 ^ 2)) - (R ^ 2)))))
   #[(O_0 + (v24 * d_0)), (O_1 + (v24 * d_1)), (O_2 + (v24 * d_2)), ((-(O_0 + (v24 * d_0))) / R), ((-(O_1 + (v24 * d_1))) / R), ((R - (O_2 + (v24 * d_2))) / R)]
 
-#eval IO.println ("sphereHit " ++ toString ((sphereHit 0.925139 0.866590 0.808041 0.749492 0.690944 0.632395 0.573846).map Float.toBits))
-#eval IO.println ("sphereHit " ++ toString ((sphereHit 0.593947 0.535398 0.476849 0.418300 0.359752 0.301203 0.242654).map Float.toBits))
-#eval IO.println ("sphereHit " ++ toString ((sphereHit 0.262755 0.204206 1.745657 1.687108 1.628560 1.570011 1.511462).map Float.toBits))
+#eval IO.println ("sphereHit " ++ toString ((sphereHit 0.960555 0.902006 0.843457 0.784908 0.726360 0.667811 0.609262).map Float.toBits))
+#eval IO.println ("sphereHit " ++ toString ((sphereHit 0.629363 0.570814 0.512265 0.453716 0.395168 0.336619 0.278070).map Float.toBits))
+#eval IO.println ("sphereHit " ++ toString ((sphereHit 0.298171 0.239622 1.781073 1.722524 1.663976 1.605427 1.546878).map Float.toBits))
 
 def spotTau  : Float :=
   (0.005 : Float)
@@ -4414,9 +4828,9 @@ def check_sq_bounds_neg (x : Float) (lo : Float) (hi : Float) : Bool :=
   let v8 := (x ^ 2)
   (!(lo < x) || (!(x < hi) || (!(hi <= (0 : Float)) || (((hi ^ 2) < v8) && (v8 < (lo ^ 2))))))
 
-#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 0.552835 0.494286 0.435737))
-#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 0.221643 1.763094 1.704545))
-#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 1.490451 1.431902 1.373353))
+#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 0.588251 0.529702 0.471153))
+#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 0.257059 1.798510 1.739961))
+#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 1.525867 1.467318 1.408769))
 
 def check_sqrt32_bounds  : Bool :=
   let v2 := (Float.sqrt (3.2 : Float))
@@ -4432,9 +4846,9 @@ def check_steady_conservation (alpha : Float) (eps : Float) (Ac : Float) (hC : F
   let v28 := (max (0 : Float) (UAx * (Toil - Twall)))
   (!(feq (v24 - v28) (0 : Float)) || (feq v28 v24))
 
-#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 1.780531 1.721982 1.663433 1.604884 1.546336 1.487787 1.429238 1.370689 1.312140 1.253592))
-#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 1.449339 1.390790 1.332241 1.273692 1.215144 1.156595 1.098046 1.039497 0.980948 0.922400))
-#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 1.118147 1.059598 1.001049 0.942500 0.883952 0.825403 0.766854 0.708305 0.649756 0.591208))
+#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 0.215947 1.757398 1.698849 1.640300 1.581752 1.523203 1.464654 1.406105 1.347556 1.289008))
+#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 1.484755 1.426206 1.367657 1.309108 1.250560 1.192011 1.133462 1.074913 1.016364 0.957816))
+#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 1.153563 1.095014 1.036465 0.977916 0.919368 0.860819 0.802270 0.743721 0.685172 0.626624))
 
 def check_steady_pot_le_abs (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Pin : Float) (Toil : Float) (Twall : Float) (Ta : Float) : Bool :=
   let v17 := (alpha * Pin)
@@ -4442,9 +4856,9 @@ def check_steady_pot_le_abs (alpha : Float) (eps : Float) (Ac : Float) (hC : Flo
   let v34 := (max (0 : Float) (UAx * (Toil - Twall)))
   (!((0 : Float) <= eps) || (!((0 : Float) <= Ac) || (!((0 : Float) <= hC) || (!((0 : Float) <= Upipe) || (!((0 : Float) <= Ta) || (!(Ta <= Toil) || (!(feq (((v17 - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v26))) - (Upipe * v26)) - v34) (0 : Float)) || (v34 <= v17))))))))
 
-#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 1.594379 1.535830 1.477281 1.418732 1.360184 1.301635 1.243086 1.184537 1.125988 1.067440))
-#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 1.263187 1.204638 1.146089 1.087540 1.028992 0.970443 0.911894 0.853345 0.794796 0.736248))
-#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 0.931995 0.873446 0.814897 0.756348 0.697800 0.639251 0.580702 0.522153 0.463604 0.405056))
+#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 1.629795 1.571246 1.512697 1.454148 1.395600 1.337051 1.278502 1.219953 1.161404 1.102856))
+#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 1.298603 1.240054 1.181505 1.122956 1.064408 1.005859 0.947310 0.888761 0.830212 0.771664))
+#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 0.967411 0.908862 0.850313 0.791764 0.733216 0.674667 0.616118 0.557569 0.499020 0.440472))
 
 def check_steady_unique (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Pin : Float) (Twall : Float) (Ta : Float) (T1 : Float) (T2 : Float) : Bool :=
   let v19 := (alpha * Pin)
@@ -4455,9 +4869,9 @@ def check_steady_unique (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) 
   let v42 := (T2 - Ta)
   (!((0 : Float) <= eps) || (!((0 : Float) <= Ac) || (!((0 : Float) <= hC) || (!((0 : Float) < Upipe) || (!((0 : Float) <= UAx) || (!((0 : Float) <= T1) || (!((0 : Float) <= T2) || (!(feq (((v19 - ((v22 * ((T1 ^ 4) - v24)) + (v27 * v28))) - (Upipe * v28)) - (max (0 : Float) (UAx * (T1 - Twall)))) (0 : Float)) || (!(feq (((v19 - ((v22 * ((T2 ^ 4) - v24)) + (v27 * v42))) - (Upipe * v42)) - (max (0 : Float) (UAx * (T2 - Twall)))) (0 : Float)) || (feq T1 T2))))))))))
 
-#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 1.408227 1.349678 1.291129 1.232580 1.174032 1.115483 1.056934 0.998385 0.939836 0.881288 0.822739))
-#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 1.077035 1.018486 0.959937 0.901388 0.842840 0.784291 0.725742 0.667193 0.608644 0.550096 0.491547))
-#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 0.745843 0.687294 0.628745 0.570196 0.511648 0.453099 0.394550 0.336001 0.277452 0.218904 1.760355))
+#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 1.443643 1.385094 1.326545 1.267996 1.209448 1.150899 1.092350 1.033801 0.975252 0.916704 0.858155))
+#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 1.112451 1.053902 0.995353 0.936804 0.878256 0.819707 0.761158 0.702609 0.644060 0.585512 0.526963))
+#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 0.781259 0.722710 0.664161 0.605612 0.547064 0.488515 0.429966 0.371417 0.312868 0.254320 1.795771))
 
 def step (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Float) (dt : Float) (rw : Float) (R : Float) (rDrum : Float) (ym : Float) (hp : Float) (a : Float) (ze : Float) (W : Float) (rcm : Float) (Tmax : Float) : Array Float :=
   let v16 := (ym * a)
@@ -4636,9 +5050,9 @@ def step (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Flo
   let v588 := ((v38 * v583) + (v34 * v581))
   #[(az + (((omegam * rw) / R) * dt)), v570, (if v81 then (v79 - v47) else (0 : Float)), (if v569 then v75 else v83), v28, (if (v80 || v569) then (1 : Float) else (0 : Float)), (if (feq (if v81 then (v79 - v47) else (0 : Float)) (0 : Float)) then (1 : Float) else (0 : Float)), (if (v546 <= (Tmax * (((v29 * v588) - (hp * v585)) / (Float.sqrt (((v585 - v29) ^ 2) + ((v588 - hp) ^ 2)))))) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("step " ++ toString ((step 1.222075 1.163526 1.104977 1.046428 0.987880 0.929331 0.870782 0.812233 0.753684 0.695136 0.636587 0.578038 0.519489 0.460940 0.402392 0.343843).map Float.toBits))
-#eval IO.println ("step " ++ toString ((step 0.890883 0.832334 0.773785 0.715236 0.656688 0.598139 0.539590 0.481041 0.422492 0.363944 0.305395 0.246846 1.788297 1.729748 1.671200 1.612651).map Float.toBits))
-#eval IO.println ("step " ++ toString ((step 0.559691 0.501142 0.442593 0.384044 0.325496 0.266947 0.208398 1.749849 1.691300 1.632752 1.574203 1.515654 1.457105 1.398556 1.340008 1.281459).map Float.toBits))
+#eval IO.println ("step " ++ toString ((step 1.257491 1.198942 1.140393 1.081844 1.023296 0.964747 0.906198 0.847649 0.789100 0.730552 0.672003 0.613454 0.554905 0.496356 0.437808 0.379259).map Float.toBits))
+#eval IO.println ("step " ++ toString ((step 0.926299 0.867750 0.809201 0.750652 0.692104 0.633555 0.575006 0.516457 0.457908 0.399360 0.340811 0.282262 0.223713 1.765164 1.706616 1.648067).map Float.toBits))
+#eval IO.println ("step " ++ toString ((step 0.595107 0.536558 0.478009 0.419460 0.360912 0.302363 0.243814 1.785265 1.726716 1.668168 1.609619 1.551070 1.492521 1.433972 1.375424 1.316875).map Float.toBits))
 
 def stepParams  : Array Float :=
   #[(0.05 : Float), (Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2))), (0.03 : Float), (1.22 : Float), (0.34 : Float), (0.8 : Float), ((Float.sqrt (3.36 : Float)) - (1 : Float))]
@@ -4650,24 +5064,24 @@ def stepParams  : Array Float :=
 def strutStrain (P_0 : Float) (P_1 : Float) (P_2 : Float) (Q_0 : Float) (Q_1 : Float) (Q_2 : Float) (delta_0 : Float) (delta_1 : Float) (delta_2 : Float) : Float :=
   ((((P_0 - Q_0) * delta_0) + ((P_1 - Q_1) * delta_1)) + ((P_2 - Q_2) * delta_2))
 
-#eval IO.println ("strutStrain " ++ toString (strutStrain 0.849771 0.791222 0.732673 0.674124 0.615576 0.557027 0.498478 0.439929 0.381380).toBits)
-#eval IO.println ("strutStrain " ++ toString (strutStrain 0.518579 0.460030 0.401481 0.342932 0.284384 0.225835 1.767286 1.708737 1.650188).toBits)
-#eval IO.println ("strutStrain " ++ toString (strutStrain 1.787387 1.728838 1.670289 1.611740 1.553192 1.494643 1.436094 1.377545 1.318996).toBits)
+#eval IO.println ("strutStrain " ++ toString (strutStrain 0.885187 0.826638 0.768089 0.709540 0.650992 0.592443 0.533894 0.475345 0.416796).toBits)
+#eval IO.println ("strutStrain " ++ toString (strutStrain 0.553995 0.495446 0.436897 0.378348 0.319800 0.261251 0.202702 1.744153 1.685604).toBits)
+#eval IO.println ("strutStrain " ++ toString (strutStrain 0.222803 1.764254 1.705705 1.647156 1.588608 1.530059 1.471510 1.412961 1.354412).toBits)
 
 def check_strut_resists_lean (P_0 : Float) (P_1 : Float) (P_2 : Float) (Q_0 : Float) (Q_1 : Float) (Q_2 : Float) (delta_0 : Float) (delta_1 : Float) (delta_2 : Float) (eps : Float) : Bool :=
   (!((0 : Float) < eps) || (!(Q_0 < P_0) || (!(feq delta_0 (-eps)) || (!(feq delta_1 (0 : Float)) || (!(feq delta_2 (0 : Float)) || (((((P_0 - Q_0) * delta_0) + ((P_1 - Q_1) * delta_1)) + ((P_2 - Q_2) * delta_2)) < (0 : Float)))))))
 
-#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 0.663619 0.605070 0.546521 0.487972 0.429424 0.370875 0.312326 0.253777 1.795228 1.736680))
-#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 0.332427 0.273878 0.215329 1.756780 1.698232 1.639683 1.581134 1.522585 1.464036 1.405488))
-#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 1.601235 1.542686 1.484137 1.425588 1.367040 1.308491 1.249942 1.191393 1.132844 1.074296))
+#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 0.699035 0.640486 0.581937 0.523388 0.464840 0.406291 0.347742 0.289193 0.230644 1.772096))
+#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 0.367843 0.309294 0.250745 1.792196 1.733648 1.675099 1.616550 1.558001 1.499452 1.440904))
+#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 1.636651 1.578102 1.519553 1.461004 1.402456 1.343907 1.285358 1.226809 1.168260 1.109712))
 
 def sunDir (elSun : Float) (azSun : Float) : Array Float :=
   let v2 := (Float.cos elSun)
   #[(v2 * (Float.cos azSun)), (v2 * (Float.sin azSun)), (Float.sin elSun)]
 
-#eval IO.println ("sunDir " ++ toString ((sunDir 0.477467 0.418918).map Float.toBits))
-#eval IO.println ("sunDir " ++ toString ((sunDir 1.746275 1.687726).map Float.toBits))
-#eval IO.println ("sunDir " ++ toString ((sunDir 1.415083 1.356534).map Float.toBits))
+#eval IO.println ("sunDir " ++ toString ((sunDir 0.512883 0.454334).map Float.toBits))
+#eval IO.println ("sunDir " ++ toString ((sunDir 1.781691 1.723142).map Float.toBits))
+#eval IO.println ("sunDir " ++ toString ((sunDir 1.450499 1.391950).map Float.toBits))
 
 def check_sunDir_rot (elSun : Float) (azSun : Float) (delta : Float) : Bool :=
   let v3 := (Float.cos elSun)
@@ -4679,9 +5093,9 @@ def check_sunDir_rot (elSun : Float) (azSun : Float) (delta : Float) : Bool :=
   let v16 := (Float.sin delta)
   ((feq (v3 * (Float.cos v4)) ((v10 * v12) - (v16 * v14))) && ((feq (v3 * (Float.sin v4)) ((v16 * v12) + (v10 * v14))) && (feq v9 v9)))
 
-#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 0.291315 0.232766 1.774217))
-#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 1.560123 1.501574 1.443025))
-#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 1.228931 1.170382 1.111833))
+#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 0.326731 0.268182 0.209633))
+#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 1.595539 1.536990 1.478441))
+#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 1.264347 1.205798 1.147249))
 
 def sunInDish (az : Float) (t : Float) (elSun : Float) (azSun : Float) : Array Float :=
   let v4 := (Float.sin t)
@@ -4699,9 +5113,9 @@ def sunInDish (az : Float) (t : Float) (elSun : Float) (azSun : Float) : Array F
   let v27 := (Float.sin elSun)
   #[(((((v11 * v9) - (v12 * v8)) * v24) + (((v12 * v6) - (v10 * v9)) * v26)) + (((v10 * v8) - (v11 * v6)) * v27)), (((v10 * v24) + (v11 * v26)) + (v12 * v27)), (((v6 * v24) + (v8 * v26)) + (v9 * v27))]
 
-#eval IO.println ("sunInDish " ++ toString ((sunInDish 1.705163 1.646614 1.588065 1.529516).map Float.toBits))
-#eval IO.println ("sunInDish " ++ toString ((sunInDish 1.373971 1.315422 1.256873 1.198324).map Float.toBits))
-#eval IO.println ("sunInDish " ++ toString ((sunInDish 1.042779 0.984230 0.925681 0.867132).map Float.toBits))
+#eval IO.println ("sunInDish " ++ toString ((sunInDish 1.740579 1.682030 1.623481 1.564932).map Float.toBits))
+#eval IO.println ("sunInDish " ++ toString ((sunInDish 1.409387 1.350838 1.292289 1.233740).map Float.toBits))
+#eval IO.println ("sunInDish " ++ toString ((sunInDish 1.078195 1.019646 0.961097 0.902548).map Float.toBits))
 
 def check_sunInDish_equivariant (az : Float) (t : Float) (elSun : Float) (azSun : Float) (delta : Float) : Bool :=
   let v5 := (Float.sin t)
@@ -4731,64 +5145,71 @@ def check_sunInDish_equivariant (az : Float) (t : Float) (elSun : Float) (azSun 
   let v64 := (v24 * (Float.sin azSun))
   ((feq (((((v13 * v11) - (v14 * v10)) * v27) + (((v14 * v8) - (v12 * v11)) * v29)) + (((v12 * v10) - (v13 * v8)) * v30)) (((((v51 * v11) - (v14 * v49)) * v62) + (((v14 * v47) - (v50 * v11)) * v64)) + (((v50 * v49) - (v51 * v47)) * v30))) && ((feq (((v12 * v27) + (v13 * v29)) + v39) (((v50 * v62) + (v51 * v64)) + v39)) && (feq (((v8 * v27) + (v10 * v29)) + v44) (((v47 * v62) + (v49 * v64)) + v44))))
 
-#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 1.519011 1.460462 1.401913 1.343364 1.284816))
-#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 1.187819 1.129270 1.070721 1.012172 0.953624))
-#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 0.856627 0.798078 0.739529 0.680980 0.622432))
+#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 1.554427 1.495878 1.437329 1.378780 1.320232))
+#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 1.223235 1.164686 1.106137 1.047588 0.989040))
+#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 0.892043 0.833494 0.774945 0.716396 0.657848))
+
+def sunRate  : Float :=
+  (0.000073 : Float)
+
+#eval IO.println ("sunRate " ++ toString (sunRate).toBits)
+#eval IO.println ("sunRate " ++ toString (sunRate).toBits)
+#eval IO.println ("sunRate " ++ toString (sunRate).toBits)
 
 def sunReachableS (tDead : Float) (elSun : Float) : Float :=
   (1.0 / (1.0 + Float.exp (-((elSun - (((3.141592653589793 : Float) / (2 : Float)) - tDead)) / (0.01 : Float)))))
 
-#eval IO.println ("sunReachableS " ++ toString (sunReachableS 1.332859 1.274310).toBits)
-#eval IO.println ("sunReachableS " ++ toString (sunReachableS 1.001667 0.943118).toBits)
-#eval IO.println ("sunReachableS " ++ toString (sunReachableS 0.670475 0.611926).toBits)
+#eval IO.println ("sunReachableS " ++ toString (sunReachableS 1.182123 1.123574).toBits)
+#eval IO.println ("sunReachableS " ++ toString (sunReachableS 0.850931 0.792382).toBits)
+#eval IO.println ("sunReachableS " ++ toString (sunReachableS 0.519739 0.461190).toBits)
 
 def check_sunReachableS_mem (tDead : Float) (elSun : Float) : Bool :=
   let v10 := (1.0 / (1.0 + Float.exp (-((elSun - (((3.141592653589793 : Float) / (2 : Float)) - tDead)) / (0.01 : Float)))))
   (((0 : Float) <= v10) && (v10 <= (1 : Float)))
 
-#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 1.146707 1.088158))
-#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 0.815515 0.756966))
-#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 0.484323 0.425774))
+#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 0.995971 0.937422))
+#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 0.664779 0.606230))
+#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 0.333587 0.275038))
 
 def check_sunReachableS_slope (tDead : Float) (e1 : Float) (e2 : Float) : Bool :=
   let v6 := (((3.141592653589793 : Float) / (2 : Float)) - tDead)
   ((Float.abs ((1.0 / (1.0 + Float.exp (-((e1 - v6) / (0.01 : Float))))) - (1.0 / (1.0 + Float.exp (-((e2 - v6) / (0.01 : Float))))))) <= ((Float.abs (e1 - e2)) / ((4 : Float) * (0.01 : Float))))
 
-#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 0.960555 0.902006 0.843457))
-#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 0.629363 0.570814 0.512265))
-#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 0.298171 0.239622 1.781073))
+#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 0.809819 0.751270 0.692721))
+#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 0.478627 0.420078 0.361529))
+#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 1.747435 1.688886 1.630337))
 
 def swingFocus (P_1 : Float) (P_2 : Float) (d : Float) (f : Float) (t : Float) : Array Float :=
   let v5 := (Float.sin t)
   let v8 := (Float.cos t)
   #[((P_1 + (d * v5)) + (f * (-v5))), ((P_2 - (d * v8)) + (f * v8))]
 
-#eval IO.println ("swingFocus " ++ toString ((swingFocus 0.774403 0.715854 0.657305 0.598756 0.540208).map Float.toBits))
-#eval IO.println ("swingFocus " ++ toString ((swingFocus 0.443211 0.384662 0.326113 0.267564 0.209016).map Float.toBits))
-#eval IO.println ("swingFocus " ++ toString ((swingFocus 1.712019 1.653470 1.594921 1.536372 1.477824).map Float.toBits))
+#eval IO.println ("swingFocus " ++ toString ((swingFocus 0.623667 0.565118 0.506569 0.448020 0.389472).map Float.toBits))
+#eval IO.println ("swingFocus " ++ toString ((swingFocus 0.292475 0.233926 1.775377 1.716828 1.658280).map Float.toBits))
+#eval IO.println ("swingFocus " ++ toString ((swingFocus 1.561283 1.502734 1.444185 1.385636 1.327088).map Float.toBits))
 
 def check_swingFocus_circle (P_1 : Float) (P_2 : Float) (d : Float) (f : Float) (t : Float) : Bool :=
   let v5 := (Float.sin t)
   let v8 := (Float.cos t)
   (feq (((((P_1 + (d * v5)) + (f * (-v5))) - P_1) ^ 2) + ((((P_2 - (d * v8)) + (f * v8)) - P_2) ^ 2)) ((d - f) ^ 2))
 
-#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 0.588251 0.529702 0.471153 0.412604 0.354056))
-#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 0.257059 1.798510 1.739961 1.681412 1.622864))
-#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 1.525867 1.467318 1.408769 1.350220 1.291672))
+#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 0.437515 0.378966 0.320417 0.261868 0.203320))
+#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 1.706323 1.647774 1.589225 1.530676 1.472128))
+#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 1.375131 1.316582 1.258033 1.199484 1.140936))
 
 def swingNormal (t : Float) : Array Float :=
   #[(-(Float.sin t)), (Float.cos t)]
 
-#eval IO.println ("swingNormal " ++ toString ((swingNormal 0.402099).map Float.toBits))
-#eval IO.println ("swingNormal " ++ toString ((swingNormal 1.670907).map Float.toBits))
-#eval IO.println ("swingNormal " ++ toString ((swingNormal 1.339715).map Float.toBits))
+#eval IO.println ("swingNormal " ++ toString ((swingNormal 0.251363).map Float.toBits))
+#eval IO.println ("swingNormal " ++ toString ((swingNormal 1.520171).map Float.toBits))
+#eval IO.println ("swingNormal " ++ toString ((swingNormal 1.188979).map Float.toBits))
 
 def check_swingNormal_unit (t : Float) : Bool :=
   (feq (((-(Float.sin t)) ^ 2) + ((Float.cos t) ^ 2)) (1 : Float))
 
-#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 0.215947))
-#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 1.484755))
-#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 1.153563))
+#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 1.665211))
+#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 1.334019))
+#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 1.002827))
 
 def swingOfLength (ym : Float) (hp : Float) (a : Float) (ze : Float) (tDead : Float) (L : Float) : Float :=
   let v9 := (((0 : Float) + tDead) / (2 : Float))
@@ -4939,56 +5360,56 @@ def swingOfLength (ym : Float) (hp : Float) (a : Float) (ze : Float) (tDead : Fl
   let v465 := (L < (Float.sqrt (((((v11 * v451) + (v14 * v453)) - v10) ^ 2) + ((((v18 * v453) + (v14 * v451)) - hp) ^ 2))))
   (((if v465 then v450 else v447) + (if v465 then v448 else v450)) / (2 : Float))
 
-#eval IO.println ("swingOfLength " ++ toString (swingOfLength 1.629795 1.571246 1.512697 1.454148 1.395600 1.337051).toBits)
-#eval IO.println ("swingOfLength " ++ toString (swingOfLength 1.298603 1.240054 1.181505 1.122956 1.064408 1.005859).toBits)
-#eval IO.println ("swingOfLength " ++ toString (swingOfLength 0.967411 0.908862 0.850313 0.791764 0.733216 0.674667).toBits)
+#eval IO.println ("swingOfLength " ++ toString (swingOfLength 1.479059 1.420510 1.361961 1.303412 1.244864 1.186315).toBits)
+#eval IO.println ("swingOfLength " ++ toString (swingOfLength 1.147867 1.089318 1.030769 0.972220 0.913672 0.855123).toBits)
+#eval IO.println ("swingOfLength " ++ toString (swingOfLength 0.816675 0.758126 0.699577 0.641028 0.582480 0.523931).toBits)
 
 def swingTwist (apexH : Float) (zBolt : Float) : Array Float :=
   let v8 := (apexH * (0 : Float))
   #[(1 : Float), (0 : Float), (0 : Float), (((0 : Float) * (0 : Float)) - (zBolt * (0 : Float))), ((zBolt * (1 : Float)) - v8), (v8 - ((0 : Float) * (1 : Float)))]
 
-#eval IO.println ("swingTwist " ++ toString ((swingTwist 1.443643 1.385094).map Float.toBits))
-#eval IO.println ("swingTwist " ++ toString ((swingTwist 1.112451 1.053902).map Float.toBits))
-#eval IO.println ("swingTwist " ++ toString ((swingTwist 0.781259 0.722710).map Float.toBits))
+#eval IO.println ("swingTwist " ++ toString ((swingTwist 1.292907 1.234358).map Float.toBits))
+#eval IO.println ("swingTwist " ++ toString ((swingTwist 0.961715 0.903166).map Float.toBits))
+#eval IO.println ("swingTwist " ++ toString ((swingTwist 0.630523 0.571974).map Float.toBits))
 
 def swingVertex (P_1 : Float) (P_2 : Float) (f : Float) (t : Float) : Array Float :=
   #[(P_1 + (f * (Float.sin t))), (P_2 - (f * (Float.cos t)))]
 
-#eval IO.println ("swingVertex " ++ toString ((swingVertex 1.257491 1.198942 1.140393 1.081844).map Float.toBits))
-#eval IO.println ("swingVertex " ++ toString ((swingVertex 0.926299 0.867750 0.809201 0.750652).map Float.toBits))
-#eval IO.println ("swingVertex " ++ toString ((swingVertex 0.595107 0.536558 0.478009 0.419460).map Float.toBits))
+#eval IO.println ("swingVertex " ++ toString ((swingVertex 1.106755 1.048206 0.989657 0.931108).map Float.toBits))
+#eval IO.println ("swingVertex " ++ toString ((swingVertex 0.775563 0.717014 0.658465 0.599916).map Float.toBits))
+#eval IO.println ("swingVertex " ++ toString ((swingVertex 0.444371 0.385822 0.327273 0.268724).map Float.toBits))
 
 def swingVertexAt (P_1 : Float) (P_2 : Float) (d : Float) (t : Float) : Array Float :=
   #[(P_1 + (d * (Float.sin t))), (P_2 - (d * (Float.cos t)))]
 
-#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 1.071339 1.012790 0.954241 0.895692).map Float.toBits))
-#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 0.740147 0.681598 0.623049 0.564500).map Float.toBits))
-#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 0.408955 0.350406 0.291857 0.233308).map Float.toBits))
+#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 0.920603 0.862054 0.803505 0.744956).map Float.toBits))
+#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 0.589411 0.530862 0.472313 0.413764).map Float.toBits))
+#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 0.258219 1.799670 1.741121 1.682572).map Float.toBits))
 
 def check_swing_focusCircle (P_1 : Float) (P_2 : Float) (f : Float) (t : Float) : Bool :=
   (feq ((((P_1 + (f * (Float.sin t))) - P_1) ^ 2) + (((P_2 - (f * (Float.cos t))) - P_2) ^ 2)) (f ^ 2))
 
-#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 0.885187 0.826638 0.768089 0.709540))
-#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 0.553995 0.495446 0.436897 0.378348))
-#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 0.222803 1.764254 1.705705 1.647156))
+#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 0.734451 0.675902 0.617353 0.558804))
+#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 0.403259 0.344710 0.286161 0.227612))
+#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 1.672067 1.613518 1.554969 1.496420))
 
 def check_swing_lift (apexH : Float) (zBolt : Float) (p_0 : Float) (p_1 : Float) (p_2 : Float) : Bool :=
   let v11 := (apexH * (0 : Float))
   let v19 := ((0 : Float) * p_0)
   (feq ((((1 : Float) * p_1) - v19) + (v11 - ((0 : Float) * (1 : Float)))) p_1)
 
-#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 0.699035 0.640486 0.581937 0.523388 0.464840))
-#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 0.367843 0.309294 0.250745 1.792196 1.733648))
-#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 1.636651 1.578102 1.519553 1.461004 1.402456))
+#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 0.548299 0.489750 0.431201 0.372652 0.314104))
+#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 0.217107 1.758558 1.700009 1.641460 1.582912))
+#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 1.485915 1.427366 1.368817 1.310268 1.251720))
 
 def swungPt (y0 : Float) (z0 : Float) (t : Float) : Array Float :=
   let v3 := (Float.cos t)
   let v5 := (Float.sin t)
   #[((y0 * v3) + (z0 * v5)), (((-y0) * v5) + (z0 * v3))]
 
-#eval IO.println ("swungPt " ++ toString ((swungPt 0.512883 0.454334 0.395785).map Float.toBits))
-#eval IO.println ("swungPt " ++ toString ((swungPt 1.781691 1.723142 1.664593).map Float.toBits))
-#eval IO.println ("swungPt " ++ toString ((swungPt 1.450499 1.391950 1.333401).map Float.toBits))
+#eval IO.println ("swungPt " ++ toString ((swungPt 0.362147 0.303598 0.245049).map Float.toBits))
+#eval IO.println ("swungPt " ++ toString ((swungPt 1.630955 1.572406 1.513857).map Float.toBits))
+#eval IO.println ("swungPt " ++ toString ((swungPt 1.299763 1.241214 1.182665).map Float.toBits))
 
 def systemVolts  : Float :=
   (12 : Float)
@@ -4997,13 +5418,20 @@ def systemVolts  : Float :=
 #eval IO.println ("systemVolts " ++ toString (systemVolts).toBits)
 #eval IO.println ("systemVolts " ++ toString (systemVolts).toBits)
 
+def check_tanh_abs_lt_one (x : Float) : Bool :=
+  ((Float.abs (Float.tanh x)) < (1 : Float))
+
+#eval IO.println ("check_tanh_abs_lt_one " ++ toString (check_tanh_abs_lt_one 1.589843))
+#eval IO.println ("check_tanh_abs_lt_one " ++ toString (check_tanh_abs_lt_one 1.258651))
+#eval IO.println ("check_tanh_abs_lt_one " ++ toString (check_tanh_abs_lt_one 0.927459))
+
 def check_tension_le_of_holds (Tmax : Float) (W : Float) (rcm : Float) (rw : Float) (t : Float) : Bool :=
   let v8 := (W * rcm)
   (!((0 : Float) <= W) || (!((0 : Float) <= rcm) || (!((0 : Float) < rw) || (!(v8 <= (Tmax * rw)) || (((v8 * (Float.sin t)) / rw) <= Tmax)))))
 
-#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 1.740579 1.682030 1.623481 1.564932 1.506384))
-#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 1.409387 1.350838 1.292289 1.233740 1.175192))
-#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 1.078195 1.019646 0.961097 0.902548 0.844000))
+#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 1.403691 1.345142 1.286593 1.228044 1.169496))
+#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 1.072499 1.013950 0.955401 0.896852 0.838304))
+#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 0.741307 0.682758 0.624209 0.565660 0.507112))
 
 def tilt (v_0 : Float) (v_1 : Float) (v_2 : Float) (e1 : Float) (e2 : Float) : Array Float :=
   let v5 := (v_0 + e1)
@@ -5011,16 +5439,16 @@ def tilt (v_0 : Float) (v_1 : Float) (v_2 : Float) (e1 : Float) (e2 : Float) : A
   let v12 := (Float.sqrt (((v5 ^ 2) + (v6 ^ 2)) + (v_2 ^ 2)))
   #[(v5 / v12), (v6 / v12), (v_2 / v12)]
 
-#eval IO.println ("tilt " ++ toString ((tilt 1.554427 1.495878 1.437329 1.378780 1.320232).map Float.toBits))
-#eval IO.println ("tilt " ++ toString ((tilt 1.223235 1.164686 1.106137 1.047588 0.989040).map Float.toBits))
-#eval IO.println ("tilt " ++ toString ((tilt 0.892043 0.833494 0.774945 0.716396 0.657848).map Float.toBits))
+#eval IO.println ("tilt " ++ toString ((tilt 1.217539 1.158990 1.100441 1.041892 0.983344).map Float.toBits))
+#eval IO.println ("tilt " ++ toString ((tilt 0.886347 0.827798 0.769249 0.710700 0.652152).map Float.toBits))
+#eval IO.println ("tilt " ++ toString ((tilt 0.555155 0.496606 0.438057 0.379508 0.320960).map Float.toBits))
 
 def tiltOfMismatch (e : Float) : Float :=
   (e / ((2 : Float) * (0.8 : Float)))
 
-#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 1.368275).toBits)
-#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 1.037083).toBits)
-#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 0.705891).toBits)
+#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 1.031387).toBits)
+#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 0.700195).toBits)
+#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 0.369003).toBits)
 
 def traceConic (c : Float) (k : Float) (p : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Array Float :=
   let v10 := ((1 : Float) + k)
@@ -5043,9 +5471,9 @@ def traceConic (c : Float) (k : Float) (p : Float) (O_0 : Float) (O_1 : Float) (
   let v95 := ((p - v55) / (d_2 - (v87 * v81)))
   #[v51, v53, v55, (d_0 - (v87 * v77)), (d_1 - (v87 * v80)), (d_2 - (v87 * v81)), (v51 + (v95 * (d_0 - (v87 * v77)))), (v53 + (v95 * (d_1 - (v87 * v80)))), (((c * v65) / ((1 : Float) + (Float.sqrt (max v67 (0 : Float))))) - v55)]
 
-#eval IO.println ("traceConic " ++ toString ((traceConic 1.182123 1.123574 1.065025 1.006476 0.947928 0.889379 0.830830 0.772281 0.713732).map Float.toBits))
-#eval IO.println ("traceConic " ++ toString ((traceConic 0.850931 0.792382 0.733833 0.675284 0.616736 0.558187 0.499638 0.441089 0.382540).map Float.toBits))
-#eval IO.println ("traceConic " ++ toString ((traceConic 0.519739 0.461190 0.402641 0.344092 0.285544 0.226995 1.768446 1.709897 1.651348).map Float.toBits))
+#eval IO.println ("traceConic " ++ toString ((traceConic 0.845235 0.786686 0.728137 0.669588 0.611040 0.552491 0.493942 0.435393 0.376844).map Float.toBits))
+#eval IO.println ("traceConic " ++ toString ((traceConic 0.514043 0.455494 0.396945 0.338396 0.279848 0.221299 1.762750 1.704201 1.645652).map Float.toBits))
+#eval IO.println ("traceConic " ++ toString ((traceConic 1.782851 1.724302 1.665753 1.607204 1.548656 1.490107 1.431558 1.373009 1.314460).map Float.toBits))
 
 def traceFacet (R : Float) (p : Float) (cx : Float) (cy : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Array Float :=
   let v18 := (R - (Float.sqrt ((R ^ 2) - ((Float.sqrt ((cx ^ 2) + (cy ^ 2))) ^ 2))))
@@ -5059,9 +5487,9 @@ def traceFacet (R : Float) (p : Float) (cx : Float) (cy : Float) (O_0 : Float) (
   let v54 := ((p - (O_2 + (v38 * d_2))) / v52)
   #[((O_0 + (v38 * d_0)) + (v54 * (d_0 - (v46 * v20)))), ((O_1 + (v38 * d_1)) + (v54 * (d_1 - (v46 * v22)))), (Float.sqrt ((((O_0 + (v38 * d_0)) + (v54 * (d_0 - (v46 * v20)))) ^ 2) + (((O_1 + (v38 * d_1)) + (v54 * (d_1 - (v46 * v22)))) ^ 2))), (O_2 + (v38 * d_2)), (if ((0 : Float) < v52) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceFacet " ++ toString ((traceFacet 0.995971 0.937422 0.878873 0.820324 0.761776 0.703227 0.644678 0.586129 0.527580 0.469032).map Float.toBits))
-#eval IO.println ("traceFacet " ++ toString ((traceFacet 0.664779 0.606230 0.547681 0.489132 0.430584 0.372035 0.313486 0.254937 1.796388 1.737840).map Float.toBits))
-#eval IO.println ("traceFacet " ++ toString ((traceFacet 0.333587 0.275038 0.216489 1.757940 1.699392 1.640843 1.582294 1.523745 1.465196 1.406648).map Float.toBits))
+#eval IO.println ("traceFacet " ++ toString ((traceFacet 0.659083 0.600534 0.541985 0.483436 0.424888 0.366339 0.307790 0.249241 1.790692 1.732144).map Float.toBits))
+#eval IO.println ("traceFacet " ++ toString ((traceFacet 0.327891 0.269342 0.210793 1.752244 1.693696 1.635147 1.576598 1.518049 1.459500 1.400952).map Float.toBits))
+#eval IO.println ("traceFacet " ++ toString ((traceFacet 1.596699 1.538150 1.479601 1.421052 1.362504 1.303955 1.245406 1.186857 1.128308 1.069760).map Float.toBits))
 
 def traceParams  : Array Float :=
   #[(2 : Float), (1 : Float), (0.8 : Float), (0.05 : Float), (0.06 : Float)]
@@ -5088,9 +5516,9 @@ def traceRay (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (cx : 
   let v86 := (((Float.sqrt ((((v25 + (v56 * dx)) + (v71 * (dx - (v63 * v38)))) ^ 2) + (((v26 + (v56 * dy)) + (v71 * (dy - (v63 * v40)))) ^ 2))) <= rc) && ((0 : Float) < (if ((0 : Float) < v69) then (1 : Float) else (0 : Float))))
   #[((v25 + (v56 * dx)) + (v71 * (dx - (v63 * v38)))), ((v26 + (v56 * dy)) + (v71 * (dy - (v63 * v40)))), (Float.sqrt ((((v25 + (v56 * dx)) + (v71 * (dx - (v63 * v38)))) ^ 2) + (((v26 + (v56 * dy)) + (v71 * (dy - (v63 * v40)))) ^ 2))), (if (v24 && v86) then (1 : Float) else (0 : Float)), (if (!v24) then (0 : Float) else (if v86 then (2 : Float) else (1 : Float))), (v27 + (v56 * dz)), (Float.sqrt ((cx ^ 2) + (cy ^ 2))), (if ((0 : Float) < v69) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceRay " ++ toString ((traceRay 0.623667 0.565118 0.506569 0.448020 0.389472 0.330923 0.272374 0.213825 1.755276 1.696728 1.638179 1.579630).map Float.toBits))
-#eval IO.println ("traceRay " ++ toString ((traceRay 0.292475 0.233926 1.775377 1.716828 1.658280 1.599731 1.541182 1.482633 1.424084 1.365536 1.306987 1.248438).map Float.toBits))
-#eval IO.println ("traceRay " ++ toString ((traceRay 1.561283 1.502734 1.444185 1.385636 1.327088 1.268539 1.209990 1.151441 1.092892 1.034344 0.975795 0.917246).map Float.toBits))
+#eval IO.println ("traceRay " ++ toString ((traceRay 0.286779 0.228230 1.769681 1.711132 1.652584 1.594035 1.535486 1.476937 1.418388 1.359840 1.301291 1.242742).map Float.toBits))
+#eval IO.println ("traceRay " ++ toString ((traceRay 1.555587 1.497038 1.438489 1.379940 1.321392 1.262843 1.204294 1.145745 1.087196 1.028648 0.970099 0.911550).map Float.toBits))
+#eval IO.println ("traceRay " ++ toString ((traceRay 1.224395 1.165846 1.107297 1.048748 0.990200 0.931651 0.873102 0.814553 0.756004 0.697456 0.638907 0.580358).map Float.toBits))
 
 def traceRayErr (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (cx : Float) (cy : Float) (ux : Float) (uy : Float) (dx : Float) (dy : Float) (dz : Float) (sigmaslope : Float) (sigmaspec : Float) (e1 : Float) (e2 : Float) (s1 : Float) (s2 : Float) : Array Float :=
   let v24 := (w / (2 : Float))
@@ -5120,9 +5548,9 @@ def traceRayErr (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (cx
   let v120 := (((Float.sqrt ((((v31 + (v75 * dx)) + (v108 * (v95 / v103))) ^ 2) + (((v32 + (v75 * dy)) + (v108 * (v97 / v103))) ^ 2))) <= rc) && v119)
   #[((v31 + (v75 * dx)) + (v108 * (v95 / v103))), ((v32 + (v75 * dy)) + (v108 * (v97 / v103))), (Float.sqrt ((((v31 + (v75 * dx)) + (v108 * (v95 / v103))) ^ 2) + (((v32 + (v75 * dy)) + (v108 * (v97 / v103))) ^ 2))), (if (v30 && v120) then (1 : Float) else (0 : Float)), (if (!v30) then (0 : Float) else (if v120 then (2 : Float) else (1 : Float))), (v33 + (v75 * dz)), (Float.sqrt ((cx ^ 2) + (cy ^ 2))), (if v119 then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 0.437515 0.378966 0.320417 0.261868 0.203320 1.744771 1.686222 1.627673 1.569124 1.510576 1.452027 1.393478 1.334929 1.276380 1.217832 1.159283 1.100734 1.042185).map Float.toBits))
-#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 1.706323 1.647774 1.589225 1.530676 1.472128 1.413579 1.355030 1.296481 1.237932 1.179384 1.120835 1.062286 1.003737 0.945188 0.886640 0.828091 0.769542 0.710993).map Float.toBits))
-#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 1.375131 1.316582 1.258033 1.199484 1.140936 1.082387 1.023838 0.965289 0.906740 0.848192 0.789643 0.731094 0.672545 0.613996 0.555448 0.496899 0.438350 0.379801).map Float.toBits))
+#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 1.700627 1.642078 1.583529 1.524980 1.466432 1.407883 1.349334 1.290785 1.232236 1.173688 1.115139 1.056590 0.998041 0.939492 0.880944 0.822395 0.763846 0.705297).map Float.toBits))
+#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 1.369435 1.310886 1.252337 1.193788 1.135240 1.076691 1.018142 0.959593 0.901044 0.842496 0.783947 0.725398 0.666849 0.608300 0.549752 0.491203 0.432654 0.374105).map Float.toBits))
+#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 1.038243 0.979694 0.921145 0.862596 0.804048 0.745499 0.686950 0.628401 0.569852 0.511304 0.452755 0.394206 0.335657 0.277108 0.218560 1.760011 1.701462 1.642913).map Float.toBits))
 
 def traceRayK (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (cx : Float) (cy : Float) (ux : Float) (uy : Float) (dx : Float) (dy : Float) (dz : Float) : Array Float :=
   let v19 := (w / (2 : Float))
@@ -5149,9 +5577,9 @@ def traceRayK (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : 
   let v103 := (((Float.sqrt ((((v26 + (v77 * dx)) + (v92 * (dx - (v84 * v59)))) ^ 2) + (((v27 + (v77 * dy)) + (v92 * (dy - (v84 * v62)))) ^ 2))) <= rc) && v102)
   #[((v26 + (v77 * dx)) + (v92 * (dx - (v84 * v59)))), ((v27 + (v77 * dy)) + (v92 * (dy - (v84 * v62)))), (Float.sqrt ((((v26 + (v77 * dx)) + (v92 * (dx - (v84 * v59)))) ^ 2) + (((v27 + (v77 * dy)) + (v92 * (dy - (v84 * v62)))) ^ 2))), (if (v25 && v103) then (1 : Float) else (0 : Float)), (if (!v25) then (0 : Float) else (if v103 then (2 : Float) else (1 : Float))), (v28 + (v77 * dz)), v36, (if v102 then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceRayK " ++ toString ((traceRayK 0.251363 1.792814 1.734265 1.675716 1.617168 1.558619 1.500070 1.441521 1.382972 1.324424 1.265875 1.207326 1.148777).map Float.toBits))
-#eval IO.println ("traceRayK " ++ toString ((traceRayK 1.520171 1.461622 1.403073 1.344524 1.285976 1.227427 1.168878 1.110329 1.051780 0.993232 0.934683 0.876134 0.817585).map Float.toBits))
-#eval IO.println ("traceRayK " ++ toString ((traceRayK 1.188979 1.130430 1.071881 1.013332 0.954784 0.896235 0.837686 0.779137 0.720588 0.662040 0.603491 0.544942 0.486393).map Float.toBits))
+#eval IO.println ("traceRayK " ++ toString ((traceRayK 1.514475 1.455926 1.397377 1.338828 1.280280 1.221731 1.163182 1.104633 1.046084 0.987536 0.928987 0.870438 0.811889).map Float.toBits))
+#eval IO.println ("traceRayK " ++ toString ((traceRayK 1.183283 1.124734 1.066185 1.007636 0.949088 0.890539 0.831990 0.773441 0.714892 0.656344 0.597795 0.539246 0.480697).map Float.toBits))
+#eval IO.println ("traceRayK " ++ toString ((traceRayK 0.852091 0.793542 0.734993 0.676444 0.617896 0.559347 0.500798 0.442249 0.383700 0.325152 0.266603 0.208054 1.749505).map Float.toBits))
 
 def traceRayKErr (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (sigmaslope : Float) (sigmaspec : Float) (cx : Float) (cy : Float) (ux : Float) (uy : Float) (dx : Float) (dy : Float) (dz : Float) (e1 : Float) (e2 : Float) (s1 : Float) (s2 : Float) : Array Float :=
   let v25 := (w / (2 : Float))
@@ -5187,9 +5615,9 @@ def traceRayKErr (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k
   let v140 := (((Float.sqrt ((((v32 + (v96 * dx)) + (v129 * (v116 / v124))) ^ 2) + (((v33 + (v96 * dy)) + (v129 * (v118 / v124))) ^ 2))) <= rc) && v139)
   #[((v32 + (v96 * dx)) + (v129 * (v116 / v124))), ((v33 + (v96 * dy)) + (v129 * (v118 / v124))), (Float.sqrt ((((v32 + (v96 * dx)) + (v129 * (v116 / v124))) ^ 2) + (((v33 + (v96 * dy)) + (v129 * (v118 / v124))) ^ 2))), (if (v31 && v140) then (1 : Float) else (0 : Float)), (if (!v31) then (0 : Float) else (if v140 then (2 : Float) else (1 : Float))), (v34 + (v96 * dz)), v42, (if v139 then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 1.665211 1.606662 1.548113 1.489564 1.431016 1.372467 1.313918 1.255369 1.196820 1.138272 1.079723 1.021174 0.962625 0.904076 0.845528 0.786979 0.728430 0.669881 0.611332).map Float.toBits))
-#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 1.334019 1.275470 1.216921 1.158372 1.099824 1.041275 0.982726 0.924177 0.865628 0.807080 0.748531 0.689982 0.631433 0.572884 0.514336 0.455787 0.397238 0.338689 0.280140).map Float.toBits))
-#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 1.002827 0.944278 0.885729 0.827180 0.768632 0.710083 0.651534 0.592985 0.534436 0.475888 0.417339 0.358790 0.300241 0.241692 1.783144 1.724595 1.666046 1.607497 1.548948).map Float.toBits))
+#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 1.328323 1.269774 1.211225 1.152676 1.094128 1.035579 0.977030 0.918481 0.859932 0.801384 0.742835 0.684286 0.625737 0.567188 0.508640 0.450091 0.391542 0.332993 0.274444).map Float.toBits))
+#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 0.997131 0.938582 0.880033 0.821484 0.762936 0.704387 0.645838 0.587289 0.528740 0.470192 0.411643 0.353094 0.294545 0.235996 1.777448 1.718899 1.660350 1.601801 1.543252).map Float.toBits))
+#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 0.665939 0.607390 0.548841 0.490292 0.431744 0.373195 0.314646 0.256097 1.797548 1.739000 1.680451 1.621902 1.563353 1.504804 1.446256 1.387707 1.329158 1.270609 1.212060).map Float.toBits))
 
 def traceSphere (R : Float) (p : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Array Float :=
   let v8 := (O_2 - R)
@@ -5206,56 +5634,56 @@ def traceSphere (R : Float) (p : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float
   let v52 := ((p - v31) / v50)
   #[(v27 + (v52 * (d_0 - (v44 * v33)))), (v29 + (v52 * (d_1 - (v44 * v35)))), (Float.sqrt (((v27 + (v52 * (d_0 - (v44 * v33)))) ^ 2) + ((v29 + (v52 * (d_1 - (v44 * v35)))) ^ 2))), v31, (if ((0 : Float) < v50) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceSphere " ++ toString ((traceSphere 1.479059 1.420510 1.361961 1.303412 1.244864 1.186315 1.127766 1.069217).map Float.toBits))
-#eval IO.println ("traceSphere " ++ toString ((traceSphere 1.147867 1.089318 1.030769 0.972220 0.913672 0.855123 0.796574 0.738025).map Float.toBits))
-#eval IO.println ("traceSphere " ++ toString ((traceSphere 0.816675 0.758126 0.699577 0.641028 0.582480 0.523931 0.465382 0.406833).map Float.toBits))
+#eval IO.println ("traceSphere " ++ toString ((traceSphere 1.142171 1.083622 1.025073 0.966524 0.907976 0.849427 0.790878 0.732329).map Float.toBits))
+#eval IO.println ("traceSphere " ++ toString ((traceSphere 0.810979 0.752430 0.693881 0.635332 0.576784 0.518235 0.459686 0.401137).map Float.toBits))
+#eval IO.println ("traceSphere " ++ toString ((traceSphere 0.479787 0.421238 0.362689 0.304140 0.245592 1.787043 1.728494 1.669945).map Float.toBits))
 
 def check_trackerBudget_iff (f : Float) (eps : Float) (h : Float) : Bool :=
   let v5 := (Float.tan eps)
   (!((0 : Float) < f) || (((f * v5) <= h) == (v5 <= (h / f))))
 
-#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 1.292907 1.234358 1.175809))
-#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 0.961715 0.903166 0.844617))
-#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 0.630523 0.571974 0.513425))
+#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 0.956019 0.897470 0.838921))
+#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 0.624827 0.566278 0.507729))
+#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 0.293635 0.235086 1.776537))
 
 def check_tracker_margin_hashemi (eps : Float) : Bool :=
   let v2 := (Float.tan eps)
   ((((1 : Float) * v2) <= (0.03 : Float)) == (v2 <= (0.03 : Float)))
 
-#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 1.106755))
-#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 0.775563))
-#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 0.444371))
+#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 0.769867))
+#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 0.438675))
+#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 1.707483))
 
 def check_tracking_power_tiny (W : Float) (rcm : Float) (omega : Float) (t : Float) : Bool :=
   (!((0 : Float) <= W) || (!(W <= (1000 : Float)) || (!((0 : Float) <= rcm) || (!(rcm <= (1 : Float)) || (!((0 : Float) <= omega) || (!(omega <= (0.000073 : Float)) || (((((W * rcm) * (Float.sin t)) * omega) <= (0.073 : Float)) && ((0.073 : Float) < ((0.015 : Float) * (5 : Float))))))))))
 
-#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 0.920603 0.862054 0.803505 0.744956))
-#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 0.589411 0.530862 0.472313 0.413764))
-#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 0.258219 1.799670 1.741121 1.682572))
+#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 0.583715 0.525166 0.466617 0.408068))
+#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 0.252523 1.793974 1.735425 1.676876))
+#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 1.521331 1.462782 1.404233 1.345684))
 
 def unit3 (v_0 : Float) (v_1 : Float) (v_2 : Float) : Array Float :=
   let v10 := (Float.sqrt (max (((v_0 ^ 2) + (v_1 ^ 2)) + (v_2 ^ 2)) (0.000000000000000001 : Float)))
   #[(v_0 / v10), (v_1 / v10), (v_2 / v10)]
 
-#eval IO.println ("unit3 " ++ toString ((unit3 0.734451 0.675902 0.617353).map Float.toBits))
-#eval IO.println ("unit3 " ++ toString ((unit3 0.403259 0.344710 0.286161).map Float.toBits))
-#eval IO.println ("unit3 " ++ toString ((unit3 1.672067 1.613518 1.554969).map Float.toBits))
+#eval IO.println ("unit3 " ++ toString ((unit3 0.397563 0.339014 0.280465).map Float.toBits))
+#eval IO.println ("unit3 " ++ toString ((unit3 1.666371 1.607822 1.549273).map Float.toBits))
+#eval IO.println ("unit3 " ++ toString ((unit3 1.335179 1.276630 1.218081).map Float.toBits))
 
 def wBearX (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v8 := ((0 : Float) * (0 : Float))
   #[(1 : Float), (0 : Float), (0 : Float), (v8 - (b_zBearing * (0 : Float))), ((b_zBearing * (1 : Float)) - v8), (v8 - ((0 : Float) * (1 : Float)))]
 
-#eval IO.println ("wBearX " ++ toString ((wBearX 0.548299 0.489750 0.431201 0.372652 0.314104 0.255555).map Float.toBits))
-#eval IO.println ("wBearX " ++ toString ((wBearX 0.217107 1.758558 1.700009 1.641460 1.582912 1.524363).map Float.toBits))
-#eval IO.println ("wBearX " ++ toString ((wBearX 1.485915 1.427366 1.368817 1.310268 1.251720 1.193171).map Float.toBits))
+#eval IO.println ("wBearX " ++ toString ((wBearX 0.211411 1.752862 1.694313 1.635764 1.577216 1.518667).map Float.toBits))
+#eval IO.println ("wBearX " ++ toString ((wBearX 1.480219 1.421670 1.363121 1.304572 1.246024 1.187475).map Float.toBits))
+#eval IO.println ("wBearX " ++ toString ((wBearX 1.149027 1.090478 1.031929 0.973380 0.914832 0.856283).map Float.toBits))
 
 def wBearY (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v8 := ((0 : Float) * (0 : Float))
   #[(0 : Float), (1 : Float), (0 : Float), (v8 - (b_zBearing * (1 : Float))), ((b_zBearing * (0 : Float)) - v8), (((0 : Float) * (1 : Float)) - v8)]
 
-#eval IO.println ("wBearY " ++ toString ((wBearY 0.362147 0.303598 0.245049 1.786500 1.727952 1.669403).map Float.toBits))
-#eval IO.println ("wBearY " ++ toString ((wBearY 1.630955 1.572406 1.513857 1.455308 1.396760 1.338211).map Float.toBits))
-#eval IO.println ("wBearY " ++ toString ((wBearY 1.299763 1.241214 1.182665 1.124116 1.065568 1.007019).map Float.toBits))
+#eval IO.println ("wBearY " ++ toString ((wBearY 1.625259 1.566710 1.508161 1.449612 1.391064 1.332515).map Float.toBits))
+#eval IO.println ("wBearY " ++ toString ((wBearY 1.294067 1.235518 1.176969 1.118420 1.059872 1.001323).map Float.toBits))
+#eval IO.println ("wBearY " ++ toString ((wBearY 0.962875 0.904326 0.845777 0.787228 0.728680 0.670131).map Float.toBits))
 
 def wDrive (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) (F : Float) : Array Float :=
   let v14 := (c_chord / (2 : Float))
@@ -5264,43 +5692,43 @@ def wDrive (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Floa
   let v23 := ((F * c_apexH) / v19)
   #[v21, v23, (0 : Float), ((v14 * (0 : Float)) - (b_zRail * v23)), ((b_zRail * v21) - (c_apexH * (0 : Float))), ((c_apexH * v23) - (v14 * v21))]
 
-#eval IO.println ("wDrive " ++ toString ((wDrive 1.775995 1.717446 1.658897 1.600348 1.541800 1.483251 1.424702 1.366153 1.307604 1.249056 1.190507 1.131958 1.073409).map Float.toBits))
-#eval IO.println ("wDrive " ++ toString ((wDrive 1.444803 1.386254 1.327705 1.269156 1.210608 1.152059 1.093510 1.034961 0.976412 0.917864 0.859315 0.800766 0.742217).map Float.toBits))
-#eval IO.println ("wDrive " ++ toString ((wDrive 1.113611 1.055062 0.996513 0.937964 0.879416 0.820867 0.762318 0.703769 0.645220 0.586672 0.528123 0.469574 0.411025).map Float.toBits))
+#eval IO.println ("wDrive " ++ toString ((wDrive 1.439107 1.380558 1.322009 1.263460 1.204912 1.146363 1.087814 1.029265 0.970716 0.912168 0.853619 0.795070 0.736521).map Float.toBits))
+#eval IO.println ("wDrive " ++ toString ((wDrive 1.107915 1.049366 0.990817 0.932268 0.873720 0.815171 0.756622 0.698073 0.639524 0.580976 0.522427 0.463878 0.405329).map Float.toBits))
+#eval IO.println ("wDrive " ++ toString ((wDrive 0.776723 0.718174 0.659625 0.601076 0.542528 0.483979 0.425430 0.366881 0.308332 0.249784 1.791235 1.732686 1.674137).map Float.toBits))
 
 def wRollN (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v16 := (-(c_chord / (2 : Float)))
   let v18 := (b_zRail * (0 : Float))
   #[(0 : Float), (0 : Float), (1 : Float), ((v16 * (1 : Float)) - v18), (v18 - (c_apexH * (1 : Float))), ((c_apexH * (0 : Float)) - (v16 * (0 : Float)))]
 
-#eval IO.println ("wRollN " ++ toString ((wRollN 1.589843 1.531294 1.472745 1.414196 1.355648 1.297099 1.238550 1.180001 1.121452 1.062904 1.004355 0.945806).map Float.toBits))
-#eval IO.println ("wRollN " ++ toString ((wRollN 1.258651 1.200102 1.141553 1.083004 1.024456 0.965907 0.907358 0.848809 0.790260 0.731712 0.673163 0.614614).map Float.toBits))
-#eval IO.println ("wRollN " ++ toString ((wRollN 0.927459 0.868910 0.810361 0.751812 0.693264 0.634715 0.576166 0.517617 0.459068 0.400520 0.341971 0.283422).map Float.toBits))
+#eval IO.println ("wRollN " ++ toString ((wRollN 1.252955 1.194406 1.135857 1.077308 1.018760 0.960211 0.901662 0.843113 0.784564 0.726016 0.667467 0.608918).map Float.toBits))
+#eval IO.println ("wRollN " ++ toString ((wRollN 0.921763 0.863214 0.804665 0.746116 0.687568 0.629019 0.570470 0.511921 0.453372 0.394824 0.336275 0.277726).map Float.toBits))
+#eval IO.println ("wRollN " ++ toString ((wRollN 0.590571 0.532022 0.473473 0.414924 0.356376 0.297827 0.239278 1.780729 1.722180 1.663632 1.605083 1.546534).map Float.toBits))
 
 def wRollNr (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v14 := (-(c_chord / (2 : Float)))
   #[c_apexH, v14, (0 : Float), ((v14 * (0 : Float)) - (b_zRail * v14)), ((b_zRail * c_apexH) - (c_apexH * (0 : Float))), ((c_apexH * v14) - (v14 * c_apexH))]
 
-#eval IO.println ("wRollNr " ++ toString ((wRollNr 1.403691 1.345142 1.286593 1.228044 1.169496 1.110947 1.052398 0.993849 0.935300 0.876752 0.818203 0.759654).map Float.toBits))
-#eval IO.println ("wRollNr " ++ toString ((wRollNr 1.072499 1.013950 0.955401 0.896852 0.838304 0.779755 0.721206 0.662657 0.604108 0.545560 0.487011 0.428462).map Float.toBits))
-#eval IO.println ("wRollNr " ++ toString ((wRollNr 0.741307 0.682758 0.624209 0.565660 0.507112 0.448563 0.390014 0.331465 0.272916 0.214368 1.755819 1.697270).map Float.toBits))
+#eval IO.println ("wRollNr " ++ toString ((wRollNr 1.066803 1.008254 0.949705 0.891156 0.832608 0.774059 0.715510 0.656961 0.598412 0.539864 0.481315 0.422766).map Float.toBits))
+#eval IO.println ("wRollNr " ++ toString ((wRollNr 0.735611 0.677062 0.618513 0.559964 0.501416 0.442867 0.384318 0.325769 0.267220 0.208672 1.750123 1.691574).map Float.toBits))
+#eval IO.println ("wRollNr " ++ toString ((wRollNr 0.404419 0.345870 0.287321 0.228772 1.770224 1.711675 1.653126 1.594577 1.536028 1.477480 1.418931 1.360382).map Float.toBits))
 
 def wRollP (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v15 := (c_chord / (2 : Float))
   let v17 := (b_zRail * (0 : Float))
   #[(0 : Float), (0 : Float), (1 : Float), ((v15 * (1 : Float)) - v17), (v17 - (c_apexH * (1 : Float))), ((c_apexH * (0 : Float)) - (v15 * (0 : Float)))]
 
-#eval IO.println ("wRollP " ++ toString ((wRollP 1.217539 1.158990 1.100441 1.041892 0.983344 0.924795 0.866246 0.807697 0.749148 0.690600 0.632051 0.573502).map Float.toBits))
-#eval IO.println ("wRollP " ++ toString ((wRollP 0.886347 0.827798 0.769249 0.710700 0.652152 0.593603 0.535054 0.476505 0.417956 0.359408 0.300859 0.242310).map Float.toBits))
-#eval IO.println ("wRollP " ++ toString ((wRollP 0.555155 0.496606 0.438057 0.379508 0.320960 0.262411 0.203862 1.745313 1.686764 1.628216 1.569667 1.511118).map Float.toBits))
+#eval IO.println ("wRollP " ++ toString ((wRollP 0.880651 0.822102 0.763553 0.705004 0.646456 0.587907 0.529358 0.470809 0.412260 0.353712 0.295163 0.236614).map Float.toBits))
+#eval IO.println ("wRollP " ++ toString ((wRollP 0.549459 0.490910 0.432361 0.373812 0.315264 0.256715 1.798166 1.739617 1.681068 1.622520 1.563971 1.505422).map Float.toBits))
+#eval IO.println ("wRollP " ++ toString ((wRollP 0.218267 1.759718 1.701169 1.642620 1.584072 1.525523 1.466974 1.408425 1.349876 1.291328 1.232779 1.174230).map Float.toBits))
 
 def wRollPr (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v13 := (c_chord / (2 : Float))
   #[c_apexH, v13, (0 : Float), ((v13 * (0 : Float)) - (b_zRail * v13)), ((b_zRail * c_apexH) - (c_apexH * (0 : Float))), ((c_apexH * v13) - (v13 * c_apexH))]
 
-#eval IO.println ("wRollPr " ++ toString ((wRollPr 1.031387 0.972838 0.914289 0.855740 0.797192 0.738643 0.680094 0.621545 0.562996 0.504448 0.445899 0.387350).map Float.toBits))
-#eval IO.println ("wRollPr " ++ toString ((wRollPr 0.700195 0.641646 0.583097 0.524548 0.466000 0.407451 0.348902 0.290353 0.231804 1.773256 1.714707 1.656158).map Float.toBits))
-#eval IO.println ("wRollPr " ++ toString ((wRollPr 0.369003 0.310454 0.251905 1.793356 1.734808 1.676259 1.617710 1.559161 1.500612 1.442064 1.383515 1.324966).map Float.toBits))
+#eval IO.println ("wRollPr " ++ toString ((wRollPr 0.694499 0.635950 0.577401 0.518852 0.460304 0.401755 0.343206 0.284657 0.226108 1.767560 1.709011 1.650462).map Float.toBits))
+#eval IO.println ("wRollPr " ++ toString ((wRollPr 0.363307 0.304758 0.246209 1.787660 1.729112 1.670563 1.612014 1.553465 1.494916 1.436368 1.377819 1.319270).map Float.toBits))
+#eval IO.println ("wRollPr " ++ toString ((wRollPr 1.632115 1.573566 1.515017 1.456468 1.397920 1.339371 1.280822 1.222273 1.163724 1.105176 1.046627 0.988078).map Float.toBits))
 
 def wStop (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v8 := ((0 : Float) * (1 : Float))
@@ -5308,9 +5736,9 @@ def wStop (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Fl
   let v12 := ((0 : Float) * (0 : Float))
   #[(0 : Float), (0 : Float), (1 : Float), (v8 - v9), (v9 - v8), (v12 - v12)]
 
-#eval IO.println ("wStop " ++ toString ((wStop 0.845235 0.786686 0.728137 0.669588 0.611040 0.552491).map Float.toBits))
-#eval IO.println ("wStop " ++ toString ((wStop 0.514043 0.455494 0.396945 0.338396 0.279848 0.221299).map Float.toBits))
-#eval IO.println ("wStop " ++ toString ((wStop 1.782851 1.724302 1.665753 1.607204 1.548656 1.490107).map Float.toBits))
+#eval IO.println ("wStop " ++ toString ((wStop 0.508347 0.449798 0.391249 0.332700 0.274152 0.215603).map Float.toBits))
+#eval IO.println ("wStop " ++ toString ((wStop 1.777155 1.718606 1.660057 1.601508 1.542960 1.484411).map Float.toBits))
+#eval IO.println ("wStop " ++ toString ((wStop 1.445963 1.387414 1.328865 1.270316 1.211768 1.153219).map Float.toBits))
 
 def check_wireLeft_at_ym  : Bool :=
   let v14 := ((Float.sqrt (((1.22 : Float) ^ 2) + ((0.34 : Float) ^ 2))) - (Float.sqrt ((5 : Float) - ((2 : Float) * (Float.sqrt (3.36 : Float))))))
@@ -5327,16 +5755,16 @@ def wireLen (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Flo
   let v10 := (Float.sin t)
   (Float.sqrt (((((v6 * v7) + (v9 * v10)) - (-ym)) ^ 2) + (((((-v6) * v10) + (v9 * v7)) - hp) ^ 2)))
 
-#eval IO.println ("wireLen " ++ toString (wireLen 0.472931 0.414382 0.355833 0.297284 0.238736).toBits)
-#eval IO.println ("wireLen " ++ toString (wireLen 1.741739 1.683190 1.624641 1.566092 1.507544).toBits)
-#eval IO.println ("wireLen " ++ toString (wireLen 1.410547 1.351998 1.293449 1.234900 1.176352).toBits)
+#eval IO.println ("wireLen " ++ toString (wireLen 1.736043 1.677494 1.618945 1.560396 1.501848).toBits)
+#eval IO.println ("wireLen " ++ toString (wireLen 1.404851 1.346302 1.287753 1.229204 1.170656).toBits)
+#eval IO.println ("wireLen " ++ toString (wireLen 1.073659 1.015110 0.956561 0.898012 0.839464).toBits)
 
 def wireLever (P_1 : Float) (P_2 : Float) (B_1 : Float) (B_2 : Float) : Float :=
   (((P_1 * B_2) - (P_2 * B_1)) / (Float.sqrt (((B_1 - P_1) ^ 2) + ((B_2 - P_2) ^ 2))))
 
-#eval IO.println ("wireLever " ++ toString (wireLever 0.286779 0.228230 1.769681 1.711132).toBits)
-#eval IO.println ("wireLever " ++ toString (wireLever 1.555587 1.497038 1.438489 1.379940).toBits)
-#eval IO.println ("wireLever " ++ toString (wireLever 1.224395 1.165846 1.107297 1.048748).toBits)
+#eval IO.println ("wireLever " ++ toString (wireLever 1.549891 1.491342 1.432793 1.374244).toBits)
+#eval IO.println ("wireLever " ++ toString (wireLever 1.218699 1.160150 1.101601 1.043052).toBits)
+#eval IO.println ("wireLever " ++ toString (wireLever 0.887507 0.828958 0.770409 0.711860).toBits)
 
 def check_wireLever_edge_formula (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Bool :=
   let v5 := (-ym)
@@ -5348,18 +5776,18 @@ def check_wireLever_edge_formula (ym : Float) (hp : Float) (a : Float) (ze : Flo
   let v16 := (((-v6) * v10) + (v9 * v7))
   (feq (((v5 * v16) - (hp * v12)) / (Float.sqrt (((v12 - v5) ^ 2) + ((v16 - hp) ^ 2)))) (((((ym * ze) + (hp * a)) * v7) + (((hp * ze) - (ym * a)) * v10)) / (Float.sqrt ((((ym - (a * v7)) - (ze * v10)) ^ 2) + ((((a * v10) - (ze * v7)) - hp) ^ 2)))))
 
-#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 1.700627 1.642078 1.583529 1.524980 1.466432))
-#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 1.369435 1.310886 1.252337 1.193788 1.135240))
-#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 1.038243 0.979694 0.921145 0.862596 0.804048))
+#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 1.363739 1.305190 1.246641 1.188092 1.129544))
+#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 1.032547 0.973998 0.915449 0.856900 0.798352))
+#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 0.701355 0.642806 0.584257 0.525708 0.467160))
 
 def check_wireLever_pos_iff (P_1 : Float) (P_2 : Float) (B_1 : Float) (B_2 : Float) : Bool :=
   let v9 := (((B_1 - P_1) ^ 2) + ((B_2 - P_2) ^ 2))
   let v13 := ((P_1 * B_2) - (P_2 * B_1))
   (!((0 : Float) < v9) || (((0 : Float) < (v13 / (Float.sqrt v9))) == ((0 : Float) < v13)))
 
-#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 1.514475 1.455926 1.397377 1.338828))
-#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 1.183283 1.124734 1.066185 1.007636))
-#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 0.852091 0.793542 0.734993 0.676444))
+#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 1.177587 1.119038 1.060489 1.001940))
+#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 0.846395 0.787846 0.729297 0.670748))
+#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 0.515203 0.456654 0.398105 0.339556))
 
 def check_wireLever_rest (ym : Float) (hp : Float) (a : Float) (ze : Float) : Bool :=
   let v4 := (-ym)
@@ -5371,9 +5799,9 @@ def check_wireLever_rest (ym : Float) (hp : Float) (a : Float) (ze : Float) : Bo
   let v16 := (((-v5) * v10) + (v9 * v7))
   (feq (((v4 * v16) - (hp * v12)) / (Float.sqrt (((v12 - v4) ^ 2) + ((v16 - hp) ^ 2)))) (((ym * ze) + (hp * a)) / (Float.sqrt (((ym - a) ^ 2) + ((hp + ze) ^ 2)))))
 
-#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 1.328323 1.269774 1.211225 1.152676))
-#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 0.997131 0.938582 0.880033 0.821484))
-#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 0.665939 0.607390 0.548841 0.490292))
+#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 0.991435 0.932886 0.874337 0.815788))
+#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 0.660243 0.601694 0.543145 0.484596))
+#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 0.329051 0.270502 0.211953 1.753404))
 
 def check_wireLever_rest_at_ym  : Bool :=
   let v5 := ((Float.sqrt (3.36 : Float)) - (1 : Float))
@@ -5403,18 +5831,18 @@ def check_wireLever_sixty_at_ym  : Bool :=
 def wireTension (W : Float) (rcm : Float) (rw : Float) (t : Float) : Float :=
   (((W * rcm) * (Float.sin t)) / rw)
 
-#eval IO.println ("wireTension " ++ toString (wireTension 0.769867 0.711318 0.652769 0.594220).toBits)
-#eval IO.println ("wireTension " ++ toString (wireTension 0.438675 0.380126 0.321577 0.263028).toBits)
-#eval IO.println ("wireTension " ++ toString (wireTension 1.707483 1.648934 1.590385 1.531836).toBits)
+#eval IO.println ("wireTension " ++ toString (wireTension 0.432979 0.374430 0.315881 0.257332).toBits)
+#eval IO.println ("wireTension " ++ toString (wireTension 1.701787 1.643238 1.584689 1.526140).toBits)
+#eval IO.println ("wireTension " ++ toString (wireTension 1.370595 1.312046 1.253497 1.194948).toBits)
 
 def check_wire_recip_swing (apexH : Float) (zBolt : Float) (q_0 : Float) (q_1 : Float) (q_2 : Float) (f_0 : Float) (f_1 : Float) (f_2 : Float) : Bool :=
   let v14 := (apexH * (0 : Float))
   let v18 := (q_1 * f_2)
   (feq (((((((1 : Float) * (v18 - (q_2 * f_1))) + ((0 : Float) * ((q_2 * f_0) - (q_0 * f_2)))) + ((0 : Float) * ((q_0 * f_1) - (q_1 * f_0)))) + ((((0 : Float) * (0 : Float)) - (zBolt * (0 : Float))) * f_0)) + (((zBolt * (1 : Float)) - v14) * f_1)) + ((v14 - ((0 : Float) * (1 : Float))) * f_2)) (v18 - ((q_2 - zBolt) * f_1)))
 
-#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 0.583715 0.525166 0.466617 0.408068 0.349520 0.290971 0.232422 1.773873))
-#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 0.252523 1.793974 1.735425 1.676876 1.618328 1.559779 1.501230 1.442681))
-#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 1.521331 1.462782 1.404233 1.345684 1.287136 1.228587 1.170038 1.111489))
+#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 0.246827 1.788278 1.729729 1.671180 1.612632 1.554083 1.495534 1.436985))
+#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 1.515635 1.457086 1.398537 1.339988 1.281440 1.222891 1.164342 1.105793))
+#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 1.184443 1.125894 1.067345 1.008796 0.950248 0.891699 0.833150 0.774601))
 
 def check_wire_short_of_vertical  : Bool :=
   ((((0.34 : Float) * ((Float.sqrt (3.36 : Float)) - (1 : Float))) - ((1.22 : Float) * (0.8 : Float))) < (0 : Float))
@@ -5427,16 +5855,24 @@ def check_wire_taut_iff (W : Float) (rcm : Float) (rw : Float) (t : Float) : Boo
   let v9 := (Float.sin t)
   (!((0 : Float) < W) || (!((0 : Float) < rcm) || (!((0 : Float) < rw) || (((0 : Float) <= (((W * rcm) * v9) / rw)) == ((0 : Float) <= v9)))))
 
-#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 0.211411 1.752862 1.694313 1.635764))
-#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 1.480219 1.421670 1.363121 1.304572))
-#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 1.149027 1.090478 1.031929 0.973380))
+#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 1.474523 1.415974 1.357425 1.298876))
+#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 1.143331 1.084782 1.026233 0.967684))
+#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 0.812139 0.753590 0.695041 0.636492))
+
+def wrapRad (d : Float) : Float :=
+  let v3 := ((2 : Float) * (3.141592653589793 : Float))
+  (d - (v3 * (Float.floor ((d + (3.141592653589793 : Float)) / v3))))
+
+#eval IO.println ("wrapRad " ++ toString (wrapRad 1.288371).toBits)
+#eval IO.println ("wrapRad " ++ toString (wrapRad 0.957179).toBits)
+#eval IO.println ("wrapRad " ++ toString (wrapRad 0.625987).toBits)
 
 def wrenchAt (p_0 : Float) (p_1 : Float) (p_2 : Float) (f_0 : Float) (f_1 : Float) (f_2 : Float) : Array Float :=
   #[f_0, f_1, f_2, ((p_1 * f_2) - (p_2 * f_1)), ((p_2 * f_0) - (p_0 * f_2)), ((p_0 * f_1) - (p_1 * f_0))]
 
-#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 1.625259 1.566710 1.508161 1.449612 1.391064 1.332515).map Float.toBits))
-#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 1.294067 1.235518 1.176969 1.118420 1.059872 1.001323).map Float.toBits))
-#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 0.962875 0.904326 0.845777 0.787228 0.728680 0.670131).map Float.toBits))
+#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 1.102219 1.043670 0.985121 0.926572 0.868024 0.809475).map Float.toBits))
+#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 0.771027 0.712478 0.653929 0.595380 0.536832 0.478283).map Float.toBits))
+#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 0.439835 0.381286 0.322737 0.264188 0.205640 1.747091).map Float.toBits))
 
 def xhHashemi  : Float :=
   (((1.84 : Float) / (2 : Float)) - (0.03 : Float))
@@ -5455,9 +5891,9 @@ def yaw  : Array Float :=
 def check_yaw_lifts_nothing (p_0 : Float) (p_1 : Float) (p_2 : Float) : Bool :=
   (feq ((((0 : Float) * p_1) - ((0 : Float) * p_0)) + (0 : Float)) (0 : Float))
 
-#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 1.066803 1.008254 0.949705))
-#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 0.735611 0.677062 0.618513))
-#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 0.404419 0.345870 0.287321))
+#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 0.543763 0.485214 0.426665))
+#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 0.212571 1.754022 1.695473))
+#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 1.481379 1.422830 1.364281))
 
 def ymHashemi  : Float :=
   (1.22 : Float)

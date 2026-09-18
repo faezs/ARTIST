@@ -80,8 +80,13 @@ class ModulaMetal:
 
     @staticmethod
     def tables_for(name, N, rng):
-        """random ray tables for a module's `arrays`: uniforms in [0, 1) (the draws' kind)"""
-        return [t32(rng.random((N, a["P"], max(a["m"], 1)))) for a in MODULES[name].get("arrays", [])]
+        """random tables for a module's `arrays`: uniforms in [0, 1) (the draws' kind), one per
+        agent, or one for all when the table is shared (a policy's weights: no agent axis)"""
+        out = []
+        for a in MODULES[name].get("arrays", []):
+            shape = (a["P"], max(a["m"], 1)) if a.get("shared") else (N, a["P"], max(a["m"], 1))
+            out.append(t32(rng.random(shape) - 0.5 if a.get("shared") else rng.random(shape)))
+        return out
 
 
 def t32(a):
@@ -111,7 +116,8 @@ def soundness(mm, rng, n_boxes=64, n_probe=32, width=0.05):
         # ray tables held: each probe of a box uses its box's table)
         x = np.repeat(c, n_probe, 0) + rng.uniform(-width, width, (n_boxes * n_probe, n_in)) * real_in
         dx = rng.choice([-1.0, 1.0], (n_boxes * n_probe, n_in)) * real_in
-        tabs_p = [t.repeat_interleave(n_probe, dim=0) for t in tabs]
+        tabs_p = [t if a.get("shared") else t.repeat_interleave(n_probe, dim=0)
+                  for t, a in zip(tabs, MODULES[name].get("arrays", []))]
         y, dy = mm.jvp(name, t32(x), t32(dx), tabs_p)
         dy = np.abs(dy.cpu().numpy().astype(np.float64)).reshape(n_boxes, n_probe, n_out)
         dy = np.where(np.isfinite(dy), dy, 0.0)

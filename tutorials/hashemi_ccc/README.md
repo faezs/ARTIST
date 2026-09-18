@@ -343,3 +343,29 @@ oil's limit. All of it compiled (396 functions, 138 theorem checks, 1188/1188 sa
 builder, inputs from other derivations, outputs in a content-addressed `bridge/store/`) walked in
 phases - unpack, configure, build, check, install - and not rebuilt while its inputs are unchanged.
 Ccc composes the physics into one kernel; the derivation composes the build around it.
+
+## The policy, from the spec (HashemiPolicy.lean)
+
+His machine is one mirror on two motors, so its policy interface is a fact of the spec, not of
+the tandoor's nineteen heads. HashemiPolicy.lean states it and Ccc extracts it:
+
+* the actuation: `driveAz` / `driveEl` (full command = `azFull` / `elFull` of the dish, the drum's
+  rate at the wire's current lever arm), the seven-level head through `headToCmd`;
+  `quantum_outruns_sun` and `quantum_within_budget` prove the finest step is faster than the sun
+  and inside the tracker's 0.03 rad budget - the property the first training run lacked (the
+  drum was scaled 22x too fast);
+* the sensing `obsOf`: the rim sensor's two pointing errors, the swing, the wire's state, the
+  oil, the two smooth gates;
+* the reference `follower` (Mount.lean's saturated follower per axis): `follower_step_az/el`,
+  one step inside the budget zeroes the error; `tracks_exactly` keeps the sun at the drives' rates;
+* `mlpPolicy`: 16 tanh units over the 8 observations, its weights INPUTS shared by every agent
+  (the translator reads `fun i : Fin n => …` as an n-vector and unrolls a sum that does not touch
+  a ray table's row, so a matrix-vector product needs no new node); `mlpPolicy_bounded`;
+* `hashemiLoop`: observation, policy, drives, the env's step - one morphism, `hashemi_loop`
+  one Metal kernel (2175 nodes, 37 columns, Metal == NumPy), its tangent and box with it.
+
+`hashemi_policy.json` is the description the env reads: the motor heads, the levels, the
+observation and command names, the loop's columns. The env maps its heads through the compiled
+`headToDriveAz` / `headToDriveEl` (the NumPy twin on one path, the same formula on the device on
+the other). `hashemi_loop_kernel.py` runs the loop and shows the follower expressed as weights of
+the interface.

@@ -74,6 +74,43 @@ def Node.deps : Node → Array Nat
   | .sum _ a => #[a]
   | _ => #[]
 
+/-! ## The reduction layer
+
+A graph with `∑ i : Fin P` has three layers: the nodes before the reduction (agent-level), the
+ray-level nodes (those reading a ray table's row - one thread per ray in the megakernel, a loop
+in C), and the nodes after a sum. The rays are the tensor power of one morphism; the sum is the
+monoidal reduction; everything else is composition. -/
+
+structure Layers where
+  ray : Array Bool
+  post : Array Bool
+  sums : Array Nat
+  P : Nat
+  err : String
+
+def layers (g : Graph) : Layers := Id.run do
+  let n := g.nodes.size
+  let mut ray := Array.replicate n false
+  let mut post := Array.replicate n false
+  let mut sums : Array Nat := #[]
+  let mut P := 0
+  let mut err := ""
+  for i in [0:n] do
+    match g.nodes[i]! with
+    | .rayIn .. => ray := ray.set! i true
+    | .sum p _ =>
+      sums := sums.push i
+      if P != 0 && P != p then err := "sums over different ray counts"
+      P := p
+      post := post.set! i true
+    | node =>
+      let r := node.deps.any (ray[·]!)
+      let q := node.deps.any (post[·]!)
+      if r && q then err := "a ray-level node depends on a reduction (one layer only)"
+      ray := ray.set! i r
+      post := post.set! i q
+  return { ray, post, sums, P, err }
+
 /-- a value with shape: reals, booleans, pairs, vectors, structures -/
 inductive Val where
   | s (id : Nat)
@@ -290,7 +327,16 @@ partial def translate (root : Name) (e : Expr) : TM Val := do
     | .pair a b => pure (if i == 0 then a else b)
     | v => throwError "projection {i} of a {v.shape}"
   | .forallE _ dom body _ => translateForall root dom body
-  | .lam .. => throwError "a lambda where a value was expected: {e}"
+  | .lam _ dom body _ =>
+    -- a function out of `Fin n` is a product: the body at each literal index, as a vector
+    let df := dom.getAppFn
+    if df.isConstOf ``Fin && dom.getAppArgs.size == 1 then
+      if let some n := natLit? dom.getAppArgs[0]! then
+        let mut xs := #[]
+        for j in [0:n] do
+          xs := xs.push (← translate root (body.instantiate1 (finLit n j)))
+        return .vec xs
+    throwError "a lambda where a value was expected: {e}"
   | .lit _ => throwError "unexpected literal {e}"
   | .sort _ => throwError "unexpected sort"
   | _ => translateApp root e
@@ -422,21 +468,45 @@ partial def translateApp (root : Name) (e : Expr) : TM Val := do
         | throwError "a ∑ over {args[0]!} cannot be compiled (only Fin P with a literal P)"
       unless args[3]!.getAppFn.isConstOf `Finset.univ do throwError "a ∑ over a finset that is not univ"
       let st0 ← get
-      if st0.inSum.isSome then throwError "a ∑ inside a ∑: one reduction layer"
-      let (r, st') ← withLocalDeclD `i args[0]! fun i => do
-        (translate root (mkApp args[4]! i).headBeta).run
-          { st0 with env := st0.env.insert i.fvarId! .rayIdx, inSum := some P }
-      set { st' with inSum := none }
-      match r with
-      | .s a => .s <$> emit (.sum P a)
-      | .vec xs =>
-        let mut ys := #[]
-        for x in xs do
-          match x with
-          | .s a => ys := ys.push (.s (← emit (.sum P a)))
+      -- the ray reduction: the body once against the ray index, if it reads a table's row
+      let attempt : TM (Option Val) := do
+        if st0.inSum.isSome then return none
+        try
+          let (r, st') ← withLocalDeclD `i args[0]! fun i => do
+            (translate root (mkApp args[4]! i).headBeta).run
+              { st0 with env := st0.env.insert i.fvarId! .rayIdx, inSum := some P }
+          -- does the summand depend on a ray table's row? (else it is a small contraction: unroll).
+          -- Judged on the graph, not on the nodes just emitted: a second sum over the same rays
+          -- hash-conses onto the first's nodes and emits nothing new
+          let L := layers st'.g
+          let reads := r.flatten.any fun a => L.ray[a]!
+          if !reads then return none
+          set { st' with inSum := none }
+          match r with
+          | .s a => return some (.s (← emit (.sum P a)))
+          | .vec xs =>
+            let mut ys := #[]
+            for x in xs do
+              match x with
+              | .s a => ys := ys.push (.s (← emit (.sum P a)))
+              | w => throwError "a ∑ of a {w.shape}"
+            return some (.vec ys)
           | w => throwError "a ∑ of a {w.shape}"
-        pure (.vec ys)
-      | w => throwError "a ∑ of a {w.shape}"
+        catch _ => return none
+      match ← attempt with
+      | some v => pure v
+      | none =>
+        -- unrolled: the body at each literal index, added up (the finite product)
+        set st0
+        let mut acc : Option Val := none
+        for j in [0:P] do
+          let term ← translate root (mkApp args[4]! (finLit P j)).headBeta
+          acc := some (← match acc with
+            | none => pure term
+            | some a => zipVal "+" a term)
+        match acc with
+        | some v => pure v
+        | none => .s <$> emit (.lit "0")
     | `Real.sqrt, 1 => unop root "sqrt" args[0]!
     | `Real.sin, 1 => unop root "sin" args[0]!
     | `Real.cos, 1 => unop root "cos" args[0]!
@@ -447,6 +517,7 @@ partial def translateApp (root : Name) (e : Expr) : TM Val := do
     | `Real.exp, 1 => unop root "exp" args[0]!
     | `Real.log, 1 => unop root "log" args[0]!
     | `Real.sigmoid, 1 => unop root "sigmoid" args[0]!
+    | `Real.tanh, 1 => unop root "tanh" args[0]!
     | `Real.pi, 0 => .s <$> emit .pi
     | `abs, _ => unop root "abs" args.back!
     | ``Min.min, 4 => binop root "min" args[2]! args[3]!
@@ -641,6 +712,8 @@ structure Fun where
   arrays : Array (String × Nat × Nat) := #[]
   /-- a ray table's entry at a literal index: input node ↦ (base, j, k) -/
   arrayScalar : Std.HashMap Nat (String × Nat × Nat) := {}
+  /-- tables shared by every agent (a policy's weights): no per-agent offset, no agent axis -/
+  shared : Array String := #[]
 
 /-- bind a data binder (a lambda's or a ∀'s) as inputs, recording it for the printers -/
 def bindBinder (root : Name) (x : Expr) (k : Nat) : TM String := do
@@ -730,43 +803,6 @@ def liveNodes (g : Graph) (outs : Array Nat) : Std.HashSet Nat := Id.run do
     for d in g.nodes[i]!.deps do live := live.insert d
   return live
 
-/-! ## The reduction layer
-
-A graph with `∑ i : Fin P` has three layers: the nodes before the reduction (agent-level), the
-ray-level nodes (those reading a ray table's row - one thread per ray in the megakernel, a loop
-in C), and the nodes after a sum. The rays are the tensor power of one morphism; the sum is the
-monoidal reduction; everything else is composition. -/
-
-structure Layers where
-  ray : Array Bool
-  post : Array Bool
-  sums : Array Nat
-  P : Nat
-  err : String
-
-def layers (g : Graph) : Layers := Id.run do
-  let n := g.nodes.size
-  let mut ray := Array.replicate n false
-  let mut post := Array.replicate n false
-  let mut sums : Array Nat := #[]
-  let mut P := 0
-  let mut err := ""
-  for i in [0:n] do
-    match g.nodes[i]! with
-    | .rayIn .. => ray := ray.set! i true
-    | .sum p _ =>
-      sums := sums.push i
-      if P != 0 && P != p then err := "sums over different ray counts"
-      P := p
-      post := post.set! i true
-    | node =>
-      let r := node.deps.any (ray[·]!)
-      let q := node.deps.any (post[·]!)
-      if r && q then err := "a ray-level node depends on a reduction (one layer only)"
-      ray := ray.set! i r
-      post := post.set! i q
-  return { ray, post, sums, P, err }
-
 /-- the width of a ray table -/
 def Fun.tableM (f : Fun) (base : String) : Nat :=
   match f.arrays.find? (·.1 == base) with
@@ -801,6 +837,7 @@ def cRhs (f : Fun) (inputRef : Nat → String) (ridx : String) (i : Nat) : Optio
       | "arctan" => s!"hk_atan({av})" | "arccos" => s!"hk_acos({av})" | "arcsin" => s!"hk_asin({av})"
       | "exp" => s!"hk_exp({av})" | "log" => s!"hk_log({av})"
       | "abs" => s!"hk_fabs({av})" | "floor" => s!"hk_floor({av})" | "sigmoid" => s!"hk_sigmoid({av})"
+      | "tanh" => s!"hk_tanh({av})"
       | o => s!"/* ? {o} */ {av}")
   | .bin op a b =>
     some (match op with
@@ -844,6 +881,7 @@ def cDRhs (f : Fun) (dxRef : Nat → String) (i : Nat) : Option String :=
       | "abs" => s!"({av} < HK_LIT(0) ? -{da} : {da})"
       | "floor" => "HK_LIT(0)"
       | "sigmoid" => s!"({t i} * (HK_LIT(1) - {t i}) * {da})"
+      | "tanh" => s!"((HK_LIT(1) - {t i} * {t i}) * {da})"
       | _ => "HK_LIT(0)")
   | .bin op a b =>
     some (match op with
@@ -894,6 +932,7 @@ def cBoxStmt (f : Fun) (boxRef : Nat → String × String × String) (ridx : Str
     | "abs" => s!"hk_bx_abs({tr a}, {outp i});"
     | "floor" => s!"hk_bx_floor({tr a}, {outp i});"
     | "sigmoid" => s!"hk_bx_sigmoid({tr a}, {outp i});"
+    | "tanh" => s!"hk_bx_tanh({tr a}, {outp i});"
     | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF; L{i} = HK_INF;")
   | .bin op a b =>
     some (match op with
@@ -1122,6 +1161,10 @@ HK_STATIC void hk_bx_sigmoid(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_AD
   *lo = hk_sigmoid(alo); *hi = hk_sigmoid(ahi); const hk_real m = hk_bx_mig(alo, ahi); const hk_real sm = hk_sigmoid(m);
   *L = hk_bx_cap(aL * sm * (HK_LIT(1) - sm));
 }
+HK_STATIC void hk_bx_tanh(hk_real alo, hk_real ahi, hk_real aL, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
+  *lo = hk_tanh(alo); *hi = hk_tanh(ahi); const hk_real m = hk_bx_mig(alo, ahi); const hk_real tm = hk_tanh(m);
+  *L = hk_bx_cap(aL * (HK_LIT(1) - tm * tm));
+}
 HK_STATIC void hk_bx_pow(hk_real alo, hk_real ahi, hk_real aL, int n, hk_real HK_ADDR* lo, hk_real HK_ADDR* hi, hk_real HK_ADDR* L) {
   if (n == 0) { *lo = HK_LIT(1); *hi = HK_LIT(1); *L = HK_LIT(0); return; }
   const hk_real m = hk_bx_mag(alo, ahi), mg = hk_bx_mig(alo, ahi);
@@ -1199,7 +1242,8 @@ def printMslMega (f : Fun) (kname : String) : String := Id.run do
   for s in L.sums.filter (liveNodes g outs).contains do lines := lines.push s!"  threadgroup float hk_sh{s}[{P}];"
   lines := lines.push s!"  device const float* hk_xb = hk_x + hk_b * {nin};"
   for (b, p, m) in f.arrays do
-    lines := lines.push s!"  device const float* {b} = {b}_all + hk_b * {p * (if m == 0 then 1 else m)};"
+    if f.shared.contains b then lines := lines.push s!"  device const float* {b} = {b}_all;"
+    else lines := lines.push s!"  device const float* {b} = {b}_all + hk_b * {p * (if m == 0 then 1 else m)};"
   let mut inIdx : Std.HashMap Nat Nat := {}
   for k in [0:nin] do inIdx := inIdx.insert (f.inputs[k]!).2 k
   let inRef := fun (i : Nat) => if g.isBool i then s!"(hk_xb[{inIdx.getD i 0}] != 0.0f)" else s!"hk_xb[{inIdx.getD i 0}]"
@@ -1298,6 +1342,7 @@ partial def leanExpr (g : Graph) (real : Bool) (i : Nat) : String :=
     | "abs" => if real then s!"|{r a}|" else s!"(Float.abs {r a})"
     | "floor" => if real then s!"((⌊{r a}⌋ : ℤ) : ℝ)" else s!"(Float.floor {r a})"
     | "sigmoid" => if real then s!"(Real.sigmoid {r a})" else s!"(1.0 / (1.0 + Float.exp (-{r a})))"
+    | "tanh" => if real then s!"(Real.tanh {r a})" else s!"(Float.tanh {r a})"
     | o => s!"?{o}"
   | .bin op a b =>
     match op with
@@ -1385,6 +1430,7 @@ partial def leanBody (f : Fun) (real : Bool) (outs : Array Nat) (v : Val) (inden
       | "abs" => if real then s!"|{r a}|" else s!"(Float.abs {r a})"
       | "floor" => if real then s!"((⌊{r a}⌋ : ℤ) : ℝ)" else s!"(Float.floor {r a})"
       | "sigmoid" => if real then s!"(Real.sigmoid {r a})" else s!"(1.0 / (1.0 + Float.exp (-{r a})))"
+      | "tanh" => if real then s!"(Real.tanh {r a})" else s!"(Float.tanh {r a})"
       | o => s!"?{o}"
     | .bin op a b =>
       match op with
@@ -1428,8 +1474,10 @@ def printNumpy (f : Fun) (fname : String) : String := Id.run do
   if !L.err.isEmpty then lines := lines.push s!"    raise ValueError({("\"" ++ L.err ++ "\"")})"
   let tableRead := fun (b : String) (row : Option Nat) (k : Nat) =>
     let m := f.tableM b
+    let sh := f.shared.contains b
     match row with
-    | some j => if m == 0 then s!"{b}[:, {j}]" else s!"{b}[:, {j}, {k}]"
+    | some j => if sh then (if m == 0 then s!"{b}[{j}]" else s!"{b}[{j}, {k}]")
+                else (if m == 0 then s!"{b}[:, {j}]" else s!"{b}[:, {j}, {k}]")
     | none => if m == 0 then s!"{b}" else s!"{b}[:, :, {k}]"
   for i in [0:g.nodes.size] do
     let isLeaf := fun (j : Nat) => match g.nodes[j]! with | .lit _ | .bconst _ | .pi => true | _ => false
@@ -1454,6 +1502,7 @@ def printNumpy (f : Fun) (fname : String) : String := Id.run do
           | "arctan" => s!"np.arctan({av})" | "arccos" => s!"np.arccos({av})" | "arcsin" => s!"np.arcsin({av})"
           | "exp" => s!"np.exp({av})" | "log" => s!"np.log({av})"
           | "abs" => s!"np.abs({av})" | "floor" => s!"np.floor({av})" | "sigmoid" => s!"(1.0 / (1.0 + np.exp(-{av})))"
+          | "tanh" => s!"np.tanh({av})"
           | o => s!"None  # ? {o}")
       | .bin op a b =>
         some (match op with

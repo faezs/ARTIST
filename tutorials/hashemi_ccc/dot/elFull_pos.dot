@@ -1,0 +1,15 @@
+digraph "TandoorHashemi.elFull_pos" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="0", shape=plaintext];
+  n1 [label="0.025", shape=plaintext];
+  n2 [label="π", shape=plaintext];
+  n3 [label="*", shape=ellipse];
+  n1 -> n3; n2 -> n3;
+  n4 [label="180", shape=plaintext];
+  n5 [label="/", shape=ellipse];
+  n3 -> n5; n4 -> n5;
+  n6 [label="<", shape=ellipse];
+  n0 -> n6; n5 -> n6;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n6 -> out0;
+}

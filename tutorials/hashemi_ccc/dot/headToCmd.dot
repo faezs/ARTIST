@@ -1,0 +1,17 @@
+digraph "TandoorHashemi.headToCmd" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="h", shape=box];
+  n1 [label="0", shape=plaintext];
+  n2 [label="max", shape=ellipse];
+  n0 -> n2; n1 -> n2;
+  n3 [label="6", shape=plaintext];
+  n4 [label="min", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  n5 [label="3", shape=plaintext];
+  n6 [label="-", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  n7 [label="/", shape=ellipse];
+  n6 -> n7; n5 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}

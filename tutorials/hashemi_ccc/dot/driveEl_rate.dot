@@ -1,0 +1,36 @@
+digraph "TandoorHashemi.driveEl_rate" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="u", shape=box];
+  n1 [label="arm", shape=box];
+  n2 [label="rDrum", shape=box];
+  n3 [label="0", shape=plaintext];
+  n4 [label="!=", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  n5 [label="!=", shape=ellipse];
+  n1 -> n5; n3 -> n5;
+  n6 [label="0.025", shape=plaintext];
+  n7 [label="π", shape=plaintext];
+  n8 [label="*", shape=ellipse];
+  n6 -> n8; n7 -> n8;
+  n9 [label="180", shape=plaintext];
+  n10 [label="/", shape=ellipse];
+  n8 -> n10; n9 -> n10;
+  n11 [label="*", shape=ellipse];
+  n0 -> n11; n10 -> n11;
+  n12 [label="*", shape=ellipse];
+  n11 -> n12; n1 -> n12;
+  n13 [label="/", shape=ellipse];
+  n12 -> n13; n2 -> n13;
+  n14 [label="*", shape=ellipse];
+  n13 -> n14; n2 -> n14;
+  n15 [label="/", shape=ellipse];
+  n14 -> n15; n1 -> n15;
+  n16 [label="==", shape=ellipse];
+  n15 -> n16; n11 -> n16;
+  n17 [label="->", shape=ellipse];
+  n5 -> n17; n16 -> n17;
+  n18 [label="->", shape=ellipse];
+  n4 -> n18; n17 -> n18;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n18 -> out0;
+}

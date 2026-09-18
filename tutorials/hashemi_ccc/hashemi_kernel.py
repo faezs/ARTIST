@@ -59,6 +59,7 @@ using namespace metal;
 #define hk_log log
 #define hk_fabs fabs
 #define hk_floor floor
+#define hk_tanh tanh
 #define hk_min fmin
 #define hk_max fmax
 #define hk_eq(a, b) (hk_fabs((a) - (b)) <= 1e-5f * hk_max(1.0f, hk_max(hk_fabs(a), hk_fabs(b))))
@@ -83,6 +84,7 @@ CUDA_PRELUDE = """
 #define hk_log logf
 #define hk_fabs fabsf
 #define hk_floor floorf
+#define hk_tanh tanhf
 #define hk_min fminf
 #define hk_max fmaxf
 #define hk_eq(a, b) (hk_fabs((a) - (b)) <= 1e-5f * hk_max(1.0f, hk_max(hk_fabs(a), hk_fabs(b))))
