@@ -310,3 +310,36 @@ test counts the parent's flags against the columns (100 % on day 172, both paths
 Day 172, 16 agents: numpy 95 rotis, fused 94; fused at 8192 agents 5.5 ms/step. Day 355 (the sun
 under the winch's reach until mid-morning and again by 14:00): no cut, no bake - three hours of
 1.4 kW do not bring the cold pit to temperature.
+
+## One morphism, one megakernel (the current shape)
+
+`hashemiEnv` (HashemiEnv.lean) is the env's whole step as one Lean definition: `megaStep` (the
+mount) then, on the new pose, 64 rays of `dishPower` and their sum, then `heatStep` (the coil at
+F, hot oil in insulated copper pipes, the exchanger in the pot's wall; HashemiHeat.lean). The rays
+are independent, so they TENSOR: Ccc's reduction layer takes a binder `Fin P → Fin m → ℝ` as a ray
+table and `∑ i : Fin P` as a sum node, and every printer splits into the agent-level prelude, the
+ray level and what follows the reduction. The optics and the heat are dependent, so they COMPOSE.
+Ccc prints the one graph three ways:
+
+* `hk_hashemiEnv` in C - the rays as a loop - and its NumPy twin (a `(B, P)` axis, `np.sum`);
+* `hashemi_env` in Metal (`printMslMega`): a threadgroup per agent, a thread per ray, the two sums
+  through threadgroup memory, thread 0 writes the 27 columns. `hashemi_env_kernel.py` runs it:
+  0.36 ms/step at 2048 agents, Metal == NumPy on every column;
+* its tangent and box (the Modula layer) with the ray tables as points.
+
+The env (`hashemi_tandoor_env.py`) launches it once per step on both paths; the exchanger's power
+enters the parent's pot through the parent's own gate (`per = q_pot / (gate x 0.85)` along the
+beam's node profile; the exchanger opens with the gate). Nothing optical or thermal lives in the
+host any more. Day 172, 16 agents: 77 rotis on both paths, the oil at 465-487 K, the pot fed
+1.0-1.2 kW; the fused env at 8192 agents 4.2 ms/step (one machine launch beside the parent's four).
+
+Proved in HashemiHeat.lean: `qNet_antitone`, `steady_unique`, `steady_exists` (IVT),
+`steady_conservation` / `steady_pot_le_abs`, `qNet_lipschitz` and `oilStep_lipschitz` (the step's
+modulus, `1 + dt K / Coil`). In HashemiEnv.lean: the capture in `[0, 1]`, the pot's bound, the
+oil's limit. All of it compiled (396 functions, 138 theorem checks, 1188/1188 samples C vs Float,
+247 rfl round trips; the composite by the twins).
+
+`bridge/derivation.py` is the runner after Nix: a kernel run is a derivation (sources hashed, a
+builder, inputs from other derivations, outputs in a content-addressed `bridge/store/`) walked in
+phases - unpack, configure, build, check, install - and not rebuilt while its inputs are unchanged.
+Ccc composes the physics into one kernel; the derivation composes the build around it.

@@ -1,7 +1,1 @@
-# built by build.sh
-libmetal_bridge.dylib
-# recorded by export_scene.py (2.7 MB of buffers) and emitted by hashemi_trace_kernel.py
-scene/*.f64
-scene/tandoor.metal
-msl_prelude.metal
-hashemi_trace.metal
+store/
