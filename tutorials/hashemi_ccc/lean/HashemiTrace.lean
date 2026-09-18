@@ -357,3 +357,39 @@ theorem dishTrain_fate (R f a w rc cx cy ux uy dx dy dz : ℝ) :
     try simp
 
 end TandoorHashemi
+
+namespace TandoorHashemi
+
+/-! ## The panel as the frames show it: a satellite dish, a paraboloid
+
+The user (2026-09-18): "How is the geometry still undetermined when I literally gave you every
+single frame of the video". It is not. His length figure is a compass construction - a circle of
+radius 2 m, the 1.6 m chord, the sag 0.167 - and `dishR` encoded the dish as that sphere. The
+frames show a faceted satellite dish, which is a paraboloid; the figure's numbers cannot tell the
+two apart (sag 0.167 on the sphere, 0.160 on the paraboloid of focal length 1) but the trace can:
+on the sphere the rim facets miss F by up to half a metre, on the paraboloid every axial ray
+reaches F and the spot is `facetSpot`. `traceRayK` is `traceRay` with the panel on the conic of
+constant `k` (`conicZ`): `k = -1` the satellite dish, `k = 0` the figure's circle. -/
+
+/-- his dish's ray on the conic panel: as `traceRay`, the facet tangent to the conic at its centre -/
+noncomputable def traceRayK (R f a w rc k cx cy ux uy dx dy dz : ℝ) : Fin 8 → ℝ :=
+  let onPanel := |cx| ≤ a ∧ |cy| ≤ a ∧ |ux| ≤ w / 2 ∧ |uy| ≤ w / 2
+  let O : Fin 3 → ℝ := ![cx + ux, cy + uy, 2 * f]
+  let d : Fin 3 → ℝ := ![dx, dy, dz]
+  let c := 1 / R
+  let rr := Real.sqrt (max (cx ^ 2 + cy ^ 2) 1e-18)
+  let zc := conicZ c k rr
+  let g := conicSlope c k rr
+  let nn := Real.sqrt (1 + g ^ 2)
+  let n : Fin 3 → ℝ := ![-g * cx / rr / nn, -g * cy / rr / nn, 1 / nn]
+  let s := ((cx - O 0) * n 0 + (cy - O 1) * n 1 + (zc - O 2) * n 2) / dot3 d n
+  let H : Fin 3 → ℝ := ![O 0 + s * d 0, O 1 + s * d 1, O 2 + s * d 2]
+  let r := reflect3 n d
+  let L := landAt H r f
+  let rad := Real.sqrt (L.1 ^ 2 + L.2 ^ 2)
+  let inside := rad ≤ rc ∧ 0 < r 2
+  let captured := onPanel ∧ inside
+  ![L.1, L.2, rad, if captured then 1 else 0,
+    if ¬ onPanel then 0 else if inside then 2 else 1, H 2, rr, if 0 < r 2 then 1 else 0]
+
+end TandoorHashemi

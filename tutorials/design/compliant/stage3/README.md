@@ -723,3 +723,12 @@ ABERRATION-LIMITED (8 mm of error against a 1.13 m spot); the pointing cliff und
 0-3 deg, antitone within error bars. (3) The stage model: his dish as an instance of Feedback's train, and
 `dishTrain_fate` PROVED - the train's fate is `traceRay`'s fate code - so the fixed-point theorem is about the compiled
 trace. Ccc gained a `let`-in-head-position case (a reflected vector applied to an index). 30/30 measured theorems.
+
+THE PANEL IS A SATELLITE DISH (2026-09-18, the user: "How is the geometry still undetermined when I literally gave you every
+single frame"). It was never undetermined: I had encoded his length figure's compass circle (dishR 2 m, the sphere) as the
+panel, and the frames show a faceted satellite dish - a paraboloid. The figure's numbers cannot tell them apart (sag 0.167
+vs 0.160 at the edge); the trace can: `traceRayK` puts the facets on the conic of constant k, and at k = -1 the capture
+is 0.998 on axis, 0.92 at 0.5 deg, 0.48 at 1 deg, 0 at 1.7 deg - HIS tracker budget and his 6 cm facet spot, exactly -
+against 0.59 on the circle. The env's traced capture now uses k = -1 (`dish_k`): 65.1 MJ/day June, 26.9 December (38.6 /
+16.1 on the circle). The mounting construction (hangers, swing, wire) keeps the circle: it only placed the bolt line and
+the rim. Lesson: a drawing's circle is a construction, the built surface is in the frames.

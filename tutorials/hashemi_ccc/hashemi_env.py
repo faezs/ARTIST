@@ -64,7 +64,7 @@ WIRE_SPEED = 0.01
 
 class HashemiMachineEnv(_Base):
     def __init__(self, num_agents=1024, lat=30.2, day_of_year=172, day_random=0, dt=15.0, day_start=5.5,
-                 day_end=19.5, device="mps", full_obs=0, seed=0, params=None, trace_rays=64, buf=None, **kwargs):
+                 day_end=19.5, device="mps", full_obs=0, seed=0, params=None, trace_rays=64, dish_k=-1.0, buf=None, **kwargs):
         self.num_agents = int(num_agents)
         self.lat = float(lat)
         self.day = int(day_of_year)
@@ -95,6 +95,9 @@ class HashemiMachineEnv(_Base):
         # (HashemiTrace.lean, generated) replace the added model `coilCapture` in the reward; the
         # model stays in the row for comparison. 0 keeps the model.
         self.trace_rays = int(trace_rays)
+        # the panel's conic constant: -1 the satellite dish the frames show (a paraboloid), 0 the
+        # length figure's compass circle (the sphere of Hashemi.lean's dishR); the vertex curvature 1/R
+        self.dish_k = float(dish_k)
         self._tracer = None
         self._trace_prm = trace_params_numpy()
         if self.trace_rays > 0 and self._metal is not None:
@@ -154,7 +157,7 @@ class HashemiMachineEnv(_Base):
         sd = sun_in_dish(self.state[:, 0], self.state[:, 1], np.full(B, np.radians(el)), np.full(B, az))
         rays = sample_rays(B, self.trace_rays, sd, self.rng)
         if self._tracer is not None:
-            return self._tracer.capture(rays, self._trace_prm, B, self.trace_rays)
+            return self._tracer.capture(rays, self._trace_prm, B, self.trace_rays, k=self.dish_k)
         out = trace_numpy(rays, self._trace_prm)
         return out[:, 3].reshape(B, self.trace_rays).mean(1)
 

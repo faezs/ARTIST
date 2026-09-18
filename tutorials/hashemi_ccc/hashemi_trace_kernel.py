@@ -50,6 +50,16 @@ kernel void hashemi_trace_err(device const float* rays [[buffer(0)]], device con
   for (int k = 0; k < 8; ++k) out[i*8+k] = row[k];
 }
 
+kernel void hashemi_trace_k(device const float* rays [[buffer(0)]], device const float* prm [[buffer(1)]],
+                            device float* out [[buffer(2)]], device const int* n [[buffer(3)]],
+                            uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float row[8];
+  hk_traceRayK(prm[0], prm[1], prm[2], prm[3], prm[4], prm[5], rays[i*7+0], rays[i*7+1], rays[i*7+2], rays[i*7+3],
+               rays[i*7+4], rays[i*7+5], rays[i*7+6], row);
+  for (int k = 0; k < 8; ++k) out[i*8+k] = row[k];
+}
+
 kernel void hashemi_sphere(device const float* rays [[buffer(0)]], device const float* prm [[buffer(1)]],
                            device float* out [[buffer(2)]], device const int* n [[buffer(3)]],
                            uint i [[thread_position_in_grid]]) {
@@ -215,9 +225,18 @@ class HashemiTraceMetal:
         self.lib.hashemi_trace(rays.contiguous(), prm.to(torch.float32).contiguous(), out, nN)
         return out
 
-    def capture(self, rays_np, prm_np, B, P):
+    def capture(self, rays_np, prm_np, B, P, k=None):
+        """the capture per agent; with `k` the panel is the conic of that constant (-1: the satellite
+        dish the frames show; 0: the figure's circle), else `traceRay` on the sphere"""
         torch = self.torch
-        out = self.run(torch.as_tensor(rays_np, device="mps"), torch.as_tensor(prm_np, dtype=torch.float32, device="mps"))
+        rays = torch.as_tensor(rays_np, device="mps")
+        if k is None:
+            out = self.run(rays, torch.as_tensor(prm_np, dtype=torch.float32, device="mps"))
+        else:
+            N = rays.shape[0]
+            prm = torch.as_tensor(np.concatenate([np.asarray(prm_np, dtype=np.float32), [k]]), dtype=torch.float32, device="mps")
+            out = torch.empty(N, OUT_W, dtype=torch.float32, device="mps")
+            self.lib.hashemi_trace_k(rays.contiguous(), prm, out, torch.tensor([N], dtype=torch.int32, device="mps"))
         return out[:, 3].reshape(B, P).mean(1).cpu().numpy().astype(np.float64)
 
 
@@ -249,5 +268,13 @@ if __name__ == "__main__":
             d = float(np.abs(out[:, :3] - ref[:, :3]).max()); worst = max(worst, d)
             flips = float((out[:, 3] != ref[:, 3]).mean())
         print(f"  {np.degrees(e):6.2f}    {cap_ref.mean():8.3f}        {model:8.3f}          {d:.2e}" + (f"  flips {100 * flips:.2f} %" if k else ""))
+    if k is not None:
+        print("\n  the panel as the frames show it (k = -1, a satellite dish) against the figure's circle (k = 0):")
+        print("  eps[deg]  capture k=-1   capture k=0")
+        for e in errs:
+            sun = np.stack([np.sin(e) * np.ones(B), np.zeros(B), np.cos(e) * np.ones(B)], 1)
+            rays = sample_rays(B, P, sun, rng)
+            c1 = k.capture(rays, prm, B, P, k=-1.0).mean(); c0 = k.capture(rays, prm, B, P, k=0.0).mean()
+            print(f"  {np.degrees(e):6.2f}    {c1:8.3f}      {c0:8.3f}")
     print("METAL == NUMPY (landings within 1e-4 m)" if worst < 1e-4 else f"MISMATCH {worst:.2e}")
     sys.exit(0 if worst < 1e-4 else 1)
