@@ -62,6 +62,10 @@ cd ~/ARTIST-compliant/tutorials/hashemi_ccc
    definitions, `intro` names them as the printer did, and one `have` per bisection level relates
    the composite to them, each level seeing the previous one as the same local on both sides
    (`stagedProof` in `lean/HashemiCcc.lean`). 12-15 s each, against a timeout before.
+   `dishPower` - the whole optical pipeline of one ray, sampler through capture - needs the same
+   `lift_lets` but no chain: it is flat, not iterated, so once the shared subgraph is a local
+   context instead of a zeta-expanded tree the single `rfl` closes it (`chain := false` in its
+   `stagedCfg` row; ~134 s, against a timeout before).
 3. **C against Float.** 1041 samples over 347 functions agree to 1e-12; the 115 theorem checks are
    true in double.
 4. **Metal against NumPy.** The whole 226-column row over 4096 random states in the tracker's range

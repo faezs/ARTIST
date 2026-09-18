@@ -77,6 +77,11 @@ The fix keeps the sharing in the proof instead of in the term, and does NOT weak
   (`wireLen … 0 = v47`, …), the swing is replaced by the chain's last level (`rw [key]`), and
   what is left of the graph closes by `rfl`.
 
+A composite that is big but does NOT repeat a stage needs only the first half of this:
+`dishPower` - one ray, sampler through capture - is flat, so zeta blows its graph up by a large
+constant rather than a power, and `funext; lift_lets; intro …; rfl` alone closes it (~134 s,
+against a timeout).  That is the row `{ chain := false }`, and it is the shape to try first.
+
 A sibling applies this to another composite by adding a row to `stagedCfg`: the chain detector
 below reads the PRINTED twin (`let` lines), so it needs no knowledge of the source beyond the
 names the definition gives the four mount constants and the state.
@@ -145,28 +150,41 @@ def findChain (ls : Array LetLine) :
 twin's locals.  `ym hp a ze` are the pulley/dish constants `bisectStep` takes; `t slack ωd rDrum
 dt` spell the commanded wire length. -/
 structure StagedCfg where
-  ym : String
-  hp : String
-  aa : String
-  ze : String
-  t : String
-  slack : String
-  ωd : String
-  rDrum : String
-  dt : String
+  ym : String := ""
+  hp : String := ""
+  aa : String := ""
+  ze : String := ""
+  t : String := ""
+  slack : String := ""
+  ωd : String := ""
+  rDrum : String := ""
+  dt : String := ""
   unf : List String := []
+  /-- `false`: the composite is big but has no repeated stage, so the shared shape
+  (`funext`, `lift_lets`, `intro` the printer's names, `rfl`) is the whole proof and no
+  chain is looked for.  `dishPower` is of this kind: one sample, one reflection, one
+  landing - flat, not iterated, so every local is used a bounded number of times and the
+  only thing that killed the plain `rfl` was the zeta-expansion of the shared subgraph. -/
+  chain : Bool := true
   deriving Inhabited
 
 def stagedCfg : String → Option StagedCfg
   | "swingOfLength" => some { ym := "ym", hp := "hp", aa := "a", ze := "ze", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt" }
   | "step" => some { ym := "ym", hp := "hp", aa := "a", ze := "ze", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt", unf := ["step"] }
   | "megaStep" => some { ym := "ymHashemi", hp := "hpHashemi", aa := "dishHalf", ze := "zeHashemi", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt", unf := ["megaStep", "step"] }
+  | "dishPower" => some { chain := false }
   | _ => none
 
 /-- the staged proof for `txt`, a printed `theorem X_ccc : X = fun bs => <twin> := rfl`. -/
 def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option String := Id.run do
   let stmt := if txt.endsWith " := rfl" then txt.dropRight 7 else txt
   let ls := letLines stmt
+  let names := " ".intercalate (ls.toList.map (·.name))
+  -- no repeated stage: `lift_lets` alone makes every defeq check small (the sharing is in the
+  -- proof's local context instead of the term), and there is nothing to chain
+  if !cfg.chain then
+    return some (stmt ++ "\n".intercalate
+      [":= by", s!"  funext {binders}", "  lift_lets", s!"  intro {names}", "  rfl"])
   let some (pairs, lo0, hi0, L) := findChain ls | return none
   let n := pairs.size
   let (lastLo, lastHi) := pairs[n-1]!
@@ -178,7 +196,6 @@ def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option Str
   if Q.isEmpty then return none
   let fin := s!"(((if {Q} then {M} else {lastLo}) + (if {Q} then {lastHi} else {M})) / (2 : ℝ))"
   let bs := s!"{cfg.ym} {cfg.hp} {cfg.aa} {cfg.ze}"
-  let names := " ".intercalate (ls.toList.map (·.name))
   let mut p : Array String := #[]
   let selfv := !(ls.any fun l => l.name == L)
   if selfv then
@@ -441,7 +458,7 @@ def run : MetaM Unit := do
           | none =>
             logInfo m!"staged round trip: no bisection chain found for {ref}"
             rt := rt.push txt |>.push ""
-        else if ref == "dishPower" || ref == "hashemiEnv" || ref == "hashemiLoop" || ref == "hashemiEnvBeam" || ref == "traceBeam" then
+        else if ref == "hashemiEnv" || ref == "hashemiLoop" || ref == "hashemiEnvBeam" || ref == "traceBeam" then
           -- the whole optical pipeline as one term: its parts (`sunInDish`, `sampleRay`,
           -- `traceRayKErr`) each round-trip by `rfl`; the composite's defeq check times out
           rt := rt.push s!"-- {ref}: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)" |>.push ""
