@@ -8,6 +8,8 @@ digraph "TandoorHashemi.obsLo" {
   n3 [label="/", shape=ellipse];
   n1 -> n3; n2 -> n3;
   n4 [label="0", shape=plaintext];
+  n5 [label="neg", shape=ellipse];
+  n2 -> n5;
   out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n1 -> out0;
   out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out1;
   out2 [label="out 2", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out2;
@@ -16,4 +18,7 @@ digraph "TandoorHashemi.obsLo" {
   out5 [label="out 5", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out5;
   out6 [label="out 6", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out6;
   out7 [label="out 7", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out7;
+  out8 [label="out 8", shape=box, style=filled, fillcolor=lightgrey]; n5 -> out8;
+  out9 [label="out 9", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out9;
+  out10 [label="out 10", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out10;
 }

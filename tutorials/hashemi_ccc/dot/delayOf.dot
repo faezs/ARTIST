@@ -1,0 +1,26 @@
+digraph "TandoorHashemi.delayOf" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="L", shape=box];
+  n1 [label="Q", shape=box];
+  n2 [label="D", shape=box];
+  n3 [label="dt", shape=box];
+  n4 [label="π", shape=plaintext];
+  n5 [label="^2", shape=ellipse];
+  n2 -> n5;
+  n6 [label="*", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  n7 [label="4", shape=plaintext];
+  n8 [label="/", shape=ellipse];
+  n6 -> n8; n7 -> n8;
+  n9 [label="/", shape=ellipse];
+  n1 -> n9; n8 -> n9;
+  n10 [label="0.000001", shape=plaintext];
+  n11 [label="max", shape=ellipse];
+  n9 -> n11; n10 -> n11;
+  n12 [label="/", shape=ellipse];
+  n0 -> n12; n11 -> n12;
+  n13 [label="/", shape=ellipse];
+  n12 -> n13; n3 -> n13;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n13 -> out0;
+}

@@ -924,6 +924,112 @@ def beamChecks : IO (Array Check) := do
     cs := cs.push ⟨"beam-down: over the day the chain keeps its order, captured ≤ passed the dish ≤ hit the secondary (the env's beam step, the default shape)", orderOk, note⟩
   pure cs
 
+/-! ## The oil loop, measured (HashemiOil.lean through `hashemi_env`)
+
+The loop is no longer six constants: a named fluid, a pump on the parent's pinned head, and a
+correlation behind every conductance.  These run the COMPILED env kernel over a sweep of pump
+commands at a fixed pose and measure, on its own columns, the theorems `HashemiOil.lean` proves:
+`uaOf_mono` / `nusseltTurb_mono` (the exchanger's UA grows with the flow), `delay_antitone` (the
+pipe's transit falls), `pumpLam_mono` (the pump's bill rises), `wallTemp_ge_bulk` (the film is
+never below the bulk), `loopStep_balance` (the columns' energy identity) and - the one the whole
+file exists for - `film_limit_reachable`: at the 2 m reflector in full sun with the pump stopped,
+the wall the oil touches goes past the fluid's 375 °C film limit and the bulk pins at its cap. -/
+def envSource : IO String := do
+  let pre ← IO.FS.readFile (bridgeDir ++ "/msl_prelude.metal")
+  let hdr ← IO.FS.readFile (cccDir ++ "/hashemi_ccc.h")
+  let ker ← IO.FS.readFile (cccDir ++ "/hashemi_env.metal")
+  pure (pre ++ hdr ++ ker)
+
+def oilChecks : IO (Array Check) := do
+  let src ← envSource
+  let man ← IO.FS.readFile (cccDir ++ "/hashemi_env.json")
+  let mut cs : Array Check := #[]
+  match Json.parse man with
+  | .error e => cs := cs.push ⟨"the oil loop: the env manifest", false, e⟩
+  | .ok j =>
+    let names := (((j.getObjVal? "inputs").toOption.bind (·.getArr?.toOption)).getD #[]).map fun v => (v.getStr?.toOption).getD ""
+    let cols := (((j.getObjVal? "columns").toOption.bind (·.getArr?.toOption)).getD #[]).map fun v => (v.getStr?.toOption).getD ""
+    let idx := fun (nm : String) => (names.findIdx? (· == nm)).getD 0
+    let col := fun (nm : String) => (cols.findIdx? (· == nm)).getD 0
+    let nin := names.size
+    let nout := cols.size
+    let P := 64
+    let set := fun (a : Array Float) (nm : String) (v : Float) => a.set! (idx nm) v
+    -- the 2 m reflector, noon of day 172 at Quetta, full sun, the pot's wall at 600 K
+    let mut row : Array Float := Array.replicate nin 0.0
+    for (nm, v) in [("rDrum", 0.03), ("W", 300.0), ("rcm", 0.9), ("Tmax", 2000.0), ("rho", 0.85),
+                    ("Fdrive", 10.0), ("L10", 1000000.0), ("rodLen", 1.0),
+                    ("R", 5.0), ("f", 2.5), ("a", 2.0), ("w", 0.05), ("rc", 0.06), ("k", -1.0),
+                    ("sigmaslope", 0.002), ("sigmaspec", 0.001), ("hsun", 0.00465),
+                    ("soil", 0.95), ("dni", 900.0), ("dt", 15.0),
+                    ("alpha", 0.9), ("eps", 0.8), ("Ac", 0.03), ("Twall", 600.0), ("Ta", 300.0),
+                    ("Qmax", 6.0e-5), ("Dp", 0.012), ("Lp", 6.0), ("Dins", 0.062), ("kIns", 0.045),
+                    ("Vw", 2.0), ("etaP", 0.25), ("Pidle", 8.0), ("Axch", 0.20), ("UAxMax", 60.0),
+                    ("Ccoil", 216.0), ("degPrev", 0.0), ("degA", 5.73e8), ("degEa", 190000.0),
+                    ("az", 1.0), ("t", 0.12), ("elSun", 1.451), ("azSun", 1.0)] do
+      row := set row nm v
+    -- seven agents, one per level of the pump's head (`pumpOf`), everything else identical
+    let B := 7
+    let mut x : Array (Array Float) := #[]
+    let mut hist : Array (Array Float) := #[]
+    let mut ret : Array (Array Float) := #[]
+    let mut dr : Array (Array Float) := #[]
+    for b in [0:B] do
+      x := x.push (set row "uPump" (b.toFloat / 6.0))
+      hist := hist.push (Array.replicate 16 560.0)
+      ret := ret.push (Array.replicate 16 520.0)
+      let mut d := #[]
+      for k in [0:P * 10] do
+        let v := ((b * 131 + k * 7919 + 104729) % 100000).toFloat / 100000.0
+        d := d.push (if k % 10 < 6 then v else 2.0 * v - 1.0)
+      dr := dr.push d
+    let out ← MetalBridge.run src "hashemi_env"
+      #[flat x, flat hist, flat ret, flat dr, MetalBridge.const (B * nout) 0.0, ⟨#[B.toFloat]⟩]
+      #[0, 0, 0, 0, 0, 1] (B * P).toUSize P.toUSize
+    let rows := rowsOf out[4]! nout
+    let get := fun (nm : String) => rows.map fun r => r[col nm]!
+    let ua := get "UA_x"; let dly := get "delay"; let pp := get "p_pump"
+    let tf := get "T_film"; let tb := get "T_oil"; let mg := get "film_margin"
+    let qa := get "q_abs"; let qc := get "q_coil_loss"; let qp := get "q_pipe"
+    let qt := get "q_pot"; let qn := get "q_net"; let fl := get "flow"
+    -- J1: the exchanger's conductance grows with the flow (uaOf_mono through nusseltTurb_mono)
+    let mut upOk := true
+    for i in [1:B] do if ua[i]! < ua[i-1]! - 1e-4 then upOk := false
+    cs := cs.push ⟨"the oil loop: the exchanger's UA is monotone in the pump's command (uaOf_mono, nusseltTurb_mono)",
+      upOk, s!"UA_x over the seven levels: " ++ String.intercalate ", " (ua.toList.map fmt) ++ " W/K"⟩
+    -- J2: the pipe's delay falls as the flow rises (delay_antitone)
+    let mut dnOk := true
+    for i in [1:B] do if dly[i]! > dly[i-1]! + 1e-4 then dnOk := false
+    cs := cs.push ⟨"the oil loop: the pipe's transit delay is antitone in the flow (delay_antitone)",
+      dnOk, s!"delay in steps: " ++ String.intercalate ", " (dly.toList.map fmt)⟩
+    -- J3: the pump's bill rises with the flow (pumpLam_mono; level 0 pays nothing at all)
+    let mut ppOk : Bool := decide (pp[0]! < 1e-9)
+    for i in [2:B] do if pp[i]! < pp[i-1]! - 1e-6 then ppOk := false
+    cs := cs.push ⟨"the oil loop: the pump's electrical power is zero at rest and increasing in the flow (pumpLam_mono, pumpElec)",
+      ppOk, s!"p_pump: " ++ String.intercalate ", " (pp.toList.map fmt) ++ " W (his panel is 5 W)"⟩
+    -- J4: the film is never below the bulk (wallTemp_ge_bulk)
+    let mut fbOk := true
+    for i in [0:B] do if tf[i]! < tb[i]! - 1e-3 then fbOk := false
+    cs := cs.push ⟨"the oil loop: the wall the oil touches is never below the bulk (wallTemp_ge_bulk, filmTemp_ge_bulk)",
+      fbOk, s!"T_film - T_oil: " ++ String.intercalate ", " ((List.range B).map fun i => fmt (tf[i]! - tb[i]!)) ++ " K"⟩
+    -- J5: the columns' energy identity, per step (loopStep_balance)
+    let mut balOk := true
+    let mut worst := 0.0
+    for i in [0:B] do
+      let d := Float.abs (qn[i]! - (qa[i]! - qc[i]! - qp[i]! - qt[i]!))
+      if d > worst then worst := d
+      if d > 1e-2 * max 1.0 (Float.abs qa[i]!) then balOk := false
+    cs := cs.push ⟨"the oil loop: q_net = q_abs - q_coil_loss - q_pipe - q_pot, column by column (loopStep_balance)",
+      balOk, s!"worst residual {fmt worst} W against q_abs {fmt qa[0]!} W"⟩
+    -- J6: THE CAP BINDS.  At the 2 m reflector, in full sun, with the pump stopped, the film goes
+    -- past the fluid's limit and the bulk pins at its own (film_limit_reachable)
+    let stopped : Bool := decide (tf[0]! > 648.15) && decide (mg[0]! < 0.0) && decide (fl[0]! < 1e-12)
+    let running : Bool := decide (mg[B-1]! > mg[0]!)
+    cs := cs.push ⟨"the oil loop: at the 2 m reflector in full sun with the pump STOPPED the film limit is exceeded, and opening the pump recovers margin (film_limit_reachable)",
+      stopped && running,
+      s!"stopped: T_film {fmt tf[0]!} K, margin {fmt mg[0]!} K, flow {fmt fl[0]!} m³/s; full: T_film {fmt tf[B-1]!} K, margin {fmt mg[B-1]!} K, q_pot {fmt qt[B-1]!} W"⟩
+  pure cs
+
 end TraceCheck
 
 open TraceCheck in
@@ -933,7 +1039,8 @@ def main : IO Unit := do
   let a ← (a0 ++ ·) <$> mcChecks src
   let b0 ← sceneChecks
   let b1 ← (b0 ++ ·) <$> modulaChecks
-  let b ← (b1 ++ ·) <$> beamChecks
+  let b2 ← (b1 ++ ·) <$> beamChecks
+  let b ← (b2 ++ ·) <$> oilChecks
   let mut bad := 0
   for c in a ++ b do
     IO.println s!"{if c.ok then "ok  " else "FAIL"} {c.name}\n      {c.note}"

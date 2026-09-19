@@ -86,7 +86,7 @@ instance : NeZero actionLevels := ⟨by unfold actionLevels; decide⟩
 instance : Inhabited Heads := ⟨(0, 0)⟩
 
 /-- the state a reward is asserted at: `hashemiEnv`'s row and the parent's raw reward for the step -/
-abbrev HState := (Fin 83 → ℝ) × ℝ
+abbrev HState := (Fin 96 → ℝ) × ℝ
 
 /-- the env's transition, as a parameter of the instance -/
 abbrev hashemiDyn (next : HState → Heads → HState) : RewardTheory.Dynamics HState Heads :=
@@ -370,14 +370,16 @@ units are PRINTED, not assembled. -/
 constants are ARGUMENTS, so the ini's values are inputs of the printed morphism.  At the spec's
 own constants it is this file's reward, definitionally. -/
 theorem rewardStep_at_spec (parentRaw dt pIn reach : ℝ) :
-    rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy
-      = ![rewardRaw dt pIn reach,
+    rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy 0 0 0 0
+      = ![rewardRaw dt pIn reach, 0, 0,
           parentRaw + rewardRaw dt pIn reach,
-          rewardTrainer parentRaw dt pIn reach] := rfl
+          rewardTrainer parentRaw dt pIn reach] := by
+  simp only [rewardStep, pumpCostRaw, degCostRaw, rewardTrainer, rewardRaw, rewardShapeRaw]
+  norm_num
 
 /-- the reward read off `hashemiEnv`'s own row: `p_in` is column 20 and `sun_reachable` column 13
 of `envNames` - no host arithmetic on units at all. -/
-noncomputable def rewardOfRow (parentRaw dt : ℝ) (row : Fin 83 → ℝ) : ℝ :=
+noncomputable def rewardOfRow (parentRaw dt : ℝ) (row : Fin 96 → ℝ) : ℝ :=
   rewardTrainer parentRaw dt (row 20) (row 13)
 
 theorem rewardOfRow_column_names :
@@ -386,7 +388,7 @@ theorem rewardOfRow_column_names :
 
 /-- the same statement the TraceCheck rows should measure: on a row with non-negative light and
 the Boolean gate, the trainer's reward is at least the parent's own, divided. -/
-theorem rewardOfRow_ge {parentRaw dt : ℝ} {row : Fin 83 → ℝ} (hdt : 0 ≤ dt)
+theorem rewardOfRow_ge {parentRaw dt : ℝ} {row : Fin 96 → ℝ} (hdt : 0 ≤ dt)
     (hp : 0 ≤ row 20) (hr : 0 ≤ row 13) :
     parentRaw / rewardDiv ≤ rewardOfRow parentRaw dt row := by
   unfold rewardOfRow

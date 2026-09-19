@@ -1,0 +1,18 @@
+digraph "TandoorHashemi.degCostRaw" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="dt", shape=box];
+  n1 [label="filmExcess", shape=box];
+  n2 [label="degPrice", shape=box];
+  n3 [label="rotiReward", shape=box];
+  n4 [label="*", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  n5 [label="*", shape=ellipse];
+  n4 -> n5; n0 -> n5;
+  n6 [label="0", shape=plaintext];
+  n7 [label="max", shape=ellipse];
+  n6 -> n7; n1 -> n7;
+  n8 [label="*", shape=ellipse];
+  n5 -> n8; n7 -> n8;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n8 -> out0;
+}

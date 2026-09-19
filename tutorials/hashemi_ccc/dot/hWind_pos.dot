@@ -1,0 +1,19 @@
+digraph "TandoorHashemi.hWind_pos" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="V", shape=box];
+  n1 [label="0", shape=plaintext];
+  n2 [label="<=", shape=ellipse];
+  n1 -> n2; n0 -> n2;
+  n3 [label="5.7", shape=plaintext];
+  n4 [label="3.8", shape=plaintext];
+  n5 [label="*", shape=ellipse];
+  n4 -> n5; n0 -> n5;
+  n6 [label="+", shape=ellipse];
+  n3 -> n6; n5 -> n6;
+  n7 [label="<", shape=ellipse];
+  n1 -> n7; n6 -> n7;
+  n8 [label="->", shape=ellipse];
+  n2 -> n8; n7 -> n8;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n8 -> out0;
+}

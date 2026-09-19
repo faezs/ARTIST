@@ -11,6 +11,7 @@ tensor; the heat needs the optics' output, so it composes. Nothing of this is gl
 import RequestProject.HashemiTrace
 import RequestProject.HashemiHeat
 import RequestProject.HashemiField
+import RequestProject.HashemiOil
 
 namespace TandoorHashemi
 open Classical
@@ -19,16 +20,34 @@ open Classical
 def envRays : ℕ := 64
 
 /-- **the env's step**: inputs the mount's 17 (`megaStep`), the optics' `R f a w rc k σslope
-σspec hsun soil`, the loop's `α ε Ac hC Upipe UAx mcp Twall Ta`, the two histories along the
-pipe (`hist`: the coil's outlet, `ret`: the exchanger's outlet; most recent first) and the ray
-table `dr`. Outputs `megaStep`'s 17 columns; `capture, capture_s, per_dni, p_in`; the loop's
-`T_out, q_abs, q_coil_loss, q_pipe, q_pot, q_net`; the eight observations of the new state; then
-the FIELDS: the receiver's flux in eight annuli (W), the oil along the eight turns (K), the
-density along the pipe as the two shifted histories (K). The loop is HashemiField.lean's: plug
-flow with the pipe's Green's function, the coil a fold along the flow. -/
+σspec hsun soil`, then THE LOOP, which is no longer six constants.
+
+`HashemiOil.lean` names the fluid (Therminol 66), gives it temperature-dependent properties, puts
+a variable-speed pump on it and writes every conductance as a correlation:
+
+* the pump's command `uPump ∈ [0,1]` sets the volumetric flow `Q = Qmax · uPump`, hence the
+  velocity in the bore `Dp`, hence the Reynolds number, hence the friction and the pressure drop
+  and the pump's electrical power `p_pump` (which the reward pays for);
+* the oil-side film coefficient is `Nu k / D` with `Nu` laminar (4.364) or Dittus-Boelter,
+  so the exchanger's `UA` and the coil's film temperature both move with the flow;
+* the coil's convection is the HOUR'S WIND (`hWind Vw`), not a constant 15 W/m²K;
+* the pipe's conductance is the cylindrical-insulation series `uPipeCyl Lp Dp Dins kIns Vw`;
+* the pipe's delay is `delayOf Lp Q Dp dt` - a real number of steps, read out of the 16-step
+  history by `lerp8` - instead of HashemiField's fixed two;
+* the exchanger is effectiveness-NTU against the pot's wall band (`effNtu`, the Cr → 0 branch);
+* the bulk is capped at the datasheet's 345 °C and the FILM temperature `T_film` is carried, with
+  its margin to the 375 °C film limit and an Arrhenius damage counter `deg` that grows when the
+  margin goes negative. `film_limit_reachable` proves the cap binds at the 2 m reflector.
+
+The two histories along the pipe (`hist`: the coil's outlet, `ret`: the exchanger's outlet; most
+recent first) and the ray table `dr` are as before. Outputs `megaStep`'s 17 columns;
+`capture, capture_s, per_dni, p_in`; the loop's `T_out, q_abs, q_coil_loss, q_pipe, q_pot, q_net`;
+eight observations; the FIELDS (the flux in eight annuli, the oil along the eight turns, the two
+shifted histories); then the loop's new state and the three new observations. -/
 noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-    R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta : ℝ)
-    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 83 → ℝ :=
+    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta
+    uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa : ℝ)
+    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 96 → ℝ :=
   let s := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
   let cap := (∑ i : Fin 64, dishPower R f a w rc k σslope σspec rho hsun (s 0) (s 1) elSun azSun
     (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0) / 64
@@ -50,21 +69,54 @@ noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm 
   -- the eight annuli LISTED: the same function, written as the vector it is, so the round trip
   -- can print `coilProfile … ![b 0, …, b 7]` as the text this line writes (a lambda has none)
   let bin : Fin 8 → ℝ := ![binOf 0, binOf 1, binOf 2, binOf 3, binOf 4, binOf 5, binOf 6, binOf 7]
-  -- the pipe: what the pot receives is the coil's outlet two steps ago, attenuated over half the
-  -- run; the exchanger draws down to the wall at most; the return runs the other half
-  let Tpot := delivered (Upipe / 2) mcp Ta (hist 1)
-  let qPot := min UAx mcp * max 0 (Tpot - Twall)
-  let Tret := Tpot - qPot / mcp
-  let Tin := delivered (Upipe / 2) mcp Ta (ret 1)
-  -- the coil: the oil through the eight turns
-  let prof := coilProfile α ε Ac hC Ta mcp Tin bin
-  let Tout := prof 7
+  -- THE PUMP: the command sets the flow, the flow sets everything else
+  let uP := min (max uPump 0) 1
+  let Q := Qmax * uP
+  let Tb := min oilBulkMax (max Ta (hist 0))
+  -- the flow's capacity rate, W/K, at the fluid's own density and heat capacity.  Two of them,
+  -- and the difference is the whole of what a STOPPED pump means:
+  --  * `mcpF` is the flow itself, and it is genuinely zero at zero flow - so nothing is delivered
+  --    down the pipe and nothing crosses the exchanger;
+  --  * `mcpC` is what the coil's own energy balance divides by, `mcpF + Ccoil/dt`: the oil and
+  --    copper standing IN the coil, which at zero flow makes `coilProfile` a lumped-capacity step
+  --    (`Ccoil (T' - T)/dt = absorbed - lost`) instead of a division by nothing.
+  -- `mcpX` is `mcpF` floored only where it appears in a denominator whose numerator vanishes with
+  -- it (the pipe's Green's function, the return temperature, the NTU).
+  let mcpF := oilRho Tb * Q * oilCp Tb
+  let mcpX := max mcpF 1e-6
+  let mcpC := mcpF + Ccoil / dt
+  let Upipe := uPipeCyl Lp Dp Dins kIns Vw
+  let hC := hWind Vw
+  -- the pipe: the delay is the transit time, in steps, read out of the history between stations
+  let dly := delayOf Lp Q Dp dt
+  let Thot := lerp8 (hist 0) (hist 1) (hist 2) (hist 3) (hist 4) (hist 5) (hist 6) (hist 7) dly
+  let Tcold := lerp8 (ret 0) (ret 1) (ret 2) (ret 3) (ret 4) (ret 5) (ret 6) (ret 7) dly
+  let Tpot := delivered (Upipe / 2) mcpX Ta Thot
+  -- the exchanger: effectiveness-NTU, its UA limited by the oil-side film coefficient at this flow
+  let hIn := hCoil Q Dp Tb
+  let UAx := min UAxMax (uaOf hIn Axch)
+  let eff := effNtu (ntuOf UAx mcpX)
+  let qPot := mcpF * eff * max 0 (Tpot - Twall)
+  let Tret := Tpot - qPot / mcpX
+  -- the coil's inlet is the MIXING CUP of the oil that arrives down the return and the oil
+  -- already standing in the coil: at full flow it is the former, at zero flow the latter
+  let Tin := (mcpF * delivered (Upipe / 2) mcpX Ta Tcold + (Ccoil / dt) * Tb) / mcpC
+  -- the coil: the oil through the eight turns, losing to the hour's wind
+  let prof := coilProfile α ε Ac hC Ta mcpC Tin bin
+  let Traw := prof 7
+  let Tout := min oilBulkMax (max Ta Traw)
   let qAbs := α * (bin 0 + bin 1 + bin 2 + bin 3 + bin 4 + bin 5 + bin 6 + bin 7)
-  let qCoil := qAbs - mcp * (Tout - Tin)
-  let qPipe := mcp * ((hist 1 - Tpot) + (ret 1 - Tin))
+  let qCoil := qAbs - mcpC * (Tout - Tin)
+  let qPipe := mcpF * ((Thot - Tpot) + (Tcold - Tret))
   let qNet := qAbs - qCoil - qPipe - qPot
   let h' := shift Tout hist
   let r' := shift Tret ret
+  -- THE LIMITS: the film the oil touches, its margin, the damage that accumulates past it
+  let Tfilm := wallTemp Tout (qAbs / Ac) hIn ε Ta
+  let margin := oilFilmMax - Tfilm
+  let deg := degradStep degPrev dt degA degEa Tfilm
+  let Ppump := pumpElec Q Dp Lp Tb etaP Pidle
+  let fault := @b2r (oilBulkMax ≤ Traw) (Classical.propDecidable _)
   let eAz := (azSun - s 0) - 2 * Real.pi * ((⌊((azSun - s 0) + Real.pi) / (2 * Real.pi)⌋ : ℤ) : ℝ)
   ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9, s 10, s 11, s 12, s 13, s 14, s 15, s 16,
     cap, capS, per, Pin, Tout, qAbs, qCoil, qPipe, qPot, qNet,
@@ -72,7 +124,9 @@ noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm 
     bin 0, bin 1, bin 2, bin 3, bin 4, bin 5, bin 6, bin 7,
     prof 0, prof 1, prof 2, prof 3, prof 4, prof 5, prof 6, prof 7,
     h' 0, h' 1, h' 2, h' 3, h' 4, h' 5, h' 6, h' 7, h' 8, h' 9, h' 10, h' 11, h' 12, h' 13, h' 14, h' 15,
-    r' 0, r' 1, r' 2, r' 3, r' 4, r' 5, r' 6, r' 7, r' 8, r' 9, r' 10, r' 11, r' 12, r' 13, r' 14, r' 15]
+    r' 0, r' 1, r' 2, r' 3, r' 4, r' 5, r' 6, r' 7, r' 8, r' 9, r' 10, r' 11, r' 12, r' 13, r' 14, r' 15,
+    Tfilm, margin, Q, deg, Ppump, mcpF, UAx, dly, fault, expansionFrac 293.15 Tout,
+    margin / 300, uP, min (max deg 0) 1]
 
 /-- the columns -/
 def envNames : Array String := #[
@@ -85,18 +139,20 @@ def envNames : Array String := #[
   "hist_0", "hist_1", "hist_2", "hist_3", "hist_4", "hist_5", "hist_6", "hist_7",
   "hist_8", "hist_9", "hist_10", "hist_11", "hist_12", "hist_13", "hist_14", "hist_15",
   "ret_0", "ret_1", "ret_2", "ret_3", "ret_4", "ret_5", "ret_6", "ret_7",
-  "ret_8", "ret_9", "ret_10", "ret_11", "ret_12", "ret_13", "ret_14", "ret_15"]
+  "ret_8", "ret_9", "ret_10", "ret_11", "ret_12", "ret_13", "ret_14", "ret_15",
+  "T_film", "film_margin", "flow", "deg", "p_pump", "mcp", "UA_x", "delay", "fault", "expansion",
+  "obs_margin", "obs_flow", "obs_deg"]
 
-theorem envNames_size : envNames.size = 83 := by rfl
+theorem envNames_size : envNames.size = 96 := by rfl
 
 /-- the capture is a mean of Booleans: in `[0, 1]` -/
 theorem hashemiEnv_capture_mem (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-    R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta : ℝ)
+    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa : ℝ)
     (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) :
     0 ≤ hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta hist ret dr 17 ∧
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 17 ∧
       hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta hist ret dr 17 ≤ 1 := by
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 17 ≤ 1 := by
   simp only [hashemiEnv]
   simp only [Matrix.cons_val]
   have h : ∀ i : Fin 64,
@@ -120,25 +176,30 @@ theorem hashemiEnv_capture_mem (az t slack ωm ωd dt elSun azSun dni rDrum W rc
     calc _ ≤ ∑ _i : Fin 64, (1 : ℝ) := Finset.sum_le_sum fun i _ => (h i).2
       _ = 64 := by simp
 
-/-- the pot never receives more than the exchanger can pass: `min UAx mcp` per kelvin of excess -/
-theorem hashemiEnv_pot_le (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-    R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta : ℝ)
-    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) (hU : 0 ≤ UAx) (hm : 0 ≤ mcp) :
-    hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta hist ret dr 25
-      ≤ UAx * max 0 (delivered (Upipe / 2) mcp Ta (hist 1) - Twall) := by
-  simp only [hashemiEnv]
-  simp only [Matrix.cons_val]
-  apply mul_le_mul_of_nonneg_right (min_le_left _ _) (le_max_left _ _)
+/-- **the pump's command is a command**: the flow column lies between nothing and `Qmax`, and
+the observation the policy reads of it is a fraction in `[0, 1]` - whatever the head emits -/
+theorem hashemiEnv_flow_mem (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
+    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa : ℝ)
+    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) (hQ : 0 ≤ Qmax) :
+    0 ≤ hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 85 ∧
+      hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 85 ≤ Qmax := by
+  simp only [hashemiEnv, Matrix.cons_val]
+  have h0 : 0 ≤ min (max uPump 0) 1 := le_min (le_max_right _ _) (by norm_num)
+  have h1 : min (max uPump 0) 1 ≤ 1 := min_le_right _ _
+  constructor
+  · exact mul_nonneg hQ h0
+  · nlinarith
 
 /-- the pipe's density record moves one station: the new history's head is the coil's outlet -/
 theorem hashemiEnv_hist_head (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-    R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta : ℝ)
+    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa : ℝ)
     (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) :
     hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta hist ret dr 51
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 51
       = hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta hist ret dr 21 := by
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 21 := by
   simp only [hashemiEnv]
   simp only [Matrix.cons_val, shift]
 

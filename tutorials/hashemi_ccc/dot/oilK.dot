@@ -1,0 +1,22 @@
+digraph "TandoorHashemi.oilK" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="T", shape=box];
+  n1 [label="273.15", shape=plaintext];
+  n2 [label="-", shape=ellipse];
+  n0 -> n2; n1 -> n2;
+  n3 [label="0.118294", shape=plaintext];
+  n4 [label="0.000033", shape=plaintext];
+  n5 [label="*", shape=ellipse];
+  n4 -> n5; n2 -> n5;
+  n6 [label="-", shape=ellipse];
+  n3 -> n6; n5 -> n6;
+  n7 [label="0.00000015", shape=plaintext];
+  n8 [label="^2", shape=ellipse];
+  n2 -> n8;
+  n9 [label="*", shape=ellipse];
+  n7 -> n9; n8 -> n9;
+  n10 [label="-", shape=ellipse];
+  n6 -> n10; n9 -> n10;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n10 -> out0;
+}

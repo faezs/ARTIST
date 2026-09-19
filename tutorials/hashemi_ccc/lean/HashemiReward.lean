@@ -22,29 +22,71 @@ kernel is handed. -/
 noncomputable def rewardShapeRaw (dt pIn reach capShaping rotiReward rotiEnergy : ℝ) : ℝ :=
   capShaping * rotiReward * dt / rotiEnergy * pIn * reach
 
-/-- **the reward's three columns**, `rewardNames`: the shaping in raw units, the step's total raw
-reward, and the trainer's reward - the ONE place `reward_div` is applied.  The naturality square
-of RewardTopos.lean is the identity `col 2 · rewardDiv = parentRaw + col 0`, and it holds by
-construction because there is one definition, not two host expressions. -/
-noncomputable def rewardStep (parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy : ℝ) :
-    Fin 3 → ℝ :=
+/-- **the pump's bill, in the parent's RAW reward units**: the electrical energy the pump spent
+this step (`pPump · dt`, J) converted to roti-equivalents (`/ rotiEnergy`) at the parent's raw
+price of a roti, scaled by `pumpPrice`.
+
+The rate is stated here and nowhere else: `pumpPrice = 1` prices an electrical joule exactly as
+the shaping prices a thermal joule delivered to the receiver, which is the most favourable
+accounting the pump can get (electricity off a panel is worth more than heat, not less).  It is
+an INPUT, so the ini may raise it.  `HashemiOil.pumpElec` says what `pPump` is, and
+`PumpWithinBudget` says that it does not fit on his 5 W panel - the cost is here so the policy
+cannot run the pump flat out for free. -/
+noncomputable def pumpCostRaw (dt pPump pumpPrice rotiReward rotiEnergy : ℝ) : ℝ :=
+  pumpPrice * rotiReward * dt / rotiEnergy * max 0 pPump
+
+/-- **the over-limit bill**: `degPrice` rotis' worth of reward per kelvin-second the FILM
+temperature spends above the fluid's 375 °C limit (`filmExcess = max 0 (T_film - oilFilmMax)`).
+
+The rate has no datasheet behind it - a fluid's life is not a linear function of degrees over -
+so it is an input and its ini default is set so that a full day pinned 50 K over the limit costs
+about one roti: a cost the policy feels, not a cliff it cannot cross.  What IS proved is that
+the damage itself accumulates (`degradRate_mono`); this column is the price put on it. -/
+noncomputable def degCostRaw (dt filmExcess degPrice rotiReward : ℝ) : ℝ :=
+  degPrice * rotiReward * dt * max 0 filmExcess
+
+/-- **the reward's five columns**, `rewardNames`: the shaping in raw units, the pump's bill, the
+over-limit bill, the step's total raw reward, and the trainer's reward - the ONE place
+`reward_div` is applied.  The naturality square of RewardTopos.lean is the identity
+`col 4 · rewardDiv - parentRaw = col 0 - col 1 - col 2`, and it holds by construction because
+there is one definition, not two host expressions. -/
+noncomputable def rewardStep (parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy
+    pPump filmExcess pumpPrice degPrice : ℝ) : Fin 5 → ℝ :=
   let s := rewardShapeRaw dt pIn reach capShaping rotiReward rotiEnergy
-  ![s, parentRaw + s, (parentRaw + s) / rewardDiv]
+  let cp := pumpCostRaw dt pPump pumpPrice rotiReward rotiEnergy
+  let cd := degCostRaw dt filmExcess degPrice rotiReward
+  ![s, cp, cd, parentRaw + s - cp - cd, (parentRaw + s - cp - cd) / rewardDiv]
 
 /-- the column names, as `envNames` is for the env's kernel -/
-def rewardNames : Array String := #["r_shape_raw", "r_raw", "r_trainer"]
+def rewardNames : Array String := #["r_shape_raw", "r_pump_raw", "r_deg_raw", "r_raw", "r_trainer"]
 
-theorem rewardNames_size : rewardNames.size = 3 := by rfl
+theorem rewardNames_size : rewardNames.size = 5 := by rfl
+
+/-- both bills are non-negative: they are costs, never a bonus -/
+theorem pumpCostRaw_nonneg {dt pPump pumpPrice rotiReward rotiEnergy : ℝ} (hdt : 0 ≤ dt)
+    (hpp : 0 ≤ pumpPrice) (hq : 0 ≤ rotiReward) (he : 0 ≤ rotiEnergy) :
+    0 ≤ pumpCostRaw dt pPump pumpPrice rotiReward rotiEnergy := by
+  unfold pumpCostRaw
+  have : (0:ℝ) ≤ pumpPrice * rotiReward * dt / rotiEnergy := by positivity
+  exact mul_nonneg this (le_max_left _ _)
+
+theorem degCostRaw_nonneg {dt filmExcess degPrice rotiReward : ℝ} (hdt : 0 ≤ dt)
+    (hd : 0 ≤ degPrice) (hq : 0 ≤ rotiReward) :
+    0 ≤ degCostRaw dt filmExcess degPrice rotiReward := by
+  unfold degCostRaw
+  have : (0:ℝ) ≤ degPrice * rotiReward * dt := by positivity
+  exact mul_nonneg this (le_max_left _ _)
 
 /-- **R2, the units** (the naturality square, as a Prop the driver prints and measures):
 the trainer's column times the divisor, less the parent's raw reward, IS the shaping column. -/
-theorem rewardStep_units (parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy : ℝ)
-    (hd : rewardDiv ≠ 0) :
-    rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy 2 * rewardDiv
+theorem rewardStep_units (parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy
+    pPump filmExcess pumpPrice degPrice : ℝ) (hd : rewardDiv ≠ 0) :
+    rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy pPump filmExcess pumpPrice degPrice 4 * rewardDiv
       - parentRaw
-      = rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy 0 := by
-  simp only [rewardStep, Matrix.cons_val_zero, Matrix.cons_val_two, Matrix.tail_cons,
-    Matrix.head_cons]
+      = rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy pPump filmExcess pumpPrice degPrice 0
+        - rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy pPump filmExcess pumpPrice degPrice 1
+        - rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy pPump filmExcess pumpPrice degPrice 2 := by
+  simp only [rewardStep, Matrix.cons_val]
   field_simp
   ring
 
@@ -53,8 +95,8 @@ non-negative prices, the shaping column is non-negative - so no per-step penalty
 RewardTopos.lean's `cut_never_pays` applies. -/
 theorem rewardStep_nonneg {dt pIn reach capShaping rotiReward rotiEnergy : ℝ}
     (hdt : 0 ≤ dt) (hp : 0 ≤ pIn) (hr : 0 ≤ reach) (hc : 0 ≤ capShaping)
-    (hq : 0 ≤ rotiReward) (he : 0 ≤ rotiEnergy) (parentRaw rewardDiv : ℝ) :
-    0 ≤ rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy 0 := by
+    (hq : 0 ≤ rotiReward) (he : 0 ≤ rotiEnergy) (parentRaw rewardDiv pPump filmExcess pumpPrice degPrice : ℝ) :
+    0 ≤ rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy pPump filmExcess pumpPrice degPrice 0 := by
   simp only [rewardStep, Matrix.cons_val_zero, rewardShapeRaw]
   have : (0:ℝ) ≤ capShaping * rotiReward * dt / rotiEnergy := by positivity
   exact mul_nonneg (mul_nonneg this hp) hr

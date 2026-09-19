@@ -1,0 +1,26 @@
+digraph "TandoorHashemi.oilMu_pos" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="T", shape=box];
+  n1 [label="0", shape=plaintext];
+  n2 [label="586.375", shape=plaintext];
+  n3 [label="273.15", shape=plaintext];
+  n4 [label="-", shape=ellipse];
+  n0 -> n4; n3 -> n4;
+  n5 [label="62.5", shape=plaintext];
+  n6 [label="+", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  n7 [label="/", shape=ellipse];
+  n2 -> n7; n6 -> n7;
+  n8 [label="2.2809", shape=plaintext];
+  n9 [label="-", shape=ellipse];
+  n7 -> n9; n8 -> n9;
+  n10 [label="exp", shape=ellipse];
+  n9 -> n10;
+  n11 [label="1000", shape=plaintext];
+  n12 [label="/", shape=ellipse];
+  n10 -> n12; n11 -> n12;
+  n13 [label="<", shape=ellipse];
+  n1 -> n13; n12 -> n13;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n13 -> out0;
+}

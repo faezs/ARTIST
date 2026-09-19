@@ -1,0 +1,27 @@
+digraph "TandoorHashemi.loopStep" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="Coil", shape=box];
+  n1 [label="qAbs", shape=box];
+  n2 [label="qLoss", shape=box];
+  n3 [label="qPipe", shape=box];
+  n4 [label="qPot", shape=box];
+  n5 [label="Toil", shape=box];
+  n6 [label="dt", shape=box];
+  n7 [label="618.15", shape=plaintext];
+  n8 [label="-", shape=ellipse];
+  n1 -> n8; n2 -> n8;
+  n9 [label="-", shape=ellipse];
+  n8 -> n9; n3 -> n9;
+  n10 [label="-", shape=ellipse];
+  n9 -> n10; n4 -> n10;
+  n11 [label="*", shape=ellipse];
+  n6 -> n11; n10 -> n11;
+  n12 [label="/", shape=ellipse];
+  n11 -> n12; n0 -> n12;
+  n13 [label="+", shape=ellipse];
+  n5 -> n13; n12 -> n13;
+  n14 [label="min", shape=ellipse];
+  n7 -> n14; n13 -> n14;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n14 -> out0;
+}

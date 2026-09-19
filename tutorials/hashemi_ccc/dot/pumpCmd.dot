@@ -1,0 +1,17 @@
+digraph "TandoorHashemi.pumpCmd" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="u", shape=box];
+  n1 [label="1", shape=plaintext];
+  n2 [label="+", shape=ellipse];
+  n0 -> n2; n1 -> n2;
+  n3 [label="2", shape=plaintext];
+  n4 [label="/", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  n5 [label="0", shape=plaintext];
+  n6 [label="max", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  n7 [label="min", shape=ellipse];
+  n6 -> n7; n1 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}

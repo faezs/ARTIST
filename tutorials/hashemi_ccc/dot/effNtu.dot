@@ -1,0 +1,13 @@
+digraph "TandoorHashemi.effNtu" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="NTU", shape=box];
+  n1 [label="1", shape=plaintext];
+  n2 [label="neg", shape=ellipse];
+  n0 -> n2;
+  n3 [label="exp", shape=ellipse];
+  n2 -> n3;
+  n4 [label="-", shape=ellipse];
+  n1 -> n4; n3 -> n4;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out0;
+}
