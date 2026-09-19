@@ -7,9 +7,53 @@ was assembled by hand in `hashemi_tandoor_env.py` on each path, and on 2026-09-1
 it was found wrong twice. This is the design that says what the reward IS, so that the same
 translator prints it and the same checker measures it.
 
-The Lean sketch is `lean/RewardTopos.lean` (mirror of
-`~/manifold-pareto/lean/RequestProject/RewardTopos.lean`): **21 theorems, 0 `sorry`**,
-`lake build RequestProject.RewardTopos` succeeds.
+The Lean is now TWO layers (2026-09-19, after the user's judgement that the first version was
+"too specific to this particular environment"): `lean/RewardTheory.lean`, the theory with no env in
+it, and `lean/RewardTopos.lean`, this env as one instance of it (mirrors of
+`~/manifold-pareto/lean/RequestProject/`). **0 `sorry`**; `lake build RequestProject.RewardTheory
+RequestProject.RewardTopos RequestProject.TandoorRewardInstance` succeeds. See
+"## The general theory" below for what is generic and what is this env's.
+
+## The general theory
+
+`lean/RewardTheory.lean` has **no import from this env**. It is parametrized over
+
+| parameter | what it is | this env's value | the tandoor's |
+|---|---|---|---|
+| `S` | a state type | `hashemiEnv`'s 83-column row × the parent's raw reward for the step | the belt's temperatures × the dough's energy |
+| `A` | an action type | `Fin 7 × Fin 7`, the two heads | which bins the cook loads/pulls |
+| `V` | the value object: `[Field V] [LinearOrder V] [IsStrictOrderedRing V]` (`Archimedean` only where a *horizon* is produced) | ℝ | ℝ |
+| transition | `Dynamics.step : S → A → S`, a plain function (§5 of the file says what a Markov kernel changes: the expectation is linear, so nothing structural) | the env's step | the env's step |
+| truncation | `Truncation.value ≤ 0` | the guillotine, `−(give + 75)` | the day's cut |
+
+and proves four theorems, each generic in all five:
+
+1. **Gluing.** A reward is a `Term` (atoms = the columns a runtime reads, rational constants, `+`,
+   `·`); a `Model` is any evaluation that respects that structure. `glue`: two models with the same
+   reading of the columns agree on *every* term. `eq_stdModel`: every model is the canonical one —
+   a printed morphism. `not_model_of_scaled`: a second path returning `k ·` a term's value, `k ≠ 1`,
+   where that value is non-zero, is **not a model** of it. The 75x bug of 2026-09-19 is the instance
+   `k = reward_div` at `shapeTerm` (`TandoorHashemi.handwritten_not_a_model`).
+2. **Units as change of base.** `eval_map`: a ring map `f : V →+* W` on values carries a model to a
+   model and the naturality square commutes for every term — a printed definition cannot put the
+   divisor in the wrong fibre. On a reward assembled as a summing functor over a cover,
+   `Summed.total_scale` / `Summed.total_div`: the divided reward is the division of the reward
+   (`scale_natural` here, `trainer_add` in the tandoor's instance).
+3. **Truncation.** `trunc_never_beats`: with a per-step reward `≥ 0` the cut never beats continuing,
+   for *any* plan, state, horizon and `0 ≤ γ`. `exists_horizon_trunc_wins`: any strictly negative
+   per-step reward has a horizon at which the cut wins (Archimedean). Bug 2 is that converse, and
+   the fix is the hypothesis of the first.
+4. **Shaping is a coboundary.** `shaping_telescopes`: the return changes by `γⁿ φ(n) − φ(0)` only.
+   `greedy_invariant`: a state-only additive term leaves the greedy set unchanged.
+   `bellman_shift`: a Bellman fixed point of the shaped reward is the original's shifted by `φ`.
+
+`lean/RewardTopos.lean` is this env's instance and derives every theorem it used to prove itself
+(its own proofs are now only the arithmetic of *this* reward's constants and the `rfl` that ties it
+to `HashemiReward.lean`). `RequestProject/TandoorRewardInstance.lean` is a second instance, for the
+parent tandoor's own reward (5 per roti, −5 scorched, the holding cost, the doneness and belt-rise
+potentials, the cut at 75, `reward_div`) — a page, no proof repeated, and nothing of
+`tandoor_rl_env.py` touched. `beltRise_is_coboundary` identifies that env's banded preheat term as
+`φ(T') − φ(T)` for `φ(T) = 0.05 · Σ min(T, T_COOK_LO)`, which is what makes it free.
 
 ## 1. The site
 
@@ -99,12 +143,16 @@ the sum condition is what keeps it a section rather than a second, competing rew
   is the statement that this budget is stable under refinement of the day.
 * **The return is a functional on sections**: `ret γ r n`, and `ret_nonneg` / `cut_never_pays` are
   statements about it, not about any particular learner.
-* **PBRS invariance for the discrete heads is statable and proved.** The machine's action set is
-  `Fin 7 × Fin 7` (`actionLevels = 7`, `headToCmd`, HashemiPolicy.lean) — finite, so "the optimal
-  policy is unchanged" is the equality of the *greedy set* over that finite type when a function of
-  the state alone is added to every action's value: `greedy_invariant`. No measure theory, no
-  continuous argmax: the finiteness of the heads is what makes the classical PBRS theorem a
-  two-line proof here.
+* **PBRS invariance is proved in two of its three forms.** (a) The *greedy set* form:
+  adding a function of the state alone to every action's value leaves the argmax set unchanged
+  (`greedy_invariant`; it needs only the order on the value object, not the finiteness of the
+  heads). (b) The *Bellman* form: if `Vf` is a fixed point of the Bellman operator for the reward,
+  then `Vf − φ` is a fixed point for the shaped reward — the value shifts by `φ` exactly
+  (`RewardTheory.bellman_shift`, `TandoorHashemi.bellman_shift`, `sup'` over the heads, no
+  `S`-finiteness). (c) What is NOT proved: that this fixed point is unique and is the optimal
+  value — that needs a contraction argument (`|γ| < 1`, a complete value object) which is not in
+  the file. The earlier wording of this bullet ("the optimal policy is unchanged, proved") claimed
+  (c); it is corrected here to what the Lean actually contains.
 
 ## 4. What Ccc should print
 
