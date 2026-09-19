@@ -490,6 +490,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             dr = torch.cat([torch.rand(B, ENV_RAYS, 6, generator=self._gen, device=self.device),
                             torch.randn(B, ENV_RAYS, 4, generator=self._gen, device=self.device)], 2)
             out = self._env.step(x, dr)
+            if self.render_mode == "human":
+                self._scene_dr = dr                # the picture uses the step's OWN rays
             self._hk_out = out
             self._st[:, 0] = out[:, C["az_next"]]; self._st[:, 1] = out[:, C["t_next"]]; self._st[:, 2] = out[:, C["slack_next"]]
             self._per_beam_t = out[:, C["per_dni"]]
@@ -507,6 +509,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         dr = torch.cat([torch.rand(B, ENV_RAYS, 6, generator=g, device=self.device),
                         torch.randn(B, ENV_RAYS, 4, generator=g, device=self.device)], 2)
         out = self._env.step(x, self._hist, self._ret, dr)
+        if self.render_mode == "human":
+            self._scene_dr = dr                    # the picture uses the step's OWN rays
         self._hk_out = out
         self._st[:, 0] = out[:, ECOL["az_next"]]
         self._st[:, 1] = out[:, ECOL["t_next"]]
@@ -559,6 +563,93 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self._st[:, 1] = torch.where(mask, t_p, self._st[:, 1])
         self._st[:, 2] = torch.where(mask, torch.zeros_like(t_p), self._st[:, 2])
         return res
+
+    # --- the picture: the scene kernel's vertices, of THIS step
+    #
+    # `render/scene_env.metal` is the scene composed with the env morphism: `megaStep`'s pose,
+    # `sampleRay`'s rays over the SAME table `dr`, and `hashemiEnv`'s own columns, compiled as one
+    # graph by RequestProject/CccScene.lean.  So the frame is the step the policy acted on; this
+    # method computes no geometry, it hands the kernel's buffer to the window.
+    def _scene_setup(self):
+        import importlib
+        rd = os.path.join(HERE, "render")
+        if rd not in sys.path:
+            sys.path.insert(0, rd)
+        sk = importlib.import_module("scene_kernel")
+        sd = importlib.import_module("scene_draw")
+        view = importlib.import_module("view")
+        name = "beam" if self.machine_receiver == "beam" else "env"
+        self._scene_sk, self._scene_sd = sk, sd
+        self._scene_name = name
+        self._scene_kern = sk.SceneMetal(name)
+        self._scene_man = self._scene_kern.man
+        # the dimensions: the machine JSON this env already loaded, and the spec's own constants
+        a = float(self._params.get("a", 2.0))
+        mach = os.path.join(HERE, machine_name(a))
+        if not os.path.exists(mach):
+            load_machine(a)                      # Lean derives it; nothing is scaled here
+        self._scene_pool = view.pool(mach)
+        row = self._scene_kern.row(self._scene_pool, 1)
+        self._scene_x = torch.as_tensor(row, device=self.device)
+        # which of the env kernel's input columns are also the scene's, by NAME (a gather, not
+        # arithmetic): the pose, the sun, the optics and the loop all come straight across
+        IN = self._bk.BIN if self.machine_receiver == "beam" else EIN
+        self._scene_map = [(self._scene_kern.inputs.index(n), IN[n])
+                           for n in self._scene_kern.inputs if n in IN]
+        self._scene_win = sd.SceneWindow("hashemi — %s (the env's own step)" % name)
+
+    def render(self):
+        if self.render_mode != "human":
+            return super().render()
+        if getattr(self, "_scene_kern", None) is None:
+            try:
+                self._scene_setup()
+            except Exception as exc:
+                print("  [hashemi] the scene kernel is not available (%s); the parent's picture" % exc)
+                self._scene_kern = False
+        if self._scene_kern is False:
+            return super().render()
+        k, sd = self._scene_kern, self._scene_sd
+        x = getattr(self, "_x", None)
+        if x is not None:
+            for js, je in self._scene_map:
+                self._scene_x[0, js] = x[0, je]
+        dr = getattr(self, "_scene_dr", None)
+        if dr is None:
+            dr = self._scene_sk.device_draws(torch, self.num_agents, 0, k.P, ENV_M)
+        # the kernel's own buffer order (scene_<name>.json "arrays"); the oil histories are the
+        # env's own, of this step
+        tabs = [dr[:1]]
+        for nm in [aa["name"] for aa in k.man["arrays"][1:]]:
+            tabs.append(getattr(self, "_" + nm)[:1])
+        vs, vr = k(self._scene_x, *tabs)
+        vs = vs.cpu().numpy()[0, :k.n_static]
+        vr = vr.cpu().numpy()[0, :, :k.n_ray]
+        C = self._bk.BCOL if self.machine_receiver == "beam" else ECOL
+        r = self.row[0] if getattr(self, "row", None) is not None else None
+        hud = ["puffer_hashemi_ccc — the env's own step, drawn from scene_%s.metal" % self._scene_name,
+               "agent 0   %02d:%02.0f   az %7.2f deg   t %6.2f deg"
+               % (int(self.t_solar[0]), (self.t_solar[0] % 1) * 60,
+                  np.degrees(self.hk_state[0, 0]), np.degrees(self.hk_state[0, 1]))]
+        if r is not None:
+            hud.append("capture %.3f   p_in %6.0f W   point %.3f deg"
+                       % (r[C["capture"]], r[C["p_in"]], np.degrees(r[C["pointing_err"]])))
+            if self.machine_receiver != "beam":
+                hud.append("T_oil %6.1f K   film margin %+6.1f K   q_pot %6.0f W"
+                           % (r[C["T_oil"]], r[C["film_margin"]], r[C["q_pot"]]))
+        hud.append("rotis %.0f   scorch %.0f   reward %.3f"
+                   % (float(self.ep_rotis[0]), float(getattr(self, "ep_scorch", [0])[0]),
+                      float(np.asarray(self.rewards).ravel()[0])))
+        if self._scene_win.ok:
+            self._scene_win.draw(self._scene_man, vs, vr, hud)
+        else:
+            out = os.environ.get("HASHEMI_FRAME_DIR")
+            if out:
+                os.makedirs(out, exist_ok=True)
+                sd.to_svg(self._scene_man, vs, vr,
+                          os.path.join(out, "env_%05d.svg" % int(self._scene_frame)))
+        self._scene_frame = getattr(self, "_scene_frame", 0) + 1
+        return None
 
     # --- the step
     def step(self, actions):
