@@ -98,6 +98,18 @@ class SceneWindow:
         rl.clear_background(rl.Color(14, 16, 22, 255))
         rl.begin_mode_3d(self.cam)
         rl.draw_grid(24, 1.0)
+        # the panel as a surface: the four corners the scene names, two translucent triangles
+        corners = {}
+        for e in man["entries"]:
+            if e["label"] in ("corner_pp", "corner_pm", "corner_mm", "corner_mp") and not e["ray"]:
+                c = entry_slice(e, vs, vr)
+                if np.all(np.isfinite(c[:3])):
+                    corners[e["label"]] = self.v3(c[:3])
+        if len(corners) == 4:
+            pp, pm, mm, mp = corners["corner_pp"], corners["corner_pm"], corners["corner_mm"], corners["corner_mp"]
+            face = rl.Color(120, 170, 230, 70)
+            for tri in ((pp, pm, mm), (mm, mp, pp), (mm, pm, pp), (pp, mp, mm)):   # both windings
+                rl.draw_triangle_3d(*tri, face)
         for e in man["entries"]:
             k = entry_kind(e)
             if k == KIND_SCALAR:
@@ -110,13 +122,21 @@ class SceneWindow:
                 if not np.all(np.isfinite(r)):
                     continue
                 if k == KIND_POINT:
-                    rl.draw_sphere(self.v3(r[0:3]), 0.06, col)
+                    rl.draw_sphere(self.v3(r[0:3]), 0.035, col)
                 elif k == KIND_SEGMENT:
-                    rl.draw_line_3d(self.v3(r[0:3]), self.v3(r[3:6]), col)
+                    # a member: a thin cylinder, so the machine reads as parts rather than hairlines
+                    rl.draw_cylinder_ex(self.v3(r[0:3]), self.v3(r[3:6]), 0.012, 0.012, 6, col)
                 elif k == KIND_RAY:
-                    fc = rl.Color(*FATE.get(int(round(r[9])) if len(r) > 9 else 3, (200, 200, 200)), 255)
-                    rl.draw_line_3d(self.v3(r[0:3]), self.v3(r[3:6]), fc)
-                    rl.draw_line_3d(self.v3(r[3:6]), self.v3(r[6:9]), fc)
+                    fc = FATE.get(int(round(r[9])) if len(r) > 9 else 3, (200, 200, 200))
+                    hit, land = r[3:6], r[6:9]
+                    o = r[0:3]
+                    # the incoming leg drawn from 1.2 m above the facet, not from the sky
+                    dirn = o - hit
+                    n = float(np.linalg.norm(dirn))
+                    if n > 1e-9:
+                        o = hit + dirn / n * min(n, 1.2)
+                    rl.draw_line_3d(self.v3(o), self.v3(hit), rl.Color(*fc, 160))
+                    rl.draw_line_3d(self.v3(hit), self.v3(land), rl.Color(*fc, 255))
                 elif k == KIND_AXES:
                     o = self.v3(r[0:3])
                     for j, ac in enumerate([(255, 90, 90), (90, 255, 90), (90, 160, 255)]):
