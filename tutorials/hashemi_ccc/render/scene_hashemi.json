@@ -8,7 +8,7 @@
 "rays": 64,
 "n_static": 1431,
 "n_ray": 16,
-"n_nodes": 3745,
+"n_nodes": 3749,
 "entries": [
   {"label": "tube", "kind": "Scene.Kind.segment", "colour": 1, "ray": false, "offset": 0, "width": 6, "leaves": [{"leaf": "pt", "defn": "tubeFootM", "frame": "roofOfCarriage", "bind": [["zBar", {"node": "megaGeom", "col": 13}]]}, {"leaf": "pt", "defn": "tubeTopM", "frame": "roofOfCarriage", "bind": [["zBar", {"node": "megaGeom", "col": 13}]]}]},
   {"label": "rail_00", "kind": "Scene.Kind.segment", "colour": 1, "ray": false, "offset": 6, "width": 6, "leaves": [{"leaf": "pt", "defn": "railPtM", "frame": "roofOfCarriage", "bind": [["zBar", {"node": "megaGeom", "col": 13}], ["j", {"lit": 0}]]}, {"leaf": "pt", "defn": "railPtM", "frame": "roofOfCarriage", "bind": [["zBar", {"node": "megaGeom", "col": 13}], ["j", {"lit": 1}]]}]},

@@ -224,11 +224,36 @@ noncomputable def standBarM (a sg : ℝ) : Fin 3 → ℝ :=
   ![-(ymOf a), sg * (standFootOf a / 2), 0]
 
 /-- the outrigger: the two rails leave the bar `root` apart at the A's feet and taper to
-`endWidth` at `endStation` (`hashemiOutrigger`, whose last two readings are his and carry no law
-in `a`) -/
+`endWidth` at `endStation` (`hashemiOutrigger`).
+
+His last two readings, 1.35 m and 0.25 m, are measurements off the frames and the file records
+that they carry no law in `a`.  Drawing them unscaled is still wrong, because the outrigger's
+whole job is to CARRY THE STAND: `hashemiOutrigger.stand_le_end` says the mast's station is at or
+before the rails' tip, and the mast's station is `ymOf a`, which scales.  At a = 2 m the unscaled
+tip sat at 1.35 m while the mast it carries stood at 3.05 m: the two rails converged to a point
+1.7 m short of a mast standing in mid air, which is the huddle the user saw in the window.  So the
+tip keeps HIS PROPORTION to the stand it carries, 1.35 / 1.22 = 1.1066 of `ymOf a`, and its width
+his proportion to the reflector — the same rule every other station in this file follows.  At his
+own size both reduce to his readings (`outrigEnd_his`). -/
 noncomputable def outrigRootM (a sg : ℝ) : Fin 3 → ℝ := ![0, sg * (aBaseOf a / 2), 0]
-noncomputable def outrigEndM (sg : ℝ) : Fin 3 → ℝ :=
-  ![-hashemiOutrigger.endStation, sg * (hashemiOutrigger.endWidth / 2), 0]
+noncomputable def endStationOf (a : ℝ) : ℝ := (1.35 / 1.22) * ymOf a
+noncomputable def endWidthOf (a : ℝ) : ℝ := 0.3125 * a
+noncomputable def outrigEndM (a sg : ℝ) : Fin 3 → ℝ :=
+  ![-(endStationOf a), sg * (endWidthOf a / 2), 0]
+
+/-- at his size the two scaled readings are his own -/
+theorem endWidth_his : endWidthOf 0.8 = hashemiOutrigger.endWidth := by
+  unfold endWidthOf hashemiOutrigger; norm_num
+
+/-- and the rails' tip is beyond the stand they carry, at every size (`stand_le_end`, generalised).
+`ymOf a = FCOf a + 0.08125 a` is positive for positive `a` because `FCOf` is a square root. -/
+theorem stand_before_end {a : ℝ} (ha : 0 < a) : ymOf a < endStationOf a := by
+  have hy : 0 < ymOf a := by
+    unfold ymOf FCOf
+    have : 0 ≤ Real.sqrt (zeOf a ^ 2 + a ^ 2) := Real.sqrt_nonneg _
+    nlinarith
+  unfold endStationOf
+  nlinarith
 
 /-- a hanger's eye on the bolt line, at the half-edge middle `rimHole` along the bar -/
 noncomputable def hangerEyeM (a sgy : ℝ) : Fin 3 → ℝ :=
