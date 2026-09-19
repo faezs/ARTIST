@@ -1,0 +1,26 @@
+{
+"scene": "hashemi",
+"source": "RequestProject/HashemiSceneInst.lean, hashemiScene — Hashemi.lean, HashemiMega.lean, HashemiTrace.lean",
+"c": "hk_sceneHashemi",
+"inputs": ["az", "zBar", "endIn", "sgL", "sgR", "apexH", "zBolt", "ym", "hp", "a", "ze", "t", "f", "P_1", "P_2", "dnut", "R", "k", "O_0", "O_1", "O_2", "dray_0", "dray_1", "dray_2", "w", "rc", "sigmaslope", "sigmaspec", "cx", "cy", "ux", "uy", "dx", "dy", "dz", "e1", "e2", "s1", "s2", "elSun", "azSun", "lat", "doy", "hour"],
+"n_vert": 61,
+"n_nodes": 526,
+"entries": [
+  {"label": "bar", "kind": "Scene.Kind.segment", "colour": 1, "offset": 0, "width": 6, "leaves": [{"leaf": "pt", "defn": "postTopH", "frame": "roofOfCarriage", "bind": [["sg", "sgL"]]}, {"leaf": "pt", "defn": "postTopH", "frame": "roofOfCarriage", "bind": [["sg", "sgR"]]}]},
+  {"label": "post_top_left", "kind": "Scene.Kind.point", "colour": 1, "offset": 6, "width": 3, "leaves": [{"leaf": "pt", "defn": "postTopH", "frame": "roofOfCarriage", "bind": [["sg", "sgL"]]}]},
+  {"label": "post_top_right", "kind": "Scene.Kind.point", "colour": 1, "offset": 9, "width": 3, "leaves": [{"leaf": "pt", "defn": "postTopH", "frame": "roofOfCarriage", "bind": [["sg", "sgR"]]}]},
+  {"label": "pulley", "kind": "Scene.Kind.point", "colour": 2, "offset": 12, "width": 3, "leaves": [{"leaf": "pt", "defn": "pulleyAt", "frame": "roofOfBolt", "bind": []}]},
+  {"label": "clip", "kind": "Scene.Kind.point", "colour": 2, "offset": 15, "width": 3, "leaves": [{"leaf": "pt", "defn": "edgeClipAt", "frame": "roofOfBolt", "bind": []}]},
+  {"label": "tow_wire", "kind": "Scene.Kind.segment", "colour": 2, "offset": 18, "width": 6, "leaves": [{"leaf": "pt", "defn": "pulleyAt", "frame": "roofOfBolt", "bind": []}, {"leaf": "pt", "defn": "edgeClipAt", "frame": "roofOfBolt", "bind": []}]},
+  {"label": "vertex", "kind": "Scene.Kind.point", "colour": 3, "offset": 24, "width": 3, "leaves": [{"leaf": "pt", "defn": "dishVertexPt", "frame": "roofOfBolt", "bind": []}]},
+  {"label": "focus", "kind": "Scene.Kind.point", "colour": 4, "offset": 27, "width": 3, "leaves": [{"leaf": "pt", "defn": "boltOriginPt", "frame": "roofOfBolt", "bind": []}]},
+  {"label": "axis", "kind": "Scene.Kind.segment", "colour": 3, "offset": 30, "width": 6, "leaves": [{"leaf": "pt", "defn": "dishVertexPt", "frame": "roofOfBolt", "bind": []}, {"leaf": "pt", "defn": "boltOriginPt", "frame": "roofOfBolt", "bind": []}]},
+  {"label": "rim", "kind": "Scene.Kind.segment", "colour": 4, "offset": 36, "width": 6, "leaves": [{"leaf": "pt", "defn": "rimPt", "frame": "roofOfBolt", "bind": [["sg", "sgL"]]}, {"leaf": "pt", "defn": "rimPt", "frame": "roofOfBolt", "bind": [["sg", "sgR"]]}]},
+  {"label": "focus_nuts", "kind": "Scene.Kind.point", "colour": 5, "offset": 42, "width": 3, "leaves": [{"leaf": "pt", "defn": "swingFocus", "frame": "roofOfBolt", "bind": [["d", "dnut"]]}]},
+  {"label": "ray", "kind": "Scene.Kind.ray", "colour": 6, "offset": 45, "width": 10, "leaves": [{"leaf": "pt", "defn": "rayStart", "frame": "roofOfDish", "bind": [["p", "f"], ["d", "dray"]]}, {"leaf": "pt", "defn": "rayHit", "frame": "roofOfDish", "bind": [["p", "f"], ["d", "dray"]]}, {"leaf": "pt", "defn": "rayLand", "frame": "roofOfDish", "bind": [["p", "f"], ["d", "dray"]]}, {"leaf": "num", "defn": "traceRayKErr", "col": 4, "bind": []}]},
+  {"label": "sun_dir", "kind": "Scene.Kind.point", "colour": 7, "offset": 55, "width": 3, "leaves": [{"leaf": "pt", "defn": "sunDir", "frame": null, "bind": []}]},
+  {"label": "sun_el", "kind": "Scene.Kind.scalar", "colour": 7, "offset": 58, "width": 1, "leaves": [{"leaf": "num", "defn": "sunAt", "col": 0, "bind": []}]},
+  {"label": "sun_az", "kind": "Scene.Kind.scalar", "colour": 7, "offset": 59, "width": 1, "leaves": [{"leaf": "num", "defn": "sunAt", "col": 1, "bind": []}]},
+  {"label": "pointing_error", "kind": "Scene.Kind.scalar", "colour": 7, "offset": 60, "width": 1, "leaves": [{"leaf": "num", "defn": "pointingError", "col": 0, "bind": []}]}
+]
+}

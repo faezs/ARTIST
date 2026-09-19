@@ -1,0 +1,21 @@
+{
+"scene": "beam",
+"source": "RequestProject/HashemiSceneInst.lean, beamScene — HashemiBeamdown.lean",
+"c": "hk_sceneBeam",
+"inputs": ["az", "t", "apexH", "zBolt", "f", "beta", "L", "dm", "H_0", "H_1", "H_2", "r_0", "r_1", "r_2", "R", "a", "k", "rm", "rt", "slotW", "onPanel"],
+"n_vert": 22,
+"n_nodes": 391,
+"entries": [
+  {"label": "beam_axis", "kind": "Scene.Kind.point", "colour": 1, "offset": 0, "width": 3, "leaves": [{"leaf": "pt", "defn": "beamAxis", "frame": "roofOfDish", "bind": []}]},
+  {"label": "secondary_hit", "kind": "Scene.Kind.point", "colour": 2, "offset": 3, "width": 3, "leaves": [{"leaf": "pt", "defn": "hyperPt", "frame": "roofOfDish", "bind": [["O", "H"], ["d", "r"]]}]},
+  {"label": "beam_leg", "kind": "Scene.Kind.segment", "colour": 2, "offset": 6, "width": 6, "leaves": [{"leaf": "pt", "defn": "pointOf", "frame": "roofOfDish", "bind": [["O", "H"]]}, {"leaf": "pt", "defn": "hyperPt", "frame": "roofOfDish", "bind": [["O", "H"], ["d", "r"]]}]},
+  {"label": "secondary_normal", "kind": "Scene.Kind.point", "colour": 3, "offset": 12, "width": 3, "leaves": [{"leaf": "pt", "defn": "hyperNormal", "frame": "roofOfDish", "bind": [["O", "H"], ["d", "r"]]}]},
+  {"label": "captured", "kind": "Scene.Kind.scalar", "colour": 4, "offset": 15, "width": 1, "leaves": [{"leaf": "num", "defn": "traceBeam", "col": 0, "bind": []}]},
+  {"label": "hit_secondary", "kind": "Scene.Kind.scalar", "colour": 4, "offset": 16, "width": 1, "leaves": [{"leaf": "num", "defn": "traceBeam", "col": 1, "bind": []}]},
+  {"label": "spill", "kind": "Scene.Kind.scalar", "colour": 4, "offset": 17, "width": 1, "leaves": [{"leaf": "num", "defn": "traceBeam", "col": 3, "bind": []}]},
+  {"label": "crossing_x", "kind": "Scene.Kind.scalar", "colour": 5, "offset": 18, "width": 1, "leaves": [{"leaf": "num", "defn": "traceBeam", "col": 4, "bind": []}]},
+  {"label": "crossing_y", "kind": "Scene.Kind.scalar", "colour": 5, "offset": 19, "width": 1, "leaves": [{"leaf": "num", "defn": "traceBeam", "col": 5, "bind": []}]},
+  {"label": "radius_on_secondary", "kind": "Scene.Kind.scalar", "colour": 5, "offset": 20, "width": 1, "leaves": [{"leaf": "num", "defn": "hyperHit", "col": 4, "bind": [["O", "H"], ["d", "r"]]}]},
+  {"label": "fate", "kind": "Scene.Kind.scalar", "colour": 6, "offset": 21, "width": 1, "leaves": [{"leaf": "num", "defn": "traceBeam", "col": 7, "bind": []}]}
+]
+}

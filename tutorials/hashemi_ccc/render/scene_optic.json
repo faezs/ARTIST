@@ -1,0 +1,19 @@
+{
+"scene": "optic",
+"source": "RequestProject/HashemiSceneInst.lean, opticScene — OpticGadt.lean's hashemiBeam chain, stage by stage",
+"c": "hk_sceneOptic",
+"inputs": ["az", "t", "apexH", "zBolt", "f", "cx", "cy", "ux", "uy", "R", "a", "w", "k", "sigmaslope", "sigmaspec", "dx", "dy", "dz", "e1", "e2", "s1", "s2", "L", "dm", "beta", "H_0", "H_1", "H_2", "r_0", "r_1", "r_2", "rm", "rt", "slotW", "onPanel"],
+"n_vert": 27,
+"n_nodes": 527,
+"entries": [
+  {"label": "stage0_origin", "kind": "Scene.Kind.point", "colour": 1, "offset": 0, "width": 3, "leaves": [{"leaf": "pt", "defn": "dishOriginPt", "frame": "roofOfDish", "bind": []}]},
+  {"label": "stage0_hit", "kind": "Scene.Kind.point", "colour": 2, "offset": 3, "width": 3, "leaves": [{"leaf": "pt", "defn": "dishHitPt", "frame": "roofOfDish", "bind": []}]},
+  {"label": "stage0_leg", "kind": "Scene.Kind.segment", "colour": 2, "offset": 6, "width": 6, "leaves": [{"leaf": "pt", "defn": "dishOriginPt", "frame": "roofOfDish", "bind": []}, {"leaf": "pt", "defn": "dishHitPt", "frame": "roofOfDish", "bind": []}]},
+  {"label": "stage0_dir", "kind": "Scene.Kind.point", "colour": 3, "offset": 12, "width": 3, "leaves": [{"leaf": "pt", "defn": "dishDirPt", "frame": "roofOfDish", "bind": []}]},
+  {"label": "stage0_on_panel", "kind": "Scene.Kind.scalar", "colour": 3, "offset": 15, "width": 1, "leaves": [{"leaf": "num", "defn": "dishReflect", "col": 6, "bind": []}]},
+  {"label": "stage1_secondary", "kind": "Scene.Kind.point", "colour": 4, "offset": 16, "width": 3, "leaves": [{"leaf": "pt", "defn": "hyperPt", "frame": "roofOfDish", "bind": [["O", "H"], ["d", "r"]]}]},
+  {"label": "stage1_leg", "kind": "Scene.Kind.segment", "colour": 4, "offset": 19, "width": 6, "leaves": [{"leaf": "pt", "defn": "pointOf", "frame": "roofOfDish", "bind": [["O", "H"]]}, {"leaf": "pt", "defn": "hyperPt", "frame": "roofOfDish", "bind": [["O", "H"], ["d", "r"]]}]},
+  {"label": "stage1_captured", "kind": "Scene.Kind.scalar", "colour": 5, "offset": 25, "width": 1, "leaves": [{"leaf": "num", "defn": "traceBeam", "col": 0, "bind": []}]},
+  {"label": "stage1_fate", "kind": "Scene.Kind.scalar", "colour": 6, "offset": 26, "width": 1, "leaves": [{"leaf": "num", "defn": "traceBeam", "col": 7, "bind": []}]}
+]
+}
