@@ -20,7 +20,7 @@ PALETTE = [
     (196, 150, 110),   # 8  the pit's clay
     (255, 140, 60),    # 9  the hearth and the belt's nodes
     (150, 150, 160),   # 10 masonry: the deck, the parapet, the shadow
-    (255, 240, 170),   # 11 the sun, its rays
+    (255, 246, 205),   # 11 the sun, its rays (pale: drawn at low alpha, see draw())
     (222, 196, 150),   # 12 the roti on the wall
     (120, 220, 235),   # 13 the tunnel and the duct's mouth
 ]
@@ -244,6 +244,12 @@ class SceneWindow:
                 if k == KIND_POINT:
                     rl.draw_sphere(self.v3(r[0:3]), 0.035, col)
                 elif k == KIND_SEGMENT:
+                    # the sunlight is drawn as light, not as structure: a hairline at low alpha,
+                    # so sixty-four parallel legs read as a beam and never bury the machine
+                    if e["label"].startswith("sky") or e["label"].startswith("sun_ray"):
+                        rl.draw_line_3d(self.v3(r[0:3]), self.v3(r[3:6]),
+                                        rl.Color(col.r, col.g, col.b, 70))
+                        continue
                     # a member: a thin cylinder, so the machine reads as parts rather than
                     # hairlines.  Its radius follows the camera, because the composed scene is
                     # seen from three times as far as the machine-only one was and a 12 mm tube
