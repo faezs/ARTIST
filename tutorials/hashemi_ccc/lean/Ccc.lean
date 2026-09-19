@@ -71,6 +71,11 @@ partial def Graph.isBool (g : Graph) (i : Nat) : Bool :=
   | .iteC _ a _ => g.isBool a
   | _ => false
 
+/-- a `.call` node (it prints as the application, not as a `v` binding of its own) -/
+def Node.isCall : Node → Bool
+  | .call .. => true
+  | _ => false
+
 /-- the operands of a node -/
 def Node.deps : Node → Array Nat
   | .un _ a => #[a]
@@ -1511,14 +1516,31 @@ partial def leanBody (f : Fun) (real : Bool) (outs : Array Nat) (v : Val) (inden
     match g.nodes[i]! with
     | .input .. | .lit _ | .bconst _ | .pi | .rayIn .. => pure ()
     | .sum .. => bound := bound.insert i
+    | .call .. => pure ()
     | _ => if counts[i]! > 1 then bound := bound.insert i
+  -- a sub-morphism the composite calls ONCE and reads several columns of must be BOUND once,
+  -- the way the definition binds it (`let s := megaStep …; s 0; s 1; …`).  Hash-consing already
+  -- gives one node per (application, column); they are grouped here by the application, the
+  -- lowest column's node standing for it - so the twin's call structure is the definition's.
+  let callKey : Nat → Option String := fun i => match g.nodes[i]! with
+    | .call fn tmpl args _ isVec => if isVec then some s!"{fn}|{tmpl}|{args}" else none
+    | _ => none
+  let mut callRep : Std.HashMap String Nat := {}
+  let mut callCnt : Std.HashMap String Nat := {}
+  for i in [0:g.nodes.size] do
+    if !live.contains i then continue
+    if let some k := callKey i then
+      callCnt := callCnt.insert k ((callCnt.getD k 0) + 1)
+      if !callRep.contains k then callRep := callRep.insert k i
+  for (k, r) in callRep.toList do
+    if callCnt.getD k 0 > 1 && !L.ray[r]! then bound := bound.insert r
   let tableRead := fun (b : String) (row : String) (k : Nat) =>
     let m := f.tableM b
     if real then (if m == 0 then s!"({b} {row})" else s!"({b} {row} {k})")
     else (if m == 0 then s!"{b}[{row}]!" else s!"{b}[{row} * {m} + {k}]!")
   -- print a node: a bound node by its name, otherwise inline (recursively)
   let rec pr (bnd : Std.HashSet Nat) (i : Nat) (top : Bool) : String :=
-    if bnd.contains i && !top then s!"v{i}" else
+    if bnd.contains i && !top && !((g.nodes[i]!).isCall) then s!"v{i}" else
     let r := fun j => pr bnd j false
     match g.nodes[i]! with
     | .input nm ln =>
@@ -1526,7 +1548,20 @@ partial def leanBody (f : Fun) (real : Bool) (outs : Array Nat) (v : Val) (inden
       | some (b, j, k) => if real then ln else tableRead b (toString j) k
       | none => if real then ln else nm
     | .rayIn b k => tableRead b "i" k
-    | .call _ tmpl cargs c cv => renderCall tmpl cargs c cv (fun j => r j)
+    | .call _ tmpl cargs c cv =>
+      -- the binding line prints the application itself; every column reads that binding
+      match callKey i with
+      | some k =>
+        if top then renderCall tmpl cargs 0 false (fun j => r j)
+        else
+          -- the binding of this application, if the printer made one: the lowest node of the
+          -- group that is in scope here
+          let rp := (List.range g.nodes.size).find? fun j =>
+            bnd.contains j && callKey j == some k
+          match rp with
+          | some j => s!"(v{j} {c})"
+          | none => renderCall tmpl cargs c cv (fun j => r j)
+      | none => renderCall tmpl cargs c cv (fun j => r j)
     | .sum P a =>
       -- the ray-level bound nodes THIS sum uses, in order, inside the binder.  Restricting to
       -- what is reachable from the summand matters for the round trip: a sum that prints the
@@ -1543,11 +1578,24 @@ partial def leanBody (f : Fun) (real : Bool) (outs : Array Nat) (v : Val) (inden
         for j in [0:g.nodes.size] do
           if reach.contains j then for d in (g.nodes[j]!).deps do c := c.modify d (· + 1)
         return c
+      -- a ray-level call whose columns this sum reads more than once is bound inside the
+      -- binder, once, exactly as the summand of the definition reads one ray
+      let rrep := Id.run do
+        let mut rep : Std.HashMap String Nat := {}
+        let mut cnt : Std.HashMap String Nat := {}
+        for j in [0:g.nodes.size] do
+          if reach.contains j || j == a then
+            if let some k := callKey j then
+              cnt := cnt.insert k ((cnt.getD k 0) + 1)
+              if !rep.contains k then rep := rep.insert k j
+        return (rep, cnt)
       let bnd' := Id.run do
         let mut b := bnd
         for j in [0:g.nodes.size] do
           if L.ray[j]! then
             if reach.contains j && rcounts[j]! > 1 then b := b.insert j else b := b.erase j
+        for (k, r) in rrep.1.toList do
+          if rrep.2.getD k 0 > 1 && L.ray[r]! then b := b.insert r
         return b
       let inner := Id.run do
         let mut ls : Array String := #[]

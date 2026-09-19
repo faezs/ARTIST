@@ -221,11 +221,7 @@ def vecHead (stmt : String) (k : Nat) : String := Id.run do
 /-- the sub-morphisms each composite keeps opaque in its round trip, with the number of columns
 of each one's output (0: a scalar).  A functor preserves composition: `hashemiEnv` IS
 `megaStep ; ∑ of dishPower ; the loop`, and that is the equation the round trip should state. -/
-def modularCfg : List (String × List (Name × Nat)) :=
-  [("hashemiEnv", [(`TandoorHashemi.megaStep, 17), (`TandoorHashemi.dishPower, 5)]),
-   ("hashemiLoop", [(`TandoorHashemi.hashemiEnv, 83), (`TandoorHashemi.mlpPolicy, 2),
-                    (`TandoorHashemi.obsOf, 8), (`TandoorHashemi.driveAz, 0),
-                    (`TandoorHashemi.driveEl, 0)])]
+def modularRefs : List String := ["hashemiEnv", "hashemiLoop"]
 
 /-- the staged proof for `txt`, a printed `theorem X_ccc : X = fun bs => <twin> := rfl`. -/
 def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option String := Id.run do
@@ -335,8 +331,33 @@ def run : MetaM Unit := do
   -- so the round trip is stated against the calls the definition makes.  The kernels keep the
   -- flat graph above: inlining a `.call` IS that flat compilation of the same expression.
   let mut modular : Std.HashMap String Fun := {}
-  for (ref, nu) in modularCfg do
-    match ← compileDef root (root ++ ref.toName) nu with
+  -- the opaque set is DERIVED, not guessed: the compiled constants the definition's own body
+  -- references directly, with the columns of each one's output.  The modular twin then mirrors
+  -- the definition's call structure exactly, which is the only way `whnf` stops at an identical
+  -- application instead of walking into the callee.
+  -- only callees whose output is a real (or a vector of reals) can be an opaque node: a
+  -- structure-valued constant (`hashemi`) is read by projection, not applied
+  -- ... and only callees every binder of which is a real or a table: one whose argument is a
+  -- structure (`rollerRadius hashemi`) is read field by field, so it has no application to print
+  let plainBinders := fun (f : Fun) => f.binders.all fun (_, ty) =>
+    ty == "ℝ" || ty == "Real" || (ty.splitOn "→").length > 1
+  let compiled : Std.HashMap Name Nat := funs.foldl (fun m f =>
+    if !plainBinders f then m else
+    match f.output with
+    | .s _ | .b _ => m.insert f.name 0
+    | .vec xs => if xs.all (fun v => match v with | .s _ | .b _ => true | _ => false)
+                 then m.insert f.name xs.size else m
+    | _ => m) {}
+  for ref in modularRefs do
+    let n := root ++ ref.toName
+    let ci ← getConstInfo n
+    let mut nu : List (Name × Nat) := []
+    for c in (← instantiateMVars ci.value!).getUsedConstants do
+      if c == n then continue
+      if let some cols := compiled[c]? then
+        unless nu.any (fun (k, _) => k == c) do nu := nu ++ [(c, cols)]
+    logInfo m!"noUnfold {ref} := {nu.map (fun (k, v) => (k.getString!, v))}"
+    match ← compileDef root n nu with
     | .ok f =>
       modular := modular.insert ref f
       logInfo m!"modular graph of {ref}: {f.graph.nodes.size} nodes, {nu.length} sub-morphisms kept opaque"
