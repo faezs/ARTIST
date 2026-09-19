@@ -815,22 +815,42 @@ So the renderer is a **printer of the compiler**, not a hand-written scene:
 | file | what it is |
 | --- | --- |
 | `RequestProject/Scene.lean` | the vocabulary, machine-independent: `Leaf` (a definition, its frame, a renaming of its binders), `Shape` (`one`, `seg`, `rayOf`, `axesOf`), `Entry`, `Scene`; and `vertex_bound` — every vertex of every scene is bounded by its inputs' bound, whatever the frames are |
-| `RequestProject/CccScene.lean` | the printer.  It binds each distinct binder name once, applies each definition to those inputs, applies the frame to that **in the graph** (composition in the CCC: the frame's nodes are emitted over the leaf's outputs and hash-consed with everything else), and hands the single resulting `Ccc.Fun` to `Ccc.lean`'s own `printC` and `printNumpy`.  It contains no machine's vocabulary at all |
-| `RequestProject/HashemiSceneInst.lean` | the instance: three frames (`roofOfCarriage`, `roofOfBolt`, `roofOfDish`, each a composition of `rot`, `swungPt` and `dishAxes`, each tied by a theorem to `megaGeom`), a handful of projections that name three columns of a nine-column trace, `sunAt`, and then three lists of **data** |
-| `RequestProject/SceneCcc.lean` | the driver: `lake build RequestProject.SceneCcc` writes `render/scene_{hashemi,beam,optic}.{h,py,json}`, `scene_registry.h` and `scene_sun.{h,py}` |
-| `render/main.c` | generic over the manifest.  It reads dimensions from `hashemi_machine_<a>.json` (and, for what the JSON lacks, calls the spec's own printed constant), advances the pose with `hk_megaStep` through `hk_headToDriveAz/El`, puts the sun where `hk_sceneSunAt` says, binds every scene input **by name**, calls `scene_eval`, and draws doubles by kind and colour.  Nothing geometric is in it |
+| `RequestProject/CccScene.lean` | the printer.  It binds each distinct binder name once, applies each definition to those inputs, applies the frame to that **in the graph** (composition in the CCC: the frame's nodes are emitted over the leaf's outputs and hash-consed with everything else), and hands the single resulting `Ccc.Fun` to `Ccc.lean`'s own printers — `printSceneC`, `printNumpyScene` and `printMslScene`, the last a threadgroup per frame and a thread per ray.  It contains no machine's vocabulary at all |
+| `RequestProject/HashemiSceneInst.lean` | the instance: three frames (`roofOfCarriage`, `roofOfBolt`, `roofOfDish`, each a composition of `rot`, `swungPt` and `dishAxes`, each tied by a theorem to `megaGeom`), a handful of projections that name three columns of a nine-column trace, `sunAt`, the ray leaves over the megakernel's table, and then FOUR lists of **data** — the machine, the beam-down, one chain of the optic GADT, and the same machine composed with the env morphism |
+| `RequestProject/SceneCcc.lean` | the driver: `lake build RequestProject.SceneCcc` writes `render/scene_{hashemi,beam,optic,env}.{h,metal,py,json}`, `scene_registry.h` and `scene_sun.{h,py}` |
+| `render/scene_kernel.py` | the FFI.  `SceneMetal` compiles `render/scene_<name>.metal` and dispatches it exactly as `HashemiEnvMetal` does the env's step — one threadgroup per frame, one thread per ray — and returns the two vertex buffers; `scene_numpy` and `scene_c` are the other two printings of the same graph |
+| `render/view.py`, `render/scene_draw.py` | the viewer, on **pyray**.  An orbit camera; the pose from the printed `hk_megaStep` driven by the proved `hk_follower` or by the keyboard through `hk_headToDriveAz/El`; the sun from the printed `sunAt`; the vertices from the kernel; the HUD's capture, p_in and oil temperature from the env megakernel's own columns over the SAME draws |
+| `render/main.c` | what is left of the C side: the C twin's harness (`--eval`, `--sun`), so `check.py` can compare the third printing.  No window, no raylib — it is not installed on this machine — and no geometry; there never was any |
 
-That the printer is generic is not a claim, it is a demonstration: the same printer emits three
-scenes — the machine, `HashemiBeamdown`'s secondary, and one chain of the `OpticGadt` receiver
-GADT, stage by stage (`primary_is_dishReflect`, `hashemiBeam_agrees`) — and none of them is
-mentioned in it.
+**The rays come from the megakernel through the FFI; the viewer is pyray.**  A ray leaf is a
+definition of one extra binder, an index over the ray TABLE `dr : Fin 64 → Fin 10 → ℝ` — six
+uniforms and four normals per row, the layout `hashemiEnv` and `hashemiEnvBeam` already trace —
+sampled through the spec's own `sampleRay`, and `CccScene` compiles it against the ray index
+itself, the very `.rayIn` nodes a `∑ i : Fin P` makes.  A scene therefore has two regions, read
+off the graph's layers and declared nowhere: the static vertices, one per frame, and the ray
+vertices, one per row.  There is no `rays.csv`; the draws are generated on the device.
+
+And the scene is composed with the env morphism, not recomputed beside it: `envScene`'s leaves
+take `hashemiEnv`'s own binders and read the pose out of `megaStep`, so `scene_env.metal` is one
+kernel whose vertices and whose env columns come out of one graph over one table of rays.  That
+is what `puffer eval puffer_hashemi_ccc --render-mode human` draws — the step the policy acted
+on, not a second walk of the mount in Python.
 
     cd render
-    make check     # the three scenes, C against the NumPy twin; the sun against the trainer
-    make           # the raylib window (TAB cycles scenes, F the follower, +/- the clock)
-    python dump_day.py && ./hashemi_render --replay day.csv
+    make check     # C == NumPy == Metal for the four scenes; the sun; one frame from view.py
+    make           # the window (view.py on pyray)
+    python view.py --scene hashemi --frames 1 --out .      # headless, no display needed
+    python dump_day.py && python view.py --replay day.csv
 
-`make check` compares `scene_eval` in C with the NumPy twin of the *same graph* at five random
-inputs per scene (they agree exactly, 0.0), and `sunAt` against the trainer's own
-`solar_position` at twenty random instants (2e-16 rad).  The committed SVG frames are
-`render/frame_{hashemi,beam,optic}.svg`.
+`make check` compares the three printings of each scene at random inputs and the megakernel's
+own draws (C and NumPy are double and agree to the last bit; the kernel is float32 and is held
+to 2e-3 relative), `sunAt` against the trainer's own `solar_position` at twenty random instants
+(3e-16 rad), and — the one that matters — **the env scene's ray vertices against the standalone
+scene's at the pose `megaStep` stepped to: 0.0e+00**.  The committed frames are
+`render/frame_hashemi_000.png` (the viewer) and `render/frame_env_000.png` (the env's own step).
+
+  hashemi  16 entries,  51 static + 64 x 10 ray doubles, 28 inputs, 1 table,  1248 nodes
+  beam     11 entries,   3 static + 64 x 19 ray doubles, 20 inputs, 1 table,  1247 nodes
+  optic     9 entries,   0 static + 64 x 27 ray doubles, 20 inputs, 1 table,  1247 nodes
+  env      19 entries,  50 static + 64 x 10 ray doubles, 56 inputs, 3 tables, 2367 nodes
+
