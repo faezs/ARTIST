@@ -29,6 +29,8 @@ def main():
     ap.add_argument("--slot", type=float, default=0.06, help="the slot's width [m] for the beam-down")
     ap.add_argument("--oil-nodes", type=int, default=None, help="belt slots the coil heats (default: the ini's)")
     ap.add_argument("--dish-half", type=float, default=None, help="the reflector's half-side a [m] (his 0.8); the machine is derived in Lean (HashemiScale.lean) and read from hashemi_machine_<a>.json")
+    ap.add_argument("--dish-design", type=int, default=None,
+                    help="1: the DESIGNED machine at that half-side (HashemiScale.lean solves the held set from the constraints); 0: the held machine; default the ini's")
     ap.add_argument("--pump", default="rule", choices=["off", "max", "rule"],
                     help="the pump on the parent's pinned head 0 (HashemiPolicy.pumpOf): off (level 0), "
                          "max (level 6) or a bang-bang rule on the film margin")
@@ -44,6 +46,8 @@ def main():
         kw["oil_nodes"] = args.oil_nodes
     if args.dish_half is not None:
         kw["dish_half"] = args.dish_half
+    if args.dish_design is not None:
+        kw["dish_design"] = args.dish_design
     B = args.agents
     env = HashemiTandoorEnv(num_agents=B, lat=30.2, day_of_year=args.day, **kw)
     env.reset()
@@ -125,6 +129,13 @@ def main():
         print(f"  THE LOOP: max bulk {float(np.max(bulk_max)):.1f} K (limit 618.1), max film {float(np.max(film_max)):.0f} K "
               f"(limit 648.1), min margin {float(np.min(margin_min)):+.0f} K, degradation {float(np.mean(env.deg)):.3e}, "
               f"pump energy {float(np.mean(pump_J)) / 1e3:.1f} kJ, fault steps {int(fault_ct.mean())}/{k}")
+    if hasattr(env, "machine"):
+        mm = env.machine
+        print("  THE MACHINE: a %g, rc %g, w %g, Ac %g, panel %g W%s"
+              % (mm["kernel"]["a"], mm["kernel"]["rc"], mm["kernel"]["w"], mm["loop"]["Ac"],
+                 mm["loop"]["panelW"],
+                 (", DESIGNED: " + ", ".join("%s %g->%g (%s)" % (c["held"], c["from"], c["to"], c["constraint"])
+                                             for c in mm["design_changes"])) if mm.get("designed") else " (held)"))
     print(f"  spec vs parent: sun_reachable == sun up {100 * agree_reach / k:.1f} %, parent lost => spec lost {100 * agree_lost / k:.1f} %; discrete heads {args.discrete}")
     ok = rows[-1][7] > 50 and all(r[4] > 0.9 for r in rows) and agree_reach / k > 0.99 and agree_lost / k > 0.97
     if args.receiver == "beam":     # the beam-down's capture is the design's: report, do not judge

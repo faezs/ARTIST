@@ -1,7 +1,7 @@
 {
   "source": "RequestProject/HashemiScale.lean: derive, from Hashemi.lean's own relationships",
   "a": 0.800000,
-  "designed": false,
+  "designed": true,
   "kernel": {
     "R": 2.000000,
     "f": 1.000000,
@@ -20,7 +20,7 @@
     "rodLen": 1.000000
   },
   "loop": {
-    "Ac": 0.030000,
+    "Ac": 0.050108,
     "Qmax": 0.000060,
     "Dp": 0.012000,
     "Lp": 6.000000,
@@ -28,15 +28,16 @@
     "Pidle": 8.000000,
     "alpha": 0.900000,
     "Dc": 0.010000,
-    "coilLen": 0.954930,
+    "coilLen": 1.594991,
     "Vtank": 0.001000,
-    "panelW": 5.000000,
+    "panelW": 8.559077,
     "hCoilW": 1172.504297,
     "PinFull": 1958.400000,
-    "filmStag": 668.258132
+    "filmStag": 648.150000
   },
   "design_changes": [
-
+    {"held": "panelW", "from": 5.000000, "to": 8.559077, "constraint": "PumpWithinBudget"},
+    {"held": "Ac", "from": 0.030000, "to": 0.050108, "constraint": "FilmLimit"}
   ],
   "machine": {
     "a": 0.800000,
@@ -95,11 +96,11 @@
     "Fdrive": 10.000000,
     "L10": 1000000.000000,
     "rho": 0.850000,
-    "panelW": 5.000000,
+    "panelW": 8.559077,
     "volts": 12.000000,
     "azFullM": 0.000611,
     "elFullM": 0.000436,
-    "Ac": 0.030000,
+    "Ac": 0.050108,
     "Dc": 0.010000,
     "Dp": 0.012000,
     "Lp": 6.000000,
@@ -108,14 +109,14 @@
     "Pidle": 8.000000,
     "alphaC": 0.900000,
     "Vtank": 0.001000,
-    "coilLen": 0.954930,
+    "coilLen": 1.594991,
     "trackW": 0.019710,
     "pumpElecW": 8.539367,
     "hCoilW": 1172.504297,
     "PinFull": 1958.400000,
-    "filmStag": 668.258132,
+    "filmStag": 648.150000,
     "expFrac": 0.308517,
-    "Vloop": 0.000754,
+    "Vloop": 0.000804,
     "tanEpsDeg": 1.718358
   },
   "constraints": {
@@ -135,8 +136,8 @@
     "m12_carries_dish": "holds",
     "tracking_power_tiny": "holds",
     "one_turn_tilt": "holds",
-    "PumpWithinBudget": "FAILS",
-    "FilmLimit": "FAILS",
+    "PumpWithinBudget": "holds",
+    "FilmLimit": "holds",
     "TankHolds": "holds"
   },
   "not_required": {

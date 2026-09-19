@@ -61,23 +61,31 @@ OBS_COLS = [ECOL["obs_" + n] for n in machine_policy.OBS_NAMES]
 LEAN_DIR = os.environ.get("HASHEMI_LEAN_DIR", os.path.expanduser("~/manifold-pareto/lean"))
 
 
-def machine_name(a):
-    """`hashemi_machine_0.8.json`, `hashemi_machine_2.0.json`"""
+def machine_name(a, design=False):
+    """`hashemi_machine_0.8.json`, `hashemi_machine_2.0_designed.json`"""
     s = "%g" % float(a)
-    return "hashemi_machine_" + (s if "." in s else s + ".0") + ".json"
+    return ("hashemi_machine_" + (s if "." in s else s + ".0")
+            + ("_designed" if design else "") + ".json")
 
 
-def load_machine(a):
+def load_machine(a, design=False):
     """THE MACHINE AT HALF-SIDE `a`, DERIVED IN LEAN (RequestProject/HashemiScale.lean).
 
     Reads the shipped `hashemi_machine_<a>.json`; if there is none, asks Lean for it
     (`lake exe machine_scale <a> <path>`), which is the only thing allowed to compute it - the
     numbers are `derive`'s, the verdicts are `Sound`'s conjuncts. Nothing here scales anything.
+
+    `design=True` reads (or asks for) the DESIGNED machine instead: `lake exe machine_scale <a>
+    <path> --design`, which is the same derivation with the held quantities the constraints name
+    SOLVED from those constraints (`HashemiScale.lean` §4: `rcMin`, `panelMin`, `AcMin`,
+    `tankMin`, each with a theorem that the solved value satisfies its conjunct). The file then
+    carries `"designed": true` and a `design_changes` list saying what had to move and why.
     """
-    path = os.path.join(HERE, machine_name(a))
+    path = os.path.join(HERE, machine_name(a, design))
     if not os.path.exists(path):
         import subprocess
-        r = subprocess.run(["lake", "exe", "machine_scale", "%g" % float(a), path],
+        r = subprocess.run(["lake", "exe", "machine_scale", "%g" % float(a), path]
+                           + (["--design"] if design else []),
                            cwd=LEAN_DIR, capture_output=True, text=True)
         if r.returncode != 0 or not os.path.exists(path):
             raise RuntimeError(f"no {os.path.basename(path)} and `lake exe machine_scale` failed "
@@ -89,7 +97,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
 
     def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.0, capture_shaping=0.2, t_amb=300.0, trace_rays=None,
-                 machine_receiver="oil", oil_nodes=8, pump_price=PUMP_PRICE, deg_price=DEG_PRICE, dish_half=None, dish_R=None, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
+                 machine_receiver="oil", oil_nodes=8, pump_price=PUMP_PRICE, deg_price=DEG_PRICE, dish_half=None, dish_design=1, dish_R=None, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
         # THE MACHINE'S RECEIVER (the parent's `receiver` - its tri chain - passes through untouched):
         # "oil" - the coil at F, hot oil in insulated pipes, the exchanger in the pot's wall
         # (HashemiHeat/HashemiField.lean); "beam" - a hyperboloid inside the coil's envelope sending
@@ -186,10 +194,29 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # `megaStep` at his literals, so the elevation lever arm and the dead point stay his; the
         # JSON carries the derived ones for the host and for the build. Scaling those means
         # recompiling the mount with `a` as an input, not a knob here.
+        # dish_design (the ini's knob, DEFAULT 1): a resize should be SOUND by default.  With it
+        # on, the env loads the DESIGNED machine - `HashemiScale.lean` §4 solves each constraint
+        # for the held quantity it names (`rcMin` for TrackerBudget, `panelMin` for
+        # PumpWithinBudget, `AcMin` for the fluid's film limit, `tankMin` for the expansion) and
+        # takes the pointwise maximum with his value, so the coil, the panel and the coil's area
+        # grow until every conjunct holds, and the JSON records what had to move.  With it off the
+        # env loads the HELD machine - his 5 cm facet, 12 cm coil, 1.7 deg sensor, 5 W panel and
+        # 0.03 m2 coil at any size - and prints the constraints the spec does not call `holds`,
+        # as it did before this commit.  The held machine is the video; the designed machine is
+        # the video's own inequalities run backwards.
+        self.dish_design = int(dish_design)
         if dish_half is not None:
-            m = load_machine(float(dish_half))
+            m = load_machine(float(dish_half), design=bool(self.dish_design))
             self._params.update(**m["kernel"])
             self._params.update(**{k: v for k, v in m["mount"].items() if k in self._params})
+            # the loop's own inputs come from the same file: the coil's area and the pump's flow
+            # enter the kernel (HashemiOil's qCoilLoss, hCoil, filmTemp, pumpElec), the rest of
+            # the block (panel, tank, coil length, the film at stagnation) is the build's record
+            self._params.update(**{k: v for k, v in m.get("loop", {}).items() if k in self._params})
+            if m.get("designed") and m.get("design_changes"):
+                print("  [hashemi_ccc] the machine at a=%s is DESIGNED: " % dish_half
+                      + ", ".join("%s %g -> %g (%s)" % (c["held"], c["from"], c["to"], c["constraint"])
+                                  for c in m["design_changes"]))
             self.beam_design.update(**{k: m["kernel"][k] for k in ("a", "R", "f")})
             self.machine = m
             bad = {k: v for k, v in m["constraints"].items() if v != "holds"}

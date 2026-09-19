@@ -707,7 +707,7 @@ retrained against the loop it now lives in. (No training run was launched.)
   the film never below the bulk, the columns' energy identity, and the cap binding at 2 m.
 
 
-## The machine at any reflector size
+## The machine at any reflector size, and the design that makes it sound
 
 `Hashemi.lean` is one machine at one size - `dishR = 2`, `dishF = 1`, `dishHalf = 0.8` - and two
 hundred declarations that DERIVE the rest from those three: the sag (`HD_eq`), the screw length
@@ -715,39 +715,89 @@ hundred declarations that DERIVE the rest from those three: the sag (`HD_eq`), t
 hanger (`hangerLength_halfEdge`), the pulley (`pulley_above_pivot`), the mast (`mastClears_hashemi`),
 the dead point (`deadTan_at_ym`), the arm (`wireLever_rest_at_ym`), the post (`receiverPost_height`),
 the spot (`facetSpot_hashemi`). Each of those is a FUNCTION of the givens applied at one point.
-`RequestProject/HashemiScale.lean` names the point and runs them forwards:
+`RequestProject/HashemiScale.lean` names the point, runs them forwards - and then runs the
+constraints BACKWARDS, which is what makes a resize a design rather than a warning.
 
 * **`structure Givens`** - the reflector's half-side `a`, the proportions his figures fix against
-  it (`pR = R/a = 2.5`, `sideGap/a = 0.15`, `apexH/a = 1`, `(upright − FC)/a = 0.18125`,
-  `holeDown/a`, `(ym − FC)/a`, `hp/a = 0.425`, the rim hole at `a/2`, the leg's triangle as a
+  it (`pR = R/a = 2.5`, `sideGap/a = 0.15`, `apexH/a = 1`, `(upright - FC)/a = 0.18125`,
+  `holeDown/a`, `(ym - FC)/a`, `hp/a = 0.425`, the rim hole at `a/2`, the leg's triangle as a
   SIMILAR triangle - similarity is what preserves `brace_cuts_moment` and `brace_stiffens`
-  exactly), and the numbers the file fixes with no law attached, each marked
-  `-- held: the spec gives no law`: the 5 cm facet, the 12 cm coil, the 1.7° sensor, the dish's
-  weight, the wire's rating, the drum, the rod, the M12 bolt, the 5 W panel, the two motor rates.
-* **`derive : Givens → Machine`** - fifty-odd dependent dimensions, each field the file's own
+  exactly), and **the held set**: the numbers the file fixes with no law attached, each marked
+  `-- held: the spec gives no law`.
+* **`derive : Givens -> Machine`** - sixty-odd dependent dimensions, each field the file's own
   definition (`TandoorSphere.sag`, `screwLength`, `rollerRadius`, the bound of `edgeDepth_le`,
-  `braceHeight`, `hangerLength`, `rodTan`, `facetSpot`, `tiltOfMismatch`, `boltStress`) with the
+  `braceHeight`, `hangerLength`, `rodTan`, `facetSpot`, `tiltOfMismatch`, `boltStress`, and now
+  `HashemiOil.lean`'s `pumpElec`, `hCoil`, `filmTemp`, `expansionFrac`, `pipeArea`) with the
   constants replaced by the fields. Nothing is invented.
-* **`Sound : Machine → Prop`** - fifteen conjuncts, each a named constraint of the file
-  generalised: `dish_between_posts`, `MastClears`, `clearance_hashemi`, `dish_swings_to_vertical`,
-  `HangerClearsPost`, `setLength_surj`, `HoldsDish`, `sixty_reachable`, the coil over the facet's
-  own beam, `TrackerBudget`, `quantum_within_budget`, `m12_carries_dish`, `tracking_power_tiny`,
-  `one_turn_tilt`. **`sound_his : Sound (derive his)` is proved**, so nothing about his machine
-  moves. `ReachesVertical` is reported beside `Sound` and not inside it, because
-  `wire_short_of_vertical` says HIS machine fails it.
-* **`#machine 2.0`** (a command) and **`lake exe machine_scale <a> [out.json]`** print the derived
-  table with a verdict per constraint - `holds` / `FAILS` / `undecided`, never silence - and write
-  `hashemi_machine_<a>.json`. The exe first checks its Float twin against the intervals the
-  theorems PROVE at `a = 0.8` (`hisChecks`: `FH_bounds`, `FC_bounds`, `ymHashemi`,
-  `pulley_above_pivot`, `receiverPost_height`, `hangerLength_bounds`, `wireLever_rest_at_ym`,
-  `deadTan_at_ym`, `facetSpot_hashemi`, `slot_exit_hashemi`, `rollerRadius_hashemi_bounds`,
-  `sideGap_eq`, `braceHeight_hashemi`, `rodTan_bounds`, `wireLeft_at_ym`) and refuses to print if
-  one of them has drifted.
+* **`Sound = SoundGeom /\ SoundLoop`** - sixteen build conjuncts and three loop ones.
 
-`#machine 0.8` reproduces his build: bar 1.840, apex 0.800, rail 1.2192, FH 0.8330, F-C 1.1550,
-upright 1.3000, post 1.2500, mast 1.2200, pulley 0.3400, stand 1.5900, hanger 0.8845, rod lean
-27.0°, dead point 61.73°, arm at rest 1.034, slot exit 43.84°, spot at F 0.0593, tracker budget
-1.74°. All fifteen hold.
+### The held set
+
+| held | his value | why it is held |
+|---|---|---|
+| `w` | 0.05 m | a mirror tile (14): a bigger dish is more tiles, not bigger ones |
+| `rc` | 0.06 m | the coil, "a bigger spiral tube placed here is temporary" (14, 15) |
+| `tanEps` | 0.03 (1.72 deg) | `tracker_margin_hashemi`, the sensor his receiver allowed |
+| `azDeg`, `elDeg` | 0.035, 0.025 deg/s | the video gives neither drum nor ratios |
+| `W`, `Tmax`, `rDrum`, `rDrive`, `Fdrive`, `L10`, `rho` | 300 N, 2000 N, 0.03, 0.05, 10 N, 1e6, 0.85 | "a one-man lift"; no law from area to mass |
+| `dRod`, `dBolt`, `pitch`, `eyeOffset` | M10, M12, 1.5 mm | "M12, the user" |
+| `panelW`, `volts` | 5 W, 12 V | "a small 5 watt panel" |
+| `Ac`, `Dc`, `Dp`, `Lp`, `Qmax`, `etaP`, `Pidle`, `alphaC`, `Vtank` | 0.03 m2, 10 mm, 12 mm, 6 m, 6e-5 m3/s, 0.25, 8 W, 0.9, 1 L | **the video names no oil, no pump and no pipe diameter**: `LOOP_PARAMS` |
+
+### His machine's verdicts, including the loop
+
+`sound_his : SoundGeom (derive his)` is **proved**, so nothing about his build moves. The loop is
+reported, not weakened:
+
+* **`tank_holds_his`** (proved): the loop is 0.75 litre, Therminol 66 grows 30.9 % from the cold
+  fill to its bulk limit, so 0.23 litre must be taken and his 1 litre tank takes it.
+* **`pump_over_budget_his`** (proved): `pumpElec` at full flow is **8.54 W** against a panel of
+  5 W less the winch's 20 mW. His panel does not pay for a circulation pump. `pumpElec`'s own
+  honesty note said the standing draw is "of the order of the panel itself"; this is the
+  constraint that says so.
+* **`film_over_limit_his`** (proved, for any film coefficient under 1958 W/m2K; the Float twin
+  measures **1173**): his 0.03 m2 coil under his own 1958 W of sunlight puts the wall the oil
+  touches at **668 K**, over Therminol 66's 648 K film limit. His coil is too small for his own
+  sun - which is the same fact `film_limit_reachable` proves at the 2 m dish, at his own.
+* and therefore **`not_sound_his : ~ Sound (derive his)`** is a theorem.
+
+### Solving the held set: `#design`
+
+Every conjunct is an inequality in ONE held quantity. Solved for it, it is a design rule, and each
+solved value comes with a theorem that it satisfies its conjunct by construction:
+
+| solved | the rule | the theorem |
+|---|---|---|
+| `rcMin` | `rc >= spotW/2 + f tanEps` | `tracker_holds_of_rc` |
+| `epsMax` | `tanEps <= margin / f` (the sensor the coil allows) | `tracker_holds_of_eps` |
+| `wMax` | `w <= 2(rc - f tanEps) - 0.0093 f` (the facet it allows) | `tracker_holds_of_w` |
+| `panelMin` | `panelW >= pumpElec + trackW` | `pump_holds_of_panel` |
+| `AcMin`, `coilLenMin` | `Ac >= alpha Pin / (h (Tfilm_max - Tbulk_max))` | `film_holds_of_Ac` |
+| `tankMin` | `Vtank >= Vloop * expansion` | `tank_holds_of_tank` |
+
+`design : Givens -> Givens` is the pointwise maximum of the held value and its floor - the MINIMAL
+change - and `design_tracker`, `design_pump`, `design_film`, `design_tank` are proved of it.
+`film_fails_of_Ac_lt` is its converse, the finding at a coil that is too small.
+
+```
+$ lake exe machine_scale 2.0 --design
+#design 2.000000
+  held -> designed:
+  rc         0.060000 -> 0.111625   (TrackerBudget)
+  panelW     5.000000 -> 8.588642   (PumpWithinBudget)
+  Ac         0.030000 -> 0.313176   (FilmLimit)
+  the same budget, the other way: the sensor the coil allows is tanEps <= 0.009350
+  (0.5357 deg, his is 1.7184); the facet it allows is w <= -0.053250 (his is 0.05)
+  the coil the film limit demands is 0.313176 m2 = 9.97 m of 0.010 m tube
+  ... the designed machine: constraints (19 of 20 hold)   [only ReachesVertical, as ever]
+```
+
+The facet's floor is **negative** at `a = 2`: `f tanEps = 0.075` already exceeds the 12 cm coil's
+radius, so no facet, however fine, puts the beam inside it. That is the lever going dead, and the
+table says so rather than offering it.
+
+`#machine 2.0` reports the held machine; `#design 2.0` the designed one; and
+`#machine 2.0 with rc := 0.112, panelW := 13` is a what-if on any of the held names beside them.
 
 | | a = 0.8 (his) | a = 2.0 |
 |---|---|---|
@@ -756,46 +806,63 @@ upright 1.3000, post 1.2500, mast 1.2200, pulley 0.3400, stand 1.5900, hanger 0.
 | side, bar, rail | 1.600, 1.840, 1.219 | 4.000, 4.600, 3.048 |
 | F-C, upright, post to F | 1.1550, 1.3000, 1.2500 | 2.8874, 3.2499, 3.1249 |
 | mast station, pulley, stand | 1.2200, 0.3400, 1.5900 | 3.0499, 0.8500, 3.9749 |
-| hanger, rod lean | 0.8845, 27.0° | 2.2112, 27.0° |
-| dead point, arm at rest, wire taken in | 61.73°, 1.034, 1.134 | 61.73°, 2.585, 2.836 |
-| slot exit | 43.84° | 43.84° |
-| spot at F, coil margin, budget | 0.0593, 0.0303, 1.74° | 0.0733, 0.0234, **0.54°** |
+| hanger, rod lean | 0.8845, 27.0 deg | 2.2112, 27.0 deg |
+| dead point, arm at rest, wire taken in | 61.73 deg, 1.034, 1.134 | 61.73 deg, 2.585, 2.836 |
+| slot exit | 43.84 deg | 43.84 deg |
+| spot at F, coil margin, budget (HELD) | 0.0593, 0.0303, 1.74 deg | 0.0733, 0.0234, **0.54 deg** |
+| **designed** coil, panel, coil area | 0.060, 8.56 W, 0.0501 m2 | **0.1116**, 8.59 W, **0.3132 m2** |
 
-Every angle is invariant - the dead point, the swing range, the rod's lean, the slot's exit - and
-every length scales by `a/0.8`, because the derivation is a similarity on everything the file
-gives a proportion for. **What breaks is what the file holds fixed.** At `a = 2.0`:
+Every angle is invariant and every length scales by `a/0.8`, because the derivation is a
+similarity on everything the file gives a proportion for. **What breaks is what the file holds
+fixed**, and `design` is what the file's own inequalities say to do about it.
 
-* **`TrackerBudget` FAILS**: the coil stays 12 cm while `f` grows to 2.5 m, so the facet's beam is
-  7.3 cm at F and only 2.34 cm of margin is left; the budget falls from 1.74° to 0.54°, and his
-  sensor's 1.7° (`tracker_margin_hashemi`) is 3.2 times too coarse. A 2 m reflector needs a bigger
-  receiver or a better tracker, and the file says which by how much.
 * **`ReachesVertical` fails at both sizes**, unchanged: `wire_short_of_vertical`.
-* Everything else holds, but three of them hold only because of the file's silence: with the dish's
-  weight HELD at 300 N (`megaParams`' "one-man lift" - the file states no law by which mass follows
-  from area) `HoldsDish` keeps its factor of 7.7, `m12_carries_dish` falls from 3.6 to 1.44 and
-  `tracking_power_tiny` from 3.7 to 1.52 - those last two only because the eye's reach and the
-  centre of mass scale. Scale the mass as the area (6.25x) and the bolt goes over at once. The
-  honest reading is that the load constraints at `a = 2` are untested, not satisfied.
-* `one_turn_tilt` is invariant (`f/side` does not move): one turn of a rim nut is 0.94 mm at F at
-  any size, at 93 % of the 1 mm allowance.
+* The load constraints hold at `a = 2` only because of the file's silence: with the dish's weight
+  HELD at 300 N, `HoldsDish` keeps its factor of 7.7, `m12_carries_dish` falls from 3.6 to 1.44
+  and `tracking_power_tiny` from 3.7 to 1.52. Scale the mass as the area (6.25x) and the bolt
+  goes over at once. The honest reading is that they are untested, not satisfied - `design` does
+  not touch them, because no constraint of the file names the mass.
+* `one_turn_tilt` is invariant (`f/side` does not move): 0.94 mm at F at any size, 93 % of the
+  1 mm allowance.
 
 ### In the env
 
-`hashemi_tandoor_env.py`'s `dish_half` no longer scales anything: it READS
-`hashemi_machine_<a>.json` (shipped for 0.8 and 2.0, otherwise generated by `lake exe
-machine_scale`), feeds `kernel` (`R f a w rc`) and `mount` (`rDrum W rcm Tmax rho Fdrive L10
-rodLen`) to `env_params`/`beam_params`, and prints any constraint the spec does not call `holds`.
-The `a/0.4` scaling of commit 79645fdf is gone. **Not scaled in the kernel**: the wire's geometry
-(`ym`, `hp`, `ze`, `a`) is compiled into `megaStep` at his literals, so the kernel's elevation
-lever arm and dead point stay his; the JSON carries the derived ones for the host and for the
-build. Scaling those means recompiling the mount with `a` as an input.
+`hashemi_tandoor_env.py`'s `dish_half` READS `hashemi_machine_<a>.json` (or
+`hashemi_machine_<a>_designed.json`), feeds `kernel` (`R f a w rc`), `mount`
+(`rDrum W rcm Tmax rho Fdrive L10 rodLen`) and now `loop` (`Ac Qmax Dp Lp etaP Pidle alpha`) to
+`env_params`/`beam_params`, and prints either the constraints the spec does not call `holds` or,
+when designed, what had to change.
+
+**`dish_design` (the ini's knob) defaults to 1: a resize should be sound by default.** Set it to
+0 for the held machine and the warning, as before. Measured on day 172, lat 30.2, eight agents,
+the sensor loop with discrete heads, the bang-bang pump:
+
+| | rotis/day | capture | p_in (9 h) | max film | min margin | damage | P_pump | verdict |
+|---|---|---|---|---|---|---|---|---|
+| a = 0.8 held | 52.0 | 0.996 | 1451 W | 1078 K | -430 K | 3.4e+1 | 8.6 W | COOKS |
+| a = 0.8 designed | 48.0 | 0.996 | 1406 W | 949 K | -301 K | **1.7e+0** | 8.6 W | COOKS |
+| a = 2.0 held | 211.1 | 0.87 | 5711 W | 1590 K | -942 K | 8.3e+3 | 8.4 W | **DOES NOT COOK** |
+| a = 2.0 designed | 200.6 | **1.000** | 5740 W | 895 K | **-247 K** | **7.8e-2** | 8.4 W | **COOKS** |
+
+The designed coil is 10 times the held one's area, so it captures everything the bigger dish
+sends it (0.87 -> 1.000: `rc` at 0.112 m finally covers the 7.3 cm spot plus the sensor's error)
+and it radiates and convects away more of what it absorbs - which is why the rotis fall 5 % while
+the damage the fluid takes falls by **five orders of magnitude** and the machine goes from failing
+the day's test to passing it. The pump's power is unchanged (nothing in `design` moves `Qmax`);
+what moved is the panel that pays for it. Metal == NumPy on the same day (`--gpu 1`: 202 rotis
+against 200.6, the ray draws differing), 539 compiled functions agree, the round trip has 0 errors
+and 337 theorems, and every generated kernel is byte-identical for the held 0.8 machine.
 
 The one number the derivation carries as a proportion rather than a formula is `rcm` (the centre
 of mass below the bolt line): `megaParams` gives 0.9 m with the file's own reason - "the panel
 hangs between its vertex 1 m down and its rim 0.83 m down" - and both of those scale with `a`, so
 `rcm = 1.125 a` reproduces his 0.9 exactly (`derive_his_rcm`) and stays between `ze` and `f`
-(`derive_his_rcm_between`) at every size. At `a = 0.8` every mount parameter the env feeds the
-kernel is therefore identical to `env_params()`'s, and his machine's behaviour is untouched.
+(`derive_his_rcm_between`) at every size.
+
+**Not scaled in the kernel**: the wire's geometry (`ym`, `hp`, `ze`, `a`) is compiled into
+`megaStep` at his literals, so the kernel's elevation lever arm and dead point stay his; the JSON
+carries the derived ones for the host and for the build. Scaling those means recompiling the
+mount with `a` as an input.
 
 ## The scene as a printer
 

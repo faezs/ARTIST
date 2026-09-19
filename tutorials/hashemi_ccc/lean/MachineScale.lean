@@ -44,13 +44,18 @@ def main (args : List String) : IO UInt32 := do
   if a ≤ 0 then
     IO.eprintln "machine_scale: the half-side must be positive"
     return 1
-  IO.println (report a)
-  match args with
-  | _ :: out :: _ =>
-      IO.FS.writeFile out (machineJson a)
+  -- `--design`: SOLVE the held set at this size (HashemiScale.lean §4) instead of reporting it
+  -- held.  The JSON then carries the designed values and the changes that were made.
+  let designed := args.contains "--design"
+  let paths := (args.drop 1).filter (fun s => s != "--design")
+  if designed then IO.println (designReport { a := a } s!"#design {a}") else IO.println (report a)
+  let g : GivensF := if designed then designF { a := a } else { a := a }
+  match paths with
+  | out :: _ =>
+      IO.FS.writeFile out (if designed then machineJsonDesigned a else machineJson a)
       IO.println s!"wrote {out}"
   | _ => pure ()
-  let bad := (checksF (deriveF { a := a })).filter (fun r => r.2.2.2 != "holds")
+  let bad := (checksF (deriveF g)).filter (fun r => r.2.2.2 != "holds")
   for r in bad do
     IO.println s!"  NOT HELD: {r.1} ({r.2.2.2}: {r.2.1} < {r.2.2.1})"
   return 0

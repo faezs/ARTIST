@@ -48,21 +48,51 @@ Everything else the file fixes is a number with no law attached to it, and it is
   ones.  This is why `facetSpot = w + f * 0.0093` does not scale: its second term does and its
   first does not.
 * **the coil** `rc = 0.06` - "a bigger spiral tube ... placed here is temporary" (sections 14, 15).
-* **the sensor** `tanEps = 0.03` - `tracker_margin_hashemi`, the 1.7° his receiver allowed.
+* **the sensor** `tanEps = 0.03` - `tracker_margin_hashemi`, the 1.7 deg his receiver allowed.
 * **the weight** `W = 300` N, **the wire** `Tmax = 2000` N, **the drum** `rDrum = 0.03`, **the
   traction** `Fdrive = 10`, **the bearings** `L10 = 1e6`, **the mirror** `rho = 0.85`, **the rod**
   `dRod = 0.010` and **the bolt** `dBolt = 0.0101` with its pitch, **the panel** 5 W at 12 V,
-  **the motors** `azFull`/`elFull`.  The file states NO law by which any of them follows from the
-  dish - `megaParams`' W is "a one-man lift", the bolt is "M12, the user", the panel is "a small
-  5 watt panel" - so none of them is scaled here.  That silence is itself a finding: at `a = 2`
-  the load constraints (`HoldsDish`, `m12_carries_dish`, `tracking_power_tiny`) pass only because
-  the mass did not grow with the area, and the file gives nothing with which to make it grow.
+  **the motors** `azDeg`/`elDeg` (`azFull`/`elFull` in deg/s).
+* **the loop** (`HashemiOil.lean`, `hashemi_env_kernel.py`'s `LOOP_PARAMS`): the coil's surface
+  `Ac = 0.03` and bore `Dc = 0.010`, the run's bore `Dp = 0.012` and length `Lp = 6`, the pump's
+  full flow `Qmax`, its efficiency and its STANDING DRAW `Pidle = 8` W, the coil's absorptance,
+  the expansion tank.  The video names no oil, no pump and no pipe diameter at all.
+
+The file states NO law by which any of them follows from the dish - `megaParams`' W is "a one-man
+lift", the bolt is "M12, the user", the panel is "a small 5 watt panel" - so none of them is
+scaled here.  That silence is the whole subject of this file.
 
 ## What the check reports
 
-`Sound` is fifteen conjuncts, each the generalisation of a named constraint of the file.
+`SoundGeom` is sixteen conjuncts, each the generalisation of a named constraint of the file, and
+`SoundLoop` is three more from `HashemiOil.lean` - the pump inside the panel's budget, the
+stagnation film temperature under the fluid's limit, the expansion tank.  `Sound` is both.
 `ReachesVertical` is NOT among them: `wire_short_of_vertical` says his own machine fails it, so it
 is reported beside `Sound` as the file reports it - a limit, not a requirement.
+
+**`sound_his : SoundGeom (derive his)` is proved**, so nothing about his build moves.  The loop is
+a different story, and it is reported, not weakened: `tank_holds_his` is proved, but
+`pump_over_budget_his` proves his 5 W panel does NOT pay for an 8 W pump, and
+`film_over_limit_his` proves that at any film coefficient under 1958 W/m2K - the Float twin
+measures 1173 - his own 0.03 m2 coil at his own 1958 W of sunlight puts the oil's wall at 668 K,
+over Therminol 66's 648 K film limit.  So `not_sound_his : ~ Sound (derive his)` is a theorem.
+
+## Design by constraint
+
+Every conjunct is an inequality in ONE held quantity, and solved for it, it is a design rule
+(section 4): `rcMin` (the coil `TrackerBudget` needs), `epsMax` (the sensor that coil allows),
+`wMax` (the facet it allows - negative at `a = 2`, which is the lever going dead), `panelMin`
+(`PumpWithinBudget`), `AcMin` and `coilLenMin` (the film limit), `tankMin` (the expansion).  Each
+has a theorem that the solved value satisfies its conjunct BY CONSTRUCTION
+(`tracker_holds_of_rc`, `pump_holds_of_panel`, `film_holds_of_Ac`, `tank_holds_of_tank`), and
+`design` takes the pointwise maximum of the held value and its floor - the MINIMAL change to the
+held set - with `design_tracker`, `design_pump`, `design_film`, `design_tank` proved of it.
+
+`#machine 2.0` reports the held machine's verdicts, `#design 2.0` prints what had to change
+(`rc 0.060 -> 0.112 (TrackerBudget)`, `panelW 5 -> 8.59 (PumpWithinBudget)`,
+`Ac 0.030 -> 0.313 (FilmLimit)`) and the designed machine's verdicts, and
+`#machine 2.0 with rc := 0.112, panelW := 13` is the what-if beside it.  `lake exe machine_scale
+2.0 --design out.json` writes the designed machine for the env, with the changes recorded in it.
 -/
 import RequestProject.HashemiPolicy
 import RequestProject.HashemiTrace
@@ -145,6 +175,39 @@ structure Givens where
   panelW : ℝ := 5
   /-- the system's volts -- held -/
   volts : ℝ := 12
+  /-- the roller's rate at full command, deg/s (`HashemiPolicy.azFull`) -- held: the video gives
+  neither drum nor ratios, so the rate does not follow from the dish -/
+  azDeg : ℝ := 0.035
+  /-- the winch's rate at full command, deg/s (`HashemiPolicy.elFull`) -- held -/
+  elDeg : ℝ := 0.025
+  -- the loop (HashemiOil.lean).  The video names no oil, no pump and no pipe diameter; these are
+  -- `hashemi_env_kernel.py`'s `LOOP_PARAMS`, and every one of them is held for the same reason.
+  /-- the coil's wetted surface, m² -- held: the spec gives no law -/
+  Ac : ℝ := 0.03
+  /-- the coil's tube bore, m -- held -/
+  Dc : ℝ := 0.010
+  /-- the run's bore, m -- held -/
+  Dp : ℝ := 0.012
+  /-- the run's length, m -- held -/
+  Lp : ℝ := 6.0
+  /-- the pump at full command, m³/s -- held -/
+  Qmax : ℝ := 6.0e-5
+  /-- the pump's wire-to-water efficiency -- held -/
+  etaP : ℝ := 0.25
+  /-- the pump motor's standing draw, W -- held: `pumpElec`'s honesty note -/
+  Pidle : ℝ := 8.0
+  /-- the coil's absorptance -- held -/
+  alphaC : ℝ := 0.9
+  /-- the expansion tank, m³ -- held -/
+  Vtank : ℝ := 0.001
+  -- the design condition the loop's limits are read at: the sun the machine must survive, the
+  -- fill temperature the tank is sized from, and the temperature the pump's viscosity is read at
+  /-- the design DNI, W/m² (`film_limit_reachable`'s 900) -/
+  dniMax : ℝ := 900
+  /-- the cold fill, K (20 °C) -/
+  Tfill : ℝ := 293.15
+  /-- the temperature the pump's viscosity is read at, K (200 °C) -/
+  Tref : ℝ := 473.15
 
 /-- **his machine**: `a = dishHalf`, every proportion at the value his figures give -/
 def his : Givens where
@@ -228,6 +291,31 @@ structure Machine where
   rho : ℝ
   panelW : ℝ
   volts : ℝ
+  /-- the two motor rates as rad/s of the dish (`azFull`, `elFull`) -/
+  azFullM : ℝ
+  elFullM : ℝ
+  /-- the loop (14, 15; HashemiOil.lean): the coil's surface and bore, the run's bore and length,
+  the pump's full flow, efficiency and standing draw, the coil's absorptance, the tank -/
+  Ac : ℝ
+  Dc : ℝ
+  Dp : ℝ
+  Lp : ℝ
+  Qmax : ℝ
+  etaP : ℝ
+  Pidle : ℝ
+  alphaC : ℝ
+  Vtank : ℝ
+  /-- and what the loop's constraints are read from: the winch's own draw, the pump's electrical
+  power at full flow, the coil's film coefficient there, the light the coil must survive, the
+  stagnation film temperature at that light, the oil's expansion and the loop's volume -/
+  trackW : ℝ
+  pumpElecW : ℝ
+  hCoilW : ℝ
+  PinFull : ℝ
+  filmStag : ℝ
+  expFrac : ℝ
+  Vloop : ℝ
+  coilLen : ℝ
 
 /-- **the derivation**: every field is the file's own definition with his constants replaced by
 the givens.  Nothing here is new; the right-hand sides are `TandoorSphere.sag`, `screwLength`,
@@ -261,6 +349,13 @@ noncomputable def derive (g : Givens) : Machine :=
   let margin := g.rc - spotW / 2
   let rcm := g.kCm * a                                  -- megaParams 0.9: between the vertex (f) and the rim (ze)
   let boltReach := g.kEye * a
+  -- the loop, at the design condition (HashemiOil.lean's own functions, nothing new)
+  let trackW := g.W * rcm * 7.3e-5                      -- tracking_power_tiny's left side
+  let pumpElecW := pumpElec g.Qmax g.Dp g.Lp g.Tref g.etaP g.Pidle
+  let hCoilW := hCoil g.Qmax g.Dc oilBulkMax            -- the film coefficient at full flow
+  let PinFull := g.dniMax * (2 * a) ^ 2 * g.rho         -- the light on the coil at full sun
+  let filmStag := filmTemp oilBulkMax (g.alphaC * PinFull / g.Ac) hCoilW
+  let coilLen := g.Ac / (Real.pi * g.Dc)
   { a := a, R := R, f := f, sag := sag, ze := ze, side := side,
     chord := chord, apexH := apexH, aBase := g.kBase * a, cross := g.kCross * a,
     barW := g.kBarW * a, rRail := rRail, sideGap := sideGap,
@@ -285,7 +380,15 @@ noncomputable def derive (g : Givens) : Machine :=
     tiltPerTurn := g.pitch / side,                      -- tiltOfMismatch
     boltStress := boltStress g.W boltReach g.dBolt,    -- m12_carries_dish
     boltD := g.dBolt, W := g.W, Tmax := g.Tmax, rDrum := g.rDrum, rDrive := g.rDrive,
-    Fdrive := g.Fdrive, L10 := g.L10, rho := g.rho, panelW := g.panelW, volts := g.volts }
+    Fdrive := g.Fdrive, L10 := g.L10, rho := g.rho, panelW := g.panelW, volts := g.volts,
+    azFullM := g.azDeg * Real.pi / 180, elFullM := g.elDeg * Real.pi / 180,
+    Ac := g.Ac, Dc := g.Dc, Dp := g.Dp, Lp := g.Lp, Qmax := g.Qmax, etaP := g.etaP,
+    Pidle := g.Pidle, alphaC := g.alphaC, Vtank := g.Vtank,
+    trackW := trackW, pumpElecW := pumpElecW, hCoilW := hCoilW, PinFull := PinFull,
+    filmStag := filmStag,
+    expFrac := expansionFrac g.Tfill oilBulkMax,
+    Vloop := pipeArea g.Dp * g.Lp + g.Ac * g.Dc / 4,   -- (π Dc²/4)(Ac/(π Dc)): the π cancels
+    coilLen := coilLen }
 
 /-! ## 3. Soundness: the file's constraints, generalised -/
 
@@ -301,7 +404,7 @@ inside the wire's range (`sixty_reachable`); the coil is wider than the facet's 
 (`quantum_within_budget`); the pivot bolt carries the dish (`m12_carries_dish`); tracking costs
 under 1.5 % of the panel (`tracking_power_tiny`); one turn of a rim nut moves F under a
 millimetre (`one_turn_tilt`) -/
-def Sound (m : Machine) : Prop :=
+def SoundGeom (m : Machine) : Prop :=
   0 < m.a ∧
   m.side < m.chord ∧
   MastClears m.ym m.a m.ze ∧
@@ -314,10 +417,25 @@ def Sound (m : Machine) : Prop :=
     Real.cos (Real.pi / 3) * (m.ym * m.ze + m.hp * m.a) ∧
   0 < m.margin ∧
   m.f * m.tanEps ≤ m.margin ∧
-  azFull / 3 * 15 < m.budgetTan ∧ elFull / 3 * 15 < m.budgetTan ∧
+  m.azFullM / 3 * 15 < m.budgetTan ∧ m.elFullM / 3 * 15 < m.budgetTan ∧
   m.boltStress < 1.6e8 ∧
-  m.W * m.rcm * 7.3e-5 ≤ 0.015 * m.panelW ∧
+  m.trackW ≤ 0.015 * m.panelW ∧
   m.f * m.tiltPerTurn < 0.001
+
+/-- **the loop's constraints** (`HashemiOil.lean`), which are constraints on the same held set and
+so belong in the same check.  In order: the pump fits in what the panel has left after the winch
+(`PumpWithinBudget`, whose honesty note says the standing draw is "of the order of the panel
+itself"); the stagnation the oil's wall sees at full sun and full flow is under the fluid's
+maximum FILM temperature (`filmTemp` against `oilFilmMax` - the limit `film_limit_reachable`
+proves the machine can reach); and the expansion tank holds what the oil grows by between the
+cold fill and the bulk limit (`TankHolds`, `expansionFrac`). -/
+def SoundLoop (m : Machine) : Prop :=
+  PumpWithinBudget m.pumpElecW (m.panelW - m.trackW) ∧
+  m.filmStag ≤ oilFilmMax ∧
+  TankHolds m.Vtank m.Vloop m.expFrac
+
+/-- **the whole check**: the build's constraints and the loop's -/
+def Sound (m : Machine) : Prop := SoundGeom m ∧ SoundLoop m
 
 /-! ### His machine, unchanged
 
@@ -447,8 +565,10 @@ theorem derive_his_boltStress : (derive his).boltStress < 1.6e8 := by
     show boltStress 300 (0.0375 * 0.8) 0.0101 = _; norm_num
   rw [h]; exact m12_carries_dish (by norm_num)
 
-/-- **`Sound (derive his)`**: every constraint his file states, at his machine, proved -/
-theorem sound_his : Sound (derive his) := by
+/-- **`SoundGeom (derive his)`**: every constraint his file states about the BUILD, at his
+machine, proved.  (The loop's three are below: two hold and one - the pump's - his 5 W panel
+does not pay for, which is a finding of this file, not a licence to weaken the constraint.) -/
+theorem sound_his : SoundGeom (derive his) := by
   have hz := ze_bounds
   have hy := derive_his_ym
   have harm := derive_his_armRest
@@ -489,8 +609,10 @@ theorem sound_his : Sound (derive his) := by
   · -- the sensor inside the receiver's margin
     show (derive his).f * (0.03 : ℝ) ≤ (derive his).margin
     rw [derive_his_margin, derive_his_f]; norm_num
-  · rw [derive_his_budgetTan]; unfold azFull; nlinarith [Real.pi_le_four]
-  · rw [derive_his_budgetTan]; unfold elFull; nlinarith [Real.pi_le_four]
+  · show (0.035 : ℝ) * Real.pi / 180 / 3 * 15 < (derive his).budgetTan
+    rw [derive_his_budgetTan]; nlinarith [Real.pi_le_four]
+  · show (0.025 : ℝ) * Real.pi / 180 / 3 * 15 < (derive his).budgetTan
+    rw [derive_his_budgetTan]; nlinarith [Real.pi_le_four]
   · exact derive_his_boltStress
   · -- tracking under 1.5 % of the panel
     show (300 : ℝ) * (derive his).rcm * 7.3e-5 ≤ 0.015 * 5
@@ -499,7 +621,247 @@ theorem sound_his : Sound (derive his) := by
     show (derive his).f * (0.0015 / ((2 : ℝ) * 0.8)) < 0.001
     rw [derive_his_f]; norm_num
 
-/-! ## 4. The Float twin, the command, and the exe
+/-! ### The loop at his machine: two hold, one does not
+
+`HashemiOil.lean`'s three constraints are constraints on the same held set, so they are checked
+here.  Two of them his machine satisfies; the pump's budget it does not, and that is reported,
+not weakened. -/
+
+/-- the pump's hydraulic power is never negative, in either regime -/
+theorem pumpHyd_nonneg {Q D L T : ℝ} (hQ : 0 ≤ Q) (hD : 0 < D) (hL : 0 ≤ L)
+    (hT0 : 273.15 ≤ T) (hT1 : T ≤ oilBulkMax) : 0 ≤ pumpHyd Q D L T := by
+  have hA : 0 < pipeArea D := pipeArea_pos hD
+  have hv : 0 ≤ velOf Q D := div_nonneg hQ hA.le
+  have hρ : 0 < oilRho T := oilRho_pos hT0 hT1
+  have hμ : 0 < oilMu T := oilMu_pos T
+  unfold pumpHyd dPipe
+  split_ifs with h
+  · refine mul_nonneg ?_ hQ
+    unfold dpLam
+    exact div_nonneg (by positivity) (by positivity)
+  · refine mul_nonneg ?_ hQ
+    unfold dpTurb
+    have hf : 0 ≤ frictionBlasius (reynolds Q D T) := by
+      unfold frictionBlasius; exact div_nonneg (by norm_num) (Real.sqrt_nonneg _)
+    exact div_nonneg
+      (mul_nonneg (mul_nonneg (mul_nonneg hf (div_nonneg hL hD.le)) hρ.le) (sq_nonneg _))
+      (by norm_num)
+
+/-- **his 5 W panel does not pay for a circulation pump.**  `pumpElec`'s honesty note says the
+standing draw of a 12 V pump is "of the order of the panel itself", and the loop's own parameter
+file puts it at 8 W - above the whole panel, before the winch has taken its 20 mW.  The
+constraint is stated, the machine fails it, and `panelMin` below says by how much. -/
+theorem pump_over_budget_his :
+    ¬ PumpWithinBudget (derive his).pumpElecW ((derive his).panelW - (derive his).trackW) := by
+  have hnn : 0 ≤ pumpHyd (6.0e-5 : ℝ) 0.012 6.0 473.15 :=
+    pumpHyd_nonneg (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      (by unfold oilBulkMax; norm_num)
+  have he : (derive his).pumpElecW = pumpHyd (6.0e-5 : ℝ) 0.012 6.0 473.15 / 0.25 + 8.0 := by
+    show pumpElec (6.0e-5 : ℝ) 0.012 6.0 473.15 0.25 8.0 = _
+    unfold pumpElec; rw [if_pos (by norm_num)]
+  have ht : (derive his).panelW - (derive his).trackW
+      = (5 : ℝ) - 300 * (1.125 * 0.8) * 7.3e-5 := rfl
+  unfold PumpWithinBudget
+  rw [he, ht, not_le]
+  have : 0 ≤ pumpHyd (6.0e-5 : ℝ) 0.012 6.0 473.15 / 0.25 := div_nonneg hnn (by norm_num)
+  norm_num; linarith
+
+/-- **and so `Sound` does not hold at his machine**: the geometry does (`sound_his`), the loop
+does not.  This is the file saying what the video's own parameters cost. -/
+theorem not_sound_his : ¬ Sound (derive his) := fun h => pump_over_budget_his h.2.1
+
+/-- **his expansion tank holds**: the loop is 0.75 litre of oil and Therminol 66 grows by 30.9 %
+between the cold fill and its bulk limit, so 0.23 litre must be taken - the 1 litre tank is
+enough at both sizes (the run and the coil do not scale with `a` either). -/
+theorem tank_holds_his :
+    TankHolds (derive his).Vtank (derive his).Vloop (derive his).expFrac := by
+  have hpi := Real.pi_le_four
+  have hpi0 := Real.pi_pos
+  have hV0 : (derive his).Vloop = pipeArea (0.012 : ℝ) * 6.0 + (0.03 : ℝ) * 0.010 / 4 := rfl
+  unfold pipeArea at hV0
+  have hF0 : (derive his).expFrac = expansionFrac (293.15 : ℝ) oilBulkMax := rfl
+  have hF : (derive his).expFrac = oilRho 293.15 / oilRho oilBulkMax - 1 := by
+    rw [hF0]; unfold expansionFrac; rfl
+  have hT : (derive his).Vtank = (0.001 : ℝ) := rfl
+  -- the two densities, bounded by integers (the fill at 20 °C, the bulk cap at 345 °C)
+  have hd2 : (0 : ℝ) < oilRho oilBulkMax :=
+    oilRho_pos (by unfold oilBulkMax; norm_num) (le_refl _)
+  have h1u : oilRho 293.15 ≤ 1009 := by unfold oilRho celsius; norm_num
+  have h1l : (1008 : ℝ) ≤ oilRho 293.15 := by unfold oilRho celsius; norm_num
+  have h2u : oilRho oilBulkMax ≤ 771 := by unfold oilRho celsius oilBulkMax; norm_num
+  have h2l : (770 : ℝ) ≤ oilRho oilBulkMax := by unfold oilRho celsius oilBulkMax; norm_num
+  -- so the expansion is between 0 and 31.1 %
+  have hxu : oilRho 293.15 / oilRho oilBulkMax ≤ 1.311 := by
+    rw [div_le_iff₀ hd2]; nlinarith
+  have hxl : (1 : ℝ) ≤ oilRho 293.15 / oilRho oilBulkMax := by
+    rw [le_div_iff₀ hd2]; nlinarith
+  unfold TankHolds
+  rw [hV0, hF, hT]
+  nlinarith [hpi, hpi0, hxu, hxl]
+
+/-- **his coil is too small for his own sun.**  At `a = 0.8` the reflector puts 1958 W of
+sunlight on the coil at 900 W/m²; the coil absorbs 90 % of it over 0.03 m², which is 59 kW/m².
+The oil's wall sits `q''/h` above the bulk, so unless the film coefficient exceeds 1958 W/m²K
+the wall is over Therminol 66's 375 °C film limit at the bulk cap.  The Float twin evaluates
+`hCoil` at full flow: **1173 W/m²K**, and the stagnation film temperature is 668 K against a
+limit of 648 K.  `AcMin` below says the coil his own machine needs is 0.050 m², not 0.030. -/
+theorem film_over_limit_his {h : ℝ} (hh : 0 < h) (hb : h ≤ 1958) :
+    oilFilmMax < filmTemp oilBulkMax
+      ((derive his).alphaC * (derive his).PinFull / (derive his).Ac) h := by
+  have hq : (derive his).alphaC * (derive his).PinFull / (derive his).Ac = 58752 := by
+    show (0.9 : ℝ) * (900 * (2 * 0.8) ^ 2 * 0.85) / 0.03 = _; norm_num
+  unfold filmTemp oilFilmMax oilBulkMax
+  rw [hq, ← sub_lt_iff_lt_add', lt_div_iff₀ hh]
+  nlinarith
+
+/-! ## 4. Design by constraint: the held quantities SOLVED
+
+Every conjunct of `Sound` is an inequality in ONE held quantity that the spec does not scale.
+Solved for that quantity, it is a design rule: the smallest coil the tracker allows, the coarsest
+sensor the coil allows, the widest facet, the smallest panel the pump and the winch fit in, the
+coil area the fluid's film limit demands, the tank the oil's expansion demands.  Each is a
+definition with a theorem that the solved value satisfies the constraint BY CONSTRUCTION, and
+`design` is the pointwise maximum of the held value and its floor - the minimal change to the
+held set that makes the constraint hold. -/
+
+/-- **the coil the tracker needs**: `TrackerBudget` is `f tanEps ≤ rc - spotW/2`, solved for `rc`.
+The spot at `F` grows with `f` and the pointing error is `f tanEps`, so both terms scale while
+his 12 cm coil does not - which is exactly why `#machine 2.0` fails. -/
+noncomputable def rcMin (g : Givens) : ℝ := (derive g).spotW / 2 + (derive g).f * g.tanEps
+
+theorem tracker_holds_of_rc {g : Givens} (h : rcMin g ≤ g.rc) :
+    (derive g).f * (derive g).tanEps ≤ (derive g).margin := by
+  have e1 : (derive g).margin = g.rc - (derive g).spotW / 2 := rfl
+  have e2 : (derive g).tanEps = g.tanEps := rfl
+  unfold rcMin at h
+  rw [e1, e2]; linarith
+
+/-- **the sensor the coil allows**, the same inequality solved for `tanEps` instead: the
+alternative to a bigger coil is a better tracker, and this is how much better. -/
+noncomputable def epsMax (g : Givens) : ℝ := (derive g).margin / (derive g).f
+
+theorem tracker_holds_of_eps {g : Givens} (hf : 0 < (derive g).f) (h : g.tanEps ≤ epsMax g) :
+    (derive g).f * (derive g).tanEps ≤ (derive g).margin := by
+  have e2 : (derive g).tanEps = g.tanEps := rfl
+  have := mul_le_mul_of_nonneg_left h hf.le
+  rw [e2]
+  unfold epsMax at this
+  rwa [mul_div_cancel₀ _ hf.ne'] at this
+
+/-- **the facet the coil allows**, the same inequality solved for `w`: `spotW = w + 0.0093 f`, so
+smaller tiles buy margin one for one.  It can be NEGATIVE - at `a = 2` the pointing term
+`f tanEps = 0.075` already exceeds the 12 cm coil's radius, so no facet, however fine, puts the
+beam inside it.  That is the lever going dead, and the table says so. -/
+noncomputable def wMax (g : Givens) : ℝ :=
+  2 * (g.rc - (derive g).f * g.tanEps) - (derive g).f * 0.0093
+
+theorem tracker_holds_of_w {g : Givens} (h : g.w ≤ wMax g) :
+    (derive g).f * (derive g).tanEps ≤ (derive g).margin := by
+  have e1 : (derive g).margin = g.rc - (derive g).spotW / 2 := rfl
+  have e2 : (derive g).tanEps = g.tanEps := rfl
+  have e3 : (derive g).spotW = g.w + (derive g).f * 0.0093 := rfl
+  unfold wMax at h
+  rw [e1, e2, e3]; linarith
+
+/-- **the panel the loop needs**: `PumpWithinBudget` with the winch's own draw taken out first,
+solved for the panel. -/
+noncomputable def panelMin (g : Givens) : ℝ := (derive g).pumpElecW + (derive g).trackW
+
+theorem pump_holds_of_panel {g : Givens} (h : panelMin g ≤ g.panelW) :
+    PumpWithinBudget (derive g).pumpElecW ((derive g).panelW - (derive g).trackW) := by
+  have e : (derive g).panelW = g.panelW := rfl
+  unfold PumpWithinBudget panelMin at *
+  rw [e]; linarith
+
+/-- **the coil the fluid needs**: the film limit `Tbulk + α Pin / (Ac h) ≤ oilFilmMax` at the
+bulk cap and the design sun, solved for the coil's area.  The 30 K between `oilBulkMax` and
+`oilFilmMax` is the whole allowance, which is why the area it demands is large. -/
+noncomputable def AcMin (g : Givens) : ℝ :=
+  g.alphaC * (derive g).PinFull / ((derive g).hCoilW * (oilFilmMax - oilBulkMax))
+
+/-- and the tube that carries it, `Ac = π Dc L` -/
+noncomputable def coilLenMin (g : Givens) : ℝ := AcMin g / (Real.pi * g.Dc)
+
+theorem coilLenMin_area {g : Givens} (hD : 0 < g.Dc) :
+    Real.pi * g.Dc * coilLenMin g = AcMin g := by
+  unfold coilLenMin
+  field_simp
+
+theorem film_holds_of_Ac {g : Givens} (hh : 0 < (derive g).hCoilW)
+    (hq : 0 ≤ g.alphaC * (derive g).PinFull) (hA0 : 0 < g.Ac) (hA : AcMin g ≤ g.Ac) :
+    (derive g).filmStag ≤ oilFilmMax := by
+  have e : (derive g).filmStag
+      = filmTemp oilBulkMax (g.alphaC * (derive g).PinFull / g.Ac) (derive g).hCoilW := rfl
+  have h30 : (0 : ℝ) < oilFilmMax - oilBulkMax := by unfold oilFilmMax oilBulkMax; norm_num
+  unfold AcMin at hA
+  rw [div_le_iff₀ (by positivity)] at hA
+  rw [e]
+  unfold filmTemp
+  rw [div_div, ← sub_nonneg]
+  have : g.alphaC * (derive g).PinFull / (g.Ac * (derive g).hCoilW) ≤ oilFilmMax - oilBulkMax := by
+    rw [div_le_iff₀ (by positivity)]
+    nlinarith
+  linarith
+
+/-- and its converse, the finding at a coil that is too small -/
+theorem film_fails_of_Ac_lt {g : Givens} (hh : 0 < (derive g).hCoilW)
+    (hq : 0 < g.alphaC * (derive g).PinFull) (hA0 : 0 < g.Ac) (hA : g.Ac < AcMin g) :
+    oilFilmMax < (derive g).filmStag := by
+  have e : (derive g).filmStag
+      = filmTemp oilBulkMax (g.alphaC * (derive g).PinFull / g.Ac) (derive g).hCoilW := rfl
+  have h30 : (0 : ℝ) < oilFilmMax - oilBulkMax := by unfold oilFilmMax oilBulkMax; norm_num
+  unfold AcMin at hA
+  rw [lt_div_iff₀ (by positivity)] at hA
+  rw [e]
+  unfold filmTemp
+  have : oilFilmMax - oilBulkMax
+      < g.alphaC * (derive g).PinFull / (g.Ac * (derive g).hCoilW) := by
+    rw [lt_div_iff₀ (by positivity)]
+    nlinarith
+  rw [div_div]
+  linarith
+
+/-- **the tank the oil needs**: `TankHolds`, solved for the tank -/
+noncomputable def tankMin (g : Givens) : ℝ := (derive g).Vloop * (derive g).expFrac
+
+theorem tank_holds_of_tank {g : Givens} (h : tankMin g ≤ g.Vtank) :
+    TankHolds (derive g).Vtank (derive g).Vloop (derive g).expFrac := h
+
+/-- **the design**: the minimal change to the held set that makes the constraints that name a
+held quantity hold at this size.  Each floor depends only on quantities `design` does not move
+(the coil's floor on `w`, `f` and the sensor; the panel's on the pump and the winch; the coil
+area's on the sun and the flow), so one pass is a fixed point - except the tank, which is sized
+from the loop's volume and so is set after the coil. -/
+noncomputable def design (g : Givens) : Givens :=
+  let g₁ : Givens := { g with rc := max g.rc (rcMin g), panelW := max g.panelW (panelMin g),
+                              Ac := max g.Ac (AcMin g) }
+  { g₁ with Vtank := max g₁.Vtank (tankMin g₁) }
+
+theorem design_a (g : Givens) : (design g).a = g.a := rfl
+
+/-- **the designed machine meets the tracker's budget**, by construction -/
+theorem design_tracker (g : Givens) :
+    (derive (design g)).f * (derive (design g)).tanEps ≤ (derive (design g)).margin :=
+  tracker_holds_of_rc (le_max_right _ _)
+
+/-- **and the pump's budget** -/
+theorem design_pump (g : Givens) :
+    PumpWithinBudget (derive (design g)).pumpElecW
+      ((derive (design g)).panelW - (derive (design g)).trackW) :=
+  pump_holds_of_panel (le_max_right _ _)
+
+/-- **and the film limit**, given a film coefficient and a sun -/
+theorem design_film {g : Givens} (hh : 0 < (derive g).hCoilW)
+    (hq : 0 < g.alphaC * (derive g).PinFull) (hA0 : 0 < g.Ac) :
+    (derive (design g)).filmStag ≤ oilFilmMax :=
+  film_holds_of_Ac hh hq.le (lt_of_lt_of_le hA0 (le_max_left _ _)) (le_max_right _ _)
+
+/-- **and the tank** -/
+theorem design_tank (g : Givens) :
+    TankHolds (derive (design g)).Vtank (derive (design g)).Vloop (derive (design g)).expFrac :=
+  tank_holds_of_tank (le_max_right _ _)
+
+/-! ## 5. The Float twin, the command, and the exe
 
 `derive` is `Real`: its fields are `Real.sqrt`, and no command can print them.  `deriveF` is the
 same arithmetic in `Float`, line for line, and the exe checks it against the intervals the
@@ -543,6 +905,54 @@ structure GivensF where
   dBolt : Float := 0.0101
   panelW : Float := 5
   volts : Float := 12
+  azDeg : Float := 0.035
+  elDeg : Float := 0.025
+  Ac : Float := 0.03
+  Dc : Float := 0.010
+  Dp : Float := 0.012
+  Lp : Float := 6.0
+  Qmax : Float := 6.0e-5
+  etaP : Float := 0.25
+  Pidle : Float := 8.0
+  alphaC : Float := 0.9
+  Vtank : Float := 0.001
+  dniMax : Float := 900
+  Tfill : Float := 293.15
+  Tref : Float := 473.15
+
+/-! ### The loop's correlations in Float, line for line with `HashemiOil.lean` -/
+
+def piF : Float := 3.14159265358979323846
+def oilBulkMaxF : Float := 618.15
+def oilFilmMaxF : Float := 648.15
+
+def oilRhoF (T : Float) : Float := let c := T - 273.15; 1020.62 - 0.614254 * c - 0.000321 * c * c
+def oilCpF (T : Float) : Float :=
+  let c := T - 273.15; 1000 * (1.496005 + 0.003313 * c + 0.0000008970757 * c * c)
+def oilKF (T : Float) : Float :=
+  let c := T - 273.15; 0.118294 - 0.000033 * c - 0.00000015 * c * c
+def oilMuF (T : Float) : Float := Float.exp (586.375 / (T - 273.15 + 62.5) - 2.2809) / 1000
+
+def pipeAreaF (D : Float) : Float := piF * D * D / 4
+def velOfF (Q D : Float) : Float := Q / pipeAreaF D
+def reynoldsF (Q D T : Float) : Float := oilRhoF T * velOfF Q D * D / oilMuF T
+
+/-- `dPipe`'s two branches, `pumpHyd`, `pumpElec` (the standing draw whenever the pump turns) -/
+def pumpElecF (Q D L T η Pidle : Float) : Float :=
+  let v := velOfF Q D
+  let Re := reynoldsF Q D T
+  let dP := if Re < 2300 then 32 * oilMuF T * L * v / (D * D)
+            else (0.3164 / Float.sqrt (Float.sqrt (max Re 1))) * (L / D) * oilRhoF T * v * v / 2
+  dP * Q / η + (if 0 < Q then Pidle else 0)
+
+/-- `hCoil`: `Nu k / D`, laminar `48/11` or Dittus-Boelter -/
+def hCoilF (Q D T : Float) : Float :=
+  let Re := reynoldsF Q D T
+  let Pr := oilMuF T * oilCpF T / oilKF T
+  let Nu := if Re < 2300 then 4.364
+            else 0.023 * Float.exp (0.8 * Float.log (max Re 1))
+                       * Float.exp (0.4 * Float.log (max Pr 0.01))
+  Nu * oilKF T / D
 
 /-- the machine in Float: the same fields, as `(name, value)` so the table and the JSON are one
 list and cannot disagree -/
@@ -579,6 +989,14 @@ def deriveF (g : GivensF) : Array (String × Float) :=
   let rcm := g.kCm * a
   let boltReach := g.kEye * a
   let deadTan := (ym * ze + hp * a) / (ym * a - hp * ze)
+  -- the loop at the design condition (HashemiOil.lean's functions, in Float)
+  let trackW := g.W * rcm * 7.3e-5
+  let pumpElecW := pumpElecF g.Qmax g.Dp g.Lp g.Tref g.etaP g.Pidle
+  let hCoilW := hCoilF g.Qmax g.Dc oilBulkMaxF
+  let PinFull := g.dniMax * (2 * a) * (2 * a) * g.rho
+  let filmStag := oilBulkMaxF + g.alphaC * PinFull / g.Ac / hCoilW
+  let expFrac := oilRhoF g.Tfill / oilRhoF oilBulkMaxF - 1
+  let Vloop := pipeAreaF g.Dp * g.Lp + g.Ac * g.Dc / 4
   #[("a", a), ("R", R), ("f", f), ("sag", sag), ("ze", ze), ("side", side),
     ("chord", chord), ("apexH", apexH), ("aBase", g.kBase * a), ("cross", g.kCross * a),
     ("barW", g.kBarW * a), ("rRail", rRail), ("sideGap", sideGap),
@@ -598,7 +1016,14 @@ def deriveF (g : GivensF) : Array (String × Float) :=
     ("boltStress", (g.W / 2 * boltReach) / (3.14159265358979323846 * g.dBolt * g.dBolt * g.dBolt / 32)),
     ("boltD", g.dBolt), ("W", g.W), ("Tmax", g.Tmax), ("rDrum", g.rDrum), ("rDrive", g.rDrive),
     ("Fdrive", g.Fdrive), ("L10", g.L10), ("rho", g.rho), ("panelW", g.panelW),
-    ("volts", g.volts)]
+    ("volts", g.volts),
+    ("azFullM", g.azDeg * piF / 180), ("elFullM", g.elDeg * piF / 180),
+    ("Ac", g.Ac), ("Dc", g.Dc), ("Dp", g.Dp), ("Lp", g.Lp), ("Qmax", g.Qmax),
+    ("etaP", g.etaP), ("Pidle", g.Pidle), ("alphaC", g.alphaC), ("Vtank", g.Vtank),
+    ("coilLen", g.Ac / (piF * g.Dc)),
+    ("trackW", trackW), ("pumpElecW", pumpElecW), ("hCoilW", hCoilW), ("PinFull", PinFull),
+    ("filmStag", filmStag), ("expFrac", expFrac), ("Vloop", Vloop),
+    ("tanEpsDeg", Float.atan g.tanEps * 180.0 / piF)]
 
 /-- a field of the derived table -/
 def fieldOf (m : Array (String × Float)) (n : String) : Float :=
@@ -616,12 +1041,21 @@ def verdict (lhs rhs : Float) : String :=
   let s := max 1.0 (max lhs.abs rhs.abs)
   if (rhs - lhs).abs ≤ 1e-9 * s then "undecided" else if lhs < rhs then "holds" else "FAILS"
 
+/-- a verdict on a constraint the file states with `≤`: two sides that agree to within `1e-9`
+of their scale SATISFY it, so this one reports `holds` there rather than `undecided` -/
+def verdictLe (lhs rhs : Float) : String :=
+  let s := max 1.0 (max lhs.abs rhs.abs)
+  if (rhs - lhs).abs ≤ 1e-9 * s then "holds" else if lhs < rhs then "holds" else "FAILS"
+
 /-- **`Sound`, conjunct by conjunct, as `lhs < rhs`**: the same fifteen, in the same order, and
 then `ReachesVertical` - which `wire_short_of_vertical` says HIS machine fails, so it is reported
 apart, as the file reports it -/
 def checksF (m : Array (String × Float)) : Array (String × Float × Float × String) :=
   let g := fieldOf m
   let row (n : String) (lhs rhs : Float) := (n, lhs, rhs, verdict lhs rhs)
+  -- the conjuncts `Sound` states with `≤` rather than `<`: equality satisfies them, so the
+  -- machine `design` puts exactly on the line is reported `holds`, not `undecided`
+  let rowLe (n : String) (lhs rhs : Float) := (n, lhs, rhs, verdictLe lhs rhs)
   #[row "positive_a" 0 (g "a"),
     row "dish_between_posts" (g "side") (g "chord"),
     row "MastClears" (g "FC") (g "ym"),
@@ -629,27 +1063,106 @@ def checksF (m : Array (String × Float)) : Array (String × Float × Float × S
     row "dish_swings_to_vertical" (g "a") (g "postH"),
     row "HangerClearsPost" (0.010 / 2) 0.010,
     row "rod_sets_hanger" (g "hanger") (g "rodLen"),
-    row "HoldsDish" (g "W" * g "rcm") (g "Tmax" * g "armRest"),
+    rowLe "HoldsDish" (g "W" * g "rcm") (g "Tmax" * g "armRest"),
     row "sixty_reachable" (0.8660254038 * (g "ym" * g "a" - g "hp" * g "ze"))
       (0.5 * (g "ym" * g "ze" + g "hp" * g "a")),
     row "coil_covers_facet" (g "spotW" / 2) (g "rc"),
-    row "TrackerBudget" (g "f" * g "tanEps") (g "margin"),
-    row "quantum_within_budget_az" (azFullF / 3 * 15) (g "budgetTan"),
-    row "quantum_within_budget_el" (elFullF / 3 * 15) (g "budgetTan"),
+    rowLe "TrackerBudget" (g "f" * g "tanEps") (g "margin"),
+    row "quantum_within_budget_az" (g "azFullM" / 3 * 15) (g "budgetTan"),
+    row "quantum_within_budget_el" (g "elFullM" / 3 * 15) (g "budgetTan"),
     row "m12_carries_dish" (g "boltStress") 1.6e8,
-    row "tracking_power_tiny" (g "W" * g "rcm" * 7.3e-5) (0.015 * g "panelW"),
+    rowLe "tracking_power_tiny" (g "trackW") (0.015 * g "panelW"),
     row "one_turn_tilt" (g "f" * g "tiltPerTurn") 0.001,
+    -- the loop (HashemiOil.lean): the pump in the panel, the film under the fluid's limit, the tank
+    rowLe "PumpWithinBudget" (g "pumpElecW") (g "panelW" - g "trackW"),
+    rowLe "FilmLimit" (g "filmStag") oilFilmMaxF,
+    rowLe "TankHolds" (g "Vloop" * g "expFrac") (g "Vtank"),
     row "ReachesVertical (not in Sound: wire_short_of_vertical)"
       (g "ym" * g "a") (g "hp" * g "ze")]
 
-/-- the report: the derived table, then the verdicts -/
-def report (a : Float) : String :=
-  let m := deriveF { a := a }
+/-! ### `solve` in Float: the held quantity each constraint names, and the design
+
+The same definitions as §4, on the derived table.  `designF` is `design`: the pointwise maximum
+of the held value and the floor its constraint gives, the coil first and the tank after it. -/
+
+def rcMinF (m : Array (String × Float)) : Float := fieldOf m "spotW" / 2 + fieldOf m "f" * fieldOf m "tanEps"
+def epsMaxF (m : Array (String × Float)) : Float := fieldOf m "margin" / fieldOf m "f"
+def wMaxF (m : Array (String × Float)) : Float :=
+  2 * (fieldOf m "rc" - fieldOf m "f" * fieldOf m "tanEps") - fieldOf m "f" * 0.0093
+def panelMinF (m : Array (String × Float)) : Float := fieldOf m "pumpElecW" + fieldOf m "trackW"
+def AcMinF (m : Array (String × Float)) : Float :=
+  fieldOf m "alphaC" * fieldOf m "PinFull" / (fieldOf m "hCoilW" * (oilFilmMaxF - oilBulkMaxF))
+def coilLenMinF (m : Array (String × Float)) : Float := AcMinF m / (piF * fieldOf m "Dc")
+def tankMinF (m : Array (String × Float)) : Float := fieldOf m "Vloop" * fieldOf m "expFrac"
+
+/-- **the designed givens**: the held set with every floor applied -/
+def designF (g : GivensF) : GivensF :=
+  let m := deriveF g
+  let g₁ : GivensF := { g with rc := max g.rc (rcMinF m),
+                               panelW := max g.panelW (panelMinF m),
+                               Ac := max g.Ac (AcMinF m) }
+  { g₁ with Vtank := max g₁.Vtank (tankMinF (deriveF g₁)) }
+
+/-- the held quantities `#machine ... with ...` can override -/
+def knownHeld : Array String :=
+  #["a", "w", "rc", "tanEps", "panelW", "volts", "W", "Tmax", "rho", "azDeg", "elDeg",
+    "Ac", "Dc", "Dp", "Lp", "Qmax", "etaP", "Pidle", "alphaC", "Vtank", "dniMax", "Tfill", "Tref"]
+
+def applyOv (g : GivensF) (os : Array (String × Float)) : GivensF :=
+  os.foldl (fun g p =>
+    match p.1 with
+    | "a" => { g with a := p.2 }        | "w" => { g with w := p.2 }
+    | "rc" => { g with rc := p.2 }      | "tanEps" => { g with tanEps := p.2 }
+    | "panelW" => { g with panelW := p.2 } | "volts" => { g with volts := p.2 }
+    | "W" => { g with W := p.2 }        | "Tmax" => { g with Tmax := p.2 }
+    | "rho" => { g with rho := p.2 }    | "azDeg" => { g with azDeg := p.2 }
+    | "elDeg" => { g with elDeg := p.2 } | "Ac" => { g with Ac := p.2 }
+    | "Dc" => { g with Dc := p.2 }      | "Dp" => { g with Dp := p.2 }
+    | "Lp" => { g with Lp := p.2 }      | "Qmax" => { g with Qmax := p.2 }
+    | "etaP" => { g with etaP := p.2 }  | "Pidle" => { g with Pidle := p.2 }
+    | "alphaC" => { g with alphaC := p.2 } | "Vtank" => { g with Vtank := p.2 }
+    | "dniMax" => { g with dniMax := p.2 } | "Tfill" => { g with Tfill := p.2 }
+    | "Tref" => { g with Tref := p.2 }  | _ => g) g
+
+/-- **the design table**: per held quantity, the value his spec gives, the value the constraint
+demands at this size, and which constraint demanded it.  Only the ones that had to move. -/
+def designRows (g : GivensF) : Array (String × Float × Float × String) :=
+  let d := designF g
+  (#[("rc", g.rc, d.rc, "TrackerBudget"), ("panelW", g.panelW, d.panelW, "PumpWithinBudget"),
+     ("Ac", g.Ac, d.Ac, "FilmLimit"), ("Vtank", g.Vtank, d.Vtank, "TankHolds")] :
+     Array (String × Float × Float × String)).filter (fun r => r.2.1 < r.2.2.1)
+
+/-- the derived table and the verdicts, for any givens -/
+def reportG (title : String) (g : GivensF) : String :=
+  let m := deriveF g
   let rows := m.foldl (fun s p => s ++ s!"  {p.1.pushn ' ' (if p.1.length < 16 then 16 - p.1.length else 0)} {p.2}\n") ""
   let ok := (checksF m).foldl (fun n r => if r.2.2.2 == "holds" then n + 1 else n) 0
   let ver := (checksF m).foldl
     (fun s r => s ++ s!"  {r.1.pushn ' ' (if r.1.length < 46 then 46 - r.1.length else 0)} {r.2.2.2}   {r.2.1} < {r.2.2.1}\n") ""
-  s!"#machine {a}\n{rows}\n  constraints ({ok} of {(checksF m).size} hold):\n{ver}"
+  s!"{title}\n{rows}\n  constraints ({ok} of {(checksF m).size} hold):\n{ver}"
+
+/-- the report: the derived table, then the verdicts -/
+def report (a : Float) : String := reportG s!"#machine {a}" { a := a }
+
+/-- **the design report**: what had to change, what it costs, and the alternatives the same
+inequality offers - the sensor the coil allows and the facet it allows, which is the other way to
+buy the tracker's budget - followed by the designed machine's own verdicts. -/
+def designReport (g : GivensF) (title : String) : String :=
+  let m := deriveF g
+  let d := designF g
+  let tbl := (designRows g).foldl
+    (fun s r => s ++ s!"  {r.1.pushn ' ' (if r.1.length < 10 then 10 - r.1.length else 0)} {r.2.1} -> {r.2.2.1}   ({r.2.2.2})\n") ""
+  let tbl := if tbl.isEmpty then "  (nothing had to change: the held set is already sound here)\n" else tbl
+  let epsDeg := Float.atan (epsMaxF m) * 180.0 / piF
+  let hisDeg := Float.atan (fieldOf m "tanEps") * 180.0 / piF
+  let hisW := fieldOf m "w"
+  let dc := fieldOf m "Dc"
+  let alt :=
+    s!"  the same budget, the other way: the sensor the coil allows is tanEps <= {epsMaxF m} " ++
+    s!"({epsDeg} deg, his is {hisDeg}); " ++
+    s!"the facet it allows is w <= {wMaxF m} (his is {hisW})\n" ++
+    s!"  the coil the film limit demands is {AcMinF m} m2 = {coilLenMinF m} m of {dc} m tube\n"
+  s!"{title}\n  held -> designed:\n{tbl}{alt}\n" ++ reportG "  the designed machine:" d
 
 /-- **`#machine 2.0`**: the whole machine at that half-side, and every constraint's verdict -/
 def floatOfSyntax (s : Syntax) : Option Float :=
@@ -662,13 +1175,43 @@ def floatOfSyntax (s : Syntax) : Option Float :=
 elab "#machine " t:term : command => do
   match floatOfSyntax t with
   | some a => logInfo (report a)
-  | none => throwError "#machine takes a numeral, e.g. #machine 2.0" 
+  | none => throwError "#machine takes a numeral, e.g. #machine 2.0"
+
+/-- one `held := value` override -/
+syntax heldOv := ident " := " term
+
+/-- the overrides of a `with` clause, checked against `knownHeld` -/
+def ovsOf (ss : Array Syntax) : CommandElabM (Array (String × Float)) := do
+  let mut os : Array (String × Float) := #[]
+  for s in ss do
+    let n := s[0].getId.toString
+    unless knownHeld.contains n do
+      throwError s!"{n} is not a held quantity; the held set is {knownHeld}"
+    match floatOfSyntax s[2] with
+    | some v => os := os.push (n, v)
+    | none => throwError s!"{n} := ... takes a numeral"
+  return os
+
+/-- **`#machine 2.0 with rc := 0.10, panelW := 13`**: the same table and verdicts with some of
+the held set replaced by hand - the what-if beside the solved design -/
+elab "#machine " t:term " with " ovs:heldOv,+ : command => do
+  match floatOfSyntax t with
+  | none => throwError "#machine takes a numeral, e.g. #machine 2.0"
+  | some a =>
+    let os ← ovsOf (ovs.getElems.map (·.raw))
+    logInfo (reportG s!"#machine {a} with {os.map (fun p => s!"{p.1} := {p.2}")}" (applyOv { a := a } os))
+
+/-- **`#design 2.0`**: the minimal changes to the held set that make `Sound` hold at that size -/
+elab "#design " t:term : command => do
+  match floatOfSyntax t with
+  | some a => logInfo (designReport { a := a } s!"#design {a}")
+  | none => throwError "#design takes a numeral, e.g. #design 2.0"
 
 /-- the JSON the runtime reads: the kernel's optics inputs (`R f a w rc`), the mount parameters
 (`megaParams`: `rDrum W rcm Tmax rho Fdrive L10 rodLen`), the build's dimensions, and the
 verdicts, so the env can refuse a machine the spec says is unsound -/
-def machineJson (a : Float) : String :=
-  let m := deriveF { a := a }
+def machineJsonG (a : Float) (g₀ : GivensF) (designed : Bool) (changes : Array (String × Float × Float × String)) : String :=
+  let m := deriveF g₀
   let g := fieldOf m
   let quote (s : String) := "\"" ++ s ++ "\""
   let pairs := m.foldl (fun acc p => acc.push s!"    {quote p.1}: {p.2}") #[]
@@ -683,13 +1226,34 @@ def machineJson (a : Float) : String :=
     s!"    {quote "rcm"}: {g "rcm"}", s!"    {quote "Tmax"}: {g "Tmax"}",
     s!"    {quote "rho"}: {g "rho"}", s!"    {quote "Fdrive"}: {g "Fdrive"}",
     s!"    {quote "L10"}: {g "L10"}", s!"    {quote "rodLen"}: {g "rodLen"}"]
+  -- the loop's inputs, under the names `hashemi_env_kernel.py`'s LOOP_PARAMS uses
+  let loop := #[s!"    {quote "Ac"}: {g "Ac"}", s!"    {quote "Qmax"}: {g "Qmax"}",
+    s!"    {quote "Dp"}: {g "Dp"}", s!"    {quote "Lp"}: {g "Lp"}",
+    s!"    {quote "etaP"}: {g "etaP"}", s!"    {quote "Pidle"}: {g "Pidle"}",
+    s!"    {quote "alpha"}: {g "alphaC"}", s!"    {quote "Dc"}: {g "Dc"}",
+    s!"    {quote "coilLen"}: {g "coilLen"}", s!"    {quote "Vtank"}: {g "Vtank"}",
+    s!"    {quote "panelW"}: {g "panelW"}", s!"    {quote "hCoilW"}: {g "hCoilW"}",
+    s!"    {quote "PinFull"}: {g "PinFull"}", s!"    {quote "filmStag"}: {g "filmStag"}"]
+  let ch := changes.foldl (fun acc r =>
+    acc.push ("    {" ++ s!"{quote "held"}: {quote r.1}, {quote "from"}: {r.2.1}, " ++
+              s!"{quote "to"}: {r.2.2.1}, {quote "constraint"}: {quote r.2.2.2}" ++ "}")) #[]
   "{\n  \"source\": \"RequestProject/HashemiScale.lean: derive, from Hashemi.lean's own relationships\",\n" ++
   s!"  \"a\": {a},\n" ++
+  s!"  \"designed\": {designed},\n" ++
   "  \"kernel\": {\n" ++ String.intercalate ",\n" kern.toList ++ "\n  },\n" ++
   "  \"mount\": {\n" ++ String.intercalate ",\n" mount.toList ++ "\n  },\n" ++
+  "  \"loop\": {\n" ++ String.intercalate ",\n" loop.toList ++ "\n  },\n" ++
+  "  \"design_changes\": [\n" ++ String.intercalate ",\n" ch.toList ++ "\n  ],\n" ++
   "  \"machine\": {\n" ++ String.intercalate ",\n" pairs.toList ++ "\n  },\n" ++
   "  \"constraints\": {\n" ++ String.intercalate ",\n" chk.toList ++ "\n  },\n" ++
   "  \"not_required\": {\n" ++ String.intercalate ",\n" rest.toList ++ "\n  }\n}\n"
+
+/-- the held machine at `a` -/
+def machineJson (a : Float) : String := machineJsonG a { a := a } false #[]
+
+/-- **the designed machine at `a`**, with the held changes recorded in it -/
+def machineJsonDesigned (a : Float) : String :=
+  machineJsonG a (designF { a := a }) true (designRows { a := a })
 
 /-- the Float twin against the intervals the theorems PROVE at `a = 0.8`: `ze` (`FH_bounds`),
 `FC` (`FC_bounds`), the upright, `ym` (`ymHashemi`), `hp` (`pulley_above_pivot`), the post
