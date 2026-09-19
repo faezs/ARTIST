@@ -606,7 +606,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             return super().render()
         if getattr(self, "_scene_kern", None) is None:
             try:
-                self._scene_setup()
+                # pufferlib promotes RuntimeWarnings to errors; the twins take arccos at the edge
+                # of its domain like every twin, so the setup runs under errstate
+                with np.errstate(all="ignore"):
+                    self._scene_setup()
             except Exception as exc:
                 print("  [hashemi] the scene kernel is not available (%s); the parent's picture" % exc)
                 self._scene_kern = False
@@ -625,7 +628,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         tabs = [dr[:1]]
         for nm in [aa["name"] for aa in k.man["arrays"][1:]]:
             tabs.append(getattr(self, "_" + nm)[:1])
-        vs, vr = k(self._scene_x, *tabs)
+        with np.errstate(all="ignore"):
+            vs, vr = k(self._scene_x, *tabs)
         vs = vs.cpu().numpy()[0, :k.n_static]
         vr = vr.cpu().numpy()[0, :, :k.n_ray]
         C = self._bk.BCOL if self.machine_receiver == "beam" else ECOL
