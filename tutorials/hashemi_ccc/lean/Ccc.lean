@@ -168,6 +168,11 @@ structure TState where
   arrayScalar : Std.HashMap Nat (String × Nat × Nat) := {}
   /-- the first flattened node of each ray table ↦ (base, P, m), to recognise a symbolic index -/
   vecBase : Std.HashMap Nat (String × Nat × Nat) := {}
+  /-- a SHORT vector binder (`H : Fin 3 → ℝ`) is bound component by component - no buffer, so no
+  `vecBase` entry - but the definition still writes it by its name.  first component node ↦
+  (the binder's Lean text, its length), so an opaque call on it prints `hyperHit f L dm t β H r`
+  exactly as the definition does.  Emits nothing: the graph is unchanged. -/
+  binderVec : Std.HashMap Nat (String × Nat) := {}
   /-- inside a `∑ i : Fin P`: the P -/
   inSum : Option Nat := none
   /-- sub-morphisms NOT to unfold: name ↦ how many columns its output vector has (0: a scalar).
@@ -644,6 +649,11 @@ partial def valTmpl : Val → TM (String × Array Nat)
     match tbl with
     | some (base, _, _) => pure (base, #[])
     | none =>
+      -- a short vector binder, whole and in order: print the binder's own name
+      if let some f0 := (do let x0 ← xs[0]?; x0.flatten[0]?) then
+        if let some (base, m) := st.binderVec[f0]? then
+          if m == xs.size && (List.range m).all (fun j => (do let x ← xs[j]?; x.flatten[0]?) == some (f0 + j)) then
+            return (base, #[])
       let mut parts : Array String := #[]
       let mut ns : Array Nat := #[]
       for x in xs do
@@ -705,7 +715,15 @@ partial def translateConst (root : Name) (n : Name) (_f : Expr) (args : Array Ex
         | .vec xs =>
           let st ← get
           let tbl := do let x0 ← xs[0]?; let f0 ← x0.flatten[0]?; st.vecBase[f0]?
-          if tbl.isNone then printable := false
+          let bv := do
+            let x0 ← xs[0]?; let f0 ← x0.flatten[0]?
+            let (_, m) ← st.binderVec[f0]?
+            guard (m == xs.size && (List.range m).all
+              (fun j => (do let x ← xs[j]?; x.flatten[0]?) == some (f0 + j)))
+          -- ... or the definition itself writes the argument as a literal vector
+          -- (`traceBeam … ![dR 0, dR 1, dR 2] …`): then `![…]` IS the text it wrote.
+          let lit := a.getAppFn.isConstOf `Matrix.vecCons
+          if tbl.isNone && bv.isNone && !lit then printable := false
         | _ => printable := false
         if !printable then continue
         let (txt, ns) ← valTmpl av
@@ -773,8 +791,14 @@ partial def bindInput (root : Name) (name lean : String) (t : Expr) : TM Val := 
                                      vecBase := st.vecBase.insert first.get! (name, n, m) }
           return .vec xs
         let mut xs := #[]
+        let mut first0 : Option Nat := none
         for j in [0:n] do
-          xs := xs.push (← bindInput root (name ++ "_" ++ toString j) s!"({lean} {j})" cod)
+          let v ← bindInput root (name ++ "_" ++ toString j) s!"({lean} {j})" cod
+          if first0.isNone then first0 := v.flatten[0]?
+          xs := xs.push v
+        if isRealTy cod' then
+          if let some f0 := first0 then
+            modify fun st => { st with binderVec := st.binderVec.insert f0 (lean, n) }
         return .vec xs
   if let .const sn _ := f then
     let env ← getEnv
