@@ -141,7 +141,9 @@ def env_capture(envk, p, pose, dr, torch):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--scene", default="hashemi", choices=SCENES)
-    ap.add_argument("--machine", default="hashemi_machine_2.0.json")
+    # the DESIGNED machine when one exists (the env loads the designed one too): the held
+    # machine at a = 2 has his 6 cm coil, which its own TrackerBudget rejects
+    ap.add_argument("--machine", default="hashemi_machine_2.0_designed.json")
     ap.add_argument("--lat", type=float, default=30.2)
     ap.add_argument("--doy", type=float, default=172.0)
     ap.add_argument("--hour", type=float, default=9.0)
