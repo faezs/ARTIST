@@ -15,7 +15,19 @@ import numpy as np
 PALETTE = [
     (230, 230, 230), (120, 200, 255), (255, 190, 80), (140, 255, 170),
     (255, 120, 120), (200, 150, 255), (255, 240, 120), (255, 255, 255),
+    # 8..13: the oven and the earth.  Every index the scenes already used is below 8 and
+    # `colour()` indexes modulo the palette's length, so extending it moves nothing.
+    (196, 150, 110),   # 8  the pit's clay
+    (255, 140, 60),    # 9  the hearth and the belt's nodes
+    (150, 150, 160),   # 10 masonry: the deck, the parapet, the shadow
+    (255, 240, 170),   # 11 the sun, its rays
+    (222, 196, 150),   # 12 the roti on the wall
+    (120, 220, 235),   # 13 the tunnel and the duct's mouth
 ]
+SKY_TOP, SKY_LOW = (26, 44, 78), (96, 118, 146)
+GROUND = (120, 104, 84, 255)
+# entries drawn at a sky distance: they never drive the opening camera by themselves
+FAR_LABELS = ("sun", "sky")
 FATE = {0: (120, 120, 130), 1: (255, 120, 120), 2: (255, 190, 80), 3: (140, 255, 170)}
 
 KIND_POINT, KIND_SEGMENT, KIND_RAY, KIND_AXES, KIND_SCALAR = 0, 1, 2, 3, 4
@@ -91,13 +103,96 @@ class SceneWindow:
     def v3(self, p):
         return self.rl.Vector3(float(p[1]), float(p[2]), float(p[0]))
 
+    def _named(self, man, vs, vr, prefix):
+        """the static three-vectors of the entries `<prefix>_pp/pm/mm/mp`, in that order"""
+        out = {}
+        for e in man["entries"]:
+            if e["ray"]:
+                continue
+            for tag in ("pp", "pm", "mm", "mp"):
+                if e["label"] == prefix + "_" + tag:
+                    c = entry_slice(e, vs, vr)
+                    if np.all(np.isfinite(c[:3])):
+                        out[tag] = c[:3]
+        return out if len(out) == 4 else None
+
+    def _mesh(self, q, col, n=12):
+        """a plane as a grid of lines through four named corners - the parent env's own way of
+        drawing its roof deck (`tandoor_hashemi_env.py:4292-4297`).  A FILLED plane would hide the
+        oven under it, and an oven in a pit is only ever seen through its own ground."""
+        pp, pm, mm, mp = (np.asarray(q[t], dtype=float) for t in ("pp", "pm", "mm", "mp"))
+        for i in range(n + 1):
+            u = i / n
+            self.rl.draw_line_3d(self.v3(pp + u * (pm - pp)), self.v3(mp + u * (mm - mp)), col)
+            self.rl.draw_line_3d(self.v3(pp + u * (mp - pp)), self.v3(pm + u * (mm - pm)), col)
+
+    def _quad(self, q, col):
+        """a filled quadrilateral through four named points, both windings"""
+        pp, pm, mm, mp = (self.v3(q[t]) for t in ("pp", "pm", "mm", "mp"))
+        for tri in ((pp, pm, mm), (mm, mp, pp), (mm, pm, pp), (pp, mp, mm)):
+            self.rl.draw_triangle_3d(*tri, col)
+
+    def frame_on(self, man, vs, vr):
+        """put the whole machine in view once, when the scene is first drawn.  The composed scene
+        spans a pit five metres under the deck and a sun overhead; the opening camera of a
+        machine-only scene showed neither.  The fit is over the NEAR vertices — a body drawn at a
+        sky distance must never shrink the machine to a pixel — and the far ones (the sun, its
+        rim) join it only when they barely widen the box.  Drawing only: the user's orbit takes
+        over from here."""
+        near, far = [], []
+        for e in man["entries"]:
+            if e["ray"] or entry_kind(e) == KIND_SCALAR:
+                continue                      # the ray region moves every frame; it never fits
+            d = entry_slice(e, vs, vr)
+            tgt = far if e["label"].startswith(FAR_LABELS) else near
+            for j in range(0, len(d) - 2, 3):
+                q = d[j:j + 3]
+                if np.all(np.isfinite(q)):    # a scene may hand back NaN for a missed ray
+                    tgt.append(q)
+        if not near:
+            near = far
+        if not near:
+            return
+        a = np.asarray(near, dtype=float)
+        lo, hi = a.min(0), a.max(0)
+        if far:
+            b = np.asarray(far, dtype=float)
+            lo2, hi2 = np.minimum(lo, b.min(0)), np.maximum(hi, b.max(0))
+            if float(np.max(hi2 - lo2)) <= 1.6 * float(np.max(hi - lo)):
+                lo, hi = lo2, hi2
+        c = 0.5 * (lo + hi)
+        # raylib's fovy is vertical: the visible height at a distance d is 0.93 d
+        self.dist = float(np.clip(1.45 * float(np.max(hi - lo)), 4.0, 60.0))
+        # and the HUD covers the top sixth, so the scene is aimed a little high in it
+        self.target = [float(c[1]), float(c[2]) + 0.10 * self.dist, float(c[0])]
+        self.pitch = 0.30         # a tall scene (the sun up, the pit down) needs a flatter eye
+        if os.environ.get("SCENE_FIT_DEBUG"):
+            print("scene fit: target %s  dist %.2f  box x[%.2f %.2f] y[%.2f %.2f] z[%.2f %.2f]"
+                  % (np.round(self.target, 2).tolist(), self.dist,
+                     lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]))
+
     def draw(self, man, vs, vr, hud=(), ray_stride=1):
         rl = self.rl
+        if not getattr(self, "_framed", False):
+            self.frame_on(man, vs, vr)
+            self._framed = True
         self.orbit()
         rl.begin_drawing()
         rl.clear_background(rl.Color(14, 16, 22, 255))
+        # the sky: a gradient behind everything, so the machine stands under one
+        rl.draw_rectangle_gradient_v(0, 0, self.width, self.height,
+                                     rl.Color(*SKY_TOP, 255), rl.Color(*SKY_LOW, 255))
         rl.begin_mode_3d(self.cam)
-        rl.draw_grid(24, 1.0)
+        # the earth: the ground the building rises from, at the level the scene names, and the
+        # deck's own grid over it
+        gq = self._named(man, vs, vr, "ground")
+        if gq is not None:
+            self._mesh(gq, rl.Color(*GROUND), 10)
+        dq = self._named(man, vs, vr, "deck")
+        if dq is None:
+            rl.draw_grid(24, 1.0)          # a scene with no deck keeps the old reference grid
+        else:
+            self._mesh(dq, rl.Color(116, 112, 104, 255), 12)
         # the panel as a surface: the four corners the scene names, two translucent triangles
         corners = {}
         for e in man["entries"]:
@@ -110,6 +205,19 @@ class SceneWindow:
             face = rl.Color(120, 170, 230, 70)
             for tri in ((pp, pm, mm), (mm, mp, pp), (mm, pm, pp), (pp, mp, mm)):   # both windings
                 rl.draw_triangle_3d(*tri, face)
+        # the sun's body: a disc through its own rim, at the distance and half-angle the scene
+        # computed - never a radius chosen here
+        sc = ring0 = None
+        for e in man["entries"]:
+            if e["ray"]:
+                continue
+            if e["label"] == "sun":
+                sc = entry_slice(e, vs, vr)[:3]
+            elif e["label"] == "sun_rim_00":
+                ring0 = entry_slice(e, vs, vr)[:3]
+        if sc is not None and ring0 is not None and np.all(np.isfinite(sc)) and np.all(np.isfinite(ring0)):
+            rl.draw_sphere(self.v3(sc), float(np.linalg.norm(np.asarray(ring0) - np.asarray(sc))),
+                           rl.Color(*PALETTE[11], 255))
         for e in man["entries"]:
             k = entry_kind(e)
             if k == KIND_SCALAR:
@@ -124,8 +232,12 @@ class SceneWindow:
                 if k == KIND_POINT:
                     rl.draw_sphere(self.v3(r[0:3]), 0.035, col)
                 elif k == KIND_SEGMENT:
-                    # a member: a thin cylinder, so the machine reads as parts rather than hairlines
-                    rl.draw_cylinder_ex(self.v3(r[0:3]), self.v3(r[3:6]), 0.012, 0.012, 6, col)
+                    # a member: a thin cylinder, so the machine reads as parts rather than
+                    # hairlines.  Its radius follows the camera, because the composed scene is
+                    # seen from three times as far as the machine-only one was and a 12 mm tube
+                    # at that range is sub-pixel.
+                    rr = max(0.012, 0.0022 * self.dist)
+                    rl.draw_cylinder_ex(self.v3(r[0:3]), self.v3(r[3:6]), rr, rr, 6, col)
                 elif k == KIND_RAY:
                     fc = FATE.get(int(round(r[9])) if len(r) > 9 else 3, (200, 200, 200))
                     hit, land = r[3:6], r[6:9]
