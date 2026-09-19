@@ -31,6 +31,11 @@ open Lean Meta
 inductive Node where
   | input (name : String) (lean : String)  -- the C name and the Lean access path (`t 3`, `P.1`, `c.chord`)
   | lit (s : String)              -- a decimal literal, kept as text so every printer prints it exactly
+  /-- a real that arrived as `((n : ℕ) : ℝ)`.  Hash-consed apart from the plain literal, because
+  `Nat.cast_zero` is PROPOSITIONAL: the runtime printers cannot tell the two apart (both are
+  `0.0`), but the round trip must print the cast it read, or the column is only propositionally
+  equal to the definition and no `rfl` closes it. -/
+  | natLit (s : String)
   | bconst (b : Bool)
   | pi
   | un (op : String) (a : Nat)    -- neg sqrt sin cos tan arctan arccos arcsin abs not
@@ -168,6 +173,11 @@ structure TState where
   /-- sub-morphisms NOT to unfold: name ↦ how many columns its output vector has (0: a scalar).
   An application of one of these becomes a `.call` node instead of its inlined graph. -/
   noUnfold : Std.HashMap Name Nat := {}
+  /-- keep a `((n : ℕ) : ℝ)` as a cast (`.natLit`) instead of evaluating it to a real literal.
+  The round trip needs it (`Nat.cast_zero` is propositional, so the twin must print the cast the
+  definition wrote); a kernel does not, and switching it off there keeps every generated file
+  byte-identical to what it was before this node existed. -/
+  keepCasts : Bool := false
 
 abbrev TM := StateT TState MetaM
 
@@ -561,7 +571,8 @@ partial def translateApp (root : Name) (e : Expr) : TM Val := do
       .s <$> emit (.lit (toString m))
     | ``Nat.cast, 3 => do
       let some m := natLit? args[2]! | throwError "a cast of a non-literal"
-      .s <$> emit (.lit (toString m))
+      if (← get).keepCasts then .s <$> emit (.natLit (toString m))
+      else .s <$> emit (.lit (toString m))
     | ``Int.cast, 3 => do
       -- `((⌊x⌋ : ℤ) : ℝ)`: the floor as a real (the facet grid's index)
       let inner := args[2]!.getAppFn
@@ -682,18 +693,32 @@ partial def translateConst (root : Name) (n : Name) (_f : Expr) (args : Array Ex
       let k := min ar args.size
       let mut tmpl := sanitizeCall n
       let mut nodes : Array Nat := #[]
+      let mut printable := true
       for a in args.extract 0 k do
         let av ← translate root a
+        -- a call can stay opaque only if every argument prints as the definition writes it: a
+        -- vector argument must be a table binder (it prints as its name).  `coilProfile` takes
+        -- the bins as a FUNCTION and the definition passes a lambda, which the twin could only
+        -- print as `![…]` - not the same term - so that call is inlined instead.
+        match av with
+        | .s _ | .b _ => pure ()
+        | .vec xs =>
+          let st ← get
+          let tbl := do let x0 ← xs[0]?; let f0 ← x0.flatten[0]?; st.vecBase[f0]?
+          if tbl.isNone then printable := false
+        | _ => printable := false
+        if !printable then continue
         let (txt, ns) ← valTmpl av
         tmpl := tmpl ++ " " ++ txt
         nodes := nodes ++ ns
-      let v ← if cols == 0 then (do pure (Val.s (← emit (.call (sanitizeCall n) tmpl nodes 0 false))))
-        else (do
-          let mut xs : Array Val := #[]
-          for c in [0:cols] do
-            xs := xs.push (Val.s (← emit (.call (sanitizeCall n) tmpl nodes c true)))
-          pure (Val.vec xs))
-      return ← applyArgs v (args.extract k args.size)
+      if printable then
+        let v ← if cols == 0 then (do pure (Val.s (← emit (.call (sanitizeCall n) tmpl nodes 0 false))))
+          else (do
+            let mut xs : Array Val := #[]
+            for c in [0:cols] do
+              xs := xs.push (Val.s (← emit (.call (sanitizeCall n) tmpl nodes c true)))
+            pure (Val.vec xs))
+        return ← applyArgs v (args.extract k args.size)
     -- a definition in the root namespace or on the allow list: unfold (delta + beta) and go on
     if root.isPrefixOf n || unfoldable.contains n then
       let some e' ← unfoldDefinition? e | throwError "cannot unfold {n}"
@@ -814,8 +839,8 @@ keep opaque (with the number of columns of each one's output vector, 0 for a sca
 applications become `.call` nodes, so the graph is the composite AS A COMPOSITE.  With the
 default (nothing opaque) the graph is what it always was - the same expression with those calls
 inlined - which is what every kernel printer is given. -/
-def compileDef (root : Name) (n : Name) (noUnfold : List (Name × Nat) := []) :
-    MetaM (Except String Fun) := do
+def compileDef (root : Name) (n : Name) (noUnfold : List (Name × Nat) := [])
+    (keepCasts : Bool := false) : MetaM (Except String Fun) := do
   let nu : Std.HashMap Name Nat := noUnfold.foldl (fun m (k, v) => m.insert k v) {}
   let ci ← getConstInfo n
   try
@@ -843,7 +868,7 @@ def compileDef (root : Name) (n : Name) (noUnfold : List (Name × Nat) := []) :
           for h in hyps.reverse do
             r ← emit (.bin "->" h r)
           pure (.b r, order, hyps.size)
-        act.run { noUnfold := nu }
+        act.run { noUnfold := nu, keepCasts := keepCasts }
       let (v, order, nh) := out
       pure (Except.ok { name := n, inputs := st.inputs, binders := st.binders, output := v,
                         graph := st.g, isProp := true, isTheorem := true, thmArgs := order, nHyps := nh,
@@ -857,7 +882,7 @@ def compileDef (root : Name) (n : Name) (noUnfold : List (Name × Nat) := []) :
           for x in xs do
             let _ ← bindBinder root x xs.size
           translate root body
-        act.run { noUnfold := nu }
+        act.run { noUnfold := nu, keepCasts := keepCasts }
       pure (Except.ok { name := n, inputs := st.inputs, binders := st.binders, output := out,
                         graph := st.g, isProp := isP, arrays := st.arrays, arrayScalar := st.arrayScalar })
     | _ => pure (Except.error "not a definition or theorem")
@@ -903,6 +928,7 @@ def cRhs (f : Fun) (inputRef : Nat → String) (ridx : String) (i : Nat) : Optio
   | .rayIn b k => some (f.tableRead b ridx k)
   | .sum .. => none
   | .lit s => some s!"HK_LIT({s})"
+  | .natLit s => some s!"HK_LIT({s})"
   | .bconst b => some (if b then "true" else "false")
   | .pi => some "HK_PI"
   | .un op a =>
@@ -939,6 +965,7 @@ def cDRhs (f : Fun) (dxRef : Nat → String) (i : Nat) : Option String :=
   | .rayIn .. => some "HK_LIT(0)"
   | .sum .. => none
   | .lit _ => some "HK_LIT(0)"
+  | .natLit _ => some "HK_LIT(0)"
   | .pi => some "HK_LIT(0)"
   | .bconst _ => none
   | .un op a =>
@@ -992,6 +1019,7 @@ def cBoxStmt (f : Fun) (boxRef : Nat → String × String × String) (ridx : Str
   | .rayIn b k => let v := f.tableRead b ridx k; some s!"lo{i} = {v}; hi{i} = {v}; L{i} = HK_LIT(0);"
   | .sum .. => none
   | .lit s => some s!"lo{i} = HK_LIT({s}); hi{i} = HK_LIT({s}); L{i} = HK_LIT(0);"
+  | .natLit s => some s!"lo{i} = HK_LIT({s}); hi{i} = HK_LIT({s}); L{i} = HK_LIT(0);"
   | .bconst b => let v := if b then "1" else "0"; some s!"lo{i} = HK_LIT({v}); hi{i} = HK_LIT({v}); L{i} = HK_LIT(0);"
   | .pi => some s!"lo{i} = HK_PI; hi{i} = HK_PI; L{i} = HK_LIT(0);"
   | .un op a =>
@@ -1405,6 +1433,7 @@ def printDot (f : Fun) : String := Id.run do
     let (label, shape) := match g.nodes[i]! with
       | .input nm _ => (nm, "box")
       | .lit s => (s, "plaintext")
+      | .natLit s => (s!"↑{s}", "plaintext")
       | .bconst b => (if b then "true" else "false", "plaintext")
       | .pi => ("π", "plaintext")
       | .un op _ => (op, "ellipse")
@@ -1453,6 +1482,7 @@ partial def leanExpr (g : Graph) (real : Bool) (i : Nat) : String :=
   match g.nodes[i]! with
   | .input nm ln => if real then ln else nm
   | .lit s => if real then s!"({s} : ℝ)" else s!"({s} : Float)"
+  | .natLit s => if real then s!"((({s} : ℕ)) : ℝ)" else s!"({s} : Float)"
   | .bconst b => if b then "True" else "False"
   | .pi => if real then "Real.pi" else "(3.141592653589793 : Float)"
   | .un op a =>
@@ -1514,7 +1544,7 @@ partial def leanBody (f : Fun) (real : Bool) (outs : Array Nat) (v : Val) (inden
   for i in [0:g.nodes.size] do
     if !live.contains i then continue
     match g.nodes[i]! with
-    | .input .. | .lit _ | .bconst _ | .pi | .rayIn .. => pure ()
+    | .input .. | .lit _ | .natLit _ | .bconst _ | .pi | .rayIn .. => pure ()
     | .sum .. => bound := bound.insert i
     | .call .. => pure ()
     | _ => if counts[i]! > 1 then bound := bound.insert i
@@ -1606,6 +1636,7 @@ partial def leanBody (f : Fun) (real : Bool) (outs : Array Nat) (v : Val) (inden
       if real then s!"(∑ i : Fin {P}, ({inner}{pr bnd' a false}))"
       else s!"((List.range {P}).foldl (fun acc i => acc + ({inner}{pr bnd' a false})) 0.0)"
     | .lit s => if real then s!"({s} : ℝ)" else s!"({s} : Float)"
+    | .natLit s => if real then s!"((({s} : ℕ)) : ℝ)" else s!"({s} : Float)"
     | .bconst b => if b then "True" else "False"
     | .pi => if real then "Real.pi" else "(3.141592653589793 : Float)"
     | .un op a =>
@@ -1674,7 +1705,7 @@ def printNumpy (f : Fun) (fname : String) : String := Id.run do
                 else (if m == 0 then s!"{b}[:, {j}]" else s!"{b}[:, {j}, {k}]")
     | none => if m == 0 then s!"{b}" else s!"{b}[:, :, {k}]"
   for i in [0:g.nodes.size] do
-    let isLeaf := fun (j : Nat) => match g.nodes[j]! with | .lit _ | .bconst _ | .pi => true | _ => false
+    let isLeaf := fun (j : Nat) => match g.nodes[j]! with | .lit _ | .natLit _ | .bconst _ | .pi => true | _ => false
     -- an agent-level operand read at ray level gets the ray axis
     let t := fun (j : Nat) =>
       if L.ray[i]! && !L.ray[j]! && !isLeaf j then s!"np.asarray(t{j})[..., None]" else s!"t{j}"
@@ -1687,6 +1718,7 @@ def printNumpy (f : Fun) (fname : String) : String := Id.run do
       | .sum P a => some (if L.ray[a]! then s!"np.sum(t{a}, axis=-1)" else s!"({P} * t{a})")
       | .call fn _ _ c _ => some s!"(_ for _ in ()).throw(RuntimeError('{fn}[{c}]: a .call node in a kernel graph'))"
       | .lit s => some s
+      | .natLit s => some s
       | .bconst b => some (if b then "True" else "False")
       | .pi => some "np.pi"
       | .un op a =>

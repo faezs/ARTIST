@@ -247,6 +247,13 @@ of each one's output (0: a scalar).  A functor preserves composition: `hashemiEn
 `megaStep ; ∑ of dishPower ; the loop`, and that is the equation the round trip should state. -/
 def modularRefs : List String := ["hashemiEnv", "hashemiLoop"]
 
+/-- of those, the ones whose modular round trip CLOSES.  `hashemiEnv`'s does not yet: its
+columns 0-31 (the mount, the ray sums, the observations) close in seconds inside the irreducible
+section, but the eight flux columns and everything downstream of them (the coil through
+`coilProfile`, which is inlined because the definition passes it a lambda, and the two pipe
+histories) do not.  See the notes. -/
+def modularEmit : List String := ["hashemiLoop"]
+
 /-- the staged proof for `txt`, a printed `theorem X_ccc : X = fun bs => <twin> := rfl`. -/
 def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option String := Id.run do
   let stmt := if txt.endsWith " := rfl" then txt.dropRight 7 else txt
@@ -381,7 +388,7 @@ def run : MetaM Unit := do
       if let some cols := compiled[c]? then
         unless nu.any (fun (k, _) => k == c) do nu := nu ++ [(c, cols)]
     logInfo m!"noUnfold {ref} := {nu.map (fun (k, v) => (k.getString!, v))}"
-    match ← compileDef root n nu with
+    match ← compileDef root n nu (keepCasts := true) with
     | .ok f =>
       modular := modular.insert ref f
       logInfo m!"modular graph of {ref}: {f.graph.nodes.size} nodes, {nu.length} sub-morphisms kept opaque"
@@ -566,7 +573,27 @@ def run : MetaM Unit := do
         -- defeq check on a term that doubles at every level, beyond any heartbeat budget. The step
         -- itself, `bisectStep`, round-trips; the iterate rule is checked on a 3-fold instance below;
         -- the C and Float twins agree on these three at the samples
-        if (stagedCfg ref).isSome then
+        if let some fm := (if modularEmit.contains ref then modular[ref]? else none) then
+          -- the composite AS A COMPOSITE.  The callees it actually calls are made LOCALLY
+          -- IRREDUCIBLE for the theorem: without that, a column whose right-hand side is headed
+          -- by `megaStep` sends lazy delta into the 24-fold bisection, while one headed by
+          -- arithmetic is safe - which is exactly why the mount columns used to time out and the
+          -- ray columns did not.  With it every column is a syntactic match.
+          let mut called : Array String := #[]
+          for nd in fm.graph.nodes do
+            match nd with
+            | .call fn _ _ _ _ => unless called.contains fn do called := called.push fn
+            | _ => pure ()
+          let txt := printRoundTrip fm ref (ref.replace "." "_")
+          let binders := " ".intercalate (fm.binders.toList.map (·.1))
+          let txt := (txt.dropRight 6) ++ s!":= by\n  funext {binders}\n  rfl"
+          rt := rt.push "section"
+          rt := rt.push s!"attribute [local irreducible] {" ".intercalate called.toList}"
+          rt := rt.push ""
+          rt := rt.push txt
+          rt := rt.push "end"
+          rt := rt.push ""
+        else if (stagedCfg ref).isSome then
           -- the bisecting composites: `rfl` on the flattened twin is exponential in the 24 levels,
           -- so the sharing is kept in the proof (see "The staged round trip" above)
           let txt := printRoundTrip f ref (ref.replace "." "_")
@@ -576,7 +603,7 @@ def run : MetaM Unit := do
           | none =>
             logInfo m!"staged round trip: no bisection chain found for {ref}"
             rt := rt.push txt |>.push ""
-        else if ref == "hashemiEnv" || ref == "hashemiLoop" || ref == "hashemiEnvBeam" || ref == "traceBeam" then
+        else if ref == "hashemiEnv" || ref == "hashemiEnvBeam" || ref == "traceBeam" then
           -- the whole optical pipeline as one term: its parts (`sunInDish`, `sampleRay`,
           -- `traceRayKErr`) each round-trip by `rfl`; the composite's defeq check times out
           rt := rt.push s!"-- {ref}: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)" |>.push ""
