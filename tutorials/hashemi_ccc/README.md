@@ -31,6 +31,8 @@ trip proved by `rfl`.
 | `dot/` | the dataflow graph of each function |
 | `hashemi_kernel.py` | the MSL/CUDA kernel `hashemi_mega` around the six functions, `HashemiMetal` (MPS), `mega_numpy`; `python hashemi_kernel.py` = Metal vs NumPy on 4096 random states |
 | `hashemi_env.py` | `HashemiMachineEnv`: his machine as a puffer env (`puffer_hashemi_ccc`, `puffer_tandoor/hashemi_ccc.ini`); the sensor loop of the video as a policy |
+| `hashemi_reward.metal`, `hashemi_reward.json`, `hashemi_reward_kernel.py` | the trainer's reward as its own kernel (`rewardStep`, HashemiReward.lean): 3 columns, the ini's constants as inputs; `python hashemi_reward_kernel.py` = Metal vs NumPy |
+| `test_reward_columns.py` | R1 gluing, R2 units, R3 non-negativity - the reward measured on a day rolled on both paths |
 | `test_ccc.py` | the C header (double) against the Lean `Float` twin on the same samples, all 315 functions |
 | `test_mega_day.py` | a day at Quetta under the sensor loop: tracking, the reach, every theorem column at every state |
 
@@ -491,3 +493,51 @@ leave the ray as they found it, and say so in their docstrings: `cpcLip` (the tr
 eight conical segments of `_geo_core`) and `lightPipe` (the tunnel's bounces). Their geometry lives
 in the Python core and the kernel; the family carries their clip, which is what the étendue
 bookkeeping needs.
+
+## The trainer's reward, printed (`HashemiReward.lean` -> `hashemi_reward`)
+
+The physics of this env was a compiled morphism and the REWARD was not: it was assembled by hand
+on each path, and on 2026-09-19 it was wrong twice - the per-step shaping went in raw on the fused
+path and divided on the NumPy path (a factor of `reward_div` between two restrictions of the same
+section: it did not glue), and a per-step PENALTY made the guillotine an exit. TOPOS_REWARD.md is
+the design; `lean/RewardTopos.lean` its 21 statements. This is the part the driver now compiles.
+
+`lean/HashemiReward.lean`, namespace `TandoorHashemi`:
+
+* `rewardShapeRaw dt pIn reach capShaping rotiReward rotiEnergy` - the light at the receiver
+  (`hashemiEnv`'s `p_in`, gated by `sun_reachable`) as a step's energy in roti units, at the
+  parent's raw price of a roti;
+* `rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy : Fin 3 → ℝ` -
+  `rewardNames` = `r_shape_raw`, `r_raw`, `r_trainer`. **Every constant is an INPUT**, so the
+  ini's `reward_div = 75`, `capture_shaping`, the parent's 5 raw per roti and `roti_kj` are
+  handed to the kernel; nothing is frozen into the spec and nothing is arithmetic on a host.
+  `reward_div` occurs ONCE, in the third column.
+* `rewardStep_units` (R2, the naturality square) and `rewardStep_nonneg` (R3) are compiled with
+  the other theorem checks and measured by `test_ccc.py`.
+
+The driver prints it like every other definition - `hk_rewardStep` in `hashemi_ccc.h` /
+`hashemi_ccc.py`, the Float twin, the round trip (`rewardStep_ccc`, `rfl`) - and as its own tiny
+kernel `hashemi_reward.metal` (8 inputs, 3 columns, 15 nodes, one thread per agent) with
+`hashemi_reward.json` its manifest. It is a separate launch rather than three more columns of
+`hashemi_env` because the parent's own reward for the step exists only AFTER the machine's step.
+`hashemi_reward_kernel.py` runs Metal against the NumPy twin (`METAL == NUMPY over the reward`).
+
+`hashemi_tandoor_env.py` takes `r_shape_raw` / `r_raw` / `r_trainer` from that function on both
+paths (`_reward_cols`, `self.r_cols`): the fused path hands the kernel the parent's raw `rew_t`
+and returns `r_raw` (the parent's own division after `_finish_step` IS the third column); the
+numpy path lifts `self.rewards` back into the raw fibre once - the change of base `scale_natural`
+licenses - and writes back `r_trainer`. The capture shaping is now IN the spec. The potential-based
+pointing term (`pointing_shaping`, 0 in every ini) and `lost_shaping` stay host-side: they are a
+coboundary and a gate, not units, and when they are on they are folded into the morphism's
+`parentRaw` input so the division still happens once, inside the printed function.
+
+**The measured checks** are `test_reward_columns.py` (a day rolled on both paths):
+
+* **R1, gluing** - `|r_trainer_numpy − r_trainer_fused|` per step, and the hour means where the
+  two paths' draws differ. A units bug shows here as a factor of `reward_div` at once.
+* **R2, the units** - `r_trainer · reward_div − parentRaw = r_shape_raw`, per step, per path.
+* **R3, non-negativity** - `min r_shape_raw ≥ 0` over the day, so `cut_never_pays` applies.
+
+They are a Python script and not TraceCheck rows because the bridge drives a Metal kernel with
+given inputs; it cannot roll a day of the puffer env on two paths, which is what R1 is. The Lean
+statements behind R2 and R3 are compiled and are checked with the other theorem checks.

@@ -23,6 +23,7 @@ Everything is stated over the actual definitions (`hashemiEnv`'s `p_in` and `sun
 See TOPOS_REWARD.md in tutorials/hashemi_ccc for the prose.
 -/
 import RequestProject.HashemiEnv
+import RequestProject.HashemiReward
 import RequestProject.HashemiPolicy
 import RequestProject.Pareto
 import Mathlib.Algebra.Order.BigOperators.Group.Finset
@@ -285,20 +286,20 @@ theorem measured_escape : cutCostTrainer < 66 := by
 
 /-! ## 6. What Ccc should print
 
-`rewardStep` is the reward as a morphism with columns, to be compiled by the driver beside
-`hashemiEnv` (add `RequestProject.RewardTopos` to HashemiCcc.lean's imports and `rewardNames` to
-its `notCompiled` list). Then the env calls `hk_rewardStep` / `reward_numpy` / the Metal column on
-both paths, and the units are PRINTED, not assembled. -/
+`rewardStep` is the reward as a morphism with columns, and it is now COMPILED: it lives in
+HashemiReward.lean (with its constants as arguments, so the ini's values are inputs of the printed
+function), the driver imports it and prints `hk_rewardStep`, the Float twin, the round trip and the
+kernel `hashemi_reward.metal`, and `hashemi_tandoor_env.py` reads its columns on both paths. The
+units are PRINTED, not assembled. -/
 
-/-- **the reward's columns**: the raw shaping, the total raw reward, the trainer's reward. -/
-noncomputable def rewardStep (parentRaw dt pIn reach : ℝ) : Fin 3 → ℝ :=
-  ![rewardRaw dt pIn reach,
-    parentRaw + rewardRaw dt pIn reach,
-    rewardTrainer parentRaw dt pIn reach]
-
-def rewardNames : Array String := #["r_shape_raw", "r_raw", "r_trainer"]
-
-theorem rewardNames_size : rewardNames.size = 3 := by rfl
+/-- **the reward's columns** are `rewardStep` (HashemiReward.lean), the file the driver compiles: its
+constants are ARGUMENTS, so the ini's values are inputs of the printed morphism.  At the spec's
+own constants it is this file's reward, definitionally. -/
+theorem rewardStep_at_spec (parentRaw dt pIn reach : ℝ) :
+    rewardStep parentRaw dt pIn reach rewardDiv capShaping rotiReward rotiEnergy
+      = ![rewardRaw dt pIn reach,
+          parentRaw + rewardRaw dt pIn reach,
+          rewardTrainer parentRaw dt pIn reach] := rfl
 
 /-- the reward read off `hashemiEnv`'s own row: `p_in` is column 20 and `sun_reachable` column 13
 of `envNames` - no host arithmetic on units at all. -/

@@ -1,6 +1,7 @@
 import RequestProject.HashemiTraceProps
 import RequestProject.HashemiPolicy
 import RequestProject.HashemiBeamdown
+import RequestProject.HashemiReward
 namespace TandoorHashemi
 open Classical
 set_option maxHeartbeats 4000000
@@ -1927,6 +1928,12 @@ theorem recip_ccc : recip = fun (t : TandoorHashemi.Screw) (w : TandoorHashemi.S
 theorem reflect3_ccc : reflect3 = fun (n : Fin 3 → ℝ) (d : Fin 3 → ℝ) =>
     let v12 := ((2 : ℝ) * ((((d 0) * (n 0)) + ((d 1) * (n 1))) + ((d 2) * (n 2))))
     ![((d 0) - (v12 * (n 0))), ((d 1) - (v12 * (n 1))), ((d 2) - (v12 * (n 2)))] := rfl
+
+theorem rewardShapeRaw_ccc : rewardShapeRaw = fun (dt : ℝ) (pIn : ℝ) (reach : ℝ) (capShaping : ℝ) (rotiReward : ℝ) (rotiEnergy : ℝ) =>
+    (((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach) := rfl
+
+theorem rewardStep_ccc : rewardStep = fun (parentRaw : ℝ) (dt : ℝ) (pIn : ℝ) (reach : ℝ) (rewardDiv : ℝ) (capShaping : ℝ) (rotiReward : ℝ) (rotiEnergy : ℝ) =>
+    ![(((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach), (parentRaw + (((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach)), ((parentRaw + (((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach)) / rewardDiv)] := rfl
 
 theorem rhoCu_ccc : rhoCu =
     (0.0000000172 : ℝ) := rfl

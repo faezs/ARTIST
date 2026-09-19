@@ -42,6 +42,12 @@ from tandoor_hashemi_env import TandoorHashemiEnv   # noqa: E402
 from hashemi_kernel import COL, mega_numpy, mega_params_numpy                       # noqa: E402
 from hashemi_env_kernel import (HashemiEnvMetal, env_numpy, env_params, pack, draws,   # noqa: E402
                                 ECOL, EIN, N_IN, N_OUT, P as ENV_RAYS, M as ENV_M, N_HIST, HIST_COLS, RET_COLS)
+# THE REWARD IS A PRINTED MORPHISM TOO (HashemiReward.lean `rewardStep`, compiled by the same
+# driver): its three columns are r_shape_raw, r_raw, r_trainer and its constants - reward_div,
+# capture_shaping, the raw price of a roti, roti_energy - are INPUTS, so the ini's values are
+# handed to the kernel instead of being arithmetic on a host.
+from hashemi_reward_kernel import (HashemiRewardMetal, pack_reward, reward_numpy,   # noqa: E402
+                                   RCOL, RIN, N_IN as R_N_IN)
 import json                                         # noqa: E402
 # THE POLICY DESCRIPTION IS THE SPEC'S (HashemiPolicy.lean, written out by the driver): which
 # heads are the motors, how many levels, and the drives a head's value means (headToDriveAz /
@@ -94,11 +100,13 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # device; the receiver's 1.7 deg budget is the spec's `lost_sun` column, felt through the
         # capture itself and the smooth gate's shaping. (Set to 1.7 deg once: with a discrete
         # policy no episode survived the day.)
-        # THE POLICY LEARNS TO POINT (no sensor closes the loop). The shaping terms are in the
-        # parent's RAW reward units (5 per roti, 75 per guillotine cut, its own potential-based
-        # tracking term 1 per degree of |e_az|+|e_el| capped at 4 deg) and go in BEFORE the parent
-        # divides by reward_div, on both paths: the fused path's rew_t is raw when this class adds
-        # to it, the numpy path's self.rewards is already divided, so that path adds shape/reward_div.
+        # THE POLICY LEARNS TO POINT (no sensor closes the loop), and THE REWARD IS A PRINTED
+        # MORPHISM: `rewardStep` (HashemiReward.lean, compiled by the same driver as the physics)
+        # takes the parent's raw reward for the step, the step, `p_in` and `sun_reachable`, and
+        # the ini's constants as INPUTS, and returns r_shape_raw / r_raw / r_trainer. Both paths
+        # read those columns (`_reward_cols`), so `reward_div` is applied ONCE, inside the
+        # function, and the two paths cannot disagree about units - the gluing condition of
+        # TOPOS_REWARD.md, measured per step by test_reward_columns.py (R1-R3).
         # (Until 2026-09-19 the pointing penalty went in raw on the fused path and divided on the
         # numpy path: the trainer saw 1/75 of what the day test showed, and the policy drifted to
         # a 1.4 deg lag; and a per-step PENALTY makes the guillotine an exit - at 0.5 per rad a
@@ -119,6 +127,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self.capture_shaping = float(capture_shaping)
         self._phi_prev = self._phi_prev_t = None
         self._pb_skip = self._pb_skip_t = None
+        self._rew = None                      # the reward kernel (fused path)
         self.t_amb = float(t_amb)
         super().__init__(*args, **kwargs)
         B = self.num_agents
@@ -133,6 +142,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self.hk_row = self.row
         self.cap_traced = np.zeros(B)
         self._q_pot = np.zeros(B)
+        # the printed reward's columns for the last step (host mirrors, what the checks read)
+        self.r_cols = np.zeros((B, 3))
         # THE HEADS MEAN WHAT THE SPEC SAYS: HashemiPolicy.lean's headToDriveAz / headToDriveEl
         # (full command = azFull / elFull of the dish, the drum's rate at the wire's CURRENT lever
         # arm), compiled; the finest step outruns the sun and stays inside the tracker's budget
@@ -151,6 +162,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self.machine_action_space = machine_policy.action_space()
         self.machine_obs = np.zeros((B, machine_policy.N_OBS), dtype=np.float32)
         self._env = None
+        self._rew_x = None
         if self.machine_receiver == "beam":
             import hashemi_beam_kernel as _bk
             self._bk = _bk
@@ -171,6 +183,9 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             self._cap_t = torch.zeros(B, dtype=torch.float32, device=dev)
             self._hk_out = torch.zeros(B, N_OUT, dtype=torch.float32, device=dev)
             self._uax = float(self._params["UAx"])
+            self._rew = HashemiRewardMetal()
+            self._rew_x = torch.zeros(B, R_N_IN, dtype=torch.float32, device=dev)
+            self._rew_cols_t = None
 
     # --- the parent's sag model is not this machine's: the dish's elevation is the Lean state
     def el_dish_deg(self, el_m, wind):
@@ -238,12 +253,14 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
 
     ROTI_REWARD_RAW = 5.0        # tandoor_rl_env: rew += 5.0 * cooked
 
-    def _shape_raw(self, pe, p_in, reach, resync, xp):
-        """the shaping in the parent's raw reward units (see __init__): the light at the receiver
-        in roti units, and the potential-based pointing term if it is on"""
-        cap = self.capture_shaping * self.ROTI_REWARD_RAW * float(self.dt) / float(self.roti_energy) * p_in * reach
+    def _pb_raw(self, pe, reach, resync, xp):
+        """the OPTIONAL potential-based pointing term, in the parent's raw units. It is not part
+        of the printed morphism: it is a coboundary (RewardTopos.lean `shaping_telescopes`), it
+        carries no units of its own beyond the raw reward's, and it is off (`pointing_shaping`
+        = 0) in every ini. When it is on it is folded into the morphism's `parentRaw` input, so
+        the division still happens once, in the printed function."""
         if not self.pointing_shaping:
-            return cap
+            return 0.0
         if xp is np:
             phi = -np.minimum(pe, 0.5)
             prev = phi if self._phi_prev is None else self._phi_prev
@@ -256,7 +273,36 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             skip = resync if self._pb_skip_t is None else (resync | self._pb_skip_t)
             pb = torch.where(skip, torch.zeros_like(phi), self.pointing_shaping * (phi - prev) * reach)
             self._phi_prev_t = phi.clone(); self._pb_skip_t = resync.clone()
-        return cap + pb
+        return pb
+
+    def _reward_cols(self, parent_raw, p_in, reach, xp):
+        """THE REWARD, PRINTED (`rewardStep`, HashemiReward.lean): the three columns
+        r_shape_raw, r_raw, r_trainer for this step, from the parent's raw reward, the step, the
+        light at the receiver and the sun's reach - with the ini's constants as INPUTS
+        (reward_div, capture_shaping, the raw price of a roti, roti_energy). The NumPy twin and
+        the Metal kernel are the same graph, so the two paths cannot disagree on the units: that
+        is the gluing condition of TOPOS_REWARD.md §1, and the bug of 2026-09-19 was its failure."""
+        div = float(getattr(self, "reward_div", 1.0))
+        cs, rr, re = float(self.capture_shaping), float(self.ROTI_REWARD_RAW), float(self.roti_energy)
+        if xp is np:
+            x = pack_reward(np.asarray(parent_raw, dtype=np.float64), float(self.dt),
+                            np.asarray(p_in, dtype=np.float64), np.asarray(reach, dtype=np.float64),
+                            div, cs, rr, re)
+            cols = reward_numpy(x)
+            self.r_cols = cols
+            return cols
+        x = self._rew_x
+        x[:, RIN["parentRaw"]] = parent_raw
+        x[:, RIN["dt"]] = float(self.dt)
+        x[:, RIN["pIn"]] = p_in
+        x[:, RIN["reach"]] = reach
+        x[:, RIN["rewardDiv"]] = div
+        x[:, RIN["capShaping"]] = cs
+        x[:, RIN["rotiReward"]] = rr
+        x[:, RIN["rotiEnergy"]] = re
+        cols = self._rew.step(x)
+        self._rew_cols_t = cols
+        return cols
 
     def _run_np(self, a):
         """one launch of the C twin: the pose, the capture, the oil, the pot's heat"""
@@ -394,12 +440,17 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         mask = F.trunc > 0.5
         if float(self.t_solar[0]) < t_before - 1.0:
             mask = torch.ones_like(mask, dtype=torch.bool)
-        # the shaping, raw like rew_t (step and step_torch divide by reward_div after this), and
-        # into the parent's raw running return so the trainer's episode_return shows it
-        shape = self._shape_raw(out[:, C["pointing_err"]], out[:, C["p_in"]], out[:, C["sun_reachable"]], mask, torch)
+        # THE REWARD FROM THE PRINTED MORPHISM: the parent's raw reward for the step is this
+        # function's `parentRaw` input (with the optional host coboundary folded in), and the
+        # kernel returns r_shape_raw / r_raw / r_trainer. `rew_t` leaves here RAW, because step
+        # and step_torch divide by reward_div after this - i.e. the parent's own division IS the
+        # morphism's third column (measured per step by R2 in test_reward_columns.py).
+        extra = self._pb_raw(out[:, C["pointing_err"]], out[:, C["sun_reachable"]], mask, torch)
         if self.lost_shaping:
-            shape = shape - self.lost_shaping * out[:, C["lost_sun_s"]]
-        rew_t = rew_t + shape
+            extra = extra - self.lost_shaping * out[:, C["lost_sun_s"]]
+        cols = self._reward_cols(rew_t + extra, out[:, C["p_in"]], out[:, C["sun_reachable"]], torch)
+        shape = cols[:, RCOL["r_shape_raw"]] + extra
+        rew_t = cols[:, RCOL["r_raw"]]
         F.ep_return.add_(shape)
         res = (obs_t, rew_t, infos)
         az_p = torch.deg2rad(F.az_m)
@@ -422,6 +473,8 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
                 self.t_oil = self.row[:, C["T_oil"]]
                 self.hist = self.row[:, HIST_COLS]; self.ret = self.row[:, RET_COLS]
             self.machine_obs = self.row[:, [C["obs_" + n] for n in machine_policy.OBS_NAMES]].astype(np.float32)
+            if self._rew_cols_t is not None:
+                self.r_cols = self._rew_cols_t.cpu().numpy().astype(np.float64)
             self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])
             self.az_m = np.degrees(self.hk_state[:, 0])
             return res
@@ -440,11 +493,17 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         resync = np.asarray(self.truncations, dtype=bool).copy()
         if wrapped:
             resync[:] = True
-        # the shaping in raw units: the parent has divided self.rewards by reward_div already
-        shape = self._shape_raw(self.row[:, C["pointing_err"]], self.row[:, C["p_in"]], self.row[:, C["sun_reachable"]], resync, np)
+        # THE SAME PRINTED MORPHISM on this path. The parent has already divided self.rewards by
+        # reward_div, so the raw reward of the step is lifted back into the morphism's own fibre
+        # (`scale_natural`, RewardTopos.lean: the only change of base there is) and the trainer's
+        # reward is the function's third column - never host arithmetic on units.
+        div = float(getattr(self, "reward_div", 1.0))
+        extra = self._pb_raw(self.row[:, C["pointing_err"]], self.row[:, C["sun_reachable"]], resync, np)
         if self.lost_shaping:
-            shape = shape - self.lost_shaping * self.row[:, C["lost_sun_s"]]
-        self.rewards[:] = self.rewards + (shape / float(getattr(self, "reward_div", 1.0))).astype(np.float32)
-        self.ep_return += shape
+            extra = extra - self.lost_shaping * self.row[:, C["lost_sun_s"]]
+        parent_raw = np.asarray(self.rewards, dtype=np.float64) * div + extra
+        cols = self._reward_cols(parent_raw, self.row[:, C["p_in"]], self.row[:, C["sun_reachable"]], np)
+        self.rewards[:] = cols[:, RCOL["r_trainer"]].astype(np.float32)
+        self.ep_return += cols[:, RCOL["r_shape_raw"]] + extra
         self._sync_from_motors(resync)
         return res

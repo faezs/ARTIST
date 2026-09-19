@@ -38897,6 +38897,134 @@ HK_STATIC void hk_reflect3_box(const hk_real HK_ADDR* hk_lo, const hk_real HK_AD
   hk_olo[2] = lo18; hk_ohi[2] = hi18; hk_oL[2] = L18;
 }
 
+HK_STATIC void hk_rewardShapeRaw_jvp(hk_real dt, hk_real pIn, hk_real reach, hk_real capShaping, hk_real rotiReward, hk_real rotiEnergy, const hk_real HK_ADDR* hk_dx, hk_real HK_ADDR* hk_out, hk_real HK_ADDR* hk_dout) {
+  const hk_real t0 = dt;
+  const hk_real d0 = hk_dx[0];
+  const hk_real t1 = pIn;
+  const hk_real d1 = hk_dx[1];
+  const hk_real t2 = reach;
+  const hk_real d2 = hk_dx[2];
+  const hk_real t3 = capShaping;
+  const hk_real d3 = hk_dx[3];
+  const hk_real t4 = rotiReward;
+  const hk_real d4 = hk_dx[4];
+  const hk_real t5 = rotiEnergy;
+  const hk_real d5 = hk_dx[5];
+  const hk_real t6 = (t3 * t4);
+  const hk_real d6 = (d3 * t4 + t3 * d4);
+  const hk_real t7 = (t6 * t0);
+  const hk_real d7 = (d6 * t0 + t6 * d0);
+  const hk_real t8 = (t7 / t5);
+  const hk_real d8 = ((d7 * t5 - t7 * d5) / (t5 * t5));
+  const hk_real t9 = (t8 * t1);
+  const hk_real d9 = (d8 * t1 + t8 * d1);
+  const hk_real t10 = (t9 * t2);
+  const hk_real d10 = (d9 * t2 + t9 * d2);
+  hk_out[0] = t10;
+  hk_dout[0] = d10;
+}
+
+HK_STATIC void hk_rewardShapeRaw_box(const hk_real HK_ADDR* hk_lo, const hk_real HK_ADDR* hk_hi, const hk_real HK_ADDR* hk_sc, hk_real HK_ADDR* hk_olo, hk_real HK_ADDR* hk_ohi, hk_real HK_ADDR* hk_oL) {
+  hk_real lo0, hi0, L0;
+  lo0 = hk_lo[0]; hi0 = hk_hi[0]; L0 = hk_sc[0];
+  hk_real lo1, hi1, L1;
+  lo1 = hk_lo[1]; hi1 = hk_hi[1]; L1 = hk_sc[1];
+  hk_real lo2, hi2, L2;
+  lo2 = hk_lo[2]; hi2 = hk_hi[2]; L2 = hk_sc[2];
+  hk_real lo3, hi3, L3;
+  lo3 = hk_lo[3]; hi3 = hk_hi[3]; L3 = hk_sc[3];
+  hk_real lo4, hi4, L4;
+  lo4 = hk_lo[4]; hi4 = hk_hi[4]; L4 = hk_sc[4];
+  hk_real lo5, hi5, L5;
+  lo5 = hk_lo[5]; hi5 = hk_hi[5]; L5 = hk_sc[5];
+  hk_real lo6, hi6, L6;
+  hk_bx_mul(lo3, hi3, L3, lo4, hi4, L4, &lo6, &hi6, &L6);
+  hk_real lo7, hi7, L7;
+  hk_bx_mul(lo6, hi6, L6, lo0, hi0, L0, &lo7, &hi7, &L7);
+  hk_real lo8, hi8, L8;
+  hk_bx_div(lo7, hi7, L7, lo5, hi5, L5, &lo8, &hi8, &L8);
+  hk_real lo9, hi9, L9;
+  hk_bx_mul(lo8, hi8, L8, lo1, hi1, L1, &lo9, &hi9, &L9);
+  hk_real lo10, hi10, L10;
+  hk_bx_mul(lo9, hi9, L9, lo2, hi2, L2, &lo10, &hi10, &L10);
+  hk_olo[0] = lo10; hk_ohi[0] = hi10; hk_oL[0] = L10;
+}
+
+HK_STATIC void hk_rewardStep_jvp(hk_real parentRaw, hk_real dt, hk_real pIn, hk_real reach, hk_real rewardDiv, hk_real capShaping, hk_real rotiReward, hk_real rotiEnergy, const hk_real HK_ADDR* hk_dx, hk_real HK_ADDR* hk_out, hk_real HK_ADDR* hk_dout) {
+  const hk_real t0 = parentRaw;
+  const hk_real d0 = hk_dx[0];
+  const hk_real t1 = dt;
+  const hk_real d1 = hk_dx[1];
+  const hk_real t2 = pIn;
+  const hk_real d2 = hk_dx[2];
+  const hk_real t3 = reach;
+  const hk_real d3 = hk_dx[3];
+  const hk_real t4 = rewardDiv;
+  const hk_real d4 = hk_dx[4];
+  const hk_real t5 = capShaping;
+  const hk_real d5 = hk_dx[5];
+  const hk_real t6 = rotiReward;
+  const hk_real d6 = hk_dx[6];
+  const hk_real t7 = rotiEnergy;
+  const hk_real d7 = hk_dx[7];
+  const hk_real t8 = (t5 * t6);
+  const hk_real d8 = (d5 * t6 + t5 * d6);
+  const hk_real t9 = (t8 * t1);
+  const hk_real d9 = (d8 * t1 + t8 * d1);
+  const hk_real t10 = (t9 / t7);
+  const hk_real d10 = ((d9 * t7 - t9 * d7) / (t7 * t7));
+  const hk_real t11 = (t10 * t2);
+  const hk_real d11 = (d10 * t2 + t10 * d2);
+  const hk_real t12 = (t11 * t3);
+  const hk_real d12 = (d11 * t3 + t11 * d3);
+  const hk_real t13 = (t0 + t12);
+  const hk_real d13 = (d0 + d12);
+  const hk_real t14 = (t13 / t4);
+  const hk_real d14 = ((d13 * t4 - t13 * d4) / (t4 * t4));
+  hk_out[0] = t12;
+  hk_dout[0] = d12;
+  hk_out[1] = t13;
+  hk_dout[1] = d13;
+  hk_out[2] = t14;
+  hk_dout[2] = d14;
+}
+
+HK_STATIC void hk_rewardStep_box(const hk_real HK_ADDR* hk_lo, const hk_real HK_ADDR* hk_hi, const hk_real HK_ADDR* hk_sc, hk_real HK_ADDR* hk_olo, hk_real HK_ADDR* hk_ohi, hk_real HK_ADDR* hk_oL) {
+  hk_real lo0, hi0, L0;
+  lo0 = hk_lo[0]; hi0 = hk_hi[0]; L0 = hk_sc[0];
+  hk_real lo1, hi1, L1;
+  lo1 = hk_lo[1]; hi1 = hk_hi[1]; L1 = hk_sc[1];
+  hk_real lo2, hi2, L2;
+  lo2 = hk_lo[2]; hi2 = hk_hi[2]; L2 = hk_sc[2];
+  hk_real lo3, hi3, L3;
+  lo3 = hk_lo[3]; hi3 = hk_hi[3]; L3 = hk_sc[3];
+  hk_real lo4, hi4, L4;
+  lo4 = hk_lo[4]; hi4 = hk_hi[4]; L4 = hk_sc[4];
+  hk_real lo5, hi5, L5;
+  lo5 = hk_lo[5]; hi5 = hk_hi[5]; L5 = hk_sc[5];
+  hk_real lo6, hi6, L6;
+  lo6 = hk_lo[6]; hi6 = hk_hi[6]; L6 = hk_sc[6];
+  hk_real lo7, hi7, L7;
+  lo7 = hk_lo[7]; hi7 = hk_hi[7]; L7 = hk_sc[7];
+  hk_real lo8, hi8, L8;
+  hk_bx_mul(lo5, hi5, L5, lo6, hi6, L6, &lo8, &hi8, &L8);
+  hk_real lo9, hi9, L9;
+  hk_bx_mul(lo8, hi8, L8, lo1, hi1, L1, &lo9, &hi9, &L9);
+  hk_real lo10, hi10, L10;
+  hk_bx_div(lo9, hi9, L9, lo7, hi7, L7, &lo10, &hi10, &L10);
+  hk_real lo11, hi11, L11;
+  hk_bx_mul(lo10, hi10, L10, lo2, hi2, L2, &lo11, &hi11, &L11);
+  hk_real lo12, hi12, L12;
+  hk_bx_mul(lo11, hi11, L11, lo3, hi3, L3, &lo12, &hi12, &L12);
+  hk_real lo13, hi13, L13;
+  hk_bx_add(lo0, hi0, L0, lo12, hi12, L12, &lo13, &hi13, &L13);
+  hk_real lo14, hi14, L14;
+  hk_bx_div(lo13, hi13, L13, lo4, hi4, L4, &lo14, &hi14, &L14);
+  hk_olo[0] = lo12; hk_ohi[0] = hi12; hk_oL[0] = L12;
+  hk_olo[1] = lo13; hk_ohi[1] = hi13; hk_oL[1] = L13;
+  hk_olo[2] = lo14; hk_ohi[2] = hi14; hk_oL[2] = L14;
+}
+
 HK_STATIC void hk_rollY_jvp(hk_real p_0, hk_real p_1, hk_real p_2, const hk_real HK_ADDR* hk_dx, hk_real HK_ADDR* hk_out, hk_real HK_ADDR* hk_dout) {
   const hk_real t0 = p_0;
   const hk_real d0 = hk_dx[0];

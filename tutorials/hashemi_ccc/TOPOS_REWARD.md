@@ -139,8 +139,25 @@ TraceCheck-style checks to add (the same shape as the 30 measured optics theorem
 
 Only R1 and R3 are needed to have caught what was found; R2, R4 and R5 are what keeps it caught.
 
-## Status
+## Status: §4 is DONE (2026-09-19, the same day)
 
-`lean/RewardTopos.lean` compiles against Mathlib v4.28.0 with **0 `sorry`** (21 theorems). It is not
-yet imported by `HashemiCcc.lean`, so nothing is printed yet and the env is unchanged: this is the
-design and its statements, and §4 is the work it asks for.
+`lean/RewardTopos.lean` compiles against Mathlib v4.28.0 with **0 `sorry`**, and the part of §4 it
+asked for is now printed: `lean/HashemiReward.lean` holds `rewardShapeRaw` and
+`rewardStep : Fin 3 → ℝ` with `rewardNames`, **the constants as INPUTS** (the review's correction:
+`rewardDiv`, `capShaping`, `rotiReward`, `rotiEnergy` are arguments, so the ini's values are the
+kernel's inputs; `cutPenalty` and `stepDt` stay spec constants of RewardTopos, which is where the
+cut's ledger is stated). The driver compiles it with the physics: `hk_rewardStep` in
+`hashemi_ccc.h` / `hashemi_ccc.py`, the Float twin, the round trip `rewardStep_ccc` by `rfl`, and
+its own kernel `hashemi_reward.metal` (8 inputs, 3 columns, 15 nodes, one thread per agent) - a
+second launch, not three more columns of `hashemi_env`, because the parent's own reward for the
+step exists only after the machine's step. `rewardStep_at_spec` (RewardTopos) ties it back to
+this file's `rewardTrainer` at the spec's constants, definitionally.
+
+`hashemi_tandoor_env.py` reads `r_shape_raw` / `r_raw` / `r_trainer` from that function on both
+paths; `_shape_raw` is gone. The potential-based pointing term and `lost_shaping` (both off in
+every ini) stay host-side - a coboundary and a gate, not units - and when on are folded into the
+morphism's `parentRaw` input, so the division still happens once, inside the printed function.
+
+**R1, R2, R3 are measured** by `test_reward_columns.py` (a day rolled on both paths; R1 also
+re-runs every step of the numpy day through the Metal kernel on the same inputs, which is the
+gluing condition with the physics held fixed). R4 and R5 are still only Lean statements.

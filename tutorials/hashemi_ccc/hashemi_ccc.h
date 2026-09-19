@@ -10476,6 +10476,42 @@ HK_STATIC void hk_reflect3(hk_real n_0, hk_real n_1, hk_real n_2, hk_real d_0, h
   out[2] = t18;
 }
 
+HK_STATIC hk_real hk_rewardShapeRaw(hk_real dt, hk_real pIn, hk_real reach, hk_real capShaping, hk_real rotiReward, hk_real rotiEnergy) {
+  const hk_real t0 = dt;
+  const hk_real t1 = pIn;
+  const hk_real t2 = reach;
+  const hk_real t3 = capShaping;
+  const hk_real t4 = rotiReward;
+  const hk_real t5 = rotiEnergy;
+  const hk_real t6 = (t3 * t4);
+  const hk_real t7 = (t6 * t0);
+  const hk_real t8 = (t7 / t5);
+  const hk_real t9 = (t8 * t1);
+  const hk_real t10 = (t9 * t2);
+  return t10;
+}
+
+HK_STATIC void hk_rewardStep(hk_real parentRaw, hk_real dt, hk_real pIn, hk_real reach, hk_real rewardDiv, hk_real capShaping, hk_real rotiReward, hk_real rotiEnergy, hk_real HK_ADDR* out) {
+  const hk_real t0 = parentRaw;
+  const hk_real t1 = dt;
+  const hk_real t2 = pIn;
+  const hk_real t3 = reach;
+  const hk_real t4 = rewardDiv;
+  const hk_real t5 = capShaping;
+  const hk_real t6 = rotiReward;
+  const hk_real t7 = rotiEnergy;
+  const hk_real t8 = (t5 * t6);
+  const hk_real t9 = (t8 * t1);
+  const hk_real t10 = (t9 / t7);
+  const hk_real t11 = (t10 * t2);
+  const hk_real t12 = (t11 * t3);
+  const hk_real t13 = (t0 + t12);
+  const hk_real t14 = (t13 / t4);
+  out[0] = t12;
+  out[1] = t13;
+  out[2] = t14;
+}
+
 HK_STATIC hk_real hk_rhoCu(void) {
   const hk_real t0 = HK_LIT(0.0000000172);
   return t0;
@@ -23268,6 +23304,60 @@ HK_STATIC bool hk_check_receiverPost_height(void) {
   const hk_real t7 = HK_LIT(1.25);
   const bool t8 = hk_eq(t6, t7);
   return t8;
+}
+
+HK_STATIC bool hk_check_rewardStep_nonneg(hk_real dt, hk_real pIn, hk_real reach, hk_real capShaping, hk_real rotiReward, hk_real rotiEnergy, hk_real parentRaw, hk_real rewardDiv) {
+  const hk_real t0 = dt;
+  const hk_real t1 = pIn;
+  const hk_real t2 = reach;
+  const hk_real t3 = capShaping;
+  const hk_real t4 = rotiReward;
+  const hk_real t5 = rotiEnergy;
+  const hk_real t6 = HK_LIT(0);
+  const bool t7 = (t6 <= t0);
+  const bool t8 = (t6 <= t1);
+  const bool t9 = (t6 <= t2);
+  const bool t10 = (t6 <= t3);
+  const bool t11 = (t6 <= t4);
+  const bool t12 = (t6 <= t5);
+  const hk_real t15 = (t3 * t4);
+  const hk_real t16 = (t15 * t0);
+  const hk_real t17 = (t16 / t5);
+  const hk_real t18 = (t17 * t1);
+  const hk_real t19 = (t18 * t2);
+  const bool t22 = (t6 <= t19);
+  const bool t23 = (!t12 || t22);
+  const bool t24 = (!t11 || t23);
+  const bool t25 = (!t10 || t24);
+  const bool t26 = (!t9 || t25);
+  const bool t27 = (!t8 || t26);
+  const bool t28 = (!t7 || t27);
+  return t28;
+}
+
+HK_STATIC bool hk_check_rewardStep_units(hk_real parentRaw, hk_real dt, hk_real pIn, hk_real reach, hk_real rewardDiv, hk_real capShaping, hk_real rotiReward, hk_real rotiEnergy) {
+  const hk_real t0 = parentRaw;
+  const hk_real t1 = dt;
+  const hk_real t2 = pIn;
+  const hk_real t3 = reach;
+  const hk_real t4 = rewardDiv;
+  const hk_real t5 = capShaping;
+  const hk_real t6 = rotiReward;
+  const hk_real t7 = rotiEnergy;
+  const hk_real t8 = HK_LIT(0);
+  const bool t9 = (!hk_eq(t4, t8));
+  const hk_real t10 = (t5 * t6);
+  const hk_real t11 = (t10 * t1);
+  const hk_real t12 = (t11 / t7);
+  const hk_real t13 = (t12 * t2);
+  const hk_real t14 = (t13 * t3);
+  const hk_real t15 = (t0 + t14);
+  const hk_real t16 = (t15 / t4);
+  const hk_real t17 = (t16 * t4);
+  const hk_real t18 = (t17 - t0);
+  const bool t19 = hk_eq(t18, t14);
+  const bool t20 = (!t9 || t19);
+  return t20;
 }
 
 HK_STATIC bool hk_check_rim_under_F_iff(hk_real a, hk_real ze, hk_real t) {

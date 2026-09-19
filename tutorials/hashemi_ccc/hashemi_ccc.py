@@ -25009,6 +25009,94 @@ def hk_reflect3(n_0, n_1, n_2, d_0, d_1, d_2):
     t18 = (t5 - t17)
     return np.stack([np.broadcast_to(np.asarray(t14, dtype=float), np.broadcast(*[np.asarray(x) for x in [n_0, n_1, n_2, d_0, d_1, d_2]]).shape), np.broadcast_to(np.asarray(t16, dtype=float), np.broadcast(*[np.asarray(x) for x in [n_0, n_1, n_2, d_0, d_1, d_2]]).shape), np.broadcast_to(np.asarray(t18, dtype=float), np.broadcast(*[np.asarray(x) for x in [n_0, n_1, n_2, d_0, d_1, d_2]]).shape)], axis=-1)
 
+def hk_rewardShapeRaw(dt, pIn, reach, capShaping, rotiReward, rotiEnergy):
+    t0 = dt
+    t1 = pIn
+    t2 = reach
+    t3 = capShaping
+    t4 = rotiReward
+    t5 = rotiEnergy
+    t6 = (t3 * t4)
+    t7 = (t6 * t0)
+    t8 = (t7 / t5)
+    t9 = (t8 * t1)
+    t10 = (t9 * t2)
+    return t10
+
+def hk_rewardStep(parentRaw, dt, pIn, reach, rewardDiv, capShaping, rotiReward, rotiEnergy):
+    t0 = parentRaw
+    t1 = dt
+    t2 = pIn
+    t3 = reach
+    t4 = rewardDiv
+    t5 = capShaping
+    t6 = rotiReward
+    t7 = rotiEnergy
+    t8 = (t5 * t6)
+    t9 = (t8 * t1)
+    t10 = (t9 / t7)
+    t11 = (t10 * t2)
+    t12 = (t11 * t3)
+    t13 = (t0 + t12)
+    t14 = (t13 / t4)
+    return np.stack([np.broadcast_to(np.asarray(t12, dtype=float), np.broadcast(*[np.asarray(x) for x in [parentRaw, dt, pIn, reach, rewardDiv, capShaping, rotiReward, rotiEnergy]]).shape), np.broadcast_to(np.asarray(t13, dtype=float), np.broadcast(*[np.asarray(x) for x in [parentRaw, dt, pIn, reach, rewardDiv, capShaping, rotiReward, rotiEnergy]]).shape), np.broadcast_to(np.asarray(t14, dtype=float), np.broadcast(*[np.asarray(x) for x in [parentRaw, dt, pIn, reach, rewardDiv, capShaping, rotiReward, rotiEnergy]]).shape)], axis=-1)
+
+def hk_check_rewardStep_nonneg(dt, pIn, reach, capShaping, rotiReward, rotiEnergy, parentRaw, rewardDiv):
+    t0 = dt
+    t1 = pIn
+    t2 = reach
+    t3 = capShaping
+    t4 = rotiReward
+    t5 = rotiEnergy
+    t6 = 0
+    t7 = (t6 <= t0)
+    t8 = (t6 <= t1)
+    t9 = (t6 <= t2)
+    t10 = (t6 <= t3)
+    t11 = (t6 <= t4)
+    t12 = (t6 <= t5)
+    t13 = parentRaw
+    t14 = rewardDiv
+    t15 = (t3 * t4)
+    t16 = (t15 * t0)
+    t17 = (t16 / t5)
+    t18 = (t17 * t1)
+    t19 = (t18 * t2)
+    t20 = (t13 + t19)
+    t21 = (t20 / t14)
+    t22 = (t6 <= t19)
+    t23 = np.logical_or(np.logical_not(t12), t22)
+    t24 = np.logical_or(np.logical_not(t11), t23)
+    t25 = np.logical_or(np.logical_not(t10), t24)
+    t26 = np.logical_or(np.logical_not(t9), t25)
+    t27 = np.logical_or(np.logical_not(t8), t26)
+    t28 = np.logical_or(np.logical_not(t7), t27)
+    return t28
+
+def hk_check_rewardStep_units(parentRaw, dt, pIn, reach, rewardDiv, capShaping, rotiReward, rotiEnergy):
+    t0 = parentRaw
+    t1 = dt
+    t2 = pIn
+    t3 = reach
+    t4 = rewardDiv
+    t5 = capShaping
+    t6 = rotiReward
+    t7 = rotiEnergy
+    t8 = 0
+    t9 = np.logical_not(hk_eq(t4, t8))
+    t10 = (t5 * t6)
+    t11 = (t10 * t1)
+    t12 = (t11 / t7)
+    t13 = (t12 * t2)
+    t14 = (t13 * t3)
+    t15 = (t0 + t14)
+    t16 = (t15 / t4)
+    t17 = (t16 * t4)
+    t18 = (t17 - t0)
+    t19 = hk_eq(t18, t14)
+    t20 = np.logical_or(np.logical_not(t9), t19)
+    return t20
+
 def hk_rhoCu():
     t0 = 0.0000000172
     return t0

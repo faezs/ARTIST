@@ -5017,6 +5017,36 @@ def reflect3 (n_0 : Float) (n_1 : Float) (n_2 : Float) (d_0 : Float) (d_1 : Floa
 #eval IO.println ("reflect3 " ++ toString ((reflect3 1.524707 1.466158 1.407609 1.349060 1.290512 1.231963).map Float.toBits))
 #eval IO.println ("reflect3 " ++ toString ((reflect3 1.193515 1.134966 1.076417 1.017868 0.959320 0.900771).map Float.toBits))
 
+def rewardShapeRaw (dt : Float) (pIn : Float) (reach : Float) (capShaping : Float) (rotiReward : Float) (rotiEnergy : Float) : Float :=
+  (((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach)
+
+#eval IO.println ("rewardShapeRaw " ++ toString (rewardShapeRaw 1.669747 1.611198 1.552649 1.494100 1.435552 1.377003).toBits)
+#eval IO.println ("rewardShapeRaw " ++ toString (rewardShapeRaw 1.338555 1.280006 1.221457 1.162908 1.104360 1.045811).toBits)
+#eval IO.println ("rewardShapeRaw " ++ toString (rewardShapeRaw 1.007363 0.948814 0.890265 0.831716 0.773168 0.714619).toBits)
+
+def rewardStep (parentRaw : Float) (dt : Float) (pIn : Float) (reach : Float) (rewardDiv : Float) (capShaping : Float) (rotiReward : Float) (rotiEnergy : Float) : Array Float :=
+  #[(((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach), (parentRaw + (((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach)), ((parentRaw + (((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach)) / rewardDiv)]
+
+#eval IO.println ("rewardStep " ++ toString ((rewardStep 1.483595 1.425046 1.366497 1.307948 1.249400 1.190851 1.132302 1.073753).map Float.toBits))
+#eval IO.println ("rewardStep " ++ toString ((rewardStep 1.152403 1.093854 1.035305 0.976756 0.918208 0.859659 0.801110 0.742561).map Float.toBits))
+#eval IO.println ("rewardStep " ++ toString ((rewardStep 0.821211 0.762662 0.704113 0.645564 0.587016 0.528467 0.469918 0.411369).map Float.toBits))
+
+def check_rewardStep_nonneg (dt : Float) (pIn : Float) (reach : Float) (capShaping : Float) (rotiReward : Float) (rotiEnergy : Float) (parentRaw : Float) (rewardDiv : Float) : Bool :=
+  let v19 := (((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach)
+  (!((0 : Float) <= dt) || (!((0 : Float) <= pIn) || (!((0 : Float) <= reach) || (!((0 : Float) <= capShaping) || (!((0 : Float) <= rotiReward) || (!((0 : Float) <= rotiEnergy) || ((0 : Float) <= v19)))))))
+
+#eval IO.println ("check_rewardStep_nonneg " ++ toString (check_rewardStep_nonneg 1.297443 1.238894 1.180345 1.121796 1.063248 1.004699 0.946150 0.887601))
+#eval IO.println ("check_rewardStep_nonneg " ++ toString (check_rewardStep_nonneg 0.966251 0.907702 0.849153 0.790604 0.732056 0.673507 0.614958 0.556409))
+#eval IO.println ("check_rewardStep_nonneg " ++ toString (check_rewardStep_nonneg 0.635059 0.576510 0.517961 0.459412 0.400864 0.342315 0.283766 0.225217))
+
+def check_rewardStep_units (parentRaw : Float) (dt : Float) (pIn : Float) (reach : Float) (rewardDiv : Float) (capShaping : Float) (rotiReward : Float) (rotiEnergy : Float) : Bool :=
+  let v14 := (((((capShaping * rotiReward) * dt) / rotiEnergy) * pIn) * reach)
+  (!(!(feq rewardDiv (0 : Float))) || (feq ((((parentRaw + v14) / rewardDiv) * rewardDiv) - parentRaw) v14))
+
+#eval IO.println ("check_rewardStep_units " ++ toString (check_rewardStep_units 1.111291 1.052742 0.994193 0.935644 0.877096 0.818547 0.759998 0.701449))
+#eval IO.println ("check_rewardStep_units " ++ toString (check_rewardStep_units 0.780099 0.721550 0.663001 0.604452 0.545904 0.487355 0.428806 0.370257))
+#eval IO.println ("check_rewardStep_units " ++ toString (check_rewardStep_units 0.448907 0.390358 0.331809 0.273260 0.214712 1.756163 1.697614 1.639065))
+
 def rhoCu  : Float :=
   (0.0000000172 : Float)
 
@@ -5030,9 +5060,9 @@ def check_rim_under_F_iff (a : Float) (ze : Float) (t : Float) : Bool :=
   let v9 := (Float.sin t)
   (!((0 : Float) < ze) || (!((0 : Float) < v5) || ((feq ((a * v5) + (v8 * v9)) (0 : Float)) == (feq (Float.tan t) (a / ze)))))
 
-#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 1.483595 1.425046 1.366497))
-#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 1.152403 1.093854 1.035305))
-#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 0.821211 0.762662 0.704113))
+#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 0.738987 0.680438 0.621889))
+#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 0.407795 0.349246 0.290697))
+#eval IO.println ("check_rim_under_F_iff " ++ toString (check_rim_under_F_iff 1.676603 1.618054 1.559505))
 
 def rodTan  : Float :=
   ((0.4 : Float) / ((Float.sqrt (3.2 : Float)) - (1 : Float)))
@@ -5053,16 +5083,16 @@ def rollY (p_0 : Float) (p_1 : Float) (p_2 : Float) : Array Float :=
   let v5 := (p_1 * (0 : Float))
   #[(0 : Float), (1 : Float), (0 : Float), (v5 - (p_2 * (1 : Float))), ((p_2 * (0 : Float)) - (p_0 * (0 : Float))), ((p_0 * (1 : Float)) - v5)]
 
-#eval IO.println ("rollY " ++ toString ((rollY 0.925139 0.866590 0.808041).map Float.toBits))
-#eval IO.println ("rollY " ++ toString ((rollY 0.593947 0.535398 0.476849).map Float.toBits))
-#eval IO.println ("rollY " ++ toString ((rollY 0.262755 0.204206 1.745657).map Float.toBits))
+#eval IO.println ("rollY " ++ toString ((rollY 1.780531 1.721982 1.663433).map Float.toBits))
+#eval IO.println ("rollY " ++ toString ((rollY 1.449339 1.390790 1.332241).map Float.toBits))
+#eval IO.println ("rollY " ++ toString ((rollY 1.118147 1.059598 1.001049).map Float.toBits))
 
 def rollerRadius (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) : Float :=
   (Float.sqrt (((c_chord / (2 : Float)) ^ 2) + (c_apexH ^ 2)))
 
-#eval IO.println ("rollerRadius " ++ toString (rollerRadius 0.738987 0.680438 0.621889 0.563340 0.504792 0.446243).toBits)
-#eval IO.println ("rollerRadius " ++ toString (rollerRadius 0.407795 0.349246 0.290697 0.232148 1.773600 1.715051).toBits)
-#eval IO.println ("rollerRadius " ++ toString (rollerRadius 1.676603 1.618054 1.559505 1.500956 1.442408 1.383859).toBits)
+#eval IO.println ("rollerRadius " ++ toString (rollerRadius 1.594379 1.535830 1.477281 1.418732 1.360184 1.301635).toBits)
+#eval IO.println ("rollerRadius " ++ toString (rollerRadius 1.263187 1.204638 1.146089 1.087540 1.028992 0.970443).toBits)
+#eval IO.println ("rollerRadius " ++ toString (rollerRadius 0.931995 0.873446 0.814897 0.756348 0.697800 0.639251).toBits)
 
 def check_rollerRadius_hashemi  : Bool :=
   (feq (Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2))) (Float.sqrt (1.4864 : Float)))
@@ -5082,17 +5112,17 @@ def check_rollerRadius_hashemi_bounds  : Bool :=
 def check_rollerRadius_pos (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) : Bool :=
   ((0 : Float) < (Float.sqrt (((c_chord / (2 : Float)) ^ 2) + (c_apexH ^ 2))))
 
-#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 1.780531 1.721982 1.663433 1.604884 1.546336 1.487787))
-#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 1.449339 1.390790 1.332241 1.273692 1.215144 1.156595))
-#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 1.118147 1.059598 1.001049 0.942500 0.883952 0.825403))
+#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 1.035923 0.977374 0.918825 0.860276 0.801728 0.743179))
+#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 0.704731 0.646182 0.587633 0.529084 0.470536 0.411987))
+#eval IO.println ("check_rollerRadius_pos " ++ toString (check_rollerRadius_pos 0.373539 0.314990 0.256441 1.797892 1.739344 1.680795))
 
 def check_rollerRadius_sq (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) : Bool :=
   let v10 := (((c_chord / (2 : Float)) ^ 2) + (c_apexH ^ 2))
   (feq ((Float.sqrt v10) ^ 2) v10)
 
-#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 1.594379 1.535830 1.477281 1.418732 1.360184 1.301635))
-#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 1.263187 1.204638 1.146089 1.087540 1.028992 0.970443))
-#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 0.931995 0.873446 0.814897 0.756348 0.697800 0.639251))
+#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 0.849771 0.791222 0.732673 0.674124 0.615576 0.557027))
+#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 0.518579 0.460030 0.401481 0.342932 0.284384 0.225835))
+#eval IO.println ("check_rollerRadius_sq " ++ toString (check_rollerRadius_sq 1.787387 1.728838 1.670289 1.611740 1.553192 1.494643))
 
 def check_roller_rpm_hashemi  : Bool :=
   let v7 := ((((2 : Float) / (360 : Float)) * (1.2192 : Float)) / (0.05 : Float))
@@ -5107,18 +5137,18 @@ def rot (psi : Float) (p_1 : Float) (p_2 : Float) : Array Float :=
   let v5 := (Float.sin psi)
   #[((v3 * p_1) - (v5 * p_2)), ((v5 * p_1) + (v3 * p_2))]
 
-#eval IO.println ("rot " ++ toString ((rot 1.222075 1.163526 1.104977).map Float.toBits))
-#eval IO.println ("rot " ++ toString ((rot 0.890883 0.832334 0.773785).map Float.toBits))
-#eval IO.println ("rot " ++ toString ((rot 0.559691 0.501142 0.442593).map Float.toBits))
+#eval IO.println ("rot " ++ toString ((rot 0.477467 0.418918 0.360369).map Float.toBits))
+#eval IO.println ("rot " ++ toString ((rot 1.746275 1.687726 1.629177).map Float.toBits))
+#eval IO.println ("rot " ++ toString ((rot 1.415083 1.356534 1.297985).map Float.toBits))
 
 def rotz (delta : Float) (v_0 : Float) (v_1 : Float) (v_2 : Float) : Array Float :=
   let v4 := (Float.cos delta)
   let v6 := (Float.sin delta)
   #[((v4 * v_0) - (v6 * v_1)), ((v6 * v_0) + (v4 * v_1)), v_2]
 
-#eval IO.println ("rotz " ++ toString ((rotz 1.035923 0.977374 0.918825 0.860276).map Float.toBits))
-#eval IO.println ("rotz " ++ toString ((rotz 0.704731 0.646182 0.587633 0.529084).map Float.toBits))
-#eval IO.println ("rotz " ++ toString ((rotz 0.373539 0.314990 0.256441 1.797892).map Float.toBits))
+#eval IO.println ("rotz " ++ toString ((rotz 0.291315 0.232766 1.774217 1.715668).map Float.toBits))
+#eval IO.println ("rotz " ++ toString ((rotz 1.560123 1.501574 1.443025 1.384476).map Float.toBits))
+#eval IO.println ("rotz " ++ toString ((rotz 1.228931 1.170382 1.111833 1.053284).map Float.toBits))
 
 def check_rotz_dot (delta : Float) (u_0 : Float) (u_1 : Float) (u_2 : Float) (v_0 : Float) (v_1 : Float) (v_2 : Float) : Bool :=
   let v7 := (Float.cos delta)
@@ -5126,9 +5156,9 @@ def check_rotz_dot (delta : Float) (u_0 : Float) (u_1 : Float) (u_2 : Float) (v_
   let v24 := (u_2 * v_2)
   (feq (((((v7 * u_0) - (v9 * u_1)) * ((v7 * v_0) - (v9 * v_1))) + (((v9 * u_0) + (v7 * u_1)) * ((v9 * v_0) + (v7 * v_1)))) + v24) (((u_0 * v_0) + (u_1 * v_1)) + v24))
 
-#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 0.849771 0.791222 0.732673 0.674124 0.615576 0.557027 0.498478))
-#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 0.518579 0.460030 0.401481 0.342932 0.284384 0.225835 1.767286))
-#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 1.787387 1.728838 1.670289 1.611740 1.553192 1.494643 1.436094))
+#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 1.705163 1.646614 1.588065 1.529516 1.470968 1.412419 1.353870))
+#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 1.373971 1.315422 1.256873 1.198324 1.139776 1.081227 1.022678))
+#eval IO.println ("check_rotz_dot " ++ toString (check_rotz_dot 1.042779 0.984230 0.925681 0.867132 0.808584 0.750035 0.691486))
 
 def sampleRay (a : Float) (w : Float) (hsun : Float) (sd_0 : Float) (sd_1 : Float) (sd_2 : Float) (u1 : Float) (u2 : Float) (u3 : Float) (u4 : Float) (u5 : Float) (u6 : Float) : Array Float :=
   let v14 := (((2 : Float) * a) / w)
@@ -5155,24 +5185,24 @@ def sampleRay (a : Float) (w : Float) (hsun : Float) (sd_0 : Float) (sd_1 : Floa
   let v82 := (Float.sin v76)
   #[(v17 + (w * (Float.floor (u1 * v14)))), (v17 + (w * (Float.floor (u2 * v14)))), ((u3 - v27) * w), ((u4 - v27) * w), ((v77 * v32) + (v79 * ((v80 * v60) + (v82 * ((v33 * v62) - (v34 * v61)))))), ((v77 * v33) + (v79 * ((v80 * v61) + (v82 * ((v34 * v60) - (v32 * v62)))))), ((v77 * v34) + (v79 * ((v80 * v62) + (v82 * ((v32 * v61) - (v33 * v60))))))]
 
-#eval IO.println ("sampleRay " ++ toString ((sampleRay 0.663619 0.605070 0.546521 0.487972 0.429424 0.370875 0.312326 0.253777 1.795228 1.736680 1.678131 1.619582).map Float.toBits))
-#eval IO.println ("sampleRay " ++ toString ((sampleRay 0.332427 0.273878 0.215329 1.756780 1.698232 1.639683 1.581134 1.522585 1.464036 1.405488 1.346939 1.288390).map Float.toBits))
-#eval IO.println ("sampleRay " ++ toString ((sampleRay 1.601235 1.542686 1.484137 1.425588 1.367040 1.308491 1.249942 1.191393 1.132844 1.074296 1.015747 0.957198).map Float.toBits))
+#eval IO.println ("sampleRay " ++ toString ((sampleRay 1.519011 1.460462 1.401913 1.343364 1.284816 1.226267 1.167718 1.109169 1.050620 0.992072 0.933523 0.874974).map Float.toBits))
+#eval IO.println ("sampleRay " ++ toString ((sampleRay 1.187819 1.129270 1.070721 1.012172 0.953624 0.895075 0.836526 0.777977 0.719428 0.660880 0.602331 0.543782).map Float.toBits))
+#eval IO.println ("sampleRay " ++ toString ((sampleRay 0.856627 0.798078 0.739529 0.680980 0.622432 0.563883 0.505334 0.446785 0.388236 0.329688 0.271139 0.212590).map Float.toBits))
 
 def screwLength (R : Float) (a : Float) : Float :=
   ((R / (2 : Float)) - (R - (Float.sqrt ((R ^ 2) - (a ^ 2)))))
 
-#eval IO.println ("screwLength " ++ toString (screwLength 0.477467 0.418918).toBits)
-#eval IO.println ("screwLength " ++ toString (screwLength 1.746275 1.687726).toBits)
-#eval IO.println ("screwLength " ++ toString (screwLength 1.415083 1.356534).toBits)
+#eval IO.println ("screwLength " ++ toString (screwLength 1.332859 1.274310).toBits)
+#eval IO.println ("screwLength " ++ toString (screwLength 1.001667 0.943118).toBits)
+#eval IO.println ("screwLength " ++ toString (screwLength 0.670475 0.611926).toBits)
 
 def check_screwLength_eq_focal (R : Float) (a : Float) : Bool :=
   let v8 := (R - (Float.sqrt ((R ^ 2) - (a ^ 2))))
   (feq ((R / (2 : Float)) - v8) ((R - (R / ((2 : Float) * (Float.cos (Float.asin ((0 : Float) / R)))))) - v8))
 
-#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 0.291315 0.232766))
-#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 1.560123 1.501574))
-#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 1.228931 1.170382))
+#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 1.146707 1.088158))
+#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 0.815515 0.756966))
+#eval IO.println ("check_screwLength_eq_focal " ++ toString (check_screwLength_eq_focal 0.484323 0.425774))
 
 def check_screwLength_hashemi  : Bool :=
   (feq (((2 : Float) / (2 : Float)) - ((2 : Float) - (Float.sqrt (((2 : Float) ^ 2) - ((1 : Float) ^ 2))))) ((Float.sqrt (3 : Float)) - (1 : Float)))
@@ -5192,18 +5222,18 @@ def check_screwLength_hashemi_bounds  : Bool :=
 def screwTwist (h : Float) (zBolt : Float) : Array Float :=
   #[(1 : Float), (0 : Float), (0 : Float), h, zBolt, (0 : Float)]
 
-#eval IO.println ("screwTwist " ++ toString ((screwTwist 1.332859 1.274310).map Float.toBits))
-#eval IO.println ("screwTwist " ++ toString ((screwTwist 1.001667 0.943118).map Float.toBits))
-#eval IO.println ("screwTwist " ++ toString ((screwTwist 0.670475 0.611926).map Float.toBits))
+#eval IO.println ("screwTwist " ++ toString ((screwTwist 0.588251 0.529702).map Float.toBits))
+#eval IO.println ("screwTwist " ++ toString ((screwTwist 0.257059 1.798510).map Float.toBits))
+#eval IO.println ("screwTwist " ++ toString ((screwTwist 1.525867 1.467318).map Float.toBits))
 
 def check_screwTwist_zero (apexH : Float) (zBolt : Float) : Bool :=
   let v8 := (apexH * (0 : Float))
   let v13 := (feq (0 : Float) (0 : Float))
   ((feq (1 : Float) (1 : Float)) && (v13 && (v13 && ((feq (0 : Float) (((0 : Float) * (0 : Float)) - (zBolt * (0 : Float)))) && ((feq zBolt ((zBolt * (1 : Float)) - v8)) && (feq (0 : Float) (v8 - ((0 : Float) * (1 : Float)))))))))
 
-#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 1.146707 1.088158))
-#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 0.815515 0.756966))
-#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 0.484323 0.425774))
+#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 0.402099 0.343550))
+#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 1.670907 1.612358))
+#eval IO.println ("check_screwTwist_zero " ++ toString (check_screwTwist_zero 1.339715 1.281166))
 
 def screwWrench (xh : Float) (zBolt : Float) (h : Float) : Array Float :=
   let v5 := ((0 : Float) * (0 : Float))
@@ -5212,9 +5242,9 @@ def screwWrench (xh : Float) (zBolt : Float) (h : Float) : Array Float :=
   let v11 := (xh * (1 : Float))
   #[(0 : Float), (1 : Float), (0 : Float), (v5 - (zBolt * (1 : Float))), (v8 - v9), (v11 - v5), (0 : Float), (0 : Float), (1 : Float), (((0 : Float) * (1 : Float)) - v8), (v8 - v11), (v9 - v5), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (1 : Float), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (0 : Float), (1 : Float), (1 : Float), (0 : Float), (0 : Float), (-h), zBolt, (0 : Float)]
 
-#eval IO.println ("screwWrench " ++ toString ((screwWrench 0.960555 0.902006 0.843457).map Float.toBits))
-#eval IO.println ("screwWrench " ++ toString ((screwWrench 0.629363 0.570814 0.512265).map Float.toBits))
-#eval IO.println ("screwWrench " ++ toString ((screwWrench 0.298171 0.239622 1.781073).map Float.toBits))
+#eval IO.println ("screwWrench " ++ toString ((screwWrench 0.215947 1.757398 1.698849).map Float.toBits))
+#eval IO.println ("screwWrench " ++ toString ((screwWrench 1.484755 1.426206 1.367657).map Float.toBits))
+#eval IO.println ("screwWrench " ++ toString ((screwWrench 1.153563 1.095014 1.036465).map Float.toBits))
 
 def check_screw_freedom (xh : Float) (zBolt : Float) (h : Float) (t_0 : Float) (t_1 : Float) (t_2 : Float) (t_3 : Float) (t_4 : Float) (t_5 : Float) : Bool :=
   let v11 := ((0 : Float) * (0 : Float))
@@ -5228,9 +5258,9 @@ def check_screw_freedom (xh : Float) (zBolt : Float) (h : Float) (t_0 : Float) (
   let v50 := (t_2 * (0 : Float))
   (!((feq ((((((t_0 * (v11 - (zBolt * (1 : Float)))) + (t_1 * (v14 - v15))) + (t_2 * (v17 - v11))) + v29) + (t_4 * (1 : Float))) + v33) (0 : Float)) && ((feq ((((((t_0 * (((0 : Float) * (1 : Float)) - v14)) + (t_1 * (v14 - v17))) + (t_2 * (v15 - v11))) + v29) + v42) + (t_5 * (1 : Float))) (0 : Float)) && ((feq (((((v47 + (t_1 * (1 : Float))) + v50) + v29) + v42) + v33) (0 : Float)) && ((feq (((((v47 + (t_1 * (0 : Float))) + (t_2 * (1 : Float))) + v29) + v42) + v33) (0 : Float)) && (feq ((((((t_0 * (-h)) + (t_1 * zBolt)) + v50) + (t_3 * (1 : Float))) + v42) + v33) (0 : Float)))))) || ((feq t_1 (0 : Float)) && ((feq t_2 (0 : Float)) && ((feq t_3 (t_0 * h)) && ((feq t_4 (t_0 * zBolt)) && (feq t_5 (0 : Float)))))))
 
-#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 0.774403 0.715854 0.657305 0.598756 0.540208 0.481659 0.423110 0.364561 0.306012))
-#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 0.443211 0.384662 0.326113 0.267564 0.209016 1.750467 1.691918 1.633369 1.574820))
-#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 1.712019 1.653470 1.594921 1.536372 1.477824 1.419275 1.360726 1.302177 1.243628))
+#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 1.629795 1.571246 1.512697 1.454148 1.395600 1.337051 1.278502 1.219953 1.161404))
+#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 1.298603 1.240054 1.181505 1.122956 1.064408 1.005859 0.947310 0.888761 0.830212))
+#eval IO.println ("check_screw_freedom " ++ toString (check_screw_freedom 0.967411 0.908862 0.850313 0.791764 0.733216 0.674667 0.616118 0.557569 0.499020))
 
 def check_screw_reciprocal (xh : Float) (zBolt : Float) (h : Float) : Bool :=
   let v5 := ((0 : Float) * (0 : Float))
@@ -5243,37 +5273,37 @@ def check_screw_reciprocal (xh : Float) (zBolt : Float) (h : Float) : Bool :=
   let v37 := ((1 : Float) * (0 : Float))
   ((feq (((((((1 : Float) * (v5 - v6)) + ((0 : Float) * (v8 - v9))) + ((0 : Float) * (v11 - v5))) + v23) + v6) + v5) (0 : Float)) && ((feq (((((((1 : Float) * (v13 - v8)) + ((0 : Float) * (v8 - v11))) + ((0 : Float) * (v9 - v5))) + v23) + v8) + v13) (0 : Float)) && ((feq (((((v37 + v13) + v5) + v23) + v8) + v5) (0 : Float)) && ((feq (((((v37 + v5) + v13) + v23) + v8) + v5) (0 : Float)) && (feq (((((((1 : Float) * (-h)) + ((0 : Float) * zBolt)) + v5) + (h * (1 : Float))) + v8) + v5) (0 : Float))))))
 
-#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 0.588251 0.529702 0.471153))
-#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 0.257059 1.798510 1.739961))
-#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 1.525867 1.467318 1.408769))
+#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 1.443643 1.385094 1.326545))
+#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 1.112451 1.053902 0.995353))
+#eval IO.println ("check_screw_reciprocal " ++ toString (check_screw_reciprocal 0.781259 0.722710 0.664161))
 
 def secondaryMag (L : Float) (dm : Float) : Float :=
   ((L - dm) / dm)
 
-#eval IO.println ("secondaryMag " ++ toString (secondaryMag 0.402099 0.343550).toBits)
-#eval IO.println ("secondaryMag " ++ toString (secondaryMag 1.670907 1.612358).toBits)
-#eval IO.println ("secondaryMag " ++ toString (secondaryMag 1.339715 1.281166).toBits)
+#eval IO.println ("secondaryMag " ++ toString (secondaryMag 1.257491 1.198942).toBits)
+#eval IO.println ("secondaryMag " ++ toString (secondaryMag 0.926299 0.867750).toBits)
+#eval IO.println ("secondaryMag " ++ toString (secondaryMag 0.595107 0.536558).toBits)
 
 def setLength (rod : Float) (excess : Float) : Float :=
   (rod - excess)
 
-#eval IO.println ("setLength " ++ toString (setLength 0.215947 1.757398).toBits)
-#eval IO.println ("setLength " ++ toString (setLength 1.484755 1.426206).toBits)
-#eval IO.println ("setLength " ++ toString (setLength 1.153563 1.095014).toBits)
+#eval IO.println ("setLength " ++ toString (setLength 1.071339 1.012790).toBits)
+#eval IO.println ("setLength " ++ toString (setLength 0.740147 0.681598).toBits)
+#eval IO.println ("setLength " ++ toString (setLength 0.408955 0.350406).toBits)
 
 def shift (x : Float) (h : Array Float) : Array Float :=
   #[x, h[0]!, h[1]!, h[2]!, h[3]!, h[4]!, h[5]!, h[6]!, h[7]!, h[8]!, h[9]!, h[10]!, h[11]!, h[12]!, h[13]!, h[14]!]
 
-#eval IO.println ("shift " ++ toString ((shift 1.629795 #[0.306411, 0.247862, 1.789313, 1.730764, 1.672216, 1.613667, 1.555118, 1.496569, 1.438020, 1.379472, 1.320923, 1.262374, 1.203825, 1.145276, 1.086728, 1.028179]).map Float.toBits))
-#eval IO.println ("shift " ++ toString ((shift 1.298603 #[1.575219, 1.516670, 1.458121, 1.399572, 1.341024, 1.282475, 1.223926, 1.165377, 1.106828, 1.048280, 0.989731, 0.931182, 0.872633, 0.814084, 0.755536, 0.696987]).map Float.toBits))
-#eval IO.println ("shift " ++ toString ((shift 0.967411 #[1.244027, 1.185478, 1.126929, 1.068380, 1.009832, 0.951283, 0.892734, 0.834185, 0.775636, 0.717088, 0.658539, 0.599990, 0.541441, 0.482892, 0.424344, 0.365795]).map Float.toBits))
+#eval IO.println ("shift " ++ toString ((shift 0.885187 #[1.161803, 1.103254, 1.044705, 0.986156, 0.927608, 0.869059, 0.810510, 0.751961, 0.693412, 0.634864, 0.576315, 0.517766, 0.459217, 0.400668, 0.342120, 0.283571]).map Float.toBits))
+#eval IO.println ("shift " ++ toString ((shift 0.553995 #[0.830611, 0.772062, 0.713513, 0.654964, 0.596416, 0.537867, 0.479318, 0.420769, 0.362220, 0.303672, 0.245123, 1.786574, 1.728025, 1.669476, 1.610928, 1.552379]).map Float.toBits))
+#eval IO.println ("shift " ++ toString ((shift 0.222803 #[0.499419, 0.440870, 0.382321, 0.323772, 0.265224, 0.206675, 1.748126, 1.689577, 1.631028, 1.572480, 1.513931, 1.455382, 1.396833, 1.338284, 1.279736, 1.221187]).map Float.toBits))
 
 def check_shift_head (x : Float) (h : Array Float) : Bool :=
   (feq x x)
 
-#eval IO.println ("check_shift_head " ++ toString (check_shift_head 1.443643 #[1.720259, 1.661710, 1.603161, 1.544612, 1.486064, 1.427515, 1.368966, 1.310417, 1.251868, 1.193320, 1.134771, 1.076222, 1.017673, 0.959124, 0.900576, 0.842027]))
-#eval IO.println ("check_shift_head " ++ toString (check_shift_head 1.112451 #[1.389067, 1.330518, 1.271969, 1.213420, 1.154872, 1.096323, 1.037774, 0.979225, 0.920676, 0.862128, 0.803579, 0.745030, 0.686481, 0.627932, 0.569384, 0.510835]))
-#eval IO.println ("check_shift_head " ++ toString (check_shift_head 0.781259 #[1.057875, 0.999326, 0.940777, 0.882228, 0.823680, 0.765131, 0.706582, 0.648033, 0.589484, 0.530936, 0.472387, 0.413838, 0.355289, 0.296740, 0.238192, 1.779643]))
+#eval IO.println ("check_shift_head " ++ toString (check_shift_head 0.699035 #[0.975651, 0.917102, 0.858553, 0.800004, 0.741456, 0.682907, 0.624358, 0.565809, 0.507260, 0.448712, 0.390163, 0.331614, 0.273065, 0.214516, 1.755968, 1.697419]))
+#eval IO.println ("check_shift_head " ++ toString (check_shift_head 0.367843 #[0.644459, 0.585910, 0.527361, 0.468812, 0.410264, 0.351715, 0.293166, 0.234617, 1.776068, 1.717520, 1.658971, 1.600422, 1.541873, 1.483324, 1.424776, 1.366227]))
+#eval IO.println ("check_shift_head " ++ toString (check_shift_head 1.636651 #[0.313267, 0.254718, 1.796169, 1.737620, 1.679072, 1.620523, 1.561974, 1.503425, 1.444876, 1.386328, 1.327779, 1.269230, 1.210681, 1.152132, 1.093584, 1.035035]))
 
 def check_shim_negligible  : Bool :=
   ((0.0005 : Float) < ((0.01 : Float) * (0.06 : Float)))
@@ -5306,17 +5336,17 @@ def sigmaSB  : Float :=
 def check_sigmoid_ge_of_nonneg (x : Float) : Bool :=
   (!((0 : Float) <= x) || (((1 : Float) - ((1 : Float) / ((2 : Float) + x))) <= (1.0 / (1.0 + Float.exp (-x)))))
 
-#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 0.512883))
-#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 1.781691))
-#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 1.450499))
+#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 1.368275))
+#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 1.037083))
+#eval IO.println ("check_sigmoid_ge_of_nonneg " ++ toString (check_sigmoid_ge_of_nonneg 0.705891))
 
 def check_sigmoid_slope_le (x : Float) : Bool :=
   let v1 := (1.0 / (1.0 + Float.exp (-x)))
   ((v1 * ((1 : Float) - v1)) <= ((1 : Float) / (4 : Float)))
 
-#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 0.326731))
-#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 1.595539))
-#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 1.264347))
+#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 1.182123))
+#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 0.850931))
+#eval IO.println ("check_sigmoid_slope_le " ++ toString (check_sigmoid_slope_le 0.519739))
 
 def check_sixty_reachable  : Bool :=
   let v2 := ((3.141592653589793 : Float) / (3 : Float))
@@ -5331,32 +5361,32 @@ def check_slackHarmless_of_budget (f : Float) (eps : Float) (delta : Float) (h :
   let v5 := (f * (Float.tan eps))
   (!(v5 <= (h - delta)) || ((v5 + delta) <= h))
 
-#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 1.554427 1.495878 1.437329 1.378780))
-#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 1.223235 1.164686 1.106137 1.047588))
-#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 0.892043 0.833494 0.774945 0.716396))
+#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 0.809819 0.751270 0.692721 0.634172))
+#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 0.478627 0.420078 0.361529 0.302980))
+#eval IO.println ("check_slackHarmless_of_budget " ++ toString (check_slackHarmless_of_budget 1.747435 1.688886 1.630337 1.571788))
 
 def check_slackHarmless_of_lever (f : Float) (eps : Float) (delta : Float) (rw : Float) (h : Float) : Bool :=
   let v6 := (f * (Float.tan eps))
   let v10 := ((((2 : Float) * f) * delta) / rw)
   (!(v6 <= (h - v10)) || ((v6 + v10) <= h))
 
-#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 1.368275 1.309726 1.251177 1.192628 1.134080))
-#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 1.037083 0.978534 0.919985 0.861436 0.802888))
-#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 0.705891 0.647342 0.588793 0.530244 0.471696))
+#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 0.623667 0.565118 0.506569 0.448020 0.389472))
+#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 0.292475 0.233926 1.775377 1.716828 1.658280))
+#eval IO.println ("check_slackHarmless_of_lever " ++ toString (check_slackHarmless_of_lever 1.561283 1.502734 1.444185 1.385636 1.327088))
 
 def slackSpot (f : Float) (delta : Float) (rw : Float) : Float :=
   ((((2 : Float) * f) * delta) / rw)
 
-#eval IO.println ("slackSpot " ++ toString (slackSpot 1.182123 1.123574 1.065025).toBits)
-#eval IO.println ("slackSpot " ++ toString (slackSpot 0.850931 0.792382 0.733833).toBits)
-#eval IO.println ("slackSpot " ++ toString (slackSpot 0.519739 0.461190 0.402641).toBits)
+#eval IO.println ("slackSpot " ++ toString (slackSpot 0.437515 0.378966 0.320417).toBits)
+#eval IO.println ("slackSpot " ++ toString (slackSpot 1.706323 1.647774 1.589225).toBits)
+#eval IO.println ("slackSpot " ++ toString (slackSpot 1.375131 1.316582 1.258033).toBits)
 
 def slotExit (a : Float) (ze : Float) : Float :=
   (Float.atan (a / ze))
 
-#eval IO.println ("slotExit " ++ toString (slotExit 0.995971 0.937422).toBits)
-#eval IO.println ("slotExit " ++ toString (slotExit 0.664779 0.606230).toBits)
-#eval IO.println ("slotExit " ++ toString (slotExit 0.333587 0.275038).toBits)
+#eval IO.println ("slotExit " ++ toString (slotExit 0.251363 1.792814).toBits)
+#eval IO.println ("slotExit " ++ toString (slotExit 1.520171 1.461622).toBits)
+#eval IO.println ("slotExit " ++ toString (slotExit 1.188979 1.130430).toBits)
 
 def check_slot_exit_hashemi  : Bool :=
   let v6 := ((0.8 : Float) / ((Float.sqrt (3.36 : Float)) - (1 : Float)))
@@ -5369,18 +5399,18 @@ def check_slot_exit_hashemi  : Bool :=
 def sphereBestFocus (R : Float) (H : Float) : Float :=
   (((R / (2 : Float)) + (R / ((2 : Float) * (Float.sqrt ((1 : Float) - ((H / R) ^ 2)))))) / (2 : Float))
 
-#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 0.623667 0.565118).toBits)
-#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 0.292475 0.233926).toBits)
-#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 1.561283 1.502734).toBits)
+#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 1.479059 1.420510).toBits)
+#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 1.147867 1.089318).toBits)
+#eval IO.println ("sphereBestFocus " ++ toString (sphereBestFocus 0.816675 0.758126).toBits)
 
 def sphereBlur (R : Float) (H : Float) : Float :=
   let v4 := (H / R)
   let v13 := (v4 ^ 2)
   (((R / (2 : Float)) - (R - (R / ((2 : Float) * (Float.cos (Float.asin v4)))))) * ((((2 : Float) * v4) * (Float.sqrt ((1 : Float) - v13))) / ((1 : Float) - ((2 : Float) * v13))))
 
-#eval IO.println ("sphereBlur " ++ toString (sphereBlur 0.437515 0.378966).toBits)
-#eval IO.println ("sphereBlur " ++ toString (sphereBlur 1.706323 1.647774).toBits)
-#eval IO.println ("sphereBlur " ++ toString (sphereBlur 1.375131 1.316582).toBits)
+#eval IO.println ("sphereBlur " ++ toString (sphereBlur 1.292907 1.234358).toBits)
+#eval IO.println ("sphereBlur " ++ toString (sphereBlur 0.961715 0.903166).toBits)
+#eval IO.println ("sphereBlur " ++ toString (sphereBlur 0.630523 0.571974).toBits)
 
 def sphereDev (R : Float) (h : Float) (p : Float) : Float :=
   let v5 := (h / R)
@@ -5388,16 +5418,16 @@ def sphereDev (R : Float) (h : Float) (p : Float) : Float :=
   let v8 := (Float.sqrt ((1 : Float) - v6))
   (((R / ((2 : Float) * v8)) - p) * ((((2 : Float) * v5) * v8) / ((1 : Float) - ((2 : Float) * v6))))
 
-#eval IO.println ("sphereDev " ++ toString (sphereDev 0.251363 1.792814 1.734265).toBits)
-#eval IO.println ("sphereDev " ++ toString (sphereDev 1.520171 1.461622 1.403073).toBits)
-#eval IO.println ("sphereDev " ++ toString (sphereDev 1.188979 1.130430 1.071881).toBits)
+#eval IO.println ("sphereDev " ++ toString (sphereDev 1.106755 1.048206 0.989657).toBits)
+#eval IO.println ("sphereDev " ++ toString (sphereDev 0.775563 0.717014 0.658465).toBits)
+#eval IO.println ("sphereDev " ++ toString (sphereDev 0.444371 0.385822 0.327273).toBits)
 
 def sphereFocal (R : Float) (h : Float) : Float :=
   (R - (R / ((2 : Float) * (Float.cos (Float.asin (h / R))))))
 
-#eval IO.println ("sphereFocal " ++ toString (sphereFocal 1.665211 1.606662).toBits)
-#eval IO.println ("sphereFocal " ++ toString (sphereFocal 1.334019 1.275470).toBits)
-#eval IO.println ("sphereFocal " ++ toString (sphereFocal 1.002827 0.944278).toBits)
+#eval IO.println ("sphereFocal " ++ toString (sphereFocal 0.920603 0.862054).toBits)
+#eval IO.println ("sphereFocal " ++ toString (sphereFocal 0.589411 0.530862).toBits)
+#eval IO.println ("sphereFocal " ++ toString (sphereFocal 0.258219 1.799670).toBits)
 
 def sphereHit (R : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Array Float :=
   let v7 := (O_2 - R)
@@ -5405,9 +5435,9 @@ def sphereHit (R : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float
   let v24 := ((-v12) + (Float.sqrt ((v12 ^ 2) - ((((O_0 ^ 2) + (O_1 ^ 2)) + (v7 ^ 2)) - (R ^ 2)))))
   #[(O_0 + (v24 * d_0)), (O_1 + (v24 * d_1)), (O_2 + (v24 * d_2)), ((-(O_0 + (v24 * d_0))) / R), ((-(O_1 + (v24 * d_1))) / R), ((R - (O_2 + (v24 * d_2))) / R)]
 
-#eval IO.println ("sphereHit " ++ toString ((sphereHit 1.479059 1.420510 1.361961 1.303412 1.244864 1.186315 1.127766).map Float.toBits))
-#eval IO.println ("sphereHit " ++ toString ((sphereHit 1.147867 1.089318 1.030769 0.972220 0.913672 0.855123 0.796574).map Float.toBits))
-#eval IO.println ("sphereHit " ++ toString ((sphereHit 0.816675 0.758126 0.699577 0.641028 0.582480 0.523931 0.465382).map Float.toBits))
+#eval IO.println ("sphereHit " ++ toString ((sphereHit 0.734451 0.675902 0.617353 0.558804 0.500256 0.441707 0.383158).map Float.toBits))
+#eval IO.println ("sphereHit " ++ toString ((sphereHit 0.403259 0.344710 0.286161 0.227612 1.769064 1.710515 1.651966).map Float.toBits))
+#eval IO.println ("sphereHit " ++ toString ((sphereHit 1.672067 1.613518 1.554969 1.496420 1.437872 1.379323 1.320774).map Float.toBits))
 
 def spotTau  : Float :=
   (0.005 : Float)
@@ -5420,9 +5450,9 @@ def check_sq_bounds_neg (x : Float) (lo : Float) (hi : Float) : Bool :=
   let v8 := (x ^ 2)
   (!(lo < x) || (!(x < hi) || (!(hi <= (0 : Float)) || (((hi ^ 2) < v8) && (v8 < (lo ^ 2))))))
 
-#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 1.106755 1.048206 0.989657))
-#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 0.775563 0.717014 0.658465))
-#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 0.444371 0.385822 0.327273))
+#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 0.362147 0.303598 0.245049))
+#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 1.630955 1.572406 1.513857))
+#eval IO.println ("check_sq_bounds_neg " ++ toString (check_sq_bounds_neg 1.299763 1.241214 1.182665))
 
 def check_sqrt32_bounds  : Bool :=
   let v2 := (Float.sqrt (3.2 : Float))
@@ -5438,9 +5468,9 @@ def check_steady_conservation (alpha : Float) (eps : Float) (Ac : Float) (hC : F
   let v28 := (max (0 : Float) (UAx * (Toil - Twall)))
   (!(feq (v24 - v28) (0 : Float)) || (feq v28 v24))
 
-#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 0.734451 0.675902 0.617353 0.558804 0.500256 0.441707 0.383158 0.324609 0.266060 0.207512))
-#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 0.403259 0.344710 0.286161 0.227612 1.769064 1.710515 1.651966 1.593417 1.534868 1.476320))
-#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 1.672067 1.613518 1.554969 1.496420 1.437872 1.379323 1.320774 1.262225 1.203676 1.145128))
+#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 1.589843 1.531294 1.472745 1.414196 1.355648 1.297099 1.238550 1.180001 1.121452 1.062904))
+#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 1.258651 1.200102 1.141553 1.083004 1.024456 0.965907 0.907358 0.848809 0.790260 0.731712))
+#eval IO.println ("check_steady_conservation " ++ toString (check_steady_conservation 0.927459 0.868910 0.810361 0.751812 0.693264 0.634715 0.576166 0.517617 0.459068 0.400520))
 
 def check_steady_pot_le_abs (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Pin : Float) (Toil : Float) (Twall : Float) (Ta : Float) : Bool :=
   let v17 := (alpha * Pin)
@@ -5448,9 +5478,9 @@ def check_steady_pot_le_abs (alpha : Float) (eps : Float) (Ac : Float) (hC : Flo
   let v34 := (max (0 : Float) (UAx * (Toil - Twall)))
   (!((0 : Float) <= eps) || (!((0 : Float) <= Ac) || (!((0 : Float) <= hC) || (!((0 : Float) <= Upipe) || (!((0 : Float) <= Ta) || (!(Ta <= Toil) || (!(feq (((v17 - ((((eps * (0.0000000567 : Float)) * Ac) * ((Toil ^ 4) - (Ta ^ 4))) + ((hC * Ac) * v26))) - (Upipe * v26)) - v34) (0 : Float)) || (v34 <= v17))))))))
 
-#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 0.548299 0.489750 0.431201 0.372652 0.314104 0.255555 1.797006 1.738457 1.679908 1.621360))
-#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 0.217107 1.758558 1.700009 1.641460 1.582912 1.524363 1.465814 1.407265 1.348716 1.290168))
-#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 1.485915 1.427366 1.368817 1.310268 1.251720 1.193171 1.134622 1.076073 1.017524 0.958976))
+#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 1.403691 1.345142 1.286593 1.228044 1.169496 1.110947 1.052398 0.993849 0.935300 0.876752))
+#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 1.072499 1.013950 0.955401 0.896852 0.838304 0.779755 0.721206 0.662657 0.604108 0.545560))
+#eval IO.println ("check_steady_pot_le_abs " ++ toString (check_steady_pot_le_abs 0.741307 0.682758 0.624209 0.565660 0.507112 0.448563 0.390014 0.331465 0.272916 0.214368))
 
 def check_steady_unique (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Upipe : Float) (UAx : Float) (Pin : Float) (Twall : Float) (Ta : Float) (T1 : Float) (T2 : Float) : Bool :=
   let v19 := (alpha * Pin)
@@ -5461,9 +5491,9 @@ def check_steady_unique (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) 
   let v42 := (T2 - Ta)
   (!((0 : Float) <= eps) || (!((0 : Float) <= Ac) || (!((0 : Float) <= hC) || (!((0 : Float) < Upipe) || (!((0 : Float) <= UAx) || (!((0 : Float) <= T1) || (!((0 : Float) <= T2) || (!(feq (((v19 - ((v22 * ((T1 ^ 4) - v24)) + (v27 * v28))) - (Upipe * v28)) - (max (0 : Float) (UAx * (T1 - Twall)))) (0 : Float)) || (!(feq (((v19 - ((v22 * ((T2 ^ 4) - v24)) + (v27 * v42))) - (Upipe * v42)) - (max (0 : Float) (UAx * (T2 - Twall)))) (0 : Float)) || (feq T1 T2))))))))))
 
-#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 0.362147 0.303598 0.245049 1.786500 1.727952 1.669403 1.610854 1.552305 1.493756 1.435208 1.376659))
-#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 1.630955 1.572406 1.513857 1.455308 1.396760 1.338211 1.279662 1.221113 1.162564 1.104016 1.045467))
-#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 1.299763 1.241214 1.182665 1.124116 1.065568 1.007019 0.948470 0.889921 0.831372 0.772824 0.714275))
+#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 1.217539 1.158990 1.100441 1.041892 0.983344 0.924795 0.866246 0.807697 0.749148 0.690600 0.632051))
+#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 0.886347 0.827798 0.769249 0.710700 0.652152 0.593603 0.535054 0.476505 0.417956 0.359408 0.300859))
+#eval IO.println ("check_steady_unique " ++ toString (check_steady_unique 0.555155 0.496606 0.438057 0.379508 0.320960 0.262411 0.203862 1.745313 1.686764 1.628216 1.569667))
 
 def step (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Float) (dt : Float) (rw : Float) (R : Float) (rDrum : Float) (ym : Float) (hp : Float) (a : Float) (ze : Float) (W : Float) (rcm : Float) (Tmax : Float) : Array Float :=
   let v16 := (ym * a)
@@ -5642,9 +5672,9 @@ def step (az : Float) (t : Float) (slack : Float) (omegam : Float) (omegad : Flo
   let v588 := ((v38 * v583) + (v34 * v581))
   #[(az + (((omegam * rw) / R) * dt)), v570, (if v81 then (v79 - v47) else (0 : Float)), (if v569 then v75 else v83), v28, (if (v80 || v569) then (1 : Float) else (0 : Float)), (if (feq (if v81 then (v79 - v47) else (0 : Float)) (0 : Float)) then (1 : Float) else (0 : Float)), (if (v546 <= (Tmax * (((v29 * v588) - (hp * v585)) / (Float.sqrt (((v585 - v29) ^ 2) + ((v588 - hp) ^ 2)))))) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("step " ++ toString ((step 1.775995 1.717446 1.658897 1.600348 1.541800 1.483251 1.424702 1.366153 1.307604 1.249056 1.190507 1.131958 1.073409 1.014860 0.956312 0.897763).map Float.toBits))
-#eval IO.println ("step " ++ toString ((step 1.444803 1.386254 1.327705 1.269156 1.210608 1.152059 1.093510 1.034961 0.976412 0.917864 0.859315 0.800766 0.742217 0.683668 0.625120 0.566571).map Float.toBits))
-#eval IO.println ("step " ++ toString ((step 1.113611 1.055062 0.996513 0.937964 0.879416 0.820867 0.762318 0.703769 0.645220 0.586672 0.528123 0.469574 0.411025 0.352476 0.293928 0.235379).map Float.toBits))
+#eval IO.println ("step " ++ toString ((step 1.031387 0.972838 0.914289 0.855740 0.797192 0.738643 0.680094 0.621545 0.562996 0.504448 0.445899 0.387350 0.328801 0.270252 0.211704 1.753155).map Float.toBits))
+#eval IO.println ("step " ++ toString ((step 0.700195 0.641646 0.583097 0.524548 0.466000 0.407451 0.348902 0.290353 0.231804 1.773256 1.714707 1.656158 1.597609 1.539060 1.480512 1.421963).map Float.toBits))
+#eval IO.println ("step " ++ toString ((step 0.369003 0.310454 0.251905 1.793356 1.734808 1.676259 1.617710 1.559161 1.500612 1.442064 1.383515 1.324966 1.266417 1.207868 1.149320 1.090771).map Float.toBits))
 
 def stepParams  : Array Float :=
   #[(0.05 : Float), (Float.sqrt ((((1.84 : Float) / (2 : Float)) ^ 2) + ((0.80 : Float) ^ 2))), (0.03 : Float), (1.22 : Float), (0.34 : Float), (0.8 : Float), ((Float.sqrt (3.36 : Float)) - (1 : Float))]
@@ -5656,24 +5686,24 @@ def stepParams  : Array Float :=
 def strutStrain (P_0 : Float) (P_1 : Float) (P_2 : Float) (Q_0 : Float) (Q_1 : Float) (Q_2 : Float) (delta_0 : Float) (delta_1 : Float) (delta_2 : Float) : Float :=
   ((((P_0 - Q_0) * delta_0) + ((P_1 - Q_1) * delta_1)) + ((P_2 - Q_2) * delta_2))
 
-#eval IO.println ("strutStrain " ++ toString (strutStrain 1.403691 1.345142 1.286593 1.228044 1.169496 1.110947 1.052398 0.993849 0.935300).toBits)
-#eval IO.println ("strutStrain " ++ toString (strutStrain 1.072499 1.013950 0.955401 0.896852 0.838304 0.779755 0.721206 0.662657 0.604108).toBits)
-#eval IO.println ("strutStrain " ++ toString (strutStrain 0.741307 0.682758 0.624209 0.565660 0.507112 0.448563 0.390014 0.331465 0.272916).toBits)
+#eval IO.println ("strutStrain " ++ toString (strutStrain 0.659083 0.600534 0.541985 0.483436 0.424888 0.366339 0.307790 0.249241 1.790692).toBits)
+#eval IO.println ("strutStrain " ++ toString (strutStrain 0.327891 0.269342 0.210793 1.752244 1.693696 1.635147 1.576598 1.518049 1.459500).toBits)
+#eval IO.println ("strutStrain " ++ toString (strutStrain 1.596699 1.538150 1.479601 1.421052 1.362504 1.303955 1.245406 1.186857 1.128308).toBits)
 
 def check_strut_resists_lean (P_0 : Float) (P_1 : Float) (P_2 : Float) (Q_0 : Float) (Q_1 : Float) (Q_2 : Float) (delta_0 : Float) (delta_1 : Float) (delta_2 : Float) (eps : Float) : Bool :=
   (!((0 : Float) < eps) || (!(Q_0 < P_0) || (!(feq delta_0 (-eps)) || (!(feq delta_1 (0 : Float)) || (!(feq delta_2 (0 : Float)) || (((((P_0 - Q_0) * delta_0) + ((P_1 - Q_1) * delta_1)) + ((P_2 - Q_2) * delta_2)) < (0 : Float)))))))
 
-#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 1.217539 1.158990 1.100441 1.041892 0.983344 0.924795 0.866246 0.807697 0.749148 0.690600))
-#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 0.886347 0.827798 0.769249 0.710700 0.652152 0.593603 0.535054 0.476505 0.417956 0.359408))
-#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 0.555155 0.496606 0.438057 0.379508 0.320960 0.262411 0.203862 1.745313 1.686764 1.628216))
+#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 0.472931 0.414382 0.355833 0.297284 0.238736 1.780187 1.721638 1.663089 1.604540 1.545992))
+#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 1.741739 1.683190 1.624641 1.566092 1.507544 1.448995 1.390446 1.331897 1.273348 1.214800))
+#eval IO.println ("check_strut_resists_lean " ++ toString (check_strut_resists_lean 1.410547 1.351998 1.293449 1.234900 1.176352 1.117803 1.059254 1.000705 0.942156 0.883608))
 
 def sunDir (elSun : Float) (azSun : Float) : Array Float :=
   let v2 := (Float.cos elSun)
   #[(v2 * (Float.cos azSun)), (v2 * (Float.sin azSun)), (Float.sin elSun)]
 
-#eval IO.println ("sunDir " ++ toString ((sunDir 1.031387 0.972838).map Float.toBits))
-#eval IO.println ("sunDir " ++ toString ((sunDir 0.700195 0.641646).map Float.toBits))
-#eval IO.println ("sunDir " ++ toString ((sunDir 0.369003 0.310454).map Float.toBits))
+#eval IO.println ("sunDir " ++ toString ((sunDir 0.286779 0.228230).map Float.toBits))
+#eval IO.println ("sunDir " ++ toString ((sunDir 1.555587 1.497038).map Float.toBits))
+#eval IO.println ("sunDir " ++ toString ((sunDir 1.224395 1.165846).map Float.toBits))
 
 def check_sunDir_rot (elSun : Float) (azSun : Float) (delta : Float) : Bool :=
   let v3 := (Float.cos elSun)
@@ -5685,9 +5715,9 @@ def check_sunDir_rot (elSun : Float) (azSun : Float) (delta : Float) : Bool :=
   let v16 := (Float.sin delta)
   ((feq (v3 * (Float.cos v4)) ((v10 * v12) - (v16 * v14))) && ((feq (v3 * (Float.sin v4)) ((v16 * v12) + (v10 * v14))) && (feq v9 v9)))
 
-#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 0.845235 0.786686 0.728137))
-#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 0.514043 0.455494 0.396945))
-#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 1.782851 1.724302 1.665753))
+#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 1.700627 1.642078 1.583529))
+#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 1.369435 1.310886 1.252337))
+#eval IO.println ("check_sunDir_rot " ++ toString (check_sunDir_rot 1.038243 0.979694 0.921145))
 
 def sunInDish (az : Float) (t : Float) (elSun : Float) (azSun : Float) : Array Float :=
   let v4 := (Float.sin t)
@@ -5705,9 +5735,9 @@ def sunInDish (az : Float) (t : Float) (elSun : Float) (azSun : Float) : Array F
   let v27 := (Float.sin elSun)
   #[(((((v11 * v9) - (v12 * v8)) * v24) + (((v12 * v6) - (v10 * v9)) * v26)) + (((v10 * v8) - (v11 * v6)) * v27)), (((v10 * v24) + (v11 * v26)) + (v12 * v27)), (((v6 * v24) + (v8 * v26)) + (v9 * v27))]
 
-#eval IO.println ("sunInDish " ++ toString ((sunInDish 0.659083 0.600534 0.541985 0.483436).map Float.toBits))
-#eval IO.println ("sunInDish " ++ toString ((sunInDish 0.327891 0.269342 0.210793 1.752244).map Float.toBits))
-#eval IO.println ("sunInDish " ++ toString ((sunInDish 1.596699 1.538150 1.479601 1.421052).map Float.toBits))
+#eval IO.println ("sunInDish " ++ toString ((sunInDish 1.514475 1.455926 1.397377 1.338828).map Float.toBits))
+#eval IO.println ("sunInDish " ++ toString ((sunInDish 1.183283 1.124734 1.066185 1.007636).map Float.toBits))
+#eval IO.println ("sunInDish " ++ toString ((sunInDish 0.852091 0.793542 0.734993 0.676444).map Float.toBits))
 
 def check_sunInDish_equivariant (az : Float) (t : Float) (elSun : Float) (azSun : Float) (delta : Float) : Bool :=
   let v5 := (Float.sin t)
@@ -5737,9 +5767,9 @@ def check_sunInDish_equivariant (az : Float) (t : Float) (elSun : Float) (azSun 
   let v64 := (v24 * (Float.sin azSun))
   ((feq (((((v13 * v11) - (v14 * v10)) * v27) + (((v14 * v8) - (v12 * v11)) * v29)) + (((v12 * v10) - (v13 * v8)) * v30)) (((((v51 * v11) - (v14 * v49)) * v62) + (((v14 * v47) - (v50 * v11)) * v64)) + (((v50 * v49) - (v51 * v47)) * v30))) && ((feq (((v12 * v27) + (v13 * v29)) + v39) (((v50 * v62) + (v51 * v64)) + v39)) && (feq (((v8 * v27) + (v10 * v29)) + v44) (((v47 * v62) + (v49 * v64)) + v44))))
 
-#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 0.472931 0.414382 0.355833 0.297284 0.238736))
-#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 1.741739 1.683190 1.624641 1.566092 1.507544))
-#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 1.410547 1.351998 1.293449 1.234900 1.176352))
+#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 1.328323 1.269774 1.211225 1.152676 1.094128))
+#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 0.997131 0.938582 0.880033 0.821484 0.762936))
+#eval IO.println ("check_sunInDish_equivariant " ++ toString (check_sunInDish_equivariant 0.665939 0.607390 0.548841 0.490292 0.431744))
 
 def sunRate  : Float :=
   (0.000073 : Float)
@@ -5751,57 +5781,57 @@ def sunRate  : Float :=
 def sunReachableS (tDead : Float) (elSun : Float) : Float :=
   (1.0 / (1.0 + Float.exp (-((elSun - (((3.141592653589793 : Float) / (2 : Float)) - tDead)) / (0.01 : Float)))))
 
-#eval IO.println ("sunReachableS " ++ toString (sunReachableS 1.700627 1.642078).toBits)
-#eval IO.println ("sunReachableS " ++ toString (sunReachableS 1.369435 1.310886).toBits)
-#eval IO.println ("sunReachableS " ++ toString (sunReachableS 1.038243 0.979694).toBits)
+#eval IO.println ("sunReachableS " ++ toString (sunReachableS 0.956019 0.897470).toBits)
+#eval IO.println ("sunReachableS " ++ toString (sunReachableS 0.624827 0.566278).toBits)
+#eval IO.println ("sunReachableS " ++ toString (sunReachableS 0.293635 0.235086).toBits)
 
 def check_sunReachableS_mem (tDead : Float) (elSun : Float) : Bool :=
   let v10 := (1.0 / (1.0 + Float.exp (-((elSun - (((3.141592653589793 : Float) / (2 : Float)) - tDead)) / (0.01 : Float)))))
   (((0 : Float) <= v10) && (v10 <= (1 : Float)))
 
-#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 1.514475 1.455926))
-#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 1.183283 1.124734))
-#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 0.852091 0.793542))
+#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 0.769867 0.711318))
+#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 0.438675 0.380126))
+#eval IO.println ("check_sunReachableS_mem " ++ toString (check_sunReachableS_mem 1.707483 1.648934))
 
 def check_sunReachableS_slope (tDead : Float) (e1 : Float) (e2 : Float) : Bool :=
   let v6 := (((3.141592653589793 : Float) / (2 : Float)) - tDead)
   ((Float.abs ((1.0 / (1.0 + Float.exp (-((e1 - v6) / (0.01 : Float))))) - (1.0 / (1.0 + Float.exp (-((e2 - v6) / (0.01 : Float))))))) <= ((Float.abs (e1 - e2)) / ((4 : Float) * (0.01 : Float))))
 
-#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 1.328323 1.269774 1.211225))
-#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 0.997131 0.938582 0.880033))
-#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 0.665939 0.607390 0.548841))
+#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 0.583715 0.525166 0.466617))
+#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 0.252523 1.793974 1.735425))
+#eval IO.println ("check_sunReachableS_slope " ++ toString (check_sunReachableS_slope 1.521331 1.462782 1.404233))
 
 def swingFocus (P_1 : Float) (P_2 : Float) (d : Float) (f : Float) (t : Float) : Array Float :=
   let v5 := (Float.sin t)
   let v8 := (Float.cos t)
   #[((P_1 + (d * v5)) + (f * (-v5))), ((P_2 - (d * v8)) + (f * v8))]
 
-#eval IO.println ("swingFocus " ++ toString ((swingFocus 1.142171 1.083622 1.025073 0.966524 0.907976).map Float.toBits))
-#eval IO.println ("swingFocus " ++ toString ((swingFocus 0.810979 0.752430 0.693881 0.635332 0.576784).map Float.toBits))
-#eval IO.println ("swingFocus " ++ toString ((swingFocus 0.479787 0.421238 0.362689 0.304140 0.245592).map Float.toBits))
+#eval IO.println ("swingFocus " ++ toString ((swingFocus 0.397563 0.339014 0.280465 0.221916 1.763368).map Float.toBits))
+#eval IO.println ("swingFocus " ++ toString ((swingFocus 1.666371 1.607822 1.549273 1.490724 1.432176).map Float.toBits))
+#eval IO.println ("swingFocus " ++ toString ((swingFocus 1.335179 1.276630 1.218081 1.159532 1.100984).map Float.toBits))
 
 def check_swingFocus_circle (P_1 : Float) (P_2 : Float) (d : Float) (f : Float) (t : Float) : Bool :=
   let v5 := (Float.sin t)
   let v8 := (Float.cos t)
   (feq (((((P_1 + (d * v5)) + (f * (-v5))) - P_1) ^ 2) + ((((P_2 - (d * v8)) + (f * v8)) - P_2) ^ 2)) ((d - f) ^ 2))
 
-#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 0.956019 0.897470 0.838921 0.780372 0.721824))
-#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 0.624827 0.566278 0.507729 0.449180 0.390632))
-#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 0.293635 0.235086 1.776537 1.717988 1.659440))
+#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 0.211411 1.752862 1.694313 1.635764 1.577216))
+#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 1.480219 1.421670 1.363121 1.304572 1.246024))
+#eval IO.println ("check_swingFocus_circle " ++ toString (check_swingFocus_circle 1.149027 1.090478 1.031929 0.973380 0.914832))
 
 def swingNormal (t : Float) : Array Float :=
   #[(-(Float.sin t)), (Float.cos t)]
 
-#eval IO.println ("swingNormal " ++ toString ((swingNormal 0.769867).map Float.toBits))
-#eval IO.println ("swingNormal " ++ toString ((swingNormal 0.438675).map Float.toBits))
-#eval IO.println ("swingNormal " ++ toString ((swingNormal 1.707483).map Float.toBits))
+#eval IO.println ("swingNormal " ++ toString ((swingNormal 1.625259).map Float.toBits))
+#eval IO.println ("swingNormal " ++ toString ((swingNormal 1.294067).map Float.toBits))
+#eval IO.println ("swingNormal " ++ toString ((swingNormal 0.962875).map Float.toBits))
 
 def check_swingNormal_unit (t : Float) : Bool :=
   (feq (((-(Float.sin t)) ^ 2) + ((Float.cos t) ^ 2)) (1 : Float))
 
-#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 0.583715))
-#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 0.252523))
-#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 1.521331))
+#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 1.439107))
+#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 1.107915))
+#eval IO.println ("check_swingNormal_unit " ++ toString (check_swingNormal_unit 0.776723))
 
 def swingOfLength (ym : Float) (hp : Float) (a : Float) (ze : Float) (tDead : Float) (L : Float) : Float :=
   let v9 := (((0 : Float) + tDead) / (2 : Float))
@@ -5952,56 +5982,56 @@ def swingOfLength (ym : Float) (hp : Float) (a : Float) (ze : Float) (tDead : Fl
   let v465 := (L < (Float.sqrt (((((v11 * v451) + (v14 * v453)) - v10) ^ 2) + ((((v18 * v453) + (v14 * v451)) - hp) ^ 2))))
   (((if v465 then v450 else v447) + (if v465 then v448 else v450)) / (2 : Float))
 
-#eval IO.println ("swingOfLength " ++ toString (swingOfLength 0.397563 0.339014 0.280465 0.221916 1.763368 1.704819).toBits)
-#eval IO.println ("swingOfLength " ++ toString (swingOfLength 1.666371 1.607822 1.549273 1.490724 1.432176 1.373627).toBits)
-#eval IO.println ("swingOfLength " ++ toString (swingOfLength 1.335179 1.276630 1.218081 1.159532 1.100984 1.042435).toBits)
+#eval IO.println ("swingOfLength " ++ toString (swingOfLength 1.252955 1.194406 1.135857 1.077308 1.018760 0.960211).toBits)
+#eval IO.println ("swingOfLength " ++ toString (swingOfLength 0.921763 0.863214 0.804665 0.746116 0.687568 0.629019).toBits)
+#eval IO.println ("swingOfLength " ++ toString (swingOfLength 0.590571 0.532022 0.473473 0.414924 0.356376 0.297827).toBits)
 
 def swingTwist (apexH : Float) (zBolt : Float) : Array Float :=
   let v8 := (apexH * (0 : Float))
   #[(1 : Float), (0 : Float), (0 : Float), (((0 : Float) * (0 : Float)) - (zBolt * (0 : Float))), ((zBolt * (1 : Float)) - v8), (v8 - ((0 : Float) * (1 : Float)))]
 
-#eval IO.println ("swingTwist " ++ toString ((swingTwist 0.211411 1.752862).map Float.toBits))
-#eval IO.println ("swingTwist " ++ toString ((swingTwist 1.480219 1.421670).map Float.toBits))
-#eval IO.println ("swingTwist " ++ toString ((swingTwist 1.149027 1.090478).map Float.toBits))
+#eval IO.println ("swingTwist " ++ toString ((swingTwist 1.066803 1.008254).map Float.toBits))
+#eval IO.println ("swingTwist " ++ toString ((swingTwist 0.735611 0.677062).map Float.toBits))
+#eval IO.println ("swingTwist " ++ toString ((swingTwist 0.404419 0.345870).map Float.toBits))
 
 def swingVertex (P_1 : Float) (P_2 : Float) (f : Float) (t : Float) : Array Float :=
   #[(P_1 + (f * (Float.sin t))), (P_2 - (f * (Float.cos t)))]
 
-#eval IO.println ("swingVertex " ++ toString ((swingVertex 1.625259 1.566710 1.508161 1.449612).map Float.toBits))
-#eval IO.println ("swingVertex " ++ toString ((swingVertex 1.294067 1.235518 1.176969 1.118420).map Float.toBits))
-#eval IO.println ("swingVertex " ++ toString ((swingVertex 0.962875 0.904326 0.845777 0.787228).map Float.toBits))
+#eval IO.println ("swingVertex " ++ toString ((swingVertex 0.880651 0.822102 0.763553 0.705004).map Float.toBits))
+#eval IO.println ("swingVertex " ++ toString ((swingVertex 0.549459 0.490910 0.432361 0.373812).map Float.toBits))
+#eval IO.println ("swingVertex " ++ toString ((swingVertex 0.218267 1.759718 1.701169 1.642620).map Float.toBits))
 
 def swingVertexAt (P_1 : Float) (P_2 : Float) (d : Float) (t : Float) : Array Float :=
   #[(P_1 + (d * (Float.sin t))), (P_2 - (d * (Float.cos t)))]
 
-#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 1.439107 1.380558 1.322009 1.263460).map Float.toBits))
-#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 1.107915 1.049366 0.990817 0.932268).map Float.toBits))
-#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 0.776723 0.718174 0.659625 0.601076).map Float.toBits))
+#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 0.694499 0.635950 0.577401 0.518852).map Float.toBits))
+#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 0.363307 0.304758 0.246209 1.787660).map Float.toBits))
+#eval IO.println ("swingVertexAt " ++ toString ((swingVertexAt 1.632115 1.573566 1.515017 1.456468).map Float.toBits))
 
 def check_swing_focusCircle (P_1 : Float) (P_2 : Float) (f : Float) (t : Float) : Bool :=
   (feq ((((P_1 + (f * (Float.sin t))) - P_1) ^ 2) + (((P_2 - (f * (Float.cos t))) - P_2) ^ 2)) (f ^ 2))
 
-#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 1.252955 1.194406 1.135857 1.077308))
-#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 0.921763 0.863214 0.804665 0.746116))
-#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 0.590571 0.532022 0.473473 0.414924))
+#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 0.508347 0.449798 0.391249 0.332700))
+#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 1.777155 1.718606 1.660057 1.601508))
+#eval IO.println ("check_swing_focusCircle " ++ toString (check_swing_focusCircle 1.445963 1.387414 1.328865 1.270316))
 
 def check_swing_lift (apexH : Float) (zBolt : Float) (p_0 : Float) (p_1 : Float) (p_2 : Float) : Bool :=
   let v11 := (apexH * (0 : Float))
   let v19 := ((0 : Float) * p_0)
   (feq ((((1 : Float) * p_1) - v19) + (v11 - ((0 : Float) * (1 : Float)))) p_1)
 
-#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 1.066803 1.008254 0.949705 0.891156 0.832608))
-#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 0.735611 0.677062 0.618513 0.559964 0.501416))
-#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 0.404419 0.345870 0.287321 0.228772 1.770224))
+#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 0.322195 0.263646 0.205097 1.746548 1.688000))
+#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 1.591003 1.532454 1.473905 1.415356 1.356808))
+#eval IO.println ("check_swing_lift " ++ toString (check_swing_lift 1.259811 1.201262 1.142713 1.084164 1.025616))
 
 def swungPt (y0 : Float) (z0 : Float) (t : Float) : Array Float :=
   let v3 := (Float.cos t)
   let v5 := (Float.sin t)
   #[((y0 * v3) + (z0 * v5)), (((-y0) * v5) + (z0 * v3))]
 
-#eval IO.println ("swungPt " ++ toString ((swungPt 0.880651 0.822102 0.763553).map Float.toBits))
-#eval IO.println ("swungPt " ++ toString ((swungPt 0.549459 0.490910 0.432361).map Float.toBits))
-#eval IO.println ("swungPt " ++ toString ((swungPt 0.218267 1.759718 1.701169).map Float.toBits))
+#eval IO.println ("swungPt " ++ toString ((swungPt 1.736043 1.677494 1.618945).map Float.toBits))
+#eval IO.println ("swungPt " ++ toString ((swungPt 1.404851 1.346302 1.287753).map Float.toBits))
+#eval IO.println ("swungPt " ++ toString ((swungPt 1.073659 1.015110 0.956561).map Float.toBits))
 
 def systemVolts  : Float :=
   (12 : Float)
@@ -6013,17 +6043,17 @@ def systemVolts  : Float :=
 def check_tanh_abs_lt_one (x : Float) : Bool :=
   ((Float.abs (Float.tanh x)) < (1 : Float))
 
-#eval IO.println ("check_tanh_abs_lt_one " ++ toString (check_tanh_abs_lt_one 0.508347))
-#eval IO.println ("check_tanh_abs_lt_one " ++ toString (check_tanh_abs_lt_one 1.777155))
-#eval IO.println ("check_tanh_abs_lt_one " ++ toString (check_tanh_abs_lt_one 1.445963))
+#eval IO.println ("check_tanh_abs_lt_one " ++ toString (check_tanh_abs_lt_one 1.363739))
+#eval IO.println ("check_tanh_abs_lt_one " ++ toString (check_tanh_abs_lt_one 1.032547))
+#eval IO.println ("check_tanh_abs_lt_one " ++ toString (check_tanh_abs_lt_one 0.701355))
 
 def check_tension_le_of_holds (Tmax : Float) (W : Float) (rcm : Float) (rw : Float) (t : Float) : Bool :=
   let v8 := (W * rcm)
   (!((0 : Float) <= W) || (!((0 : Float) <= rcm) || (!((0 : Float) < rw) || (!(v8 <= (Tmax * rw)) || (((v8 * (Float.sin t)) / rw) <= Tmax)))))
 
-#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 0.322195 0.263646 0.205097 1.746548 1.688000))
-#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 1.591003 1.532454 1.473905 1.415356 1.356808))
-#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 1.259811 1.201262 1.142713 1.084164 1.025616))
+#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 1.177587 1.119038 1.060489 1.001940 0.943392))
+#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 0.846395 0.787846 0.729297 0.670748 0.612200))
+#eval IO.println ("check_tension_le_of_holds " ++ toString (check_tension_le_of_holds 0.515203 0.456654 0.398105 0.339556 0.281008))
 
 def tilt (v_0 : Float) (v_1 : Float) (v_2 : Float) (e1 : Float) (e2 : Float) : Array Float :=
   let v5 := (v_0 + e1)
@@ -6031,16 +6061,16 @@ def tilt (v_0 : Float) (v_1 : Float) (v_2 : Float) (e1 : Float) (e2 : Float) : A
   let v12 := (Float.sqrt (((v5 ^ 2) + (v6 ^ 2)) + (v_2 ^ 2)))
   #[(v5 / v12), (v6 / v12), (v_2 / v12)]
 
-#eval IO.println ("tilt " ++ toString ((tilt 1.736043 1.677494 1.618945 1.560396 1.501848).map Float.toBits))
-#eval IO.println ("tilt " ++ toString ((tilt 1.404851 1.346302 1.287753 1.229204 1.170656).map Float.toBits))
-#eval IO.println ("tilt " ++ toString ((tilt 1.073659 1.015110 0.956561 0.898012 0.839464).map Float.toBits))
+#eval IO.println ("tilt " ++ toString ((tilt 0.991435 0.932886 0.874337 0.815788 0.757240).map Float.toBits))
+#eval IO.println ("tilt " ++ toString ((tilt 0.660243 0.601694 0.543145 0.484596 0.426048).map Float.toBits))
+#eval IO.println ("tilt " ++ toString ((tilt 0.329051 0.270502 0.211953 1.753404 1.694856).map Float.toBits))
 
 def tiltOfMismatch (e : Float) : Float :=
   (e / ((2 : Float) * (0.8 : Float)))
 
-#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 1.549891).toBits)
-#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 1.218699).toBits)
-#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 0.887507).toBits)
+#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 0.805283).toBits)
+#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 0.474091).toBits)
+#eval IO.println ("tiltOfMismatch " ++ toString (tiltOfMismatch 1.742899).toBits)
 
 def traceBeam (R : Float) (f : Float) (a : Float) (k : Float) (L : Float) (dm : Float) (rm : Float) (rt : Float) (slotW : Float) (t : Float) (beta : Float) (H_0 : Float) (H_1 : Float) (H_2 : Float) (r_0 : Float) (r_1 : Float) (r_2 : Float) (onPanel : Float) : Array Float :=
   let v18 := (t + beta)
@@ -6103,9 +6133,9 @@ def traceBeam (R : Float) (f : Float) (a : Float) (k : Float) (L : Float) (dm : 
   let v268 := (((Float.sqrt (((((v113 + (v250 * v171)) - v233) ^ 2) + (((v115 + (v250 * v173)) - v234) ^ 2)) + (((v117 + (v250 * v175)) - v236) ^ 2))) <= rt) && (v250 > (0 : Float)))
   #[(if (v163 && (v232 && v268)) then (1 : Float) else (0 : Float)), (if v163 then (1 : Float) else (0 : Float)), (if (v163 && v232) then (1 : Float) else (0 : Float)), (Float.sqrt (((((v113 + (v250 * v171)) - v233) ^ 2) + (((v115 + (v250 * v173)) - v234) ^ 2)) + (((v117 + (v250 * v175)) - v236) ^ 2))), v215, (v115 + (v213 * v173)), (Float.sqrt (max (((v122 * v122) + (v125 * v125)) + (v128 * v128)) (0.000000000000000001 : Float))), (if (!v163) then (0 : Float) else (if (!v232) then (1 : Float) else (if (!v268) then (2 : Float) else (3 : Float))))]
 
-#eval IO.println ("traceBeam " ++ toString ((traceBeam 1.363739 1.305190 1.246641 1.188092 1.129544 1.070995 1.012446 0.953897 0.895348 0.836800 0.778251 0.719702 0.661153 0.602604 0.544056 0.485507 0.426958 0.368409).map Float.toBits))
-#eval IO.println ("traceBeam " ++ toString ((traceBeam 1.032547 0.973998 0.915449 0.856900 0.798352 0.739803 0.681254 0.622705 0.564156 0.505608 0.447059 0.388510 0.329961 0.271412 0.212864 1.754315 1.695766 1.637217).map Float.toBits))
-#eval IO.println ("traceBeam " ++ toString ((traceBeam 0.701355 0.642806 0.584257 0.525708 0.467160 0.408611 0.350062 0.291513 0.232964 1.774416 1.715867 1.657318 1.598769 1.540220 1.481672 1.423123 1.364574 1.306025).map Float.toBits))
+#eval IO.println ("traceBeam " ++ toString ((traceBeam 0.619131 0.560582 0.502033 0.443484 0.384936 0.326387 0.267838 0.209289 1.750740 1.692192 1.633643 1.575094 1.516545 1.457996 1.399448 1.340899 1.282350 1.223801).map Float.toBits))
+#eval IO.println ("traceBeam " ++ toString ((traceBeam 0.287939 0.229390 1.770841 1.712292 1.653744 1.595195 1.536646 1.478097 1.419548 1.361000 1.302451 1.243902 1.185353 1.126804 1.068256 1.009707 0.951158 0.892609).map Float.toBits))
+#eval IO.println ("traceBeam " ++ toString ((traceBeam 1.556747 1.498198 1.439649 1.381100 1.322552 1.264003 1.205454 1.146905 1.088356 1.029808 0.971259 0.912710 0.854161 0.795612 0.737064 0.678515 0.619966 0.561417).map Float.toBits))
 
 def check_traceBeam_captured (R : Float) (f : Float) (a : Float) (k : Float) (L : Float) (dm : Float) (rm : Float) (rt : Float) (slotW : Float) (t : Float) (beta : Float) (H_0 : Float) (H_1 : Float) (H_2 : Float) (r_0 : Float) (r_1 : Float) (r_2 : Float) (onPanel : Float) : Bool :=
   let v18 := (t + beta)
@@ -6169,9 +6199,9 @@ def check_traceBeam_captured (R : Float) (f : Float) (a : Float) (k : Float) (L 
   let v271 := (if (v163 && (v232 && v268)) then (1 : Float) else (0 : Float))
   ((feq v271 (0 : Float)) || (feq v271 (1 : Float)))
 
-#eval IO.println ("check_traceBeam_captured " ++ toString (check_traceBeam_captured 1.177587 1.119038 1.060489 1.001940 0.943392 0.884843 0.826294 0.767745 0.709196 0.650648 0.592099 0.533550 0.475001 0.416452 0.357904 0.299355 0.240806 1.782257))
-#eval IO.println ("check_traceBeam_captured " ++ toString (check_traceBeam_captured 0.846395 0.787846 0.729297 0.670748 0.612200 0.553651 0.495102 0.436553 0.378004 0.319456 0.260907 0.202358 1.743809 1.685260 1.626712 1.568163 1.509614 1.451065))
-#eval IO.println ("check_traceBeam_captured " ++ toString (check_traceBeam_captured 0.515203 0.456654 0.398105 0.339556 0.281008 0.222459 1.763910 1.705361 1.646812 1.588264 1.529715 1.471166 1.412617 1.354068 1.295520 1.236971 1.178422 1.119873))
+#eval IO.println ("check_traceBeam_captured " ++ toString (check_traceBeam_captured 0.432979 0.374430 0.315881 0.257332 1.798784 1.740235 1.681686 1.623137 1.564588 1.506040 1.447491 1.388942 1.330393 1.271844 1.213296 1.154747 1.096198 1.037649))
+#eval IO.println ("check_traceBeam_captured " ++ toString (check_traceBeam_captured 1.701787 1.643238 1.584689 1.526140 1.467592 1.409043 1.350494 1.291945 1.233396 1.174848 1.116299 1.057750 0.999201 0.940652 0.882104 0.823555 0.765006 0.706457))
+#eval IO.println ("check_traceBeam_captured " ++ toString (check_traceBeam_captured 1.370595 1.312046 1.253497 1.194948 1.136400 1.077851 1.019302 0.960753 0.902204 0.843656 0.785107 0.726558 0.668009 0.609460 0.550912 0.492363 0.433814 0.375265))
 
 def traceConic (c : Float) (k : Float) (p : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Array Float :=
   let v10 := ((1 : Float) + k)
@@ -6194,9 +6224,9 @@ def traceConic (c : Float) (k : Float) (p : Float) (O_0 : Float) (O_1 : Float) (
   let v95 := ((p - v55) / (d_2 - (v87 * v81)))
   #[v51, v53, v55, (d_0 - (v87 * v77)), (d_1 - (v87 * v80)), (d_2 - (v87 * v81)), (v51 + (v95 * (d_0 - (v87 * v77)))), (v53 + (v95 * (d_1 - (v87 * v80)))), (((c * v65) / ((1 : Float) + (Float.sqrt (max v67 (0 : Float))))) - v55)]
 
-#eval IO.println ("traceConic " ++ toString ((traceConic 0.991435 0.932886 0.874337 0.815788 0.757240 0.698691 0.640142 0.581593 0.523044).map Float.toBits))
-#eval IO.println ("traceConic " ++ toString ((traceConic 0.660243 0.601694 0.543145 0.484596 0.426048 0.367499 0.308950 0.250401 1.791852).map Float.toBits))
-#eval IO.println ("traceConic " ++ toString ((traceConic 0.329051 0.270502 0.211953 1.753404 1.694856 1.636307 1.577758 1.519209 1.460660).map Float.toBits))
+#eval IO.println ("traceConic " ++ toString ((traceConic 0.246827 1.788278 1.729729 1.671180 1.612632 1.554083 1.495534 1.436985 1.378436).map Float.toBits))
+#eval IO.println ("traceConic " ++ toString ((traceConic 1.515635 1.457086 1.398537 1.339988 1.281440 1.222891 1.164342 1.105793 1.047244).map Float.toBits))
+#eval IO.println ("traceConic " ++ toString ((traceConic 1.184443 1.125894 1.067345 1.008796 0.950248 0.891699 0.833150 0.774601 0.716052).map Float.toBits))
 
 def traceFacet (R : Float) (p : Float) (cx : Float) (cy : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Array Float :=
   let v18 := (R - (Float.sqrt ((R ^ 2) - ((Float.sqrt ((cx ^ 2) + (cy ^ 2))) ^ 2))))
@@ -6210,9 +6240,9 @@ def traceFacet (R : Float) (p : Float) (cx : Float) (cy : Float) (O_0 : Float) (
   let v54 := ((p - (O_2 + (v38 * d_2))) / v52)
   #[((O_0 + (v38 * d_0)) + (v54 * (d_0 - (v46 * v20)))), ((O_1 + (v38 * d_1)) + (v54 * (d_1 - (v46 * v22)))), (Float.sqrt ((((O_0 + (v38 * d_0)) + (v54 * (d_0 - (v46 * v20)))) ^ 2) + (((O_1 + (v38 * d_1)) + (v54 * (d_1 - (v46 * v22)))) ^ 2))), (O_2 + (v38 * d_2)), (if ((0 : Float) < v52) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceFacet " ++ toString ((traceFacet 0.805283 0.746734 0.688185 0.629636 0.571088 0.512539 0.453990 0.395441 0.336892 0.278344).map Float.toBits))
-#eval IO.println ("traceFacet " ++ toString ((traceFacet 0.474091 0.415542 0.356993 0.298444 0.239896 1.781347 1.722798 1.664249 1.605700 1.547152).map Float.toBits))
-#eval IO.println ("traceFacet " ++ toString ((traceFacet 1.742899 1.684350 1.625801 1.567252 1.508704 1.450155 1.391606 1.333057 1.274508 1.215960).map Float.toBits))
+#eval IO.println ("traceFacet " ++ toString ((traceFacet 1.660675 1.602126 1.543577 1.485028 1.426480 1.367931 1.309382 1.250833 1.192284 1.133736).map Float.toBits))
+#eval IO.println ("traceFacet " ++ toString ((traceFacet 1.329483 1.270934 1.212385 1.153836 1.095288 1.036739 0.978190 0.919641 0.861092 0.802544).map Float.toBits))
+#eval IO.println ("traceFacet " ++ toString ((traceFacet 0.998291 0.939742 0.881193 0.822644 0.764096 0.705547 0.646998 0.588449 0.529900 0.471352).map Float.toBits))
 
 def traceParams  : Array Float :=
   #[(2 : Float), (1 : Float), (0.8 : Float), (0.05 : Float), (0.06 : Float)]
@@ -6239,9 +6269,9 @@ def traceRay (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (cx : 
   let v86 := (((Float.sqrt ((((v25 + (v56 * dx)) + (v71 * (dx - (v63 * v38)))) ^ 2) + (((v26 + (v56 * dy)) + (v71 * (dy - (v63 * v40)))) ^ 2))) <= rc) && ((0 : Float) < (if ((0 : Float) < v69) then (1 : Float) else (0 : Float))))
   #[((v25 + (v56 * dx)) + (v71 * (dx - (v63 * v38)))), ((v26 + (v56 * dy)) + (v71 * (dy - (v63 * v40)))), (Float.sqrt ((((v25 + (v56 * dx)) + (v71 * (dx - (v63 * v38)))) ^ 2) + (((v26 + (v56 * dy)) + (v71 * (dy - (v63 * v40)))) ^ 2))), (if (v24 && v86) then (1 : Float) else (0 : Float)), (if (!v24) then (0 : Float) else (if v86 then (2 : Float) else (1 : Float))), (v27 + (v56 * dz)), (Float.sqrt ((cx ^ 2) + (cy ^ 2))), (if ((0 : Float) < v69) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceRay " ++ toString ((traceRay 0.432979 0.374430 0.315881 0.257332 1.798784 1.740235 1.681686 1.623137 1.564588 1.506040 1.447491 1.388942).map Float.toBits))
-#eval IO.println ("traceRay " ++ toString ((traceRay 1.701787 1.643238 1.584689 1.526140 1.467592 1.409043 1.350494 1.291945 1.233396 1.174848 1.116299 1.057750).map Float.toBits))
-#eval IO.println ("traceRay " ++ toString ((traceRay 1.370595 1.312046 1.253497 1.194948 1.136400 1.077851 1.019302 0.960753 0.902204 0.843656 0.785107 0.726558).map Float.toBits))
+#eval IO.println ("traceRay " ++ toString ((traceRay 1.288371 1.229822 1.171273 1.112724 1.054176 0.995627 0.937078 0.878529 0.819980 0.761432 0.702883 0.644334).map Float.toBits))
+#eval IO.println ("traceRay " ++ toString ((traceRay 0.957179 0.898630 0.840081 0.781532 0.722984 0.664435 0.605886 0.547337 0.488788 0.430240 0.371691 0.313142).map Float.toBits))
+#eval IO.println ("traceRay " ++ toString ((traceRay 0.625987 0.567438 0.508889 0.450340 0.391792 0.333243 0.274694 0.216145 1.757596 1.699048 1.640499 1.581950).map Float.toBits))
 
 def traceRayErr (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (cx : Float) (cy : Float) (ux : Float) (uy : Float) (dx : Float) (dy : Float) (dz : Float) (sigmaslope : Float) (sigmaspec : Float) (e1 : Float) (e2 : Float) (s1 : Float) (s2 : Float) : Array Float :=
   let v24 := (w / (2 : Float))
@@ -6271,9 +6301,9 @@ def traceRayErr (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (cx
   let v120 := (((Float.sqrt ((((v31 + (v75 * dx)) + (v108 * (v95 / v103))) ^ 2) + (((v32 + (v75 * dy)) + (v108 * (v97 / v103))) ^ 2))) <= rc) && v119)
   #[((v31 + (v75 * dx)) + (v108 * (v95 / v103))), ((v32 + (v75 * dy)) + (v108 * (v97 / v103))), (Float.sqrt ((((v31 + (v75 * dx)) + (v108 * (v95 / v103))) ^ 2) + (((v32 + (v75 * dy)) + (v108 * (v97 / v103))) ^ 2))), (if (v30 && v120) then (1 : Float) else (0 : Float)), (if (!v30) then (0 : Float) else (if v120 then (2 : Float) else (1 : Float))), (v33 + (v75 * dz)), (Float.sqrt ((cx ^ 2) + (cy ^ 2))), (if v119 then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 0.246827 1.788278 1.729729 1.671180 1.612632 1.554083 1.495534 1.436985 1.378436 1.319888 1.261339 1.202790 1.144241 1.085692 1.027144 0.968595 0.910046 0.851497).map Float.toBits))
-#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 1.515635 1.457086 1.398537 1.339988 1.281440 1.222891 1.164342 1.105793 1.047244 0.988696 0.930147 0.871598 0.813049 0.754500 0.695952 0.637403 0.578854 0.520305).map Float.toBits))
-#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 1.184443 1.125894 1.067345 1.008796 0.950248 0.891699 0.833150 0.774601 0.716052 0.657504 0.598955 0.540406 0.481857 0.423308 0.364760 0.306211 0.247662 1.789113).map Float.toBits))
+#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 1.102219 1.043670 0.985121 0.926572 0.868024 0.809475 0.750926 0.692377 0.633828 0.575280 0.516731 0.458182 0.399633 0.341084 0.282536 0.223987 1.765438 1.706889).map Float.toBits))
+#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 0.771027 0.712478 0.653929 0.595380 0.536832 0.478283 0.419734 0.361185 0.302636 0.244088 1.785539 1.726990 1.668441 1.609892 1.551344 1.492795 1.434246 1.375697).map Float.toBits))
+#eval IO.println ("traceRayErr " ++ toString ((traceRayErr 0.439835 0.381286 0.322737 0.264188 0.205640 1.747091 1.688542 1.629993 1.571444 1.512896 1.454347 1.395798 1.337249 1.278700 1.220152 1.161603 1.103054 1.044505).map Float.toBits))
 
 def traceRayK (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (cx : Float) (cy : Float) (ux : Float) (uy : Float) (dx : Float) (dy : Float) (dz : Float) : Array Float :=
   let v19 := (w / (2 : Float))
@@ -6300,9 +6330,9 @@ def traceRayK (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : 
   let v103 := (((Float.sqrt ((((v26 + (v77 * dx)) + (v92 * (dx - (v84 * v59)))) ^ 2) + (((v27 + (v77 * dy)) + (v92 * (dy - (v84 * v62)))) ^ 2))) <= rc) && v102)
   #[((v26 + (v77 * dx)) + (v92 * (dx - (v84 * v59)))), ((v27 + (v77 * dy)) + (v92 * (dy - (v84 * v62)))), (Float.sqrt ((((v26 + (v77 * dx)) + (v92 * (dx - (v84 * v59)))) ^ 2) + (((v27 + (v77 * dy)) + (v92 * (dy - (v84 * v62)))) ^ 2))), (if (v25 && v103) then (1 : Float) else (0 : Float)), (if (!v25) then (0 : Float) else (if v103 then (2 : Float) else (1 : Float))), (v28 + (v77 * dz)), v36, (if v102 then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceRayK " ++ toString ((traceRayK 1.660675 1.602126 1.543577 1.485028 1.426480 1.367931 1.309382 1.250833 1.192284 1.133736 1.075187 1.016638 0.958089).map Float.toBits))
-#eval IO.println ("traceRayK " ++ toString ((traceRayK 1.329483 1.270934 1.212385 1.153836 1.095288 1.036739 0.978190 0.919641 0.861092 0.802544 0.743995 0.685446 0.626897).map Float.toBits))
-#eval IO.println ("traceRayK " ++ toString ((traceRayK 0.998291 0.939742 0.881193 0.822644 0.764096 0.705547 0.646998 0.588449 0.529900 0.471352 0.412803 0.354254 0.295705).map Float.toBits))
+#eval IO.println ("traceRayK " ++ toString ((traceRayK 0.916067 0.857518 0.798969 0.740420 0.681872 0.623323 0.564774 0.506225 0.447676 0.389128 0.330579 0.272030 0.213481).map Float.toBits))
+#eval IO.println ("traceRayK " ++ toString ((traceRayK 0.584875 0.526326 0.467777 0.409228 0.350680 0.292131 0.233582 1.775033 1.716484 1.657936 1.599387 1.540838 1.482289).map Float.toBits))
+#eval IO.println ("traceRayK " ++ toString ((traceRayK 0.253683 1.795134 1.736585 1.678036 1.619488 1.560939 1.502390 1.443841 1.385292 1.326744 1.268195 1.209646 1.151097).map Float.toBits))
 
 def traceRayKErr (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k : Float) (sigmaslope : Float) (sigmaspec : Float) (cx : Float) (cy : Float) (ux : Float) (uy : Float) (dx : Float) (dy : Float) (dz : Float) (e1 : Float) (e2 : Float) (s1 : Float) (s2 : Float) : Array Float :=
   let v25 := (w / (2 : Float))
@@ -6338,9 +6368,9 @@ def traceRayKErr (R : Float) (f : Float) (a : Float) (w : Float) (rc : Float) (k
   let v140 := (((Float.sqrt ((((v32 + (v96 * dx)) + (v129 * (v116 / v124))) ^ 2) + (((v33 + (v96 * dy)) + (v129 * (v118 / v124))) ^ 2))) <= rc) && v139)
   #[((v32 + (v96 * dx)) + (v129 * (v116 / v124))), ((v33 + (v96 * dy)) + (v129 * (v118 / v124))), (Float.sqrt ((((v32 + (v96 * dx)) + (v129 * (v116 / v124))) ^ 2) + (((v33 + (v96 * dy)) + (v129 * (v118 / v124))) ^ 2))), (if (v31 && v140) then (1 : Float) else (0 : Float)), (if (!v31) then (0 : Float) else (if v140 then (2 : Float) else (1 : Float))), (v34 + (v96 * dz)), v42, (if v139 then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 1.474523 1.415974 1.357425 1.298876 1.240328 1.181779 1.123230 1.064681 1.006132 0.947584 0.889035 0.830486 0.771937 0.713388 0.654840 0.596291 0.537742 0.479193 0.420644).map Float.toBits))
-#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 1.143331 1.084782 1.026233 0.967684 0.909136 0.850587 0.792038 0.733489 0.674940 0.616392 0.557843 0.499294 0.440745 0.382196 0.323648 0.265099 0.206550 1.748001 1.689452).map Float.toBits))
-#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 0.812139 0.753590 0.695041 0.636492 0.577944 0.519395 0.460846 0.402297 0.343748 0.285200 0.226651 1.768102 1.709553 1.651004 1.592456 1.533907 1.475358 1.416809 1.358260).map Float.toBits))
+#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 0.729915 0.671366 0.612817 0.554268 0.495720 0.437171 0.378622 0.320073 0.261524 0.202976 1.744427 1.685878 1.627329 1.568780 1.510232 1.451683 1.393134 1.334585 1.276036).map Float.toBits))
+#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 0.398723 0.340174 0.281625 0.223076 1.764528 1.705979 1.647430 1.588881 1.530332 1.471784 1.413235 1.354686 1.296137 1.237588 1.179040 1.120491 1.061942 1.003393 0.944844).map Float.toBits))
+#eval IO.println ("traceRayKErr " ++ toString ((traceRayKErr 1.667531 1.608982 1.550433 1.491884 1.433336 1.374787 1.316238 1.257689 1.199140 1.140592 1.082043 1.023494 0.964945 0.906396 0.847848 0.789299 0.730750 0.672201 0.613652).map Float.toBits))
 
 def traceSphere (R : Float) (p : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float) (d_0 : Float) (d_1 : Float) (d_2 : Float) : Array Float :=
   let v8 := (O_2 - R)
@@ -6357,32 +6387,32 @@ def traceSphere (R : Float) (p : Float) (O_0 : Float) (O_1 : Float) (O_2 : Float
   let v52 := ((p - v31) / v50)
   #[(v27 + (v52 * (d_0 - (v44 * v33)))), (v29 + (v52 * (d_1 - (v44 * v35)))), (Float.sqrt (((v27 + (v52 * (d_0 - (v44 * v33)))) ^ 2) + ((v29 + (v52 * (d_1 - (v44 * v35)))) ^ 2))), v31, (if ((0 : Float) < v50) then (1 : Float) else (0 : Float))]
 
-#eval IO.println ("traceSphere " ++ toString ((traceSphere 1.288371 1.229822 1.171273 1.112724 1.054176 0.995627 0.937078 0.878529).map Float.toBits))
-#eval IO.println ("traceSphere " ++ toString ((traceSphere 0.957179 0.898630 0.840081 0.781532 0.722984 0.664435 0.605886 0.547337).map Float.toBits))
-#eval IO.println ("traceSphere " ++ toString ((traceSphere 0.625987 0.567438 0.508889 0.450340 0.391792 0.333243 0.274694 0.216145).map Float.toBits))
+#eval IO.println ("traceSphere " ++ toString ((traceSphere 0.543763 0.485214 0.426665 0.368116 0.309568 0.251019 1.792470 1.733921).map Float.toBits))
+#eval IO.println ("traceSphere " ++ toString ((traceSphere 0.212571 1.754022 1.695473 1.636924 1.578376 1.519827 1.461278 1.402729).map Float.toBits))
+#eval IO.println ("traceSphere " ++ toString ((traceSphere 1.481379 1.422830 1.364281 1.305732 1.247184 1.188635 1.130086 1.071537).map Float.toBits))
 
 def check_trackerBudget_iff (f : Float) (eps : Float) (h : Float) : Bool :=
   let v5 := (Float.tan eps)
   (!((0 : Float) < f) || (((f * v5) <= h) == (v5 <= (h / f))))
 
-#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 1.102219 1.043670 0.985121))
-#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 0.771027 0.712478 0.653929))
-#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 0.439835 0.381286 0.322737))
+#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 0.357611 0.299062 0.240513))
+#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 1.626419 1.567870 1.509321))
+#eval IO.println ("check_trackerBudget_iff " ++ toString (check_trackerBudget_iff 1.295227 1.236678 1.178129))
 
 def check_tracker_margin_hashemi (eps : Float) : Bool :=
   let v2 := (Float.tan eps)
   ((((1 : Float) * v2) <= (0.03 : Float)) == (v2 <= (0.03 : Float)))
 
-#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 0.916067))
-#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 0.584875))
-#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 0.253683))
+#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 1.771459))
+#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 1.440267))
+#eval IO.println ("check_tracker_margin_hashemi " ++ toString (check_tracker_margin_hashemi 1.109075))
 
 def check_tracking_power_tiny (W : Float) (rcm : Float) (omega : Float) (t : Float) : Bool :=
   (!((0 : Float) <= W) || (!(W <= (1000 : Float)) || (!((0 : Float) <= rcm) || (!(rcm <= (1 : Float)) || (!((0 : Float) <= omega) || (!(omega <= (0.000073 : Float)) || (((((W * rcm) * (Float.sin t)) * omega) <= (0.073 : Float)) && ((0.073 : Float) < ((0.015 : Float) * (5 : Float))))))))))
 
-#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 0.729915 0.671366 0.612817 0.554268))
-#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 0.398723 0.340174 0.281625 0.223076))
-#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 1.667531 1.608982 1.550433 1.491884))
+#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 1.585307 1.526758 1.468209 1.409660))
+#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 1.254115 1.195566 1.137017 1.078468))
+#eval IO.println ("check_tracking_power_tiny " ++ toString (check_tracking_power_tiny 0.922923 0.864374 0.805825 0.747276))
 
 def tunnelThroughput  : Float :=
   ((0.94 : Float) * (0.96 : Float))
@@ -6395,50 +6425,50 @@ def turnLoss (eps : Float) (Ac : Float) (hC : Float) (Ta : Float) (Tin : Float) 
   let v8 := (Ac / (8 : Float))
   ((((eps * (0.0000000567 : Float)) * v8) * ((Tin ^ 4) - (Ta ^ 4))) + ((hC * v8) * (Tin - Ta)))
 
-#eval IO.println ("turnLoss " ++ toString (turnLoss 0.357611 0.299062 0.240513 1.781964 1.723416).toBits)
-#eval IO.println ("turnLoss " ++ toString (turnLoss 1.626419 1.567870 1.509321 1.450772 1.392224).toBits)
-#eval IO.println ("turnLoss " ++ toString (turnLoss 1.295227 1.236678 1.178129 1.119580 1.061032).toBits)
+#eval IO.println ("turnLoss " ++ toString (turnLoss 1.213003 1.154454 1.095905 1.037356 0.978808).toBits)
+#eval IO.println ("turnLoss " ++ toString (turnLoss 0.881811 0.823262 0.764713 0.706164 0.647616).toBits)
+#eval IO.println ("turnLoss " ++ toString (turnLoss 0.550619 0.492070 0.433521 0.374972 0.316424).toBits)
 
 def turnOut (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Ta : Float) (mcp : Float) (P : Float) (Tin : Float) : Float :=
   let v12 := (Ac / (8 : Float))
   (Tin + (((alpha * P) - ((((eps * (0.0000000567 : Float)) * v12) * ((Tin ^ 4) - (Ta ^ 4))) + ((hC * v12) * (Tin - Ta)))) / mcp))
 
-#eval IO.println ("turnOut " ++ toString (turnOut 1.771459 1.712910 1.654361 1.595812 1.537264 1.478715 1.420166 1.361617).toBits)
-#eval IO.println ("turnOut " ++ toString (turnOut 1.440267 1.381718 1.323169 1.264620 1.206072 1.147523 1.088974 1.030425).toBits)
-#eval IO.println ("turnOut " ++ toString (turnOut 1.109075 1.050526 0.991977 0.933428 0.874880 0.816331 0.757782 0.699233).toBits)
+#eval IO.println ("turnOut " ++ toString (turnOut 1.026851 0.968302 0.909753 0.851204 0.792656 0.734107 0.675558 0.617009).toBits)
+#eval IO.println ("turnOut " ++ toString (turnOut 0.695659 0.637110 0.578561 0.520012 0.461464 0.402915 0.344366 0.285817).toBits)
+#eval IO.println ("turnOut " ++ toString (turnOut 0.364467 0.305918 0.247369 1.788820 1.730272 1.671723 1.613174 1.554625).toBits)
 
 def check_turnOut_eq (alpha : Float) (eps : Float) (Ac : Float) (hC : Float) (Ta : Float) (mcp : Float) (P : Float) (Tin : Float) : Bool :=
   let v12 := (Ac / (8 : Float))
   let v24 := (Tin + (((alpha * P) - ((((eps * (0.0000000567 : Float)) * v12) * ((Tin ^ 4) - (Ta ^ 4))) + ((hC * v12) * (Tin - Ta)))) / mcp))
   (feq v24 v24)
 
-#eval IO.println ("check_turnOut_eq " ++ toString (check_turnOut_eq 1.585307 1.526758 1.468209 1.409660 1.351112 1.292563 1.234014 1.175465))
-#eval IO.println ("check_turnOut_eq " ++ toString (check_turnOut_eq 1.254115 1.195566 1.137017 1.078468 1.019920 0.961371 0.902822 0.844273))
-#eval IO.println ("check_turnOut_eq " ++ toString (check_turnOut_eq 0.922923 0.864374 0.805825 0.747276 0.688728 0.630179 0.571630 0.513081))
+#eval IO.println ("check_turnOut_eq " ++ toString (check_turnOut_eq 0.840699 0.782150 0.723601 0.665052 0.606504 0.547955 0.489406 0.430857))
+#eval IO.println ("check_turnOut_eq " ++ toString (check_turnOut_eq 0.509507 0.450958 0.392409 0.333860 0.275312 0.216763 1.758214 1.699665))
+#eval IO.println ("check_turnOut_eq " ++ toString (check_turnOut_eq 1.778315 1.719766 1.661217 1.602668 1.544120 1.485571 1.427022 1.368473))
 
 def unit3 (v_0 : Float) (v_1 : Float) (v_2 : Float) : Array Float :=
   let v10 := (Float.sqrt (max (((v_0 ^ 2) + (v_1 ^ 2)) + (v_2 ^ 2)) (0.000000000000000001 : Float)))
   #[(v_0 / v10), (v_1 / v10), (v_2 / v10)]
 
-#eval IO.println ("unit3 " ++ toString ((unit3 1.399155 1.340606 1.282057).map Float.toBits))
-#eval IO.println ("unit3 " ++ toString ((unit3 1.067963 1.009414 0.950865).map Float.toBits))
-#eval IO.println ("unit3 " ++ toString ((unit3 0.736771 0.678222 0.619673).map Float.toBits))
+#eval IO.println ("unit3 " ++ toString ((unit3 0.654547 0.595998 0.537449).map Float.toBits))
+#eval IO.println ("unit3 " ++ toString ((unit3 0.323355 0.264806 0.206257).map Float.toBits))
+#eval IO.println ("unit3 " ++ toString ((unit3 1.592163 1.533614 1.475065).map Float.toBits))
 
 def wBearX (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v8 := ((0 : Float) * (0 : Float))
   #[(1 : Float), (0 : Float), (0 : Float), (v8 - (b_zBearing * (0 : Float))), ((b_zBearing * (1 : Float)) - v8), (v8 - ((0 : Float) * (1 : Float)))]
 
-#eval IO.println ("wBearX " ++ toString ((wBearX 1.213003 1.154454 1.095905 1.037356 0.978808 0.920259).map Float.toBits))
-#eval IO.println ("wBearX " ++ toString ((wBearX 0.881811 0.823262 0.764713 0.706164 0.647616 0.589067).map Float.toBits))
-#eval IO.println ("wBearX " ++ toString ((wBearX 0.550619 0.492070 0.433521 0.374972 0.316424 0.257875).map Float.toBits))
+#eval IO.println ("wBearX " ++ toString ((wBearX 0.468395 0.409846 0.351297 0.292748 0.234200 1.775651).map Float.toBits))
+#eval IO.println ("wBearX " ++ toString ((wBearX 1.737203 1.678654 1.620105 1.561556 1.503008 1.444459).map Float.toBits))
+#eval IO.println ("wBearX " ++ toString ((wBearX 1.406011 1.347462 1.288913 1.230364 1.171816 1.113267).map Float.toBits))
 
 def wBearY (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v8 := ((0 : Float) * (0 : Float))
   #[(0 : Float), (1 : Float), (0 : Float), (v8 - (b_zBearing * (1 : Float))), ((b_zBearing * (0 : Float)) - v8), (((0 : Float) * (1 : Float)) - v8)]
 
-#eval IO.println ("wBearY " ++ toString ((wBearY 1.026851 0.968302 0.909753 0.851204 0.792656 0.734107).map Float.toBits))
-#eval IO.println ("wBearY " ++ toString ((wBearY 0.695659 0.637110 0.578561 0.520012 0.461464 0.402915).map Float.toBits))
-#eval IO.println ("wBearY " ++ toString ((wBearY 0.364467 0.305918 0.247369 1.788820 1.730272 1.671723).map Float.toBits))
+#eval IO.println ("wBearY " ++ toString ((wBearY 0.282243 0.223694 1.765145 1.706596 1.648048 1.589499).map Float.toBits))
+#eval IO.println ("wBearY " ++ toString ((wBearY 1.551051 1.492502 1.433953 1.375404 1.316856 1.258307).map Float.toBits))
+#eval IO.println ("wBearY " ++ toString ((wBearY 1.219859 1.161310 1.102761 1.044212 0.985664 0.927115).map Float.toBits))
 
 def wDrive (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) (F : Float) : Array Float :=
   let v14 := (c_chord / (2 : Float))
@@ -6447,43 +6477,43 @@ def wDrive (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Floa
   let v23 := ((F * c_apexH) / v19)
   #[v21, v23, (0 : Float), ((v14 * (0 : Float)) - (b_zRail * v23)), ((b_zRail * v21) - (c_apexH * (0 : Float))), ((c_apexH * v23) - (v14 * v21))]
 
-#eval IO.println ("wDrive " ++ toString ((wDrive 0.840699 0.782150 0.723601 0.665052 0.606504 0.547955 0.489406 0.430857 0.372308 0.313760 0.255211 1.796662 1.738113).map Float.toBits))
-#eval IO.println ("wDrive " ++ toString ((wDrive 0.509507 0.450958 0.392409 0.333860 0.275312 0.216763 1.758214 1.699665 1.641116 1.582568 1.524019 1.465470 1.406921).map Float.toBits))
-#eval IO.println ("wDrive " ++ toString ((wDrive 1.778315 1.719766 1.661217 1.602668 1.544120 1.485571 1.427022 1.368473 1.309924 1.251376 1.192827 1.134278 1.075729).map Float.toBits))
+#eval IO.println ("wDrive " ++ toString ((wDrive 1.696091 1.637542 1.578993 1.520444 1.461896 1.403347 1.344798 1.286249 1.227700 1.169152 1.110603 1.052054 0.993505).map Float.toBits))
+#eval IO.println ("wDrive " ++ toString ((wDrive 1.364899 1.306350 1.247801 1.189252 1.130704 1.072155 1.013606 0.955057 0.896508 0.837960 0.779411 0.720862 0.662313).map Float.toBits))
+#eval IO.println ("wDrive " ++ toString ((wDrive 1.033707 0.975158 0.916609 0.858060 0.799512 0.740963 0.682414 0.623865 0.565316 0.506768 0.448219 0.389670 0.331121).map Float.toBits))
 
 def wRollN (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v16 := (-(c_chord / (2 : Float)))
   let v18 := (b_zRail * (0 : Float))
   #[(0 : Float), (0 : Float), (1 : Float), ((v16 * (1 : Float)) - v18), (v18 - (c_apexH * (1 : Float))), ((c_apexH * (0 : Float)) - (v16 * (0 : Float)))]
 
-#eval IO.println ("wRollN " ++ toString ((wRollN 0.654547 0.595998 0.537449 0.478900 0.420352 0.361803 0.303254 0.244705 1.786156 1.727608 1.669059 1.610510).map Float.toBits))
-#eval IO.println ("wRollN " ++ toString ((wRollN 0.323355 0.264806 0.206257 1.747708 1.689160 1.630611 1.572062 1.513513 1.454964 1.396416 1.337867 1.279318).map Float.toBits))
-#eval IO.println ("wRollN " ++ toString ((wRollN 1.592163 1.533614 1.475065 1.416516 1.357968 1.299419 1.240870 1.182321 1.123772 1.065224 1.006675 0.948126).map Float.toBits))
+#eval IO.println ("wRollN " ++ toString ((wRollN 1.509939 1.451390 1.392841 1.334292 1.275744 1.217195 1.158646 1.100097 1.041548 0.983000 0.924451 0.865902).map Float.toBits))
+#eval IO.println ("wRollN " ++ toString ((wRollN 1.178747 1.120198 1.061649 1.003100 0.944552 0.886003 0.827454 0.768905 0.710356 0.651808 0.593259 0.534710).map Float.toBits))
+#eval IO.println ("wRollN " ++ toString ((wRollN 0.847555 0.789006 0.730457 0.671908 0.613360 0.554811 0.496262 0.437713 0.379164 0.320616 0.262067 0.203518).map Float.toBits))
 
 def wRollNr (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v14 := (-(c_chord / (2 : Float)))
   #[c_apexH, v14, (0 : Float), ((v14 * (0 : Float)) - (b_zRail * v14)), ((b_zRail * c_apexH) - (c_apexH * (0 : Float))), ((c_apexH * v14) - (v14 * c_apexH))]
 
-#eval IO.println ("wRollNr " ++ toString ((wRollNr 0.468395 0.409846 0.351297 0.292748 0.234200 1.775651 1.717102 1.658553 1.600004 1.541456 1.482907 1.424358).map Float.toBits))
-#eval IO.println ("wRollNr " ++ toString ((wRollNr 1.737203 1.678654 1.620105 1.561556 1.503008 1.444459 1.385910 1.327361 1.268812 1.210264 1.151715 1.093166).map Float.toBits))
-#eval IO.println ("wRollNr " ++ toString ((wRollNr 1.406011 1.347462 1.288913 1.230364 1.171816 1.113267 1.054718 0.996169 0.937620 0.879072 0.820523 0.761974).map Float.toBits))
+#eval IO.println ("wRollNr " ++ toString ((wRollNr 1.323787 1.265238 1.206689 1.148140 1.089592 1.031043 0.972494 0.913945 0.855396 0.796848 0.738299 0.679750).map Float.toBits))
+#eval IO.println ("wRollNr " ++ toString ((wRollNr 0.992595 0.934046 0.875497 0.816948 0.758400 0.699851 0.641302 0.582753 0.524204 0.465656 0.407107 0.348558).map Float.toBits))
+#eval IO.println ("wRollNr " ++ toString ((wRollNr 0.661403 0.602854 0.544305 0.485756 0.427208 0.368659 0.310110 0.251561 1.793012 1.734464 1.675915 1.617366).map Float.toBits))
 
 def wRollP (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v15 := (c_chord / (2 : Float))
   let v17 := (b_zRail * (0 : Float))
   #[(0 : Float), (0 : Float), (1 : Float), ((v15 * (1 : Float)) - v17), (v17 - (c_apexH * (1 : Float))), ((c_apexH * (0 : Float)) - (v15 * (0 : Float)))]
 
-#eval IO.println ("wRollP " ++ toString ((wRollP 0.282243 0.223694 1.765145 1.706596 1.648048 1.589499 1.530950 1.472401 1.413852 1.355304 1.296755 1.238206).map Float.toBits))
-#eval IO.println ("wRollP " ++ toString ((wRollP 1.551051 1.492502 1.433953 1.375404 1.316856 1.258307 1.199758 1.141209 1.082660 1.024112 0.965563 0.907014).map Float.toBits))
-#eval IO.println ("wRollP " ++ toString ((wRollP 1.219859 1.161310 1.102761 1.044212 0.985664 0.927115 0.868566 0.810017 0.751468 0.692920 0.634371 0.575822).map Float.toBits))
+#eval IO.println ("wRollP " ++ toString ((wRollP 1.137635 1.079086 1.020537 0.961988 0.903440 0.844891 0.786342 0.727793 0.669244 0.610696 0.552147 0.493598).map Float.toBits))
+#eval IO.println ("wRollP " ++ toString ((wRollP 0.806443 0.747894 0.689345 0.630796 0.572248 0.513699 0.455150 0.396601 0.338052 0.279504 0.220955 1.762406).map Float.toBits))
+#eval IO.println ("wRollP " ++ toString ((wRollP 0.475251 0.416702 0.358153 0.299604 0.241056 1.782507 1.723958 1.665409 1.606860 1.548312 1.489763 1.431214).map Float.toBits))
 
 def wRollPr (c_chord : Float) (c_apexH : Float) (c_aBase : Float) (c_cross : Float) (c_barW : Float) (c_rDrive : Float) (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v13 := (c_chord / (2 : Float))
   #[c_apexH, v13, (0 : Float), ((v13 * (0 : Float)) - (b_zRail * v13)), ((b_zRail * c_apexH) - (c_apexH * (0 : Float))), ((c_apexH * v13) - (v13 * c_apexH))]
 
-#eval IO.println ("wRollPr " ++ toString ((wRollPr 1.696091 1.637542 1.578993 1.520444 1.461896 1.403347 1.344798 1.286249 1.227700 1.169152 1.110603 1.052054).map Float.toBits))
-#eval IO.println ("wRollPr " ++ toString ((wRollPr 1.364899 1.306350 1.247801 1.189252 1.130704 1.072155 1.013606 0.955057 0.896508 0.837960 0.779411 0.720862).map Float.toBits))
-#eval IO.println ("wRollPr " ++ toString ((wRollPr 1.033707 0.975158 0.916609 0.858060 0.799512 0.740963 0.682414 0.623865 0.565316 0.506768 0.448219 0.389670).map Float.toBits))
+#eval IO.println ("wRollPr " ++ toString ((wRollPr 0.951483 0.892934 0.834385 0.775836 0.717288 0.658739 0.600190 0.541641 0.483092 0.424544 0.365995 0.307446).map Float.toBits))
+#eval IO.println ("wRollPr " ++ toString ((wRollPr 0.620291 0.561742 0.503193 0.444644 0.386096 0.327547 0.268998 0.210449 1.751900 1.693352 1.634803 1.576254).map Float.toBits))
+#eval IO.println ("wRollPr " ++ toString ((wRollPr 0.289099 0.230550 1.772001 1.713452 1.654904 1.596355 1.537806 1.479257 1.420708 1.362160 1.303611 1.245062).map Float.toBits))
 
 def wStop (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Float) (b_dPipe : Float) (b_nSpokes : Float) : Array Float :=
   let v8 := ((0 : Float) * (1 : Float))
@@ -6491,9 +6521,9 @@ def wStop (b_rRail : Float) (b_zRail : Float) (b_zTube : Float) (b_zBearing : Fl
   let v12 := ((0 : Float) * (0 : Float))
   #[(0 : Float), (0 : Float), (1 : Float), (v8 - v9), (v9 - v8), (v12 - v12)]
 
-#eval IO.println ("wStop " ++ toString ((wStop 1.509939 1.451390 1.392841 1.334292 1.275744 1.217195).map Float.toBits))
-#eval IO.println ("wStop " ++ toString ((wStop 1.178747 1.120198 1.061649 1.003100 0.944552 0.886003).map Float.toBits))
-#eval IO.println ("wStop " ++ toString ((wStop 0.847555 0.789006 0.730457 0.671908 0.613360 0.554811).map Float.toBits))
+#eval IO.println ("wStop " ++ toString ((wStop 0.765331 0.706782 0.648233 0.589684 0.531136 0.472587).map Float.toBits))
+#eval IO.println ("wStop " ++ toString ((wStop 0.434139 0.375590 0.317041 0.258492 1.799944 1.741395).map Float.toBits))
+#eval IO.println ("wStop " ++ toString ((wStop 1.702947 1.644398 1.585849 1.527300 1.468752 1.410203).map Float.toBits))
 
 def check_wireLeft_at_ym  : Bool :=
   let v14 := ((Float.sqrt (((1.22 : Float) ^ 2) + ((0.34 : Float) ^ 2))) - (Float.sqrt ((5 : Float) - ((2 : Float) * (Float.sqrt (3.36 : Float))))))
@@ -6510,16 +6540,16 @@ def wireLen (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Flo
   let v10 := (Float.sin t)
   (Float.sqrt (((((v6 * v7) + (v9 * v10)) - (-ym)) ^ 2) + (((((-v6) * v10) + (v9 * v7)) - hp) ^ 2)))
 
-#eval IO.println ("wireLen " ++ toString (wireLen 1.137635 1.079086 1.020537 0.961988 0.903440).toBits)
-#eval IO.println ("wireLen " ++ toString (wireLen 0.806443 0.747894 0.689345 0.630796 0.572248).toBits)
-#eval IO.println ("wireLen " ++ toString (wireLen 0.475251 0.416702 0.358153 0.299604 0.241056).toBits)
+#eval IO.println ("wireLen " ++ toString (wireLen 0.393027 0.334478 0.275929 0.217380 1.758832).toBits)
+#eval IO.println ("wireLen " ++ toString (wireLen 1.661835 1.603286 1.544737 1.486188 1.427640).toBits)
+#eval IO.println ("wireLen " ++ toString (wireLen 1.330643 1.272094 1.213545 1.154996 1.096448).toBits)
 
 def wireLever (P_1 : Float) (P_2 : Float) (B_1 : Float) (B_2 : Float) : Float :=
   (((P_1 * B_2) - (P_2 * B_1)) / (Float.sqrt (((B_1 - P_1) ^ 2) + ((B_2 - P_2) ^ 2))))
 
-#eval IO.println ("wireLever " ++ toString (wireLever 0.951483 0.892934 0.834385 0.775836).toBits)
-#eval IO.println ("wireLever " ++ toString (wireLever 0.620291 0.561742 0.503193 0.444644).toBits)
-#eval IO.println ("wireLever " ++ toString (wireLever 0.289099 0.230550 1.772001 1.713452).toBits)
+#eval IO.println ("wireLever " ++ toString (wireLever 0.206875 1.748326 1.689777 1.631228).toBits)
+#eval IO.println ("wireLever " ++ toString (wireLever 1.475683 1.417134 1.358585 1.300036).toBits)
+#eval IO.println ("wireLever " ++ toString (wireLever 1.144491 1.085942 1.027393 0.968844).toBits)
 
 def check_wireLever_edge_formula (ym : Float) (hp : Float) (a : Float) (ze : Float) (t : Float) : Bool :=
   let v5 := (-ym)
@@ -6531,18 +6561,18 @@ def check_wireLever_edge_formula (ym : Float) (hp : Float) (a : Float) (ze : Flo
   let v16 := (((-v6) * v10) + (v9 * v7))
   (feq (((v5 * v16) - (hp * v12)) / (Float.sqrt (((v12 - v5) ^ 2) + ((v16 - hp) ^ 2)))) (((((ym * ze) + (hp * a)) * v7) + (((hp * ze) - (ym * a)) * v10)) / (Float.sqrt ((((ym - (a * v7)) - (ze * v10)) ^ 2) + ((((a * v10) - (ze * v7)) - hp) ^ 2)))))
 
-#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 0.765331 0.706782 0.648233 0.589684 0.531136))
-#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 0.434139 0.375590 0.317041 0.258492 1.799944))
-#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 1.702947 1.644398 1.585849 1.527300 1.468752))
+#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 1.620723 1.562174 1.503625 1.445076 1.386528))
+#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 1.289531 1.230982 1.172433 1.113884 1.055336))
+#eval IO.println ("check_wireLever_edge_formula " ++ toString (check_wireLever_edge_formula 0.958339 0.899790 0.841241 0.782692 0.724144))
 
 def check_wireLever_pos_iff (P_1 : Float) (P_2 : Float) (B_1 : Float) (B_2 : Float) : Bool :=
   let v9 := (((B_1 - P_1) ^ 2) + ((B_2 - P_2) ^ 2))
   let v13 := ((P_1 * B_2) - (P_2 * B_1))
   (!((0 : Float) < v9) || (((0 : Float) < (v13 / (Float.sqrt v9))) == ((0 : Float) < v13)))
 
-#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 0.579179 0.520630 0.462081 0.403532))
-#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 0.247987 1.789438 1.730889 1.672340))
-#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 1.516795 1.458246 1.399697 1.341148))
+#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 1.434571 1.376022 1.317473 1.258924))
+#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 1.103379 1.044830 0.986281 0.927732))
+#eval IO.println ("check_wireLever_pos_iff " ++ toString (check_wireLever_pos_iff 0.772187 0.713638 0.655089 0.596540))
 
 def check_wireLever_rest (ym : Float) (hp : Float) (a : Float) (ze : Float) : Bool :=
   let v4 := (-ym)
@@ -6554,9 +6584,9 @@ def check_wireLever_rest (ym : Float) (hp : Float) (a : Float) (ze : Float) : Bo
   let v16 := (((-v5) * v10) + (v9 * v7))
   (feq (((v4 * v16) - (hp * v12)) / (Float.sqrt (((v12 - v4) ^ 2) + ((v16 - hp) ^ 2)))) (((ym * ze) + (hp * a)) / (Float.sqrt (((ym - a) ^ 2) + ((hp + ze) ^ 2)))))
 
-#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 0.393027 0.334478 0.275929 0.217380))
-#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 1.661835 1.603286 1.544737 1.486188))
-#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 1.330643 1.272094 1.213545 1.154996))
+#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 1.248419 1.189870 1.131321 1.072772))
+#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 0.917227 0.858678 0.800129 0.741580))
+#eval IO.println ("check_wireLever_rest " ++ toString (check_wireLever_rest 0.586035 0.527486 0.468937 0.410388))
 
 def check_wireLever_rest_at_ym  : Bool :=
   let v5 := ((Float.sqrt (3.36 : Float)) - (1 : Float))
@@ -6586,18 +6616,18 @@ def check_wireLever_sixty_at_ym  : Bool :=
 def wireTension (W : Float) (rcm : Float) (rw : Float) (t : Float) : Float :=
   (((W * rcm) * (Float.sin t)) / rw)
 
-#eval IO.println ("wireTension " ++ toString (wireTension 1.434571 1.376022 1.317473 1.258924).toBits)
-#eval IO.println ("wireTension " ++ toString (wireTension 1.103379 1.044830 0.986281 0.927732).toBits)
-#eval IO.println ("wireTension " ++ toString (wireTension 0.772187 0.713638 0.655089 0.596540).toBits)
+#eval IO.println ("wireTension " ++ toString (wireTension 0.689963 0.631414 0.572865 0.514316).toBits)
+#eval IO.println ("wireTension " ++ toString (wireTension 0.358771 0.300222 0.241673 1.783124).toBits)
+#eval IO.println ("wireTension " ++ toString (wireTension 1.627579 1.569030 1.510481 1.451932).toBits)
 
 def check_wire_recip_swing (apexH : Float) (zBolt : Float) (q_0 : Float) (q_1 : Float) (q_2 : Float) (f_0 : Float) (f_1 : Float) (f_2 : Float) : Bool :=
   let v14 := (apexH * (0 : Float))
   let v18 := (q_1 * f_2)
   (feq (((((((1 : Float) * (v18 - (q_2 * f_1))) + ((0 : Float) * ((q_2 * f_0) - (q_0 * f_2)))) + ((0 : Float) * ((q_0 * f_1) - (q_1 * f_0)))) + ((((0 : Float) * (0 : Float)) - (zBolt * (0 : Float))) * f_0)) + (((zBolt * (1 : Float)) - v14) * f_1)) + ((v14 - ((0 : Float) * (1 : Float))) * f_2)) (v18 - ((q_2 - zBolt) * f_1)))
 
-#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 1.248419 1.189870 1.131321 1.072772 1.014224 0.955675 0.897126 0.838577))
-#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 0.917227 0.858678 0.800129 0.741580 0.683032 0.624483 0.565934 0.507385))
-#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 0.586035 0.527486 0.468937 0.410388 0.351840 0.293291 0.234742 1.776193))
+#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 0.503811 0.445262 0.386713 0.328164 0.269616 0.211067 1.752518 1.693969))
+#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 1.772619 1.714070 1.655521 1.596972 1.538424 1.479875 1.421326 1.362777))
+#eval IO.println ("check_wire_recip_swing " ++ toString (check_wire_recip_swing 1.441427 1.382878 1.324329 1.265780 1.207232 1.148683 1.090134 1.031585))
 
 def check_wire_short_of_vertical  : Bool :=
   ((((0.34 : Float) * ((Float.sqrt (3.36 : Float)) - (1 : Float))) - ((1.22 : Float) * (0.8 : Float))) < (0 : Float))
@@ -6610,33 +6640,33 @@ def check_wire_taut_iff (W : Float) (rcm : Float) (rw : Float) (t : Float) : Boo
   let v9 := (Float.sin t)
   (!((0 : Float) < W) || (!((0 : Float) < rcm) || (!((0 : Float) < rw) || (((0 : Float) <= (((W * rcm) * v9) / rw)) == ((0 : Float) <= v9)))))
 
-#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 0.876115 0.817566 0.759017 0.700468))
-#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 0.544923 0.486374 0.427825 0.369276))
-#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 0.213731 1.755182 1.696633 1.638084))
+#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 1.731507 1.672958 1.614409 1.555860))
+#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 1.400315 1.341766 1.283217 1.224668))
+#eval IO.println ("check_wire_taut_iff " ++ toString (check_wire_taut_iff 1.069123 1.010574 0.952025 0.893476))
 
 def wrapRad (d : Float) : Float :=
   let v3 := ((2 : Float) * (3.141592653589793 : Float))
   (d - (v3 * (Float.floor ((d + (3.141592653589793 : Float)) / v3))))
 
-#eval IO.println ("wrapRad " ++ toString (wrapRad 0.689963).toBits)
-#eval IO.println ("wrapRad " ++ toString (wrapRad 0.358771).toBits)
-#eval IO.println ("wrapRad " ++ toString (wrapRad 1.627579).toBits)
+#eval IO.println ("wrapRad " ++ toString (wrapRad 1.545355).toBits)
+#eval IO.println ("wrapRad " ++ toString (wrapRad 1.214163).toBits)
+#eval IO.println ("wrapRad " ++ toString (wrapRad 0.882971).toBits)
 
 def check_wrapRad_mem (d : Float) : Bool :=
   let v4 := ((2 : Float) * (3.141592653589793 : Float))
   let v9 := (d - (v4 * (Float.floor ((d + (3.141592653589793 : Float)) / v4))))
   (((-(3.141592653589793 : Float)) <= v9) && (v9 < (3.141592653589793 : Float)))
 
-#eval IO.println ("check_wrapRad_mem " ++ toString (check_wrapRad_mem 0.503811))
-#eval IO.println ("check_wrapRad_mem " ++ toString (check_wrapRad_mem 1.772619))
-#eval IO.println ("check_wrapRad_mem " ++ toString (check_wrapRad_mem 1.441427))
+#eval IO.println ("check_wrapRad_mem " ++ toString (check_wrapRad_mem 1.359203))
+#eval IO.println ("check_wrapRad_mem " ++ toString (check_wrapRad_mem 1.028011))
+#eval IO.println ("check_wrapRad_mem " ++ toString (check_wrapRad_mem 0.696819))
 
 def wrenchAt (p_0 : Float) (p_1 : Float) (p_2 : Float) (f_0 : Float) (f_1 : Float) (f_2 : Float) : Array Float :=
   #[f_0, f_1, f_2, ((p_1 * f_2) - (p_2 * f_1)), ((p_2 * f_0) - (p_0 * f_2)), ((p_0 * f_1) - (p_1 * f_0))]
 
-#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 0.317659 0.259110 0.200561 1.742012 1.683464 1.624915).map Float.toBits))
-#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 1.586467 1.527918 1.469369 1.410820 1.352272 1.293723).map Float.toBits))
-#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 1.255275 1.196726 1.138177 1.079628 1.021080 0.962531).map Float.toBits))
+#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 1.173051 1.114502 1.055953 0.997404 0.938856 0.880307).map Float.toBits))
+#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 0.841859 0.783310 0.724761 0.666212 0.607664 0.549115).map Float.toBits))
+#eval IO.println ("wrenchAt " ++ toString ((wrenchAt 0.510667 0.452118 0.393569 0.335020 0.276472 0.217923).map Float.toBits))
 
 def xhHashemi  : Float :=
   (((1.84 : Float) / (2 : Float)) - (0.03 : Float))
@@ -6655,9 +6685,9 @@ def yaw  : Array Float :=
 def check_yaw_lifts_nothing (p_0 : Float) (p_1 : Float) (p_2 : Float) : Bool :=
   (feq ((((0 : Float) * p_1) - ((0 : Float) * p_0)) + (0 : Float)) (0 : Float))
 
-#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 1.359203 1.300654 1.242105))
-#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 1.028011 0.969462 0.910913))
-#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 0.696819 0.638270 0.579721))
+#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 0.614595 0.556046 0.497497))
+#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 0.283403 0.224854 1.766305))
+#eval IO.println ("check_yaw_lifts_nothing " ++ toString (check_yaw_lifts_nothing 1.552211 1.493662 1.435113))
 
 def ymHashemi  : Float :=
   (1.22 : Float)

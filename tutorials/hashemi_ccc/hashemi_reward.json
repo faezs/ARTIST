@@ -1,0 +1,6 @@
+{
+"kernel": "hashemi_reward", "c": "hk_rewardStep",
+"columns": ["r_shape_raw", "r_raw", "r_trainer"],
+"inputs": ["parentRaw", "dt", "pIn", "reach", "rewardDiv", "capShaping", "rotiReward", "rotiEnergy"],
+"n_columns": 3, "n_nodes": 15
+}

@@ -952,6 +952,34 @@ kernel void mk_reflect3_box(device const float* lo [[buffer(0)]], device const f
   hk_reflect3_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 3; ++k) { olo[i*3+k] = rlo[k]; ohi[i*3+k] = rhi[k]; oL[i*3+k] = rL[k]; }
 }
+kernel void mk_rewardShapeRaw_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[6], tdx[6], ty[1], tdy[1];
+  for (int k = 0; k < 6; ++k) { tx[k] = x[i*6+k]; tdx[k] = dx[i*6+k]; }
+  hk_rewardShapeRaw_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_rewardShapeRaw_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[6], thi[6], tsc[6], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 6; ++k) { tlo[k] = lo[i*6+k]; thi[k] = hi[i*6+k]; tsc[k] = sc[i*6+k]; }
+  hk_rewardShapeRaw_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_rewardStep_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[8], tdx[8], ty[3], tdy[3];
+  for (int k = 0; k < 8; ++k) { tx[k] = x[i*8+k]; tdx[k] = dx[i*8+k]; }
+  hk_rewardStep_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tdx, ty, tdy);
+  for (int k = 0; k < 3; ++k) { y[i*3+k] = ty[k]; dy[i*3+k] = tdy[k]; }
+}
+kernel void mk_rewardStep_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[8], thi[8], tsc[8], rlo[3], rhi[3], rL[3];
+  for (int k = 0; k < 8; ++k) { tlo[k] = lo[i*8+k]; thi[k] = hi[i*8+k]; tsc[k] = sc[i*8+k]; }
+  hk_rewardStep_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 3; ++k) { olo[i*3+k] = rlo[k]; ohi[i*3+k] = rhi[k]; oL[i*3+k] = rL[k]; }
+}
 kernel void mk_rollY_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[3], tdx[3], ty[6], tdy[6];
