@@ -916,8 +916,73 @@ to 2e-3 relative), `sunAt` against the trainer's own `solar_position` at twenty 
 scene's at the pose `megaStep` stepped to: 0.0e+00**.  The committed frames are
 `render/frame_hashemi_000.png` (the viewer) and `render/frame_env_000.png` (the env's own step).
 
-  hashemi  16 entries,  51 static + 64 x 10 ray doubles, 28 inputs, 1 table,  1248 nodes
-  beam     11 entries,   3 static + 64 x 19 ray doubles, 20 inputs, 1 table,  1247 nodes
-  optic     9 entries,   0 static + 64 x 27 ray doubles, 20 inputs, 1 table,  1247 nodes
-  env      19 entries,  50 static + 64 x 10 ray doubles, 56 inputs, 3 tables, 2367 nodes
+  hashemi 257 entries, 1431 static + 64 x 16 ray doubles, 29 inputs, 1 table,  3746 nodes
+  beam     11 entries,    3 static + 64 x 19 ray doubles, 20 inputs, 1 table,  1247 nodes
+  optic     9 entries,    0 static + 64 x 27 ray doubles, 20 inputs, 1 table,  1247 nodes
+  env     261 entries, 1433 static + 64 x 16 ray doubles, 47 inputs, 3 tables, 4817 nodes
+
+## The scene composes with the tandoor, and stands on the earth
+
+The picture used to be a machine alone on a grid.  The oven it feeds lived only in the parent
+Python env, and a renderer that is a printer of the compiler cannot draw what the specification
+does not say — so the oven became definitions, `RequestProject/Tandoor.lean`, and the scenes gained
+entries over them.  **Both machines now come out of one kernel launch.**
+
+`Tandoor.lean` is the parent's own oven, number by number, each cited to file and line in its
+docstring: the pit is the *spherical section* `tandoor_polar_env.py` builds and
+`tandoor_hashemi_env.py` draws — the sphere through the coal-bed floor (`R_POT` 0.42 m) and the
+cook's mouth (`R_MOUTH` 0.26 m), `H_DEPTH` 2.44 m apart, so `R_SPH` 1.269 m about a centre
+1.242 m over the bed.  Its four thermal bands are the four `_build_thermal` integrates (crown
+`Z_CROWN..0`, the belt the bread is slapped on `Z_BAKE_LO..Z_CROWN` cut into `n_belt = 8` slots,
+the lower band down to `Z_HEARTH`, the floor below that), the hearth is the beam's own footprint
+(`a_hearth = π 0.28²`), each slot carries the square of the parent's `bread_area` at the
+render's own reach into the pit, the oil coil rings the wall behind the belt (`oil_nodes`), and
+the tunnel is the bore from the deck down to `Z_DUCT` and the duct out to the wall at `R_POT`,
+`R_DUCT_C` across.  Four things the parent does not state — where his machine stands (over the
+chase, `X_CHASE`), a roti's SHAPE (it gives an area), the ring stations, the coil's standoff —
+are named as that file's choices in its docstring and nowhere else.
+
+What is proved there: the sphere passes through *both* of the parent's circles (`potR 0 = rMouth`,
+`potR (-hDepth) = rPot`), every slot lies on the pit's circle at the baking band's height, a
+roti's rectangle lies inside that band, the duct's mouth stands on the wall at exactly
+`R_DUCT_WALL` and its hole is smaller than the wall's radius there, the tunnel's two legs meet,
+and — the frame's whole content — `roofOfPot` is a translation with the deck at z = 0 and the
+oven below it.
+
+**The sun is a body and its light is parallel.**  `HashemiSceneInst` gains `alongSun`, which
+carries a point along the specification's own `sunDir` onto a plane: up to a sky plane 6 m over
+the deck, where the sixty-four rays of the table become parallel legs arriving out of the sun's
+quarter of the sky, and down to z = 0, where the dish's four corners are its shadow.  One
+definition, two bindings — `alongSun_parallel` proves the displacement IS `sunDir` scaled.
+`sunDiscPt` draws the sun at a finite distance the drawing picks (8 m, a literal, like `sg = ±1`)
+and sizes it by the specification's OWN half-angle `hsun`, the very number `sampleRay` jitters
+each ray by; `sunDisc_subtends` proves the disc subtends 4.65 mrad whatever distance is chosen.
+The deck, its parapet and the ground the building rises from are scene points too; only the sky
+gradient, the grids and the ground's colour are drawing.
+
+**The env scene's inputs did not change.**  It is 261 entries now against 92, 1433 static
+doubles against 476, 4817 nodes against 3932 — and still exactly `hashemiEnv`'s 47, name for name
+and column for column, because an oven dimension is a *constant of the specification* and so is
+bound as a `.node` of its own definition rather than handed to the picture from outside.  The
+ring stations, the corner signs, the sky plane's height and the sun's distance are literals.
+Nothing is pooled on the host for either scene, so `pool()` in `view.py` is unchanged.
+
+At Quetta (lat 30.2) on day 172 at 11:00 solar the printed `sunAt` gives elevation 75.02° and
+azimuth 113.24° — high in the south-east quarter — and a shadow 0.268 m per metre of height.
+The committed frames are taken there.  Their vertex extents, read off the buffers:
+
+| group | x | y | z |
+| --- | --- | --- | --- |
+| the machine | -1.20 .. 1.20 | -1.37 .. 1.42 | **0.00 .. 2.14** (above the deck) |
+| its rays | -0.98 .. 0.76 | -0.02 .. 1.89 | 0.72 .. 3.01 |
+| the sky legs | -1.33 .. 0.76 | -0.02 .. 2.75 | 0.72 .. **6.00** (the sky plane) |
+| the sun | -0.85 .. -0.08 | 0.42 .. 1.94 | 0.87 .. 7.74 |
+| its shadow | -0.94 .. 0.98 | -0.71 .. 1.20 | **0.00** (on the deck, exactly) |
+| the building | -5.70 .. 5.70 | -5.70 .. 5.70 | -2.60 .. 0.35 |
+| the tunnel | -0.83 .. 0.00 | -0.20 .. 0.20 | -3.63 .. 0.00 |
+| **the oven** | -3.29 .. -0.79 | -1.25 .. 1.25 | **-5.04 .. -2.60** (below the deck) |
+
+The mouth is at -2.60 (the parent's `z_deck - H_POT`), the coal bed at -5.04, the duct at -3.46,
+and the pot's axis 2.04 m from the bore — the difference of the parent's `X_CHASE`, `R_POT` and
+`R_DUCT_WALL`, and nothing else.
 
