@@ -218,6 +218,30 @@ def vecHead (stmt : String) (k : Nat) : String := Id.run do
   out := out.push (sTrim cur)
   return "![" ++ ", ".intercalate (out.toList.take k) ++ "]"
 
+/-!
+### The recipe for a composite's round trip (measured; `hashemiEnv` is the worked example)
+
+1. compile it with `noUnfold` DERIVED from its body (`modularRefs` below), so the twin makes the
+   calls the definition makes and binds a shared application once;
+2. in the generated file, wrap the theorem in
+   `section attribute [local irreducible] <the derived set> … end`.  This is what stops
+   `isDefEq` from unfolding a callee: without it, a column whose right-hand side is headed by
+   `megaStep` sends lazy delta into the 24-fold bisection (`Fin.induction.go` ↦ 194882 in the
+   diagnostics), while a column headed by arithmetic is safe.  With it, the mount column
+   `hashemiEnv … 0 = (v708 0)` and the ray column `… 17 = (∑ i, dishPower …)/64` both close in
+   SECONDS, where they timed out at 4M heartbeats before;
+3. `funext … k; fin_cases k <;> rfl`, or `rfl` on the whole vector.
+
+What still fails, and it is neither budget nor lazy delta: the eight FLUX columns.  `inBin`
+takes the annulus as a `ℕ` and the translator evaluates `(k : ℝ)` to a literal, but
+`((0 : ℕ) : ℝ) = (0 : ℝ)` is `Nat.cast_zero` - PROPOSITIONAL, not definitional.  Measured on its
+own: `example (rc x : ℝ) : inBin rc x 0 = (0 * rc / 8 ≤ x ∧ …) := rfl` fails.  So no arrangement
+of the proof closes those columns by `rfl`; the printer would have to print the cast as a cast
+(or the round trip admit `Nat.cast_ofNat` on them).  `coilProfile` is a second, smaller case: it
+takes the bins as a FUNCTION and the definition passes a lambda, while the twin can only print
+`![…]`, so it may be kept opaque only when its vector arguments are table binders.
+-/
+
 /-- the sub-morphisms each composite keeps opaque in its round trip, with the number of columns
 of each one's output (0: a scalar).  A functor preserves composition: `hashemiEnv` IS
 `megaStep ; ∑ of dishPower ; the loop`, and that is the equation the round trip should state. -/
