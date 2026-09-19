@@ -1619,11 +1619,24 @@ partial def leanBody (f : Fun) (real : Bool) (outs : Array Nat) (v : Val) (inden
               cnt := cnt.insert k ((cnt.getD k 0) + 1)
               if !rep.contains k then rep := rep.insert k j
         return (rep, cnt)
+      -- NOTHING ray-level is bound: the definition writes its summand out, and a `let` the
+      -- definition does not have is a summand that does not match it, which (with the callees
+      -- irreducible) is a fast failure and (without) sends `isDefEq` into evaluating the sum
+      -- over all 64 rays.  Measured: the capture sum, whose ray reads are used once, matched and
+      -- proved; the flux sums, whose `dr i k` were used twice and so were bound, did not.
       let bnd' := Id.run do
         let mut b := bnd
         for j in [0:g.nodes.size] do
           if L.ray[j]! then
-            if reach.contains j && rcounts[j]! > 1 then b := b.insert j else b := b.erase j
+            match g.nodes[j]! with
+            -- a ray read is a LEAF: the definition writes `dr i 0` where it stands, so binding
+            -- it (because two calls of the same ray use it) makes a summand that no longer
+            -- matches the definition's.  Measured: the capture sum, whose reads are used once,
+            -- proved; the flux sums, whose reads were bound, did not.
+            | .rayIn .. | .input .. => b := b.erase j
+            -- a call is bound only as its group's representative (the application, once)
+            | .call .. => b := b.erase j
+            | _ => if reach.contains j && rcounts[j]! > 1 then b := b.insert j else b := b.erase j
         for (k, r) in rrep.1.toList do
           if rrep.2.getD k 0 > 1 && L.ray[r]! then b := b.insert r
         return b
