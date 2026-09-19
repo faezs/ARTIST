@@ -163,6 +163,9 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self._pb_skip = self._pb_skip_t = None
         self._rew = None                      # the reward kernel (fused path)
         self.t_amb = float(t_amb)
+        # render_mode from the ini: `render_mode = none` there so the CLI can say --env.render-mode human
+        if str(kwargs.get("render_mode", "")).lower() in ("none", "", "off"):
+            kwargs["render_mode"] = None
         super().__init__(*args, **kwargs)
         B = self.num_agents
         self._params = env_params()
