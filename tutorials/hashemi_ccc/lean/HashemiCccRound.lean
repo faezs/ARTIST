@@ -350,7 +350,43 @@ theorem hangerLength_ccc : hangerLength = fun (R : ℝ) (a : ℝ) (yr : ℝ) (dx
     let v5 := (yr ^ 2)
     (Real.sqrt (((dx ^ 2) + v5) + (((R / (2 : ℝ)) - (R - (Real.sqrt ((R ^ 2) - ((Real.sqrt ((a ^ 2) + v5)) ^ 2))))) ^ 2))) := rfl
 
--- hashemiEnv: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)
+section
+attribute [local irreducible] megaStep dishPower delivered coilProfile shift
+
+theorem hashemiEnv_ccc : hashemiEnv = fun (az : ℝ) (t : ℝ) (slack : ℝ) (ωm : ℝ) (ωd : ℝ) (dt : ℝ) (elSun : ℝ) (azSun : ℝ) (dni : ℝ) (rDrum : ℝ) (W : ℝ) (rcm : ℝ) (Tmax : ℝ) (rho : ℝ) (Fdrive : ℝ) (L10 : ℝ) (rodLen : ℝ) (R : ℝ) (f : ℝ) (a : ℝ) (w : ℝ) (rc : ℝ) (k : ℝ) (σslope : ℝ) (σspec : ℝ) (hsun : ℝ) (soil : ℝ) (α : ℝ) (ε : ℝ) (Ac : ℝ) (hC : ℝ) (Upipe : ℝ) (UAx : ℝ) (mcp : ℝ) (Twall : ℝ) (Ta : ℝ) (hist : Fin 16 → ℝ) (ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) =>
+    let v708 := (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen)
+    let v740 := (∑ i : Fin 64, ((dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0)))
+    let v743 := (∑ i : Fin 64, ((dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 4)))
+    let v747 := (((2 : ℝ) * a) ^ 2)
+    let v768 := (∑ i : Fin 64, (let v735 := (dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9)); (@ite _ ((((((((0 : ℕ)) : ℝ) * rc) / (8 : ℝ)) ≤ (v735 3)) ∧ ((v735 3) < ((((((0 : ℕ)) : ℝ) + (1 : ℝ)) * rc) / (8 : ℝ)))) ∧ ((v735 0) > (0.5 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))))
+    let v773 := (((((v768 / (64 : ℝ)) * v747) * rho) * dni) * soil)
+    let v785 := (∑ i : Fin 64, (let v735 := (dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9)); (@ite _ ((((((((1 : ℕ)) : ℝ) * rc) / (8 : ℝ)) ≤ (v735 3)) ∧ ((v735 3) < ((((((1 : ℕ)) : ℝ) + (1 : ℝ)) * rc) / (8 : ℝ)))) ∧ ((v735 0) > (0.5 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))))
+    let v790 := (((((v785 / (64 : ℝ)) * v747) * rho) * dni) * soil)
+    let v802 := (∑ i : Fin 64, (let v735 := (dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9)); (@ite _ ((((((((2 : ℕ)) : ℝ) * rc) / (8 : ℝ)) ≤ (v735 3)) ∧ ((v735 3) < ((((((2 : ℕ)) : ℝ) + (1 : ℝ)) * rc) / (8 : ℝ)))) ∧ ((v735 0) > (0.5 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))))
+    let v807 := (((((v802 / (64 : ℝ)) * v747) * rho) * dni) * soil)
+    let v819 := (∑ i : Fin 64, (let v735 := (dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9)); (@ite _ ((((((((3 : ℕ)) : ℝ) * rc) / (8 : ℝ)) ≤ (v735 3)) ∧ ((v735 3) < ((((((3 : ℕ)) : ℝ) + (1 : ℝ)) * rc) / (8 : ℝ)))) ∧ ((v735 0) > (0.5 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))))
+    let v824 := (((((v819 / (64 : ℝ)) * v747) * rho) * dni) * soil)
+    let v836 := (∑ i : Fin 64, (let v735 := (dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9)); (@ite _ ((((((((4 : ℕ)) : ℝ) * rc) / (8 : ℝ)) ≤ (v735 3)) ∧ ((v735 3) < ((((((4 : ℕ)) : ℝ) + (1 : ℝ)) * rc) / (8 : ℝ)))) ∧ ((v735 0) > (0.5 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))))
+    let v841 := (((((v836 / (64 : ℝ)) * v747) * rho) * dni) * soil)
+    let v853 := (∑ i : Fin 64, (let v735 := (dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9)); (@ite _ ((((((((5 : ℕ)) : ℝ) * rc) / (8 : ℝ)) ≤ (v735 3)) ∧ ((v735 3) < ((((((5 : ℕ)) : ℝ) + (1 : ℝ)) * rc) / (8 : ℝ)))) ∧ ((v735 0) > (0.5 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))))
+    let v858 := (((((v853 / (64 : ℝ)) * v747) * rho) * dni) * soil)
+    let v870 := (∑ i : Fin 64, (let v735 := (dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9)); (@ite _ ((((((((6 : ℕ)) : ℝ) * rc) / (8 : ℝ)) ≤ (v735 3)) ∧ ((v735 3) < ((((((6 : ℕ)) : ℝ) + (1 : ℝ)) * rc) / (8 : ℝ)))) ∧ ((v735 0) > (0.5 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))))
+    let v875 := (((((v870 / (64 : ℝ)) * v747) * rho) * dni) * soil)
+    let v887 := (∑ i : Fin 64, (let v735 := (dishPower R f a w rc k σslope σspec rho hsun (v708 0) (v708 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9)); (@ite _ ((((((((7 : ℕ)) : ℝ) * rc) / (8 : ℝ)) ≤ (v735 3)) ∧ ((v735 3) < ((((((7 : ℕ)) : ℝ) + (1 : ℝ)) * rc) / (8 : ℝ)))) ∧ ((v735 0) > (0.5 : ℝ))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))))
+    let v892 := (((((v887 / (64 : ℝ)) * v747) * rho) * dni) * soil)
+    let v893 := (Upipe / (2 : ℝ))
+    let v898 := ((min UAx mcp) * (max (0 : ℝ) ((delivered v893 mcp Ta (hist 1)) - Twall)))
+    let v900 := ((delivered v893 mcp Ta (hist 1)) - (v898 / mcp))
+    let v902 := (coilProfile α ε Ac hC Ta mcp (delivered v893 mcp Ta (ret 1)) ![v773, v790, v807, v824, v841, v858, v875, v892])
+    let v917 := (α * (((((((v773 + v790) + v807) + v824) + v841) + v858) + v875) + v892))
+    let v928 := (shift (v902 7) hist)
+    let v944 := (shift v900 ret)
+    let v960 := (azSun - (v708 0))
+    let v962 := ((2 : ℝ) * Real.pi)
+    ![(v708 0), (v708 1), (v708 2), (v708 3), (v708 4), (v708 5), (v708 6), (v708 7), (v708 8), (v708 9), (v708 10), (v708 11), (v708 12), (v708 13), (v708 14), (v708 15), (v708 16), (v740 / (64 : ℝ)), (v743 / (64 : ℝ)), ((v747 * rho) * (v740 / (64 : ℝ))), ((((v747 * rho) * (v740 / (64 : ℝ))) * dni) * soil), (v902 7), v917, (v917 - (mcp * ((v902 7) - (delivered v893 mcp Ta (ret 1))))), (mcp * (((hist 1) - (delivered v893 mcp Ta (hist 1))) + ((ret 1) - (delivered v893 mcp Ta (ret 1))))), v898, (((v917 - (v917 - (mcp * ((v902 7) - (delivered v893 mcp Ta (ret 1)))))) - (mcp * (((hist 1) - (delivered v893 mcp Ta (hist 1))) + ((ret 1) - (delivered v893 mcp Ta (ret 1)))))) - v898), (v960 - (v962 * ((⌊((v960 + Real.pi) / v962)⌋ : ℤ) : ℝ))), (((Real.pi / (2 : ℝ)) - (v708 1)) - elSun), (v708 1), (v708 6), (v708 7), (((v902 7) - (300 : ℝ)) / (300 : ℝ)), (v708 15), (v708 16), v773, v790, v807, v824, v841, v858, v875, v892, (v902 0), (v902 1), (v902 2), (v902 3), (v902 4), (v902 5), (v902 6), (v902 7), (v928 0), (v928 1), (v928 2), (v928 3), (v928 4), (v928 5), (v928 6), (v928 7), (v928 8), (v928 9), (v928 10), (v928 11), (v928 12), (v928 13), (v928 14), (v928 15), (v944 0), (v944 1), (v944 2), (v944 3), (v944 4), (v944 5), (v944 6), (v944 7), (v944 8), (v944 9), (v944 10), (v944 11), (v944 12), (v944 13), (v944 14), (v944 15)] := by
+  funext az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen R f a w rc k σslope σspec hsun soil α ε Ac hC Upipe UAx mcp Twall Ta hist ret dr
+  rfl
+end
 
 section
 attribute [local irreducible] megaStep sunInDish dishReflect traceBeam tunnelThroughput
@@ -2549,30 +2585,27 @@ theorem tiltOfMismatch_ccc : tiltOfMismatch = fun (e : ℝ) =>
     (e / ((2 : ℝ) * (0.8 : ℝ))) := rfl
 
 section
-attribute [local irreducible] hyperHit beamAxis
+attribute [local irreducible] hyperHit reflect3 beamAxis
 
 theorem traceBeam_ccc : traceBeam = fun (R : ℝ) (f : ℝ) (a : ℝ) (k : ℝ) (L : ℝ) (dm : ℝ) (rm : ℝ) (rt : ℝ) (slotW : ℝ) (t : ℝ) (β : ℝ) (H : Fin 3 → ℝ) (r : Fin 3 → ℝ) (onPanel : ℝ) =>
     let v18 := (hyperHit f L dm t β H r)
     let v32 := ((onPanel > (0.5 : ℝ)) ∧ (((v18 3) > (0 : ℝ)) ∧ ((v18 4) ≤ rm)))
-    let v39 := ((2 : ℝ) * ((((r 0) * (v18 5)) + ((r 1) * (v18 6))) + ((r 2) * (v18 7))))
-    let v41 := ((r 0) - (v39 * (v18 5)))
-    let v43 := ((r 1) - (v39 * (v18 6)))
-    let v45 := ((r 2) - (v39 * (v18 7)))
-    let v47 := ((1 : ℝ) / R)
-    let v48 := ((1 : ℝ) + k)
-    let v65 := ((((2 : ℝ) * v47) * ((((v18 0) * v41) + ((v18 1) * v43)) + ((v48 * (v18 2)) * v45))) - ((2 : ℝ) * v45))
-    let v74 := ((v47 * ((((v18 0) ^ 2) + ((v18 1) ^ 2)) + (v48 * ((v18 2) ^ 2)))) - ((2 : ℝ) * (v18 2)))
-    let v85 := (((2 : ℝ) * v74) / ((-v65) - (Real.sqrt (max ((v65 ^ 2) - (((4 : ℝ) * (v47 * (((v41 ^ 2) + (v43 ^ 2)) + (v48 * (v45 ^ 2))))) * v74)) (0 : ℝ)))))
-    let v87 := ((v18 0) + (v85 * v41))
-    let v94 := |((v18 1) + (v85 * v43))|
-    let v104 := ((v85 > (0 : ℝ)) → ((¬ ((|v87| ≤ a) ∧ (v94 ≤ a))) ∨ ((v94 ≤ (slotW / (2 : ℝ))) ∧ (v87 ≥ (0 : ℝ)))))
-    let v105 := (beamAxis t β)
-    let v108 := ((v105 0) * L)
-    let v109 := ((v105 1) * L)
-    let v111 := (f + ((v105 2) * L))
-    let v125 := (((((v108 - (v18 0)) * (v105 0)) + ((v109 - (v18 1)) * (v105 1))) + ((v111 - (v18 2)) * (v105 2))) / (((v41 * (v105 0)) + (v43 * (v105 1))) + (v45 * (v105 2))))
-    let v143 := (((Real.sqrt ((((((v18 0) + (v125 * v41)) - v108) ^ 2) + ((((v18 1) + (v125 * v43)) - v109) ^ 2)) + ((((v18 2) + (v125 * v45)) - v111) ^ 2))) ≤ rt) ∧ (v125 > (0 : ℝ)))
-    ![(if (v32 ∧ (v104 ∧ v143)) then (1 : ℝ) else (0 : ℝ)), (if v32 then (1 : ℝ) else (0 : ℝ)), (if (v32 ∧ v104) then (1 : ℝ) else (0 : ℝ)), (Real.sqrt ((((((v18 0) + (v125 * v41)) - v108) ^ 2) + ((((v18 1) + (v125 * v43)) - v109) ^ 2)) + ((((v18 2) + (v125 * v45)) - v111) ^ 2))), v87, ((v18 1) + (v85 * v43)), (v18 4), (if (¬ v32) then (0 : ℝ) else (if (¬ v104) then (1 : ℝ) else (if (¬ v143) then (2 : ℝ) else (3 : ℝ))))] := by
+    let v33 := (reflect3 ![(v18 5), (v18 6), (v18 7)] r)
+    let v37 := ((1 : ℝ) / R)
+    let v38 := ((1 : ℝ) + k)
+    let v56 := ((((2 : ℝ) * v37) * ((((v18 0) * (v33 0)) + ((v18 1) * (v33 1))) + ((v38 * (v18 2)) * (v33 2)))) - ((2 : ℝ) * (v33 2)))
+    let v65 := ((v37 * ((((v18 0) ^ 2) + ((v18 1) ^ 2)) + (v38 * ((v18 2) ^ 2)))) - ((2 : ℝ) * (v18 2)))
+    let v76 := (((2 : ℝ) * v65) / ((-v56) - (Real.sqrt (max ((v56 ^ 2) - (((4 : ℝ) * (v37 * ((((v33 0) ^ 2) + ((v33 1) ^ 2)) + (v38 * ((v33 2) ^ 2))))) * v65)) (0 : ℝ)))))
+    let v78 := ((v18 0) + (v76 * (v33 0)))
+    let v85 := |((v18 1) + (v76 * (v33 1)))|
+    let v95 := ((v76 > (0 : ℝ)) → ((¬ ((|v78| ≤ a) ∧ (v85 ≤ a))) ∨ ((v85 ≤ (slotW / (2 : ℝ))) ∧ (v78 ≥ (0 : ℝ)))))
+    let v96 := (beamAxis t β)
+    let v99 := ((v96 0) * L)
+    let v100 := ((v96 1) * L)
+    let v102 := (f + ((v96 2) * L))
+    let v116 := (((((v99 - (v18 0)) * (v96 0)) + ((v100 - (v18 1)) * (v96 1))) + ((v102 - (v18 2)) * (v96 2))) / ((((v33 0) * (v96 0)) + ((v33 1) * (v96 1))) + ((v33 2) * (v96 2))))
+    let v134 := (((Real.sqrt ((((((v18 0) + (v116 * (v33 0))) - v99) ^ 2) + ((((v18 1) + (v116 * (v33 1))) - v100) ^ 2)) + ((((v18 2) + (v116 * (v33 2))) - v102) ^ 2))) ≤ rt) ∧ (v116 > (0 : ℝ)))
+    ![(if (v32 ∧ (v95 ∧ v134)) then (1 : ℝ) else (0 : ℝ)), (if v32 then (1 : ℝ) else (0 : ℝ)), (if (v32 ∧ v95) then (1 : ℝ) else (0 : ℝ)), (Real.sqrt ((((((v18 0) + (v116 * (v33 0))) - v99) ^ 2) + ((((v18 1) + (v116 * (v33 1))) - v100) ^ 2)) + ((((v18 2) + (v116 * (v33 2))) - v102) ^ 2))), v78, ((v18 1) + (v76 * (v33 1))), (v18 4), (if (¬ v32) then (0 : ℝ) else (if (¬ v95) then (1 : ℝ) else (if (¬ v134) then (2 : ℝ) else (3 : ℝ))))] := by
   funext R f a k L dm rm rt slotW t β H r onPanel
   rfl
 end

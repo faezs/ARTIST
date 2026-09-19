@@ -3501,7 +3501,7 @@ digraph "TandoorHashemi.hashemiLoop" {
   n2180 -> n2210; n2209 -> n2210;
   n2211 [label="&&", shape=ellipse];
   n2208 -> n2211; n2210 -> n2211;
-  n2212 [label="if", shape=diamond];
+  n2212 [label="if (classical)", shape=diamond];
   n2211 -> n2212 [label=c]; n1317 -> n2212 [label=1]; n939 -> n2212 [label=0];
   n2213 [label="Σ over 64 rays", shape=hexagon];
   n2212 -> n2213 [label=Σ];
@@ -3533,7 +3533,7 @@ digraph "TandoorHashemi.hashemiLoop" {
   n2221 -> n2226; n2225 -> n2226;
   n2227 [label="&&", shape=ellipse];
   n2226 -> n2227; n2210 -> n2227;
-  n2228 [label="if", shape=diamond];
+  n2228 [label="if (classical)", shape=diamond];
   n2227 -> n2228 [label=c]; n1317 -> n2228 [label=1]; n939 -> n2228 [label=0];
   n2229 [label="Σ over 64 rays", shape=hexagon];
   n2228 -> n2229 [label=Σ];
@@ -3565,7 +3565,7 @@ digraph "TandoorHashemi.hashemiLoop" {
   n2237 -> n2242; n2241 -> n2242;
   n2243 [label="&&", shape=ellipse];
   n2242 -> n2243; n2210 -> n2243;
-  n2244 [label="if", shape=diamond];
+  n2244 [label="if (classical)", shape=diamond];
   n2243 -> n2244 [label=c]; n1317 -> n2244 [label=1]; n939 -> n2244 [label=0];
   n2245 [label="Σ over 64 rays", shape=hexagon];
   n2244 -> n2245 [label=Σ];
@@ -3598,7 +3598,7 @@ digraph "TandoorHashemi.hashemiLoop" {
   n2254 -> n2259; n2258 -> n2259;
   n2260 [label="&&", shape=ellipse];
   n2259 -> n2260; n2210 -> n2260;
-  n2261 [label="if", shape=diamond];
+  n2261 [label="if (classical)", shape=diamond];
   n2260 -> n2261 [label=c]; n1317 -> n2261 [label=1]; n939 -> n2261 [label=0];
   n2262 [label="Σ over 64 rays", shape=hexagon];
   n2261 -> n2262 [label=Σ];
@@ -3631,7 +3631,7 @@ digraph "TandoorHashemi.hashemiLoop" {
   n2271 -> n2276; n2275 -> n2276;
   n2277 [label="&&", shape=ellipse];
   n2276 -> n2277; n2210 -> n2277;
-  n2278 [label="if", shape=diamond];
+  n2278 [label="if (classical)", shape=diamond];
   n2277 -> n2278 [label=c]; n1317 -> n2278 [label=1]; n939 -> n2278 [label=0];
   n2279 [label="Σ over 64 rays", shape=hexagon];
   n2278 -> n2279 [label=Σ];
@@ -3664,7 +3664,7 @@ digraph "TandoorHashemi.hashemiLoop" {
   n2288 -> n2293; n2292 -> n2293;
   n2294 [label="&&", shape=ellipse];
   n2293 -> n2294; n2210 -> n2294;
-  n2295 [label="if", shape=diamond];
+  n2295 [label="if (classical)", shape=diamond];
   n2294 -> n2295 [label=c]; n1317 -> n2295 [label=1]; n939 -> n2295 [label=0];
   n2296 [label="Σ over 64 rays", shape=hexagon];
   n2295 -> n2296 [label=Σ];
@@ -3697,7 +3697,7 @@ digraph "TandoorHashemi.hashemiLoop" {
   n2305 -> n2310; n2309 -> n2310;
   n2311 [label="&&", shape=ellipse];
   n2310 -> n2311; n2210 -> n2311;
-  n2312 [label="if", shape=diamond];
+  n2312 [label="if (classical)", shape=diamond];
   n2311 -> n2312 [label=c]; n1317 -> n2312 [label=1]; n939 -> n2312 [label=0];
   n2313 [label="Σ over 64 rays", shape=hexagon];
   n2312 -> n2313 [label=Σ];
@@ -3730,7 +3730,7 @@ digraph "TandoorHashemi.hashemiLoop" {
   n2322 -> n2327; n2326 -> n2327;
   n2328 [label="&&", shape=ellipse];
   n2327 -> n2328; n2210 -> n2328;
-  n2329 [label="if", shape=diamond];
+  n2329 [label="if (classical)", shape=diamond];
   n2328 -> n2329 [label=c]; n1317 -> n2329 [label=1]; n939 -> n2329 [label=0];
   n2330 [label="Σ over 64 rays", shape=hexagon];
   n2329 -> n2330 [label=Σ];

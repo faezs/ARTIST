@@ -722,7 +722,11 @@ partial def translateConst (root : Name) (n : Name) (_f : Expr) (args : Array Ex
               (fun j => (do let x ← xs[j]?; x.flatten[0]?) == some (f0 + j)))
           -- ... or the definition itself writes the argument as a literal vector
           -- (`traceBeam … ![dR 0, dR 1, dR 2] …`): then `![…]` IS the text it wrote.
-          let lit := a.getAppFn.isConstOf `Matrix.vecCons
+          -- the definition may have bound that literal to a `let` first (`bin` in `hashemiEnv`),
+          -- so look through a let-bound local before reading the head
+          let a' ← (if let .fvar fv := a then
+              (do pure ((← fv.getDecl).value?.getD a)) else pure a)
+          let lit := a'.getAppFn.isConstOf `Matrix.vecCons
           if tbl.isNone && bv.isNone && !lit then printable := false
         | _ => printable := false
         if !printable then continue

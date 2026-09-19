@@ -37,11 +37,19 @@ noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm 
   let per := (2 * a) ^ 2 * rho * cap
   let Pin := per * dni * soil
   -- the receiver's flux: the captured power in annulus k of the aperture (W)
-  let bin := fun (j : Fin 8) => (∑ i : Fin 64, b2r (inBin rc (dishPower R f a w rc k σslope σspec rho hsun
+  -- the indicator decided CLASSICALLY and explicitly: `inBin` is a definition, so instance
+  -- synthesis cannot see the conjunction inside it and picks `Classical.propDecidable` for that
+  -- half and a structural instance for the other - a term no printed `if` can be re-elaborated
+  -- into.  Written this way the twin prints the instance it sees (`@ite _ … propDecidable …`).
+  let binOf := fun (j : Fin 8) => (∑ i : Fin 64, @b2r (inBin rc (dishPower R f a w rc k σslope σspec rho hsun
     (s 0) (s 1) elSun azSun (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 3)
     j ∧ dishPower R f a w rc k σslope σspec rho hsun (s 0) (s 1) elSun azSun
-    (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0 > 0.5))
+    (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0 > 0.5)
+    (Classical.propDecidable _))
     / 64 * (2 * a) ^ 2 * rho * dni * soil
+  -- the eight annuli LISTED: the same function, written as the vector it is, so the round trip
+  -- can print `coilProfile … ![b 0, …, b 7]` as the text this line writes (a lambda has none)
+  let bin : Fin 8 → ℝ := ![binOf 0, binOf 1, binOf 2, binOf 3, binOf 4, binOf 5, binOf 6, binOf 7]
   -- the pipe: what the pot receives is the coil's outlet two steps ago, attenuated over half the
   -- run; the exchanger draws down to the wall at most; the return runs the other half
   let Tpot := delivered (Upipe / 2) mcp Ta (hist 1)

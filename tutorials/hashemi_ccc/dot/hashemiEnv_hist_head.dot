@@ -2558,7 +2558,7 @@ digraph "TandoorHashemi.hashemiEnv_hist_head" {
   n1617 -> n1647; n1646 -> n1647;
   n1648 [label="&&", shape=ellipse];
   n1645 -> n1648; n1647 -> n1648;
-  n1649 [label="if", shape=diamond];
+  n1649 [label="if (classical)", shape=diamond];
   n1648 -> n1649 [label=c]; n711 -> n1649 [label=1]; n744 -> n1649 [label=0];
   n1650 [label="Σ over 64 rays", shape=hexagon];
   n1649 -> n1650 [label=Σ];
@@ -2590,7 +2590,7 @@ digraph "TandoorHashemi.hashemiEnv_hist_head" {
   n1658 -> n1663; n1662 -> n1663;
   n1664 [label="&&", shape=ellipse];
   n1663 -> n1664; n1647 -> n1664;
-  n1665 [label="if", shape=diamond];
+  n1665 [label="if (classical)", shape=diamond];
   n1664 -> n1665 [label=c]; n711 -> n1665 [label=1]; n744 -> n1665 [label=0];
   n1666 [label="Σ over 64 rays", shape=hexagon];
   n1665 -> n1666 [label=Σ];
@@ -2622,7 +2622,7 @@ digraph "TandoorHashemi.hashemiEnv_hist_head" {
   n1674 -> n1679; n1678 -> n1679;
   n1680 [label="&&", shape=ellipse];
   n1679 -> n1680; n1647 -> n1680;
-  n1681 [label="if", shape=diamond];
+  n1681 [label="if (classical)", shape=diamond];
   n1680 -> n1681 [label=c]; n711 -> n1681 [label=1]; n744 -> n1681 [label=0];
   n1682 [label="Σ over 64 rays", shape=hexagon];
   n1681 -> n1682 [label=Σ];
@@ -2655,7 +2655,7 @@ digraph "TandoorHashemi.hashemiEnv_hist_head" {
   n1691 -> n1696; n1695 -> n1696;
   n1697 [label="&&", shape=ellipse];
   n1696 -> n1697; n1647 -> n1697;
-  n1698 [label="if", shape=diamond];
+  n1698 [label="if (classical)", shape=diamond];
   n1697 -> n1698 [label=c]; n711 -> n1698 [label=1]; n744 -> n1698 [label=0];
   n1699 [label="Σ over 64 rays", shape=hexagon];
   n1698 -> n1699 [label=Σ];
@@ -2688,7 +2688,7 @@ digraph "TandoorHashemi.hashemiEnv_hist_head" {
   n1708 -> n1713; n1712 -> n1713;
   n1714 [label="&&", shape=ellipse];
   n1713 -> n1714; n1647 -> n1714;
-  n1715 [label="if", shape=diamond];
+  n1715 [label="if (classical)", shape=diamond];
   n1714 -> n1715 [label=c]; n711 -> n1715 [label=1]; n744 -> n1715 [label=0];
   n1716 [label="Σ over 64 rays", shape=hexagon];
   n1715 -> n1716 [label=Σ];
@@ -2721,7 +2721,7 @@ digraph "TandoorHashemi.hashemiEnv_hist_head" {
   n1725 -> n1730; n1729 -> n1730;
   n1731 [label="&&", shape=ellipse];
   n1730 -> n1731; n1647 -> n1731;
-  n1732 [label="if", shape=diamond];
+  n1732 [label="if (classical)", shape=diamond];
   n1731 -> n1732 [label=c]; n711 -> n1732 [label=1]; n744 -> n1732 [label=0];
   n1733 [label="Σ over 64 rays", shape=hexagon];
   n1732 -> n1733 [label=Σ];
@@ -2754,7 +2754,7 @@ digraph "TandoorHashemi.hashemiEnv_hist_head" {
   n1742 -> n1747; n1746 -> n1747;
   n1748 [label="&&", shape=ellipse];
   n1747 -> n1748; n1647 -> n1748;
-  n1749 [label="if", shape=diamond];
+  n1749 [label="if (classical)", shape=diamond];
   n1748 -> n1749 [label=c]; n711 -> n1749 [label=1]; n744 -> n1749 [label=0];
   n1750 [label="Σ over 64 rays", shape=hexagon];
   n1749 -> n1750 [label=Σ];
@@ -2787,7 +2787,7 @@ digraph "TandoorHashemi.hashemiEnv_hist_head" {
   n1759 -> n1764; n1763 -> n1764;
   n1765 [label="&&", shape=ellipse];
   n1764 -> n1765; n1647 -> n1765;
-  n1766 [label="if", shape=diamond];
+  n1766 [label="if (classical)", shape=diamond];
   n1765 -> n1766 [label=c]; n711 -> n1766 [label=1]; n744 -> n1766 [label=0];
   n1767 [label="Σ over 64 rays", shape=hexagon];
   n1766 -> n1767 [label=Σ];

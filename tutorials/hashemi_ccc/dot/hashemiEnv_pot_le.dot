@@ -2562,7 +2562,7 @@ digraph "TandoorHashemi.hashemiEnv_pot_le" {
   n1619 -> n1649; n1648 -> n1649;
   n1650 [label="&&", shape=ellipse];
   n1647 -> n1650; n1649 -> n1650;
-  n1651 [label="if", shape=diamond];
+  n1651 [label="if (classical)", shape=diamond];
   n1650 -> n1651 [label=c]; n714 -> n1651 [label=1]; n708 -> n1651 [label=0];
   n1652 [label="Σ over 64 rays", shape=hexagon];
   n1651 -> n1652 [label=Σ];
@@ -2594,7 +2594,7 @@ digraph "TandoorHashemi.hashemiEnv_pot_le" {
   n1660 -> n1665; n1664 -> n1665;
   n1666 [label="&&", shape=ellipse];
   n1665 -> n1666; n1649 -> n1666;
-  n1667 [label="if", shape=diamond];
+  n1667 [label="if (classical)", shape=diamond];
   n1666 -> n1667 [label=c]; n714 -> n1667 [label=1]; n708 -> n1667 [label=0];
   n1668 [label="Σ over 64 rays", shape=hexagon];
   n1667 -> n1668 [label=Σ];
@@ -2626,7 +2626,7 @@ digraph "TandoorHashemi.hashemiEnv_pot_le" {
   n1676 -> n1681; n1680 -> n1681;
   n1682 [label="&&", shape=ellipse];
   n1681 -> n1682; n1649 -> n1682;
-  n1683 [label="if", shape=diamond];
+  n1683 [label="if (classical)", shape=diamond];
   n1682 -> n1683 [label=c]; n714 -> n1683 [label=1]; n708 -> n1683 [label=0];
   n1684 [label="Σ over 64 rays", shape=hexagon];
   n1683 -> n1684 [label=Σ];
@@ -2659,7 +2659,7 @@ digraph "TandoorHashemi.hashemiEnv_pot_le" {
   n1693 -> n1698; n1697 -> n1698;
   n1699 [label="&&", shape=ellipse];
   n1698 -> n1699; n1649 -> n1699;
-  n1700 [label="if", shape=diamond];
+  n1700 [label="if (classical)", shape=diamond];
   n1699 -> n1700 [label=c]; n714 -> n1700 [label=1]; n708 -> n1700 [label=0];
   n1701 [label="Σ over 64 rays", shape=hexagon];
   n1700 -> n1701 [label=Σ];
@@ -2692,7 +2692,7 @@ digraph "TandoorHashemi.hashemiEnv_pot_le" {
   n1710 -> n1715; n1714 -> n1715;
   n1716 [label="&&", shape=ellipse];
   n1715 -> n1716; n1649 -> n1716;
-  n1717 [label="if", shape=diamond];
+  n1717 [label="if (classical)", shape=diamond];
   n1716 -> n1717 [label=c]; n714 -> n1717 [label=1]; n708 -> n1717 [label=0];
   n1718 [label="Σ over 64 rays", shape=hexagon];
   n1717 -> n1718 [label=Σ];
@@ -2725,7 +2725,7 @@ digraph "TandoorHashemi.hashemiEnv_pot_le" {
   n1727 -> n1732; n1731 -> n1732;
   n1733 [label="&&", shape=ellipse];
   n1732 -> n1733; n1649 -> n1733;
-  n1734 [label="if", shape=diamond];
+  n1734 [label="if (classical)", shape=diamond];
   n1733 -> n1734 [label=c]; n714 -> n1734 [label=1]; n708 -> n1734 [label=0];
   n1735 [label="Σ over 64 rays", shape=hexagon];
   n1734 -> n1735 [label=Σ];
@@ -2758,7 +2758,7 @@ digraph "TandoorHashemi.hashemiEnv_pot_le" {
   n1744 -> n1749; n1748 -> n1749;
   n1750 [label="&&", shape=ellipse];
   n1749 -> n1750; n1649 -> n1750;
-  n1751 [label="if", shape=diamond];
+  n1751 [label="if (classical)", shape=diamond];
   n1750 -> n1751 [label=c]; n714 -> n1751 [label=1]; n708 -> n1751 [label=0];
   n1752 [label="Σ over 64 rays", shape=hexagon];
   n1751 -> n1752 [label=Σ];
@@ -2791,7 +2791,7 @@ digraph "TandoorHashemi.hashemiEnv_pot_le" {
   n1761 -> n1766; n1765 -> n1766;
   n1767 [label="&&", shape=ellipse];
   n1766 -> n1767; n1649 -> n1767;
-  n1768 [label="if", shape=diamond];
+  n1768 [label="if (classical)", shape=diamond];
   n1767 -> n1768 [label=c]; n714 -> n1768 [label=1]; n708 -> n1768 [label=0];
   n1769 [label="Σ over 64 rays", shape=hexagon];
   n1768 -> n1769 [label=Σ];

@@ -247,11 +247,12 @@ of each one's output (0: a scalar).  A functor preserves composition: `hashemiEn
 `megaStep ; ∑ of dishPower ; the loop`, and that is the equation the round trip should state. -/
 def modularRefs : List String := ["hashemiEnv", "hashemiLoop", "traceBeam", "hashemiEnvBeam"]
 
-/-- of those, the ones whose modular round trip CLOSES.  `hashemiEnv`'s does not yet: its
-columns 0-31 (the mount, the ray sums, the observations) close in seconds inside the irreducible
-section, but the eight flux columns and everything downstream of them (the coil through
-`coilProfile`, which is inlined because the definition passes it a lambda, and the two pipe
-histories) do not.  See the notes.
+/-- of those, the ones whose modular round trip CLOSES - all four.  `hashemiEnv` joined last,
+and what it needed was in its DEFINITION, twice: the eight annuli written as the vector they are
+(`![binOf 0, …, binOf 7]`, so `coilProfile`'s argument prints as the text the line writes), and
+the flux indicator decided explicitly (`@b2r … (Classical.propDecidable _)`, so the twin prints
+the instance it sees).  Neither changes a kernel: only the `.dot` label `if` ↦ `if (classical)`
+moves.  See the notes.
 
 The beam-down pair joins by the same recipe, once `Ccc.lean` prints two more arguments as the
 definition writes them: a SHORT vector binder (`H : Fin 3 → ℝ`, bound component by component -
@@ -259,7 +260,7 @@ so `hyperHit … H r` stays a call inside `traceBeam`), and a LITERAL vector
 (`traceBeam … ![dR 0, dR 1, dR 2] …`, which is the text the definition itself wrote - so
 `traceBeam` stays a call inside `hashemiEnvBeam`'s four 64-ray sums).  Without them both were
 inlined and the ray columns timed out; with them `funext …; rfl` closes both in seconds. -/
-def modularEmit : List String := ["hashemiLoop", "traceBeam", "hashemiEnvBeam"]
+def modularEmit : List String := ["hashemiEnv", "hashemiLoop", "traceBeam", "hashemiEnvBeam"]
 
 /-- the staged proof for `txt`, a printed `theorem X_ccc : X = fun bs => <twin> := rfl`. -/
 def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option String := Id.run do
@@ -610,10 +611,6 @@ def run : MetaM Unit := do
           | none =>
             logInfo m!"staged round trip: no bisection chain found for {ref}"
             rt := rt.push txt |>.push ""
-        else if ref == "hashemiEnv" then
-          -- the whole optical pipeline as one term: its parts (`sunInDish`, `sampleRay`,
-          -- `traceRayKErr`) each round-trip by `rfl`; the composite's defeq check times out
-          rt := rt.push s!"-- {ref}: round trip by the twins and by its parts' rfl (the composite is beyond whnf's budget)" |>.push ""
         else if ref == "mlpPolicy" then
           -- a definition whose body is `fun k : Fin n => …` prints as the vector `![…]`, which is
           -- not definitionally that lambda: the round trip is by extensionality, case by case
