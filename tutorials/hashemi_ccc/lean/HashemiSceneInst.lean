@@ -30,6 +30,7 @@ import RequestProject.HashemiScale
 import RequestProject.HashemiTrace
 import RequestProject.HashemiBeamdown
 import RequestProject.OpticGadt
+import RequestProject.Tandoor
 import RequestProject.Scene
 
 namespace TandoorHashemi
@@ -597,6 +598,132 @@ theorem primary_is_dishReflect (R f a w k σs σp ρ : ℝ) (g : TandoorOpticGad
       (let d := dishReflect R f a w k σs σp (g.1 0) (g.1 1) 0 0 (g.2 0) (g.2 1) (g.2 2) 0 0 0 0
        if d 6 > 0.5 then Sum.inr (![d 0, d 1, d 2], ![d 3, d 4, d 5]) else Sum.inl 1) := rfl
 
+/-! ## 3d. The sun as a body, its rays as they physically are, and the shadow
+
+The specification takes `elSun` and `azSun`, and `sunDir` is the unit vector toward the sun in the
+roof frame.  Three things a picture of a machine standing on the earth needs, and each of them is
+that one vector and nothing else:
+
+* **the sun's own disc.**  The sun is 1.5·10¹¹ m away; a drawing must put it at a finite distance
+  `dSun` (the scenes bind 8 m, a literal of the drawing's own convention, exactly as `sg = ±1` is
+  — far enough to read as the sky, near enough to be in the same picture as the machine, which a
+  body at its true distance never can be).  It is then sized by the specification's OWN half-angle `hsun` — `ρ = dSun tan hsun` — so
+  that it subtends the true 4.65 mrad at whatever distance is chosen, and `hsun` is the very
+  number `sampleRay` jitters each ray by.  `sunDisc_subtends` below is that, proved.
+* **the incoming legs.**  A ray of the table starts at its facet's sample point, `2f` over the
+  vertex.  Carried BACK along the sun's direction onto a common plane `z = zt` above the machine,
+  the sixty-four of them become parallel segments arriving out of the sun's quarter of the sky,
+  which is what sunlight is.  `alongSun` is that carry, and it is one division.
+* **the shadow.**  The same carry with `zt = 0` drops a point onto the deck, so the dish's four
+  corners are the machine's shadow.  One definition, two bindings — no second formula.
+
+All three components of `alongSun` are the same parametric step along `sunDir`; writing the
+third as the bare `zt` would have been a constant, and a scene entry whose vertices are partly
+constant and partly per-ray splits across the printer's two regions.  The parametric form is
+also the truer statement: `alongSun_parallel` below says the displacement IS `sunDir` scaled.
+-/
+
+/-- **a point carried along the sun's direction onto the plane `z = zt`**: up to the sky plane
+when `zt` is above the machine, down to the deck when it is zero.  The floor on `sin elSun` is the
+same guard every twin takes against a sun on the horizon. -/
+noncomputable def alongSun (elSun azSun zt : ℝ) (P : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  ![P 0 + ((zt - P 2) / max (Real.sin elSun) 1e-6) * (Real.cos elSun * Real.cos azSun),
+    P 1 + ((zt - P 2) / max (Real.sin elSun) 1e-6) * (Real.cos elSun * Real.sin azSun),
+    P 2 + ((zt - P 2) / max (Real.sin elSun) 1e-6) * Real.sin elSun]
+
+/-- **the sun's centre**, `dSun` along the specification's own direction -/
+noncomputable def sunCentrePt (elSun azSun dSun : ℝ) : Fin 3 → ℝ :=
+  ![dSun * (Real.cos elSun * Real.cos azSun), dSun * (Real.cos elSun * Real.sin azSun),
+    dSun * Real.sin elSun]
+
+/-- **station `jsun` of twelve on the sun's rim**, at the half-angle `hsun`.  The pair of
+directions across the line of sight is built from the same two angles: `(-sin az, cos az, 0)` and
+its completion. -/
+noncomputable def sunDiscPt (elSun azSun hsun dSun jsun : ℝ) : Fin 3 → ℝ :=
+  ![dSun * (Real.cos elSun * Real.cos azSun)
+      + dSun * Real.tan hsun * (Real.cos (2 * Real.pi * jsun / 12) * (-Real.sin azSun)
+          + Real.sin (2 * Real.pi * jsun / 12) * (-(Real.sin elSun * Real.cos azSun))),
+    dSun * (Real.cos elSun * Real.sin azSun)
+      + dSun * Real.tan hsun * (Real.cos (2 * Real.pi * jsun / 12) * Real.cos azSun
+          + Real.sin (2 * Real.pi * jsun / 12) * (-(Real.sin elSun * Real.sin azSun))),
+    dSun * Real.sin elSun
+      + dSun * Real.tan hsun * (Real.sin (2 * Real.pi * jsun / 12) * Real.cos elSun)]
+
+/-- **the sky plane's frame over the dish**: a point of the dish's frame, placed in the roof
+frame and then carried along the sun onto `z = zt`.  With `zt` above the machine this is where
+that point's sunbeam crosses the sky plane; with `zt = 0` it is that point's shadow on the deck.
+Composition of two of the specification's own morphisms, in the graph. -/
+noncomputable def skyOfDish (az t apexH zBolt f elSun azSun zt : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  alongSun elSun azSun zt (roofOfDish az t apexH zBolt f q)
+
+/-- the same, at the pose the env's own step produced -/
+noncomputable def envSkyOfDish (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt f zt : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  alongSun elSun azSun zt (envRoofOfDish az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt f q)
+
+/-- **the sun's centre is `sunDir` scaled**: the body the picture draws is on the specification's
+own line of sight, not beside it -/
+theorem sunCentrePt_sunDir (elSun azSun dSun : ℝ) (i : Fin 3) :
+    sunCentrePt elSun azSun dSun i = dSun * sunDir elSun azSun i := by
+  fin_cases i <;> rfl
+
+/-- **the sun's disc subtends `hsun`**: every station of its rim stands `dSun tan hsun` from its
+centre, so the body drawn at the distance `dSun` has the half-angle the trace samples over —
+whatever `dSun` the drawing picks. -/
+theorem sunDisc_subtends (elSun azSun hsun dSun jsun : ℝ) :
+    (sunDiscPt elSun azSun hsun dSun jsun 0 - sunCentrePt elSun azSun dSun 0) ^ 2
+      + (sunDiscPt elSun azSun hsun dSun jsun 1 - sunCentrePt elSun azSun dSun 1) ^ 2
+      + (sunDiscPt elSun azSun hsun dSun jsun 2 - sunCentrePt elSun azSun dSun 2) ^ 2
+      = (dSun * Real.tan hsun) ^ 2 := by
+  show (dSun * (Real.cos elSun * Real.cos azSun)
+      + dSun * Real.tan hsun * (Real.cos (2 * Real.pi * jsun / 12) * (-Real.sin azSun)
+          + Real.sin (2 * Real.pi * jsun / 12) * (-(Real.sin elSun * Real.cos azSun)))
+      - dSun * (Real.cos elSun * Real.cos azSun)) ^ 2
+    + (dSun * (Real.cos elSun * Real.sin azSun)
+      + dSun * Real.tan hsun * (Real.cos (2 * Real.pi * jsun / 12) * Real.cos azSun
+          + Real.sin (2 * Real.pi * jsun / 12) * (-(Real.sin elSun * Real.sin azSun)))
+      - dSun * (Real.cos elSun * Real.sin azSun)) ^ 2
+    + (dSun * Real.sin elSun
+      + dSun * Real.tan hsun * (Real.sin (2 * Real.pi * jsun / 12) * Real.cos elSun)
+      - dSun * Real.sin elSun) ^ 2 = (dSun * Real.tan hsun) ^ 2
+  linear_combination
+    ((dSun * Real.tan hsun) ^ 2
+        * (Real.cos (2 * Real.pi * jsun / 12) ^ 2
+            + Real.sin (2 * Real.pi * jsun / 12) ^ 2 * Real.sin elSun ^ 2))
+        * Real.sin_sq_add_cos_sq azSun
+    + ((dSun * Real.tan hsun) ^ 2 * Real.sin (2 * Real.pi * jsun / 12) ^ 2)
+        * Real.sin_sq_add_cos_sq elSun
+    + ((dSun * Real.tan hsun) ^ 2) * Real.sin_sq_add_cos_sq (2 * Real.pi * jsun / 12)
+
+/-- **`alongSun` lands on the plane it names**, whenever the sun is over the guard: the shadow is
+on the deck and the sky foot on the sky plane. -/
+theorem alongSun_lands (elSun azSun zt : ℝ) (P : Fin 3 → ℝ) (h : 1e-6 ≤ Real.sin elSun) :
+    alongSun elSun azSun zt P 2 = zt := by
+  have hm : max (Real.sin elSun) 1e-6 = Real.sin elSun := max_eq_left h
+  have hne : Real.sin elSun ≠ 0 := by
+    intro h0
+    rw [h0] at h
+    norm_num at h
+  show P 2 + ((zt - P 2) / max (Real.sin elSun) 1e-6) * Real.sin elSun = zt
+  rw [hm, div_mul_eq_mul_div, mul_div_assoc, div_self hne, mul_one]
+  ring
+
+/-- **and it moves along the sun and nowhere else**: the displacement is exactly the
+specification's own `sunDir`, scaled.  Sixty-four legs carried onto one plane are therefore
+sixty-four PARALLEL legs, which is what sunlight across an aperture is. -/
+theorem alongSun_parallel (elSun azSun zt : ℝ) (P : Fin 3 → ℝ) (i : Fin 3) :
+    alongSun elSun azSun zt P i - P i
+      = ((zt - P 2) / max (Real.sin elSun) 1e-6) * sunDir elSun azSun i := by
+  fin_cases i
+  · show P 0 + ((zt - P 2) / max (Real.sin elSun) 1e-6) * (Real.cos elSun * Real.cos azSun) - P 0
+        = ((zt - P 2) / max (Real.sin elSun) 1e-6) * (Real.cos elSun * Real.cos azSun)
+    ring
+  · show P 1 + ((zt - P 2) / max (Real.sin elSun) 1e-6) * (Real.cos elSun * Real.sin azSun) - P 1
+        = ((zt - P 2) / max (Real.sin elSun) 1e-6) * (Real.cos elSun * Real.sin azSun)
+    ring
+  · show P 2 + ((zt - P 2) / max (Real.sin elSun) 1e-6) * Real.sin elSun - P 2
+        = ((zt - P 2) / max (Real.sin elSun) 1e-6) * Real.sin elSun
+    ring
+
 end TandoorHashemi
 
 /-! ## 7. The scenes — data
@@ -975,7 +1102,672 @@ def hashemiScene : Scene := [
   { label := "sun_dir", shape := .one (.pt "sunDir" none []), colour := 7 },
   { label := "sun_el", shape := .one (.num "sunAt" 0), colour := 7 },
   { label := "sun_az", shape := .one (.num "sunAt" 1), colour := 7 },
-  { label := "pointing_error", shape := .one (.num "pointingError" 0), colour := 7 }]
+  { label := "pointing_error", shape := .one (.num "pointingError" 0), colour := 7 },
+  -- ---- the oven he feeds, the building he stands on, and the sun he tracks ----------------
+  -- Every entry below names a definition of `RequestProject/Tandoor.lean` (the parent env's own
+  -- oven, cited number by number) or of section 3d above (the sun as a body, its parallel legs,
+  -- the shadow).  Not one of them is a formula, and not one of them adds an input: the oven's
+  -- dimensions are constants of the specification, so they are drawn as NODES of the graph, and
+  -- the drawing's stations and the sun's distance are literals, exactly as `sg = ±1` is.
+  { label := "pit_rim_00",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_rim_01",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_rim_02",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_rim_03",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_rim_04",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_rim_05",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_rim_06",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_rim_07",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "pit_crown_00",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_crown_01",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_crown_02",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_crown_03",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_crown_04",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_crown_05",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_crown_06",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_crown_07",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "pit_belt_00",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_belt_01",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_belt_02",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_belt_03",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_belt_04",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_belt_05",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_belt_06",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_belt_07",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "pit_lower_00",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_lower_01",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_lower_02",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_lower_03",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_lower_04",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_lower_05",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_lower_06",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_lower_07",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "pit_floor_00",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_floor_01",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_floor_02",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_floor_03",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_floor_04",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_floor_05",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_floor_06",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_floor_07",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "hearth_00",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 4))]),
+    colour := 9 },
+  { label := "hearth_01",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 4))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 8))]),
+    colour := 9 },
+  { label := "hearth_02",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 8))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 9 },
+  { label := "hearth_03",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 16))]),
+    colour := 9 },
+  { label := "hearth_04",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 16))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 20))]),
+    colour := 9 },
+  { label := "hearth_05",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 20))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 9 },
+  { label := "pit_merid_0_0",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 0))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 1))]),
+    colour := 8 },
+  { label := "pit_merid_0_1",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 1))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 2))]),
+    colour := 8 },
+  { label := "pit_merid_0_2",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 2))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_merid_0_3",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 3))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 4))]),
+    colour := 8 },
+  { label := "pit_merid_0_4",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 4))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 5))]),
+    colour := 8 },
+  { label := "pit_merid_1_0",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 0))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 1))]),
+    colour := 8 },
+  { label := "pit_merid_1_1",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 1))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 2))]),
+    colour := 8 },
+  { label := "pit_merid_1_2",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 2))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_merid_1_3",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 3))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 4))]),
+    colour := 8 },
+  { label := "pit_merid_1_4",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 4))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 5))]),
+    colour := 8 },
+  { label := "pit_merid_2_0",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 0))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 1))]),
+    colour := 8 },
+  { label := "pit_merid_2_1",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 1))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 2))]),
+    colour := 8 },
+  { label := "pit_merid_2_2",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 2))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_merid_2_3",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 3))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 4))]),
+    colour := 8 },
+  { label := "pit_merid_2_4",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 4))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 5))]),
+    colour := 8 },
+  { label := "pit_merid_3_0",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 0))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 1))]),
+    colour := 8 },
+  { label := "pit_merid_3_1",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 1))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 2))]),
+    colour := 8 },
+  { label := "pit_merid_3_2",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 2))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_merid_3_3",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 3))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 4))]),
+    colour := 8 },
+  { label := "pit_merid_3_4",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 4))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 5))]),
+    colour := 8 },
+  { label := "slot_0_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_0_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_0_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_0_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_1_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_1_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_1_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_1_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_2_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_2_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_2_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_2_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_3_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_3_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_3_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_3_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_4_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_4_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_4_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_4_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_5_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_5_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_5_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_5_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_6_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_6_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_6_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_6_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_7_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_7_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_7_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_7_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_node_0",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 0))]),
+    colour := 9 },
+  { label := "slot_node_1",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 1))]),
+    colour := 9 },
+  { label := "slot_node_2",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 2))]),
+    colour := 9 },
+  { label := "slot_node_3",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 3))]),
+    colour := 9 },
+  { label := "slot_node_4",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 4))]),
+    colour := 9 },
+  { label := "slot_node_5",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 5))]),
+    colour := 9 },
+  { label := "slot_node_6",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 6))]),
+    colour := 9 },
+  { label := "slot_node_7",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 7))]),
+    colour := 9 },
+  { label := "exchanger_0",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 0))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 1))]),
+    colour := 5 },
+  { label := "exchanger_1",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 1))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 2))]),
+    colour := 5 },
+  { label := "exchanger_2",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 2))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 3))]),
+    colour := 5 },
+  { label := "exchanger_3",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 3))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 4))]),
+    colour := 5 },
+  { label := "exchanger_4",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 4))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 5))]),
+    colour := 5 },
+  { label := "exchanger_5",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 5))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 6))]),
+    colour := 5 },
+  { label := "exchanger_6",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 6))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 7))]),
+    colour := 5 },
+  { label := "exchanger_7",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 7))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 8))]),
+    colour := 5 },
+  { label := "tunnel_bore",
+    shape := .seg (.pt "boreTopPt" none [])
+                  (.pt "boreFootPt" none []),
+    colour := 13 },
+  { label := "tunnel_duct",
+    shape := .seg (.pt "boreFootPt" none [])
+                  (.pt "ductMouthPt" none []),
+    colour := 13 },
+  { label := "duct_mouth_00",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 0))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 2))]),
+    colour := 13 },
+  { label := "duct_mouth_01",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 2))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 4))]),
+    colour := 13 },
+  { label := "duct_mouth_02",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 4))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 6))]),
+    colour := 13 },
+  { label := "duct_mouth_03",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 6))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 8))]),
+    colour := 13 },
+  { label := "duct_mouth_04",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 8))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 10))]),
+    colour := 13 },
+  { label := "duct_mouth_05",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 10))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 12))]),
+    colour := 13 },
+  { label := "deck_edge_0",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "ground_edge_0",
+    shape := .seg (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "parapet_rail_0",
+    shape := .seg (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "wall_0",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "parapet_post_0",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "deck_edge_1",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "ground_edge_1",
+    shape := .seg (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "parapet_rail_1",
+    shape := .seg (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "wall_1",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "parapet_post_1",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "deck_edge_2",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "ground_edge_2",
+    shape := .seg (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "parapet_rail_2",
+    shape := .seg (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "wall_2",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "parapet_post_2",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "deck_edge_3",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "ground_edge_3",
+    shape := .seg (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "parapet_rail_3",
+    shape := .seg (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "wall_3",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "parapet_post_3",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "deck_pp",
+    shape := .one (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "ground_pp",
+    shape := .one (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "deck_pm",
+    shape := .one (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "ground_pm",
+    shape := .one (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "deck_mm",
+    shape := .one (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "ground_mm",
+    shape := .one (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "deck_mp",
+    shape := .one (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "ground_mp",
+    shape := .one (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "sun_rim_00",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 0))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 1))]),
+    colour := 11 },
+  { label := "sun_rim_01",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 1))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 2))]),
+    colour := 11 },
+  { label := "sun_rim_02",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 2))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 3))]),
+    colour := 11 },
+  { label := "sun_rim_03",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 3))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 4))]),
+    colour := 11 },
+  { label := "sun_rim_04",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 4))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 5))]),
+    colour := 11 },
+  { label := "sun_rim_05",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 5))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 6))]),
+    colour := 11 },
+  { label := "sun_rim_06",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 6))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 7))]),
+    colour := 11 },
+  { label := "sun_rim_07",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 7))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 8))]),
+    colour := 11 },
+  { label := "sun_rim_08",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 8))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 9))]),
+    colour := 11 },
+  { label := "sun_rim_09",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 9))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 10))]),
+    colour := 11 },
+  { label := "sun_rim_10",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 10))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 11))]),
+    colour := 11 },
+  { label := "sun_rim_11",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 11))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 12))]),
+    colour := 11 },
+  { label := "sun",
+    shape := .one (.pt "sunCentrePt" none [("dSun", (Bound.lit 8))]),
+    colour := 11 },
+  { label := "sun_to_dish",
+    shape := .seg (.pt "sunCentrePt" none [("dSun", (Bound.lit 8))])
+                  (.pt "dishVertexPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
+    colour := 11 },
+  { label := "sky_leg",
+    shape := .seg (.pt "rayHitT" (some "skyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 6))])
+                  (.pt "rayHitT" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB)]),
+    colour := 11 },
+  { label := "shadow_0",
+    shape := .seg (.pt "panelCornerD" (some "skyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit 1))])
+                  (.pt "panelCornerD" (some "skyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "shadow_1",
+    shape := .seg (.pt "panelCornerD" (some "skyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))])
+                  (.pt "panelCornerD" (some "skyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "shadow_2",
+    shape := .seg (.pt "panelCornerD" (some "skyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit (-1)))])
+                  (.pt "panelCornerD" (some "skyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "shadow_3",
+    shape := .seg (.pt "panelCornerD" (some "skyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit 1))])
+                  (.pt "panelCornerD" (some "skyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit 1))]),
+    colour := 10 }]
 
 /-- **the beam-down** (`HashemiBeamdown`): the secondary in the coil's volume, the leg from the
 dish's reflection to it, its normal, and what `traceBeam` says became of the ray. -/
@@ -1355,6 +2147,671 @@ def envScene : Scene := [
   { label := "T_oil", shape := .one (.num "hashemiEnv" 21), colour := 7 },
   { label := "q_pot", shape := .one (.num "hashemiEnv" 25), colour := 7 },
   { label := "T_film", shape := .one (.num "hashemiEnv" 83), colour := 7 },
-  { label := "film_margin", shape := .one (.num "hashemiEnv" 84), colour := 7 }]
+  { label := "film_margin", shape := .one (.num "hashemiEnv" 84), colour := 7 },
+  -- ---- the oven he feeds, the building he stands on, and the sun he tracks ----------------
+  -- Every entry below names a definition of `RequestProject/Tandoor.lean` (the parent env's own
+  -- oven, cited number by number) or of section 3d above (the sun as a body, its parallel legs,
+  -- the shadow).  Not one of them is a formula, and not one of them adds an input: the oven's
+  -- dimensions are constants of the specification, so they are drawn as NODES of the graph, and
+  -- the drawing's stations and the sun's distance are literals, exactly as `sg = ±1` is.
+  { label := "pit_rim_00",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_rim_01",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_rim_02",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_rim_03",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_rim_04",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_rim_05",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_rim_06",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_rim_07",
+    shape := .seg (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "mouthPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "pit_crown_00",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_crown_01",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_crown_02",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_crown_03",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_crown_04",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_crown_05",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_crown_06",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_crown_07",
+    shape := .seg (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "crownPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "pit_belt_00",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_belt_01",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_belt_02",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_belt_03",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_belt_04",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_belt_05",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_belt_06",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_belt_07",
+    shape := .seg (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "beltLoPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "pit_lower_00",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_lower_01",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_lower_02",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_lower_03",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_lower_04",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_lower_05",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_lower_06",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_lower_07",
+    shape := .seg (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "hearthBandPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "pit_floor_00",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_floor_01",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 3))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 6))]),
+    colour := 8 },
+  { label := "pit_floor_02",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 6))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 9))]),
+    colour := 8 },
+  { label := "pit_floor_03",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 9))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 8 },
+  { label := "pit_floor_04",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 15))]),
+    colour := 8 },
+  { label := "pit_floor_05",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 15))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 18))]),
+    colour := 8 },
+  { label := "pit_floor_06",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 18))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 21))]),
+    colour := 8 },
+  { label := "pit_floor_07",
+    shape := .seg (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 21))])
+                  (.pt "floorPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 8 },
+  { label := "hearth_00",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 0))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 4))]),
+    colour := 9 },
+  { label := "hearth_01",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 4))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 8))]),
+    colour := 9 },
+  { label := "hearth_02",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 8))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 12))]),
+    colour := 9 },
+  { label := "hearth_03",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 12))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 16))]),
+    colour := 9 },
+  { label := "hearth_04",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 16))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 20))]),
+    colour := 9 },
+  { label := "hearth_05",
+    shape := .seg (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 20))])
+                  (.pt "hearthPt" (some "roofOfPot") [("jr", (Bound.lit 24))]),
+    colour := 9 },
+  { label := "pit_merid_0_0",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 0))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 1))]),
+    colour := 8 },
+  { label := "pit_merid_0_1",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 1))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 2))]),
+    colour := 8 },
+  { label := "pit_merid_0_2",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 2))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_merid_0_3",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 3))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 4))]),
+    colour := 8 },
+  { label := "pit_merid_0_4",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 4))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 0)), ("jz", (Bound.lit 5))]),
+    colour := 8 },
+  { label := "pit_merid_1_0",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 0))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 1))]),
+    colour := 8 },
+  { label := "pit_merid_1_1",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 1))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 2))]),
+    colour := 8 },
+  { label := "pit_merid_1_2",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 2))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_merid_1_3",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 3))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 4))]),
+    colour := 8 },
+  { label := "pit_merid_1_4",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 4))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 1)), ("jz", (Bound.lit 5))]),
+    colour := 8 },
+  { label := "pit_merid_2_0",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 0))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 1))]),
+    colour := 8 },
+  { label := "pit_merid_2_1",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 1))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 2))]),
+    colour := 8 },
+  { label := "pit_merid_2_2",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 2))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_merid_2_3",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 3))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 4))]),
+    colour := 8 },
+  { label := "pit_merid_2_4",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 4))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 2)), ("jz", (Bound.lit 5))]),
+    colour := 8 },
+  { label := "pit_merid_3_0",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 0))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 1))]),
+    colour := 8 },
+  { label := "pit_merid_3_1",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 1))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 2))]),
+    colour := 8 },
+  { label := "pit_merid_3_2",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 2))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 3))]),
+    colour := 8 },
+  { label := "pit_merid_3_3",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 3))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 4))]),
+    colour := 8 },
+  { label := "pit_merid_3_4",
+    shape := .seg (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 4))])
+                  (.pt "potMeridPt" (some "roofOfPot") [("jth", (Bound.lit 3)), ("jz", (Bound.lit 5))]),
+    colour := 8 },
+  { label := "slot_0_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_0_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_0_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_0_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 0)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_1_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_1_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_1_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_1_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 1)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_2_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_2_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_2_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_2_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 2)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_3_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_3_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_3_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_3_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 3)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_4_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_4_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_4_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_4_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 4)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_5_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_5_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_5_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_5_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 5)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_6_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_6_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_6_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_6_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 6)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_7_bot",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 12 },
+  { label := "slot_7_top",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_7_left",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_7_right",
+    shape := .seg (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "rotiCornerPt" (some "roofOfPot") [("ks", (Bound.lit 7)), ("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 12 },
+  { label := "slot_node_0",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 0))]),
+    colour := 9 },
+  { label := "slot_node_1",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 1))]),
+    colour := 9 },
+  { label := "slot_node_2",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 2))]),
+    colour := 9 },
+  { label := "slot_node_3",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 3))]),
+    colour := 9 },
+  { label := "slot_node_4",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 4))]),
+    colour := 9 },
+  { label := "slot_node_5",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 5))]),
+    colour := 9 },
+  { label := "slot_node_6",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 6))]),
+    colour := 9 },
+  { label := "slot_node_7",
+    shape := .one (.pt "slotCentrePt" (some "roofOfPot") [("ks", (Bound.lit 7))]),
+    colour := 9 },
+  { label := "exchanger_0",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 0))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 1))]),
+    colour := 5 },
+  { label := "exchanger_1",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 1))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 2))]),
+    colour := 5 },
+  { label := "exchanger_2",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 2))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 3))]),
+    colour := 5 },
+  { label := "exchanger_3",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 3))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 4))]),
+    colour := 5 },
+  { label := "exchanger_4",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 4))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 5))]),
+    colour := 5 },
+  { label := "exchanger_5",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 5))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 6))]),
+    colour := 5 },
+  { label := "exchanger_6",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 6))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 7))]),
+    colour := 5 },
+  { label := "exchanger_7",
+    shape := .seg (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 7))])
+                  (.pt "exchangerPt" (some "roofOfPot") [("ks", (Bound.lit 8))]),
+    colour := 5 },
+  { label := "tunnel_bore",
+    shape := .seg (.pt "boreTopPt" none [])
+                  (.pt "boreFootPt" none []),
+    colour := 13 },
+  { label := "tunnel_duct",
+    shape := .seg (.pt "boreFootPt" none [])
+                  (.pt "ductMouthPt" none []),
+    colour := 13 },
+  { label := "duct_mouth_00",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 0))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 2))]),
+    colour := 13 },
+  { label := "duct_mouth_01",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 2))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 4))]),
+    colour := 13 },
+  { label := "duct_mouth_02",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 4))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 6))]),
+    colour := 13 },
+  { label := "duct_mouth_03",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 6))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 8))]),
+    colour := 13 },
+  { label := "duct_mouth_04",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 8))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 10))]),
+    colour := 13 },
+  { label := "duct_mouth_05",
+    shape := .seg (.pt "ductRingPt" none [("jd", (Bound.lit 10))])
+                  (.pt "ductRingPt" none [("jd", (Bound.lit 12))]),
+    colour := 13 },
+  { label := "deck_edge_0",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "ground_edge_0",
+    shape := .seg (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "parapet_rail_0",
+    shape := .seg (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "wall_0",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "parapet_post_0",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "deck_edge_1",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "ground_edge_1",
+    shape := .seg (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "parapet_rail_1",
+    shape := .seg (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "wall_1",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "parapet_post_1",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "deck_edge_2",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "ground_edge_2",
+    shape := .seg (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "parapet_rail_2",
+    shape := .seg (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "wall_2",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "parapet_post_2",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "deck_edge_3",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "ground_edge_3",
+    shape := .seg (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "parapet_rail_3",
+    shape := .seg (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "wall_3",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "parapet_post_3",
+    shape := .seg (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))])
+                  (.pt "parapetCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "deck_pp",
+    shape := .one (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "ground_pp",
+    shape := .one (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "deck_pm",
+    shape := .one (.pt "deckCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "ground_pm",
+    shape := .one (.pt "groundCornerPt" none [("su", (Bound.lit 1)), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "deck_mm",
+    shape := .one (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "ground_mm",
+    shape := .one (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "deck_mp",
+    shape := .one (.pt "deckCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "ground_mp",
+    shape := .one (.pt "groundCornerPt" none [("su", (Bound.lit (-1))), ("sv", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "sun_rim_00",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 0))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 1))]),
+    colour := 11 },
+  { label := "sun_rim_01",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 1))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 2))]),
+    colour := 11 },
+  { label := "sun_rim_02",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 2))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 3))]),
+    colour := 11 },
+  { label := "sun_rim_03",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 3))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 4))]),
+    colour := 11 },
+  { label := "sun_rim_04",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 4))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 5))]),
+    colour := 11 },
+  { label := "sun_rim_05",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 5))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 6))]),
+    colour := 11 },
+  { label := "sun_rim_06",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 6))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 7))]),
+    colour := 11 },
+  { label := "sun_rim_07",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 7))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 8))]),
+    colour := 11 },
+  { label := "sun_rim_08",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 8))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 9))]),
+    colour := 11 },
+  { label := "sun_rim_09",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 9))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 10))]),
+    colour := 11 },
+  { label := "sun_rim_10",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 10))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 11))]),
+    colour := 11 },
+  { label := "sun_rim_11",
+    shape := .seg (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 11))])
+                  (.pt "sunDiscPt" none [("dSun", (Bound.lit 8)), ("jsun", (Bound.lit 12))]),
+    colour := 11 },
+  { label := "sun",
+    shape := .one (.pt "sunCentrePt" none [("dSun", (Bound.lit 8))]),
+    colour := 11 },
+  { label := "sun_to_dish",
+    shape := .seg (.pt "sunCentrePt" none [("dSun", (Bound.lit 8))])
+                  (.pt "envDishVertexPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
+    colour := 11 },
+  { label := "sky_leg",
+    shape := .seg (.pt "envRayHitT" (some "envSkyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 6))])
+                  (.pt "envRayHitT" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB)]),
+    colour := 11 },
+  { label := "shadow_0",
+    shape := .seg (.pt "panelCornerD" (some "envSkyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit 1))])
+                  (.pt "panelCornerD" (some "envSkyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "shadow_1",
+    shape := .seg (.pt "panelCornerD" (some "envSkyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))])
+                  (.pt "panelCornerD" (some "envSkyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit (-1)))]),
+    colour := 10 },
+  { label := "shadow_2",
+    shape := .seg (.pt "panelCornerD" (some "envSkyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit (-1)))])
+                  (.pt "panelCornerD" (some "envSkyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit 1))]),
+    colour := 10 },
+  { label := "shadow_3",
+    shape := .seg (.pt "panelCornerD" (some "envSkyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit 1))])
+                  (.pt "panelCornerD" (some "envSkyOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("zt", (Bound.lit 0)), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit 1))]),
+    colour := 10 }]
 
 end HashemiSceneInst
