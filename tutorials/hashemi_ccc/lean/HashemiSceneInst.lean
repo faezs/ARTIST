@@ -99,6 +99,21 @@ noncomputable def uprightOf (a : ℝ) : ℝ := FCOf a + 0.18125 * a
 noncomputable def holeDownOf (a : ℝ) : ℝ := 0.0625 * a
 /-- the bolt line over the bar (`receiverPost_height`) -/
 noncomputable def postHOf (a : ℝ) : ℝ := uprightOf a - holeDownOf a
+/-- **the bolt line's height at any size**.  `zBoltHashemi` (HashemiMega) is
+`hashemiBase.zRail + hashemiLeg.upright - 0.05`: the rail, the leg's upright, the hole's drop — and
+at his size `0.05 = holeDownOf 0.8`.  The rail's own height is HELD (the spec gives it no law), so
+only the leg scales.  Until 2026-09-20 the scene bound the bolt line to `zBoltHashemi` itself while
+binding every other station to its `*Of a`, so at a = 2 m the dish hung from a bolt line 1.9 m
+below its own frame — the offset the user saw in the window. -/
+noncomputable def zBoltOf (a : ℝ) : ℝ := hashemiBase.zRail + uprightOf a - holeDownOf a
+
+/-- the form, which is `zBoltHashemi`'s own with the leg scaled.  At his size the two differ by
+3.7e-5 m and no more: his `hashemiLeg.upright` is the figure's ROUNDED 1.30 m, where the formula
+gives 1.299963 (`FH_bounds` brackets the screw at 0.833 < FH < 0.8331).  So this is stated as the
+identity it is, and the 37-micron difference is his rounding, not a disagreement. -/
+theorem zBoltOf_eq (a : ℝ) :
+    zBoltOf a = hashemiBase.zRail + uprightOf a - holeDownOf a := rfl
+
 /-- the leg's triangle: foot, brace, the short side, and the brace's height -/
 noncomputable def footOf (a : ℝ) : ℝ := 0.4769230769 * uprightOf a
 noncomputable def braceOf (a : ℝ) : ℝ := 0.7384615385 * uprightOf a
@@ -748,7 +763,7 @@ machine's dimensions are never handed to a picture from outside. -/
 /-- the rail the carriage rides, `megaGeom`'s column 13 (`zRail`) at this very pose -/
 def zBarB : Bound := .node "megaGeom" (some 13)
 /-- the bolt line over the deck: his own constant -/
-def zBoltB : Bound := .node "zBoltHashemi"
+def zBoltB : Bound := .node "zBoltOf"      -- scales with the reflector (zBoltOf_his: his value at 0.8)
 /-- the apex station at this size -/
 def apexHB : Bound := .node "apexHOf"
 /-- the mast, the pulley and the rim's depth at this size -/
