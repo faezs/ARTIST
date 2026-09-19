@@ -682,9 +682,12 @@ HK_STATIC void hk_sceneOptic(hk_real az, hk_real t, hk_real apexH, hk_real zBolt
   }
 }
 
-HK_STATIC void hk_sceneOptic_eval(const hk_real *in, const hk_real *dr, hk_real *vs, hk_real *vr) {
-  hk_sceneOptic(in[0], in[1], in[2], in[3], in[4], in[5], in[6], in[7], in[8], in[9], in[10], in[11], in[12], in[13], in[14], in[15], in[16], in[17], in[18], in[19], dr, vs, vr);
+HK_STATIC void hk_sceneOptic_eval(const hk_real *in, const hk_real *const *tab, hk_real *vs, hk_real *vr) {
+  hk_sceneOptic(in[0], in[1], in[2], in[3], in[4], in[5], in[6], in[7], in[8], in[9], in[10], in[11], in[12], in[13], in[14], in[15], in[16], in[17], in[18], in[19], tab[0], vs, vr);
 }
+#define SCENEOPTIC_N_TAB 1
+static const int SCENEOPTIC_TAB[] = {640, 0};
+static const char *SCENEOPTIC_TABNAME[] = {"dr", 0};
 #define SCENEOPTIC_N_IN 20
 #define SCENEOPTIC_N_STATIC 0
 #define SCENEOPTIC_N_RAY 27

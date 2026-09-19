@@ -14,6 +14,7 @@ There is no geometry in this file either: it names three lists of data and a pri
 -/
 import RequestProject.CccScene
 import RequestProject.HashemiSceneInst
+import RequestProject.HashemiEnv
 
 open Lean Meta Ccc CccScene
 
@@ -34,7 +35,10 @@ def run : MetaM Unit := do
         HashemiSceneInst.beamScene),
       (`sceneOptic, "optic",
         "RequestProject/HashemiSceneInst.lean, opticScene — OpticGadt.lean's hashemiBeam chain, stage by stage",
-        HashemiSceneInst.opticScene)] do
+        HashemiSceneInst.opticScene),
+      (`sceneEnv, "env",
+        "RequestProject/HashemiSceneInst.lean, envScene — the scene composed with hashemiEnv: one kernel, one pose, one table of rays",
+        HashemiSceneInst.envScene)] do
     match ← emitScene outDir root nm sceneName src sc with
     | some row => rows := rows ++ [row]; names := names ++ [sceneName]
     | none => pure ()

@@ -259,10 +259,13 @@ def printSceneC (f : Fun) (sc : Scene.Scene) : String := Id.run do
   ls := ls.push "}"
   ls := ls.push ""
   let args := (List.range f.inputs.size).map fun i => s!"in[{i}]"
-  let tabs := (f.arrays.map (·.1)).toList
-  ls := ls.push s!"HK_STATIC void {cn}_eval(const hk_real *in, const hk_real *dr, hk_real *vs, hk_real *vr) \{"
-  ls := ls.push s!"  {cn}({", ".intercalate (args ++ tabs.map (fun _ => "dr") ++ ["vs", "vr"])});"
+  let tabs := (List.range f.arrays.size).map fun i => s!"tab[{i}]"
+  ls := ls.push s!"HK_STATIC void {cn}_eval(const hk_real *in, const hk_real *const *tab, hk_real *vs, hk_real *vr) \{"
+  ls := ls.push s!"  {cn}({", ".intercalate (args ++ tabs ++ ["vs", "vr"])});"
   ls := ls.push "}"
+  ls := ls.push s!"#define {tag}_N_TAB {f.arrays.size}"
+  ls := ls.push s!"static const int {tag}_TAB[] = \{{", ".intercalate (f.arrays.toList.map fun (_, p, m) => toString (p * (if m == 0 then 1 else m)))}, 0};"
+  ls := ls.push s!"static const char *{tag}_TABNAME[] = \{{", ".intercalate ((f.arrays.map (·.1)).toList.map jsonStr)}, 0};"
   ls := ls.push s!"#define {tag}_N_IN {f.inputs.size}"
   ls := ls.push s!"#define {tag}_N_STATIC {sp.nStatic}"
   ls := ls.push s!"#define {tag}_N_RAY {sp.nRay}"
@@ -408,8 +411,8 @@ def registryRow (f : Fun) (sc : Scene.Scene) (sceneName : String) : String :=
   let cn := cName f.name
   let tag := upper (sanitize f.name.getString!)
   let _ := sc
-  s!"  \{ {jsonStr sceneName}, {tag}_N_IN, {tag}_N_STATIC, {tag}_N_RAY, {tag}_P, {tag}_N_ENTRY, {tag}_KIND, {tag}_COLOUR, " ++
-  s!"{tag}_OFF, {tag}_W, {tag}_RAY, {tag}_LABEL, {tag}_INPUT, {cn}_eval }"
+  s!"  \{ {jsonStr sceneName}, {tag}_N_IN, {tag}_N_STATIC, {tag}_N_RAY, {tag}_P, {tag}_N_ENTRY, {tag}_N_TAB, {tag}_KIND, {tag}_COLOUR, " ++
+  s!"{tag}_OFF, {tag}_W, {tag}_RAY, {tag}_TAB, {tag}_LABEL, {tag}_INPUT, {tag}_TABNAME, {cn}_eval }"
 
 /-- a leaf, as the manifest records it: which definition, in which frame -/
 def leafJson (l : Scene.Leaf) : String :=
@@ -519,11 +522,12 @@ def registryHeader (scenes : List String) (rows : List String) : String :=
     "#ifndef SCENE_REGISTRY_H", "#define SCENE_REGISTRY_H"] ++ incl ++ [
     "typedef struct {",
     "  const char *name;",
-    "  int n_in, n_static, n_ray, n_rays, n_entry;",
-    "  const int *kind, *colour, *off, *w, *ray;",
+    "  int n_in, n_static, n_ray, n_rays, n_entry, n_tab;",
+    "  const int *kind, *colour, *off, *w, *ray, *tab;",
     "  const char **label;",
     "  const char **input;",
-    "  void (*eval)(const hk_real *, const hk_real *, hk_real *, hk_real *);",
+    "  const char **tabname;",
+    "  void (*eval)(const hk_real *, const hk_real *const *, hk_real *, hk_real *);",
     "} hk_scene_t;",
     "static const hk_scene_t HK_SCENES[] = {"] ++ [",\n".intercalate rows] ++ [
     "};",

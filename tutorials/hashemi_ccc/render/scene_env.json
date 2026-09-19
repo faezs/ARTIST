@@ -1,0 +1,33 @@
+{
+"scene": "env",
+"source": "RequestProject/HashemiSceneInst.lean, envScene — the scene composed with hashemiEnv: one kernel, one pose, one table of rays",
+"c": "hk_sceneEnv",
+"kernel": "scene_env",
+"inputs": ["az", "t", "slack", "omegam", "omegad", "dt", "elSun", "azSun", "dni", "rDrum", "W", "rcm", "Tmax", "rho", "Fdrive", "L10", "rodLen", "zBar", "endIn", "sgL", "sgR", "apexH", "zBolt", "ym", "hp", "a", "ze", "f", "w", "hsun", "R", "k", "rc", "sigmaslope", "sigmaspec", "soil", "alpha", "eps", "Ac", "Twall", "Ta", "uPump", "Qmax", "Dp", "Lp", "Dins", "kIns", "Vw", "etaP", "Pidle", "Axch", "UAxMax", "Ccoil", "degPrev", "degA", "degEa"],
+"arrays": [{"name": "dr", "P": 64, "m": 10}, {"name": "hist", "P": 16, "m": 0}, {"name": "ret", "P": 16, "m": 0}],
+"rays": 64,
+"n_static": 50,
+"n_ray": 10,
+"n_nodes": 2367,
+"entries": [
+  {"label": "bar", "kind": "Scene.Kind.segment", "colour": 1, "ray": false, "offset": 0, "width": 6, "leaves": [{"leaf": "pt", "defn": "postTopH", "frame": "envRoofOfCarriage", "bind": [["sg", "sgL"]]}, {"leaf": "pt", "defn": "postTopH", "frame": "envRoofOfCarriage", "bind": [["sg", "sgR"]]}]},
+  {"label": "post_top_left", "kind": "Scene.Kind.point", "colour": 1, "ray": false, "offset": 6, "width": 3, "leaves": [{"leaf": "pt", "defn": "postTopH", "frame": "envRoofOfCarriage", "bind": [["sg", "sgL"]]}]},
+  {"label": "post_top_right", "kind": "Scene.Kind.point", "colour": 1, "ray": false, "offset": 9, "width": 3, "leaves": [{"leaf": "pt", "defn": "postTopH", "frame": "envRoofOfCarriage", "bind": [["sg", "sgR"]]}]},
+  {"label": "pulley", "kind": "Scene.Kind.point", "colour": 2, "ray": false, "offset": 12, "width": 3, "leaves": [{"leaf": "pt", "defn": "pulleyAt", "frame": "envRoofOfBolt", "bind": []}]},
+  {"label": "clip", "kind": "Scene.Kind.point", "colour": 2, "ray": false, "offset": 15, "width": 3, "leaves": [{"leaf": "pt", "defn": "envEdgeClipAt", "frame": "envRoofOfBolt", "bind": []}]},
+  {"label": "tow_wire", "kind": "Scene.Kind.segment", "colour": 2, "ray": false, "offset": 18, "width": 6, "leaves": [{"leaf": "pt", "defn": "pulleyAt", "frame": "envRoofOfBolt", "bind": []}, {"leaf": "pt", "defn": "envEdgeClipAt", "frame": "envRoofOfBolt", "bind": []}]},
+  {"label": "vertex", "kind": "Scene.Kind.point", "colour": 3, "ray": false, "offset": 24, "width": 3, "leaves": [{"leaf": "pt", "defn": "envDishVertexPt", "frame": "envRoofOfBolt", "bind": []}]},
+  {"label": "focus", "kind": "Scene.Kind.point", "colour": 4, "ray": false, "offset": 27, "width": 3, "leaves": [{"leaf": "pt", "defn": "boltOriginPt", "frame": "envRoofOfBolt", "bind": []}]},
+  {"label": "axis", "kind": "Scene.Kind.segment", "colour": 3, "ray": false, "offset": 30, "width": 6, "leaves": [{"leaf": "pt", "defn": "envDishVertexPt", "frame": "envRoofOfBolt", "bind": []}, {"leaf": "pt", "defn": "boltOriginPt", "frame": "envRoofOfBolt", "bind": []}]},
+  {"label": "rim", "kind": "Scene.Kind.segment", "colour": 4, "ray": false, "offset": 36, "width": 6, "leaves": [{"leaf": "pt", "defn": "envRimPt", "frame": "envRoofOfBolt", "bind": [["sg", "sgL"]]}, {"leaf": "pt", "defn": "envRimPt", "frame": "envRoofOfBolt", "bind": [["sg", "sgR"]]}]},
+  {"label": "ray", "kind": "Scene.Kind.ray", "colour": 6, "ray": true, "offset": 0, "width": 10, "leaves": [{"leaf": "pt", "defn": "envRayStartT", "frame": "envRoofOfDish", "bind": []}, {"leaf": "pt", "defn": "envRayHitT", "frame": "envRoofOfDish", "bind": []}, {"leaf": "pt", "defn": "envRayLandT", "frame": "envRoofOfDish", "bind": []}, {"leaf": "num", "defn": "envRayFateT", "col": 4, "bind": []}]},
+  {"label": "pointing_err", "kind": "Scene.Kind.scalar", "colour": 7, "ray": false, "offset": 42, "width": 1, "leaves": [{"leaf": "num", "defn": "hashemiEnv", "col": 11, "bind": []}]},
+  {"label": "capture", "kind": "Scene.Kind.scalar", "colour": 7, "ray": false, "offset": 43, "width": 1, "leaves": [{"leaf": "num", "defn": "hashemiEnv", "col": 17, "bind": []}]},
+  {"label": "per_dni", "kind": "Scene.Kind.scalar", "colour": 7, "ray": false, "offset": 44, "width": 1, "leaves": [{"leaf": "num", "defn": "hashemiEnv", "col": 19, "bind": []}]},
+  {"label": "p_in", "kind": "Scene.Kind.scalar", "colour": 7, "ray": false, "offset": 45, "width": 1, "leaves": [{"leaf": "num", "defn": "hashemiEnv", "col": 20, "bind": []}]},
+  {"label": "T_oil", "kind": "Scene.Kind.scalar", "colour": 7, "ray": false, "offset": 46, "width": 1, "leaves": [{"leaf": "num", "defn": "hashemiEnv", "col": 21, "bind": []}]},
+  {"label": "q_pot", "kind": "Scene.Kind.scalar", "colour": 7, "ray": false, "offset": 47, "width": 1, "leaves": [{"leaf": "num", "defn": "hashemiEnv", "col": 25, "bind": []}]},
+  {"label": "T_film", "kind": "Scene.Kind.scalar", "colour": 7, "ray": false, "offset": 48, "width": 1, "leaves": [{"leaf": "num", "defn": "hashemiEnv", "col": 83, "bind": []}]},
+  {"label": "film_margin", "kind": "Scene.Kind.scalar", "colour": 7, "ray": false, "offset": 49, "width": 1, "leaves": [{"leaf": "num", "defn": "hashemiEnv", "col": 84, "bind": []}]}
+]
+}

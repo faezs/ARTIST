@@ -215,6 +215,65 @@ noncomputable def beamTraceT (R f a w k σslope σspec hsun az t elSun azSun L d
   let d := beamRayT R f a w k σslope σspec hsun az t elSun azSun dr i
   traceBeam R f a k L dm rm rt slotW t β ![d 0, d 1, d 2] ![d 3, d 4, d 5] (d 6)
 
+/-! ## 3c. The SAME scene over the env's own step: one kernel, one pose, one table of rays
+
+The picture the trainer shows must be the step the policy acted on, not a second walk of the
+mount in Python.  So the scene's leaves are composed with the env morphism itself: each one takes
+`hashemiEnv`'s own binders and reads the pose out of `megaStep`, and the rays are the very rows of
+`dr` the env traces.  Composition in the CCC is hash-consing: `megaStep` occurs ONCE in the
+compiled graph however many leaves ask for it, and so does each ray's `sampleRay`.  The driver
+compiles the list below as one Metal kernel whose columns are the env's and whose vertices are
+the scene's — the same function, printed twice. -/
+
+/-- the pose the env's own step produces: `megaStep`'s azimuth and swing -/
+noncomputable def envAzT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen : ℝ) : Fin 2 → ℝ :=
+  let s := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
+  ![s 0, s 1]
+
+/-- the carriage's frame, at the pose the env stepped to -/
+noncomputable def envRoofOfCarriage (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen zBar : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  roofOfCarriage (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) zBar q
+
+/-- the bolt plane's frame, at that pose -/
+noncomputable def envRoofOfBolt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt : ℝ) (p : ℝ × ℝ) : Fin 3 → ℝ :=
+  roofOfBolt (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) apexH zBolt p
+
+/-- the dish's frame, at that pose -/
+noncomputable def envRoofOfDish (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt f : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  roofOfDish (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) apexH zBolt f q
+
+/-- the dish's vertex in the bolt plane, at that swing -/
+noncomputable def envDishVertexPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen f : ℝ) : ℝ × ℝ :=
+  dishVertexPt f (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1)
+
+/-- the rim's ends, at that swing -/
+noncomputable def envRimPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze sg : ℝ) : ℝ × ℝ :=
+  rimPt a ze (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) sg
+
+/-- the clip, at that swing -/
+noncomputable def envEdgeClipAt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze : ℝ) : ℝ × ℝ :=
+  edgeClipAt a ze (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1)
+
+/-- row `i`'s ray start, at the pose the env stepped to and under the env's own sun -/
+noncomputable def envRayStartT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen f a w hsun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+    (i : Fin 64) : Fin 3 → ℝ :=
+  rayStartT f a w hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun dr i
+
+/-- row `i`'s hit on the figure, at that pose -/
+noncomputable def envRayHitT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen R k f a w hsun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+    (i : Fin 64) : Fin 3 → ℝ :=
+  rayHitT R k f a w hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun dr i
+
+/-- row `i`'s landing, at that pose -/
+noncomputable def envRayLandT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen R k f a w hsun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+    (i : Fin 64) : Fin 3 → ℝ :=
+  rayLandT R k f a w hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun dr i
+
+/-- row `i`'s fate, at that pose — the same `traceRayKErr` the env sums for its capture -/
+noncomputable def envRayFateT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen R f a w rc k σslope σspec hsun : ℝ)
+    (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 8 → ℝ :=
+  rayFateT R f a w rc k σslope σspec hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun dr i
+
 /-! ## 4. The sun
 
 The specification takes `elSun` and `azSun`; nothing in it says where the sun is.  This is the
@@ -457,5 +516,49 @@ def opticScene : Scene := [
     colour := 4 },
   { label := "stage1_captured", shape := .one (.num "beamTraceT" 0), colour := 5 },
   { label := "stage1_fate", shape := .one (.num "beamTraceT" 7), colour := 6 }]
+
+/-- **the env's own step, drawn**: the machine at the pose `hashemiEnv` stepped to, the rays it
+traced, and its own columns as the numbers beside them.  Compiled as ONE kernel: the vertices and
+the env's outputs come out of the same graph, over the same `dr`, so the frame the trainer shows
+IS the step the policy acted on.  Nothing in this list is a formula either. -/
+def envScene : Scene := [
+  { label := "bar",
+    shape := .seg (.pt "postTopH" (some "envRoofOfCarriage") [("sg", "sgL")])
+                  (.pt "postTopH" (some "envRoofOfCarriage") [("sg", "sgR")]),
+    colour := 1 },
+  { label := "post_top_left",
+    shape := .one (.pt "postTopH" (some "envRoofOfCarriage") [("sg", "sgL")]), colour := 1 },
+  { label := "post_top_right",
+    shape := .one (.pt "postTopH" (some "envRoofOfCarriage") [("sg", "sgR")]), colour := 1 },
+  { label := "pulley", shape := .one (.pt "pulleyAt" (some "envRoofOfBolt")), colour := 2 },
+  { label := "clip", shape := .one (.pt "envEdgeClipAt" (some "envRoofOfBolt")), colour := 2 },
+  { label := "tow_wire",
+    shape := .seg (.pt "pulleyAt" (some "envRoofOfBolt")) (.pt "envEdgeClipAt" (some "envRoofOfBolt")),
+    colour := 2 },
+  { label := "vertex", shape := .one (.pt "envDishVertexPt" (some "envRoofOfBolt")), colour := 3 },
+  { label := "focus", shape := .one (.pt "boltOriginPt" (some "envRoofOfBolt")), colour := 4 },
+  { label := "axis",
+    shape := .seg (.pt "envDishVertexPt" (some "envRoofOfBolt"))
+                  (.pt "boltOriginPt" (some "envRoofOfBolt")),
+    colour := 3 },
+  { label := "rim",
+    shape := .seg (.pt "envRimPt" (some "envRoofOfBolt") [("sg", "sgL")])
+                  (.pt "envRimPt" (some "envRoofOfBolt") [("sg", "sgR")]),
+    colour := 4 },
+  { label := "ray",
+    shape := .rayOf (.pt "envRayStartT" (some "envRoofOfDish"))
+                    (.pt "envRayHitT" (some "envRoofOfDish"))
+                    (.pt "envRayLandT" (some "envRoofOfDish"))
+                    (.num "envRayFateT" 4),
+    colour := 6 },
+  -- the env's own columns, beside the picture of the step that produced them
+  { label := "pointing_err", shape := .one (.num "hashemiEnv" 11), colour := 7 },
+  { label := "capture", shape := .one (.num "hashemiEnv" 17), colour := 7 },
+  { label := "per_dni", shape := .one (.num "hashemiEnv" 19), colour := 7 },
+  { label := "p_in", shape := .one (.num "hashemiEnv" 20), colour := 7 },
+  { label := "T_oil", shape := .one (.num "hashemiEnv" 21), colour := 7 },
+  { label := "q_pot", shape := .one (.num "hashemiEnv" 25), colour := 7 },
+  { label := "T_film", shape := .one (.num "hashemiEnv" 83), colour := 7 },
+  { label := "film_margin", shape := .one (.num "hashemiEnv" 84), colour := 7 }]
 
 end HashemiSceneInst

@@ -51,11 +51,15 @@ static int cmd_eval(const hk_scene_t *sc) {
       fprintf(stderr, "scene %s wants %d inputs, got %d\n", sc->name, sc->n_in, ni);
       return 1;
     }
-    if (nd != sc->n_rays * 10) {
-      fprintf(stderr, "scene %s wants %d draws, got %d\n", sc->name, sc->n_rays * 10, nd);
+    /* the tables, concatenated in the kernel's own buffer order (scene_<name>.json "arrays") */
+    const hk_real *tab[8];
+    int off = 0;
+    for (int k = 0; k < sc->n_tab && k < 8; ++k) { tab[k] = dr + off; off += sc->tab[k]; }
+    if (nd != off) {
+      fprintf(stderr, "scene %s wants %d table entries, got %d\n", sc->name, off, nd);
       return 1;
     }
-    sc->eval(in, dr, vs, vr);
+    sc->eval(in, tab, vs, vr);
     for (int k = 0; k < sc->n_static; ++k) printf(k ? ",%.17g" : "%.17g", (double)vs[k]);
     for (int i = 0; i < sc->n_rays; ++i)
       for (int k = 0; k < sc->n_ray; ++k)
@@ -87,8 +91,8 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--sun")) sun = 1;
     else if (!strcmp(argv[i], "--list")) {
       for (int k = 0; k < HK_N_SCENES; ++k)
-        printf("%s %d %d %d %d\n", HK_SCENES[k].name, HK_SCENES[k].n_in, HK_SCENES[k].n_static,
-               HK_SCENES[k].n_rays, HK_SCENES[k].n_ray);
+        printf("%s %d %d %d %d %d\n", HK_SCENES[k].name, HK_SCENES[k].n_in, HK_SCENES[k].n_static,
+               HK_SCENES[k].n_rays, HK_SCENES[k].n_ray, HK_SCENES[k].n_tab);
       return 0;
     } else {
       fprintf(stderr, "usage: %s [--scene NAME] [--eval|--sun|--list]\n", argv[0]);
