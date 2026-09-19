@@ -79,7 +79,7 @@ The fix keeps the sharing in the proof instead of in the term, and does NOT weak
 
 A composite that is big but does NOT repeat a stage needs only the first half of this:
 `dishPower` - one ray, sampler through capture - is flat, so zeta blows its graph up by a large
-constant rather than a power, and `funext; lift_lets; intro …; rfl` alone closes it (~134 s,
+constant rather than a power, and `funext; lift_lets; intro …; rfl` alone closes it (~130 s,
 against a timeout).  That is the row `{ chain := false }`, and it is the shape to try first.
 
 A sibling applies this to another composite by adding a row to `stagedCfg`: the chain detector
@@ -132,14 +132,25 @@ def findChain (ls : Array LetLine) :
     Option (Array (String × String) × String × String × String) := Id.run do
   let mut pairs : Array (String × String) := #[]
   let mut lo0 := ""; let mut hi0 := ""; let mut c0 := ""
+  -- the levels of one bisection sit at a CONSTANT stride in the printed lets (six lets per
+  -- level here).  A composite that also traces rays prints other `(if c then m else x)` /
+  -- `(if c then y else m)` neighbours further down (the optics' own branches), and taking them
+  -- for levels puts a stranger at the end of the chain: so the chain stops at the first
+  -- deviation from the stride the first two levels set.
+  let mut stride := 0; let mut lastIdx := 0; let mut stop := false
   for i in [0:ls.size] do
+    if stop then continue
     if i + 1 ≥ ls.size then continue
     match parseIte ls[i]!.rhs, parseIte ls[i+1]!.rhs with
     | some (c, m, x), some (c', y, m') =>
       if c == c' && m == m' then
         if pairs.isEmpty then
           lo0 := x; hi0 := y; c0 := c
-        pairs := pairs.push (ls[i]!.name, ls[i+1]!.name)
+        else if stride == 0 then stride := i - lastIdx
+        else if i - lastIdx != stride then stop := true
+        if !stop then
+          pairs := pairs.push (ls[i]!.name, ls[i+1]!.name)
+          lastIdx := i
     | _, _ => pure ()
   if pairs.isEmpty then return none
   let L := match ls.find? (fun l => l.name == c0) with | some l => cmpLeft l.rhs | none => ""
@@ -160,6 +171,20 @@ structure StagedCfg where
   rDrum : String := ""
   dt : String := ""
   unf : List String := []
+  /-- rewrites applied AFTER `lift_lets; intro`: a previously proved round trip (`dishPower_ccc`)
+  folded into the composite's own graph.  It must come after the `intro`, not before: rewriting
+  a definition by its twin puts that twin's `let`s on the left, `lift_lets` then lifts them too,
+  and the printer's names no longer line up with what `intro` binds. -/
+  post : List String := []
+  /-- the bisecting call as the composite writes it (`megaStep az t slack …`).  When it is set,
+  the chain and the folds are proved inside a local `have` whose statement is that call against
+  the twin's FIRST `cols` columns, and the big goal sees exactly two rewrites (the composite's
+  own unfolding, and that `have`).  Every fold is a `rewrite` on the goal it is given, and a
+  `rewrite` pays for the motive of the whole goal: on a composite that also sums 64 rays, six
+  folds on the big goal cost minutes each. -/
+  mount : String := ""
+  /-- how many of the twin's columns the mount's call produces -/
+  cols : Nat := 17
   /-- `false`: the composite is big but has no repeated stage, so the shared shape
   (`funext`, `lift_lets`, `intro` the printer's names, `rfl`) is the whole proof and no
   chain is looked for.  `dishPower` is of this kind: one sample, one reflection, one
@@ -175,6 +200,24 @@ def stagedCfg : String → Option StagedCfg
   | "dishPower" => some { chain := false }
   | _ => none
 
+/-- the first `k` entries of the printed twin's output vector, as a vector again: what the
+bisecting call the composite makes is equal to, in the twin's own locals. -/
+def vecHead (stmt : String) (k : Nat) : String := Id.run do
+  let mut body := ""
+  for l in stmt.splitOn "\n" do
+    let t := sTrim l
+    if t.startsWith "![" then body := sDropR (sDrop t 2) 1
+  let mut out : Array String := #[]
+  let mut cur := ""; let mut d := 0
+  for c in body.toList do
+    if c == '(' || c == '[' || c == '{' then d := d + 1
+    else if c == ')' || c == ']' || c == '}' then d := d - 1
+    if c == ',' && d == 0 then
+      out := out.push (sTrim cur); cur := ""
+    else cur := cur.push c
+  out := out.push (sTrim cur)
+  return "![" ++ ", ".intercalate (out.toList.take k) ++ "]"
+
 /-- the staged proof for `txt`, a printed `theorem X_ccc : X = fun bs => <twin> := rfl`. -/
 def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option String := Id.run do
   let stmt := if txt.endsWith " := rfl" then txt.dropRight 7 else txt
@@ -183,8 +226,10 @@ def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option Str
   -- no repeated stage: `lift_lets` alone makes every defeq check small (the sharing is in the
   -- proof's local context instead of the term), and there is nothing to chain
   if !cfg.chain then
+    let unf := if cfg.unf.isEmpty then [] else [s!"  rewrite [{", ".intercalate cfg.unf}]"]
+    let post := if cfg.post.isEmpty then [] else [s!"  rewrite [{", ".intercalate cfg.post}]"]
     return some (stmt ++ "\n".intercalate
-      [":= by", s!"  funext {binders}", "  lift_lets", s!"  intro {names}", "  rfl"])
+      ([":= by", s!"  funext {binders}"] ++ unf ++ ["  lift_lets", s!"  intro {names}"] ++ post ++ ["  rfl"]))
   let some (pairs, lo0, hi0, L) := findChain ls | return none
   let n := pairs.size
   let (lastLo, lastHi) := pairs[n-1]!
@@ -203,37 +248,46 @@ def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option Str
       s!"  show ((((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).1 + (((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).2)) / (2 : ℝ)) = _"]
   else
     p := #[":= by", s!"  funext {binders}",
-      s!"  rw [{", ".intercalate cfg.unf}]", "  lift_lets", s!"  intro {names}"]
+      s!"  rewrite [{", ".intercalate cfg.unf}]", "  lift_lets", s!"  intro {names}"]
+    if !cfg.post.isEmpty then p := p.push s!"  rewrite [{", ".intercalate cfg.post}]"
+    if !cfg.mount.isEmpty then
+      p := p.push s!"  have ms : {cfg.mount} = {vecHead stmt cfg.cols} := by"
+      p := p.push "    rewrite [megaStep, step]"
+  let ind0 := if cfg.mount.isEmpty || selfv then "  " else "    "
   for j in [0:n] do
     let (A, B) := pairs[j]!
     if j == 0 then
-      p := p.push s!"  have e0 : (bisectStep {bs} {L})^[1] ({lo0}, {hi0}) = ({A}, {B}) := rfl"
+      p := p.push s!"{ind0}have e0 : (bisectStep {bs} {L})^[1] ({lo0}, {hi0}) = ({A}, {B}) := rfl"
     else
-      p := p.push s!"  have e{j} : (bisectStep {bs} {L})^[{j+1}] ({lo0}, {hi0}) = ({A}, {B}) := by"
-      p := p.push s!"    rw [show ({j+1} : ℕ) = {j} + 1 from rfl, Function.iterate_succ_apply', e{j-1}]"
-      p := p.push "    rfl"
+      p := p.push s!"{ind0}have e{j} : (bisectStep {bs} {L})^[{j+1}] ({lo0}, {hi0}) = ({A}, {B}) := by"
+      p := p.push s!"{ind0}  rewrite [show ({j+1} : ℕ) = {j} + 1 from rfl, Function.iterate_succ_apply', e{j-1}]"
+      p := p.push s!"{ind0}  rfl"
   if selfv then
-    p := p.push s!"  rw [show (24 : ℕ) = {n} + 1 from rfl, Function.iterate_succ_apply', e{n-1}]"
+    p := p.push s!"  rewrite [show (24 : ℕ) = {n} + 1 from rfl, Function.iterate_succ_apply', e{n-1}]"
     p := p.push "  rfl"
     return some (stmt ++ "\n".intercalate p.toList)
   -- a composite that only calls the bisecting definition: fold its subterms onto the twin's locals
+  let ind := if cfg.mount.isEmpty then "  " else "    "
   let some lLine := ls.find? (fun l => l.name == L) | return none
   let some (_, WT, rest) := parseIte lLine.rhs | return none
   let some (_, W0, Lcmd) := parseIte rest | return none
   let some cLine := ls.find? (fun l => l.name == Lcmd) | return none
   let Wt := String.mk ((sDrop cLine.rhs 2).toList.takeWhile (· != ' '))
   let cmd := s!"{Wt} + {cfg.slack} - {cfg.ωd} * {cfg.rDrum} * {cfg.dt}"
-  p := p.push s!"  have key : swingOfLength {bs} {hi0} {L} = {fin} := by"
-  p := p.push s!"    show ((((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).1 + (((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).2)) / (2 : ℝ)) = _"
-  p := p.push s!"    rw [show (24 : ℕ) = {n} + 1 from rfl, Function.iterate_succ_apply', e{n-1}]"
-  p := p.push "    rfl"
-  p := p.push s!"  rw [show deadPoint {bs} = {hi0} from rfl]"
-  p := p.push s!"  rw [show wireLen {bs} 0 = {W0} from rfl]"
-  p := p.push s!"  rw [show wireLen {bs} {hi0} = {WT} from rfl]"
-  p := p.push s!"  rw [show wireLen {bs} {cfg.t} = {Wt} from rfl]"
-  p := p.push s!"  rw [show (if {cmd} < {WT} then {WT} else if {W0} < {cmd} then {W0} else {cmd}) = {L} from rfl]"
-  p := p.push "  rw [key]"
-  p := p.push "  rfl"
+  p := p.push s!"{ind}have key : swingOfLength {bs} {hi0} {L} = {fin} := by"
+  p := p.push s!"{ind}  show ((((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).1 + (((bisectStep {bs} {L})^[24] ({lo0}, {hi0})).2)) / (2 : ℝ)) = _"
+  p := p.push s!"{ind}  rewrite [show (24 : ℕ) = {n} + 1 from rfl, Function.iterate_succ_apply', e{n-1}]"
+  p := p.push s!"{ind}  rfl"
+  p := p.push s!"{ind}rewrite [show deadPoint {bs} = {hi0} from rfl]"
+  p := p.push s!"{ind}rewrite [show wireLen {bs} 0 = {W0} from rfl]"
+  p := p.push s!"{ind}rewrite [show wireLen {bs} {hi0} = {WT} from rfl]"
+  p := p.push s!"{ind}rewrite [show wireLen {bs} {cfg.t} = {Wt} from rfl]"
+  p := p.push s!"{ind}rewrite [show (if {cmd} < {WT} then {WT} else if {W0} < {cmd} then {W0} else {cmd}) = {L} from rfl]"
+  p := p.push s!"{ind}rewrite [key]"
+  p := p.push s!"{ind}rfl"
+  if !cfg.mount.isEmpty then
+    p := p.push "  rewrite [ms]"
+    p := p.push "  rfl"
   return some (stmt ++ "\n".intercalate p.toList)
 
 def run : MetaM Unit := do

@@ -807,86 +807,86 @@ theorem megaStep_ccc : megaStep = fun (az : ℝ) (t : ℝ) (slack : ℝ) (ωm : 
     let v670 := (v669 ≤ elSun)
     ![(az + (((ωm * (0.05 : ℝ)) / (Real.sqrt ((((1.84 : ℝ) / (2 : ℝ)) ^ 2) + ((0.80 : ℝ) ^ 2)))) * dt)), v592, (if v103 then (v101 - v69) else (0 : ℝ)), (if v591 then v97 else v105), v50, (if (v102 ∨ v591) then (1 : ℝ) else (0 : ℝ)), (if ((if v103 then (v101 - v69) else (0 : ℝ)) = (0 : ℝ)) then (1 : ℝ) else (0 : ℝ)), (@ite _ (v568 ≤ (Tmax * (((v51 * v609) - ((0.34 : ℝ) * v606)) / (Real.sqrt (((v606 - v51) ^ 2) + ((v609 - (0.34 : ℝ)) ^ 2)))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (((v51 * v91) - ((0.34 : ℝ) * v88)) / v97), (v99 / (((v51 * v91) - ((0.34 : ℝ) * v88)) / v97)), ((ωm * (0.05 : ℝ)) / (Real.sqrt ((((1.84 : ℝ) / (2 : ℝ)) ^ 2) + ((0.80 : ℝ) ^ 2)))), v667, (v43 - t), (@ite _ v670 (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (@ite _ (v670 ∧ ((0.03 : ℝ) < v667)) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ)), (Real.sigmoid ((elSun - v669) / (0.01 : ℝ))), ((Real.sigmoid ((elSun - v669) / (0.01 : ℝ))) * (Real.sigmoid ((v667 - (0.03 : ℝ)) / (0.01 : ℝ))))]:= by
   funext az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-  rw [megaStep, step]
+  rewrite [megaStep, step]
   lift_lets
   intro v27 v39 v40 v43 v50 v51 v52 v54 v56 v57 v60 v69 v70 v72 v83 v84 v86 v88 v91 v97 v99 v101 v102 v103 v105 v110 v111 v113 v125 v126 v127 v129 v130 v132 v144 v145 v146 v148 v149 v151 v163 v164 v165 v167 v168 v170 v182 v183 v184 v186 v187 v189 v201 v202 v203 v205 v206 v208 v220 v221 v222 v224 v225 v227 v239 v240 v241 v243 v244 v246 v258 v259 v260 v262 v263 v265 v277 v278 v279 v281 v282 v284 v296 v297 v298 v300 v301 v303 v315 v316 v317 v319 v320 v322 v334 v335 v336 v338 v339 v341 v353 v354 v355 v357 v358 v360 v372 v373 v374 v376 v377 v379 v391 v392 v393 v395 v396 v398 v410 v411 v412 v414 v415 v417 v429 v430 v431 v433 v434 v436 v448 v449 v450 v452 v453 v455 v467 v468 v469 v471 v472 v474 v486 v487 v488 v490 v491 v493 v505 v506 v507 v509 v510 v512 v524 v525 v526 v528 v529 v531 v543 v544 v545 v547 v548 v550 v562 v567 v568 v569 v571 v573 v576 v591 v592 v602 v604 v606 v609 v629 v631 v632 v634 v636 v637 v642 v657 v667 v669 v670
   have e0 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[1] ((0 : ℝ), v50) = (v126, v127) := rfl
   have e1 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[2] ((0 : ℝ), v50) = (v145, v146) := by
-    rw [show (2 : ℕ) = 1 + 1 from rfl, Function.iterate_succ_apply', e0]
+    rewrite [show (2 : ℕ) = 1 + 1 from rfl, Function.iterate_succ_apply', e0]
     rfl
   have e2 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[3] ((0 : ℝ), v50) = (v164, v165) := by
-    rw [show (3 : ℕ) = 2 + 1 from rfl, Function.iterate_succ_apply', e1]
+    rewrite [show (3 : ℕ) = 2 + 1 from rfl, Function.iterate_succ_apply', e1]
     rfl
   have e3 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[4] ((0 : ℝ), v50) = (v183, v184) := by
-    rw [show (4 : ℕ) = 3 + 1 from rfl, Function.iterate_succ_apply', e2]
+    rewrite [show (4 : ℕ) = 3 + 1 from rfl, Function.iterate_succ_apply', e2]
     rfl
   have e4 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[5] ((0 : ℝ), v50) = (v202, v203) := by
-    rw [show (5 : ℕ) = 4 + 1 from rfl, Function.iterate_succ_apply', e3]
+    rewrite [show (5 : ℕ) = 4 + 1 from rfl, Function.iterate_succ_apply', e3]
     rfl
   have e5 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[6] ((0 : ℝ), v50) = (v221, v222) := by
-    rw [show (6 : ℕ) = 5 + 1 from rfl, Function.iterate_succ_apply', e4]
+    rewrite [show (6 : ℕ) = 5 + 1 from rfl, Function.iterate_succ_apply', e4]
     rfl
   have e6 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[7] ((0 : ℝ), v50) = (v240, v241) := by
-    rw [show (7 : ℕ) = 6 + 1 from rfl, Function.iterate_succ_apply', e5]
+    rewrite [show (7 : ℕ) = 6 + 1 from rfl, Function.iterate_succ_apply', e5]
     rfl
   have e7 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[8] ((0 : ℝ), v50) = (v259, v260) := by
-    rw [show (8 : ℕ) = 7 + 1 from rfl, Function.iterate_succ_apply', e6]
+    rewrite [show (8 : ℕ) = 7 + 1 from rfl, Function.iterate_succ_apply', e6]
     rfl
   have e8 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[9] ((0 : ℝ), v50) = (v278, v279) := by
-    rw [show (9 : ℕ) = 8 + 1 from rfl, Function.iterate_succ_apply', e7]
+    rewrite [show (9 : ℕ) = 8 + 1 from rfl, Function.iterate_succ_apply', e7]
     rfl
   have e9 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[10] ((0 : ℝ), v50) = (v297, v298) := by
-    rw [show (10 : ℕ) = 9 + 1 from rfl, Function.iterate_succ_apply', e8]
+    rewrite [show (10 : ℕ) = 9 + 1 from rfl, Function.iterate_succ_apply', e8]
     rfl
   have e10 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[11] ((0 : ℝ), v50) = (v316, v317) := by
-    rw [show (11 : ℕ) = 10 + 1 from rfl, Function.iterate_succ_apply', e9]
+    rewrite [show (11 : ℕ) = 10 + 1 from rfl, Function.iterate_succ_apply', e9]
     rfl
   have e11 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[12] ((0 : ℝ), v50) = (v335, v336) := by
-    rw [show (12 : ℕ) = 11 + 1 from rfl, Function.iterate_succ_apply', e10]
+    rewrite [show (12 : ℕ) = 11 + 1 from rfl, Function.iterate_succ_apply', e10]
     rfl
   have e12 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[13] ((0 : ℝ), v50) = (v354, v355) := by
-    rw [show (13 : ℕ) = 12 + 1 from rfl, Function.iterate_succ_apply', e11]
+    rewrite [show (13 : ℕ) = 12 + 1 from rfl, Function.iterate_succ_apply', e11]
     rfl
   have e13 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[14] ((0 : ℝ), v50) = (v373, v374) := by
-    rw [show (14 : ℕ) = 13 + 1 from rfl, Function.iterate_succ_apply', e12]
+    rewrite [show (14 : ℕ) = 13 + 1 from rfl, Function.iterate_succ_apply', e12]
     rfl
   have e14 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[15] ((0 : ℝ), v50) = (v392, v393) := by
-    rw [show (15 : ℕ) = 14 + 1 from rfl, Function.iterate_succ_apply', e13]
+    rewrite [show (15 : ℕ) = 14 + 1 from rfl, Function.iterate_succ_apply', e13]
     rfl
   have e15 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[16] ((0 : ℝ), v50) = (v411, v412) := by
-    rw [show (16 : ℕ) = 15 + 1 from rfl, Function.iterate_succ_apply', e14]
+    rewrite [show (16 : ℕ) = 15 + 1 from rfl, Function.iterate_succ_apply', e14]
     rfl
   have e16 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[17] ((0 : ℝ), v50) = (v430, v431) := by
-    rw [show (17 : ℕ) = 16 + 1 from rfl, Function.iterate_succ_apply', e15]
+    rewrite [show (17 : ℕ) = 16 + 1 from rfl, Function.iterate_succ_apply', e15]
     rfl
   have e17 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[18] ((0 : ℝ), v50) = (v449, v450) := by
-    rw [show (18 : ℕ) = 17 + 1 from rfl, Function.iterate_succ_apply', e16]
+    rewrite [show (18 : ℕ) = 17 + 1 from rfl, Function.iterate_succ_apply', e16]
     rfl
   have e18 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[19] ((0 : ℝ), v50) = (v468, v469) := by
-    rw [show (19 : ℕ) = 18 + 1 from rfl, Function.iterate_succ_apply', e17]
+    rewrite [show (19 : ℕ) = 18 + 1 from rfl, Function.iterate_succ_apply', e17]
     rfl
   have e19 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[20] ((0 : ℝ), v50) = (v487, v488) := by
-    rw [show (20 : ℕ) = 19 + 1 from rfl, Function.iterate_succ_apply', e18]
+    rewrite [show (20 : ℕ) = 19 + 1 from rfl, Function.iterate_succ_apply', e18]
     rfl
   have e20 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[21] ((0 : ℝ), v50) = (v506, v507) := by
-    rw [show (21 : ℕ) = 20 + 1 from rfl, Function.iterate_succ_apply', e19]
+    rewrite [show (21 : ℕ) = 20 + 1 from rfl, Function.iterate_succ_apply', e19]
     rfl
   have e21 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[22] ((0 : ℝ), v50) = (v525, v526) := by
-    rw [show (22 : ℕ) = 21 + 1 from rfl, Function.iterate_succ_apply', e20]
+    rewrite [show (22 : ℕ) = 21 + 1 from rfl, Function.iterate_succ_apply', e20]
     rfl
   have e22 : (bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[23] ((0 : ℝ), v50) = (v544, v545) := by
-    rw [show (23 : ℕ) = 22 + 1 from rfl, Function.iterate_succ_apply', e21]
+    rewrite [show (23 : ℕ) = 22 + 1 from rfl, Function.iterate_succ_apply', e21]
     rfl
   have key : swingOfLength ymHashemi hpHashemi dishHalf zeHashemi v50 v105 = (((if v562 then v547 else v544) + (if v562 then v545 else v547)) / (2 : ℝ)) := by
     show ((((bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[24] ((0 : ℝ), v50)).1 + (((bisectStep ymHashemi hpHashemi dishHalf zeHashemi v105)^[24] ((0 : ℝ), v50)).2)) / (2 : ℝ)) = _
-    rw [show (24 : ℕ) = 23 + 1 from rfl, Function.iterate_succ_apply', e22]
+    rewrite [show (24 : ℕ) = 23 + 1 from rfl, Function.iterate_succ_apply', e22]
     rfl
-  rw [show deadPoint ymHashemi hpHashemi dishHalf zeHashemi = v50 from rfl]
-  rw [show wireLen ymHashemi hpHashemi dishHalf zeHashemi 0 = v69 from rfl]
-  rw [show wireLen ymHashemi hpHashemi dishHalf zeHashemi v50 = v83 from rfl]
-  rw [show wireLen ymHashemi hpHashemi dishHalf zeHashemi t = v97 from rfl]
-  rw [show (if v97 + slack - ωd * rDrum * dt < v83 then v83 else if v69 < v97 + slack - ωd * rDrum * dt then v69 else v97 + slack - ωd * rDrum * dt) = v105 from rfl]
-  rw [key]
+  rewrite [show deadPoint ymHashemi hpHashemi dishHalf zeHashemi = v50 from rfl]
+  rewrite [show wireLen ymHashemi hpHashemi dishHalf zeHashemi 0 = v69 from rfl]
+  rewrite [show wireLen ymHashemi hpHashemi dishHalf zeHashemi v50 = v83 from rfl]
+  rewrite [show wireLen ymHashemi hpHashemi dishHalf zeHashemi t = v97 from rfl]
+  rewrite [show (if v97 + slack - ωd * rDrum * dt < v83 then v83 else if v69 < v97 + slack - ωd * rDrum * dt then v69 else v97 + slack - ωd * rDrum * dt) = v105 from rfl]
+  rewrite [key]
   rfl
 
 theorem megaThmsClosed_ccc : megaThmsClosed = fun (az : ℝ) (t : ℝ) (slack : ℝ) (ωm : ℝ) (ωd : ℝ) (dt : ℝ) (elSun : ℝ) (azSun : ℝ) (dni : ℝ) (rDrum : ℝ) (W : ℝ) (rcm : ℝ) (Tmax : ℝ) (rho : ℝ) (Fdrive : ℝ) (L10 : ℝ) (rodLen : ℝ) =>
@@ -2120,86 +2120,86 @@ theorem step_ccc : step = fun (az : ℝ) (t : ℝ) (slack : ℝ) (ωm : ℝ) (ω
     let v588 := ((v38 * v583) + (v34 * v581))
     ![(az + (((ωm * rw) / R) * dt)), v570, (if v81 then (v79 - v47) else (0 : ℝ)), (if v569 then v75 else v83), v28, (if (v80 ∨ v569) then (1 : ℝ) else (0 : ℝ)), (if ((if v81 then (v79 - v47) else (0 : ℝ)) = (0 : ℝ)) then (1 : ℝ) else (0 : ℝ)), (@ite _ (v546 ≤ (Tmax * (((v29 * v588) - (hp * v585)) / (Real.sqrt (((v585 - v29) ^ 2) + ((v588 - hp) ^ 2)))))) (Classical.propDecidable _) (1 : ℝ) (0 : ℝ))]:= by
   funext az t slack ωm ωd dt rw R rDrum ym hp a ze W rcm Tmax
-  rw [step]
+  rewrite [step]
   lift_lets
   intro v16 v17 v28 v29 v30 v32 v34 v35 v38 v47 v48 v50 v61 v62 v64 v75 v79 v80 v81 v83 v88 v89 v91 v103 v104 v105 v107 v108 v110 v122 v123 v124 v126 v127 v129 v141 v142 v143 v145 v146 v148 v160 v161 v162 v164 v165 v167 v179 v180 v181 v183 v184 v186 v198 v199 v200 v202 v203 v205 v217 v218 v219 v221 v222 v224 v236 v237 v238 v240 v241 v243 v255 v256 v257 v259 v260 v262 v274 v275 v276 v278 v279 v281 v293 v294 v295 v297 v298 v300 v312 v313 v314 v316 v317 v319 v331 v332 v333 v335 v336 v338 v350 v351 v352 v354 v355 v357 v369 v370 v371 v373 v374 v376 v388 v389 v390 v392 v393 v395 v407 v408 v409 v411 v412 v414 v426 v427 v428 v430 v431 v433 v445 v446 v447 v449 v450 v452 v464 v465 v466 v468 v469 v471 v483 v484 v485 v487 v488 v490 v502 v503 v504 v506 v507 v509 v521 v522 v523 v525 v526 v528 v540 v545 v546 v547 v549 v551 v554 v569 v570 v581 v583 v585 v588
   have e0 : (bisectStep ym hp a ze v83)^[1] ((0 : ℝ), v28) = (v104, v105) := rfl
   have e1 : (bisectStep ym hp a ze v83)^[2] ((0 : ℝ), v28) = (v123, v124) := by
-    rw [show (2 : ℕ) = 1 + 1 from rfl, Function.iterate_succ_apply', e0]
+    rewrite [show (2 : ℕ) = 1 + 1 from rfl, Function.iterate_succ_apply', e0]
     rfl
   have e2 : (bisectStep ym hp a ze v83)^[3] ((0 : ℝ), v28) = (v142, v143) := by
-    rw [show (3 : ℕ) = 2 + 1 from rfl, Function.iterate_succ_apply', e1]
+    rewrite [show (3 : ℕ) = 2 + 1 from rfl, Function.iterate_succ_apply', e1]
     rfl
   have e3 : (bisectStep ym hp a ze v83)^[4] ((0 : ℝ), v28) = (v161, v162) := by
-    rw [show (4 : ℕ) = 3 + 1 from rfl, Function.iterate_succ_apply', e2]
+    rewrite [show (4 : ℕ) = 3 + 1 from rfl, Function.iterate_succ_apply', e2]
     rfl
   have e4 : (bisectStep ym hp a ze v83)^[5] ((0 : ℝ), v28) = (v180, v181) := by
-    rw [show (5 : ℕ) = 4 + 1 from rfl, Function.iterate_succ_apply', e3]
+    rewrite [show (5 : ℕ) = 4 + 1 from rfl, Function.iterate_succ_apply', e3]
     rfl
   have e5 : (bisectStep ym hp a ze v83)^[6] ((0 : ℝ), v28) = (v199, v200) := by
-    rw [show (6 : ℕ) = 5 + 1 from rfl, Function.iterate_succ_apply', e4]
+    rewrite [show (6 : ℕ) = 5 + 1 from rfl, Function.iterate_succ_apply', e4]
     rfl
   have e6 : (bisectStep ym hp a ze v83)^[7] ((0 : ℝ), v28) = (v218, v219) := by
-    rw [show (7 : ℕ) = 6 + 1 from rfl, Function.iterate_succ_apply', e5]
+    rewrite [show (7 : ℕ) = 6 + 1 from rfl, Function.iterate_succ_apply', e5]
     rfl
   have e7 : (bisectStep ym hp a ze v83)^[8] ((0 : ℝ), v28) = (v237, v238) := by
-    rw [show (8 : ℕ) = 7 + 1 from rfl, Function.iterate_succ_apply', e6]
+    rewrite [show (8 : ℕ) = 7 + 1 from rfl, Function.iterate_succ_apply', e6]
     rfl
   have e8 : (bisectStep ym hp a ze v83)^[9] ((0 : ℝ), v28) = (v256, v257) := by
-    rw [show (9 : ℕ) = 8 + 1 from rfl, Function.iterate_succ_apply', e7]
+    rewrite [show (9 : ℕ) = 8 + 1 from rfl, Function.iterate_succ_apply', e7]
     rfl
   have e9 : (bisectStep ym hp a ze v83)^[10] ((0 : ℝ), v28) = (v275, v276) := by
-    rw [show (10 : ℕ) = 9 + 1 from rfl, Function.iterate_succ_apply', e8]
+    rewrite [show (10 : ℕ) = 9 + 1 from rfl, Function.iterate_succ_apply', e8]
     rfl
   have e10 : (bisectStep ym hp a ze v83)^[11] ((0 : ℝ), v28) = (v294, v295) := by
-    rw [show (11 : ℕ) = 10 + 1 from rfl, Function.iterate_succ_apply', e9]
+    rewrite [show (11 : ℕ) = 10 + 1 from rfl, Function.iterate_succ_apply', e9]
     rfl
   have e11 : (bisectStep ym hp a ze v83)^[12] ((0 : ℝ), v28) = (v313, v314) := by
-    rw [show (12 : ℕ) = 11 + 1 from rfl, Function.iterate_succ_apply', e10]
+    rewrite [show (12 : ℕ) = 11 + 1 from rfl, Function.iterate_succ_apply', e10]
     rfl
   have e12 : (bisectStep ym hp a ze v83)^[13] ((0 : ℝ), v28) = (v332, v333) := by
-    rw [show (13 : ℕ) = 12 + 1 from rfl, Function.iterate_succ_apply', e11]
+    rewrite [show (13 : ℕ) = 12 + 1 from rfl, Function.iterate_succ_apply', e11]
     rfl
   have e13 : (bisectStep ym hp a ze v83)^[14] ((0 : ℝ), v28) = (v351, v352) := by
-    rw [show (14 : ℕ) = 13 + 1 from rfl, Function.iterate_succ_apply', e12]
+    rewrite [show (14 : ℕ) = 13 + 1 from rfl, Function.iterate_succ_apply', e12]
     rfl
   have e14 : (bisectStep ym hp a ze v83)^[15] ((0 : ℝ), v28) = (v370, v371) := by
-    rw [show (15 : ℕ) = 14 + 1 from rfl, Function.iterate_succ_apply', e13]
+    rewrite [show (15 : ℕ) = 14 + 1 from rfl, Function.iterate_succ_apply', e13]
     rfl
   have e15 : (bisectStep ym hp a ze v83)^[16] ((0 : ℝ), v28) = (v389, v390) := by
-    rw [show (16 : ℕ) = 15 + 1 from rfl, Function.iterate_succ_apply', e14]
+    rewrite [show (16 : ℕ) = 15 + 1 from rfl, Function.iterate_succ_apply', e14]
     rfl
   have e16 : (bisectStep ym hp a ze v83)^[17] ((0 : ℝ), v28) = (v408, v409) := by
-    rw [show (17 : ℕ) = 16 + 1 from rfl, Function.iterate_succ_apply', e15]
+    rewrite [show (17 : ℕ) = 16 + 1 from rfl, Function.iterate_succ_apply', e15]
     rfl
   have e17 : (bisectStep ym hp a ze v83)^[18] ((0 : ℝ), v28) = (v427, v428) := by
-    rw [show (18 : ℕ) = 17 + 1 from rfl, Function.iterate_succ_apply', e16]
+    rewrite [show (18 : ℕ) = 17 + 1 from rfl, Function.iterate_succ_apply', e16]
     rfl
   have e18 : (bisectStep ym hp a ze v83)^[19] ((0 : ℝ), v28) = (v446, v447) := by
-    rw [show (19 : ℕ) = 18 + 1 from rfl, Function.iterate_succ_apply', e17]
+    rewrite [show (19 : ℕ) = 18 + 1 from rfl, Function.iterate_succ_apply', e17]
     rfl
   have e19 : (bisectStep ym hp a ze v83)^[20] ((0 : ℝ), v28) = (v465, v466) := by
-    rw [show (20 : ℕ) = 19 + 1 from rfl, Function.iterate_succ_apply', e18]
+    rewrite [show (20 : ℕ) = 19 + 1 from rfl, Function.iterate_succ_apply', e18]
     rfl
   have e20 : (bisectStep ym hp a ze v83)^[21] ((0 : ℝ), v28) = (v484, v485) := by
-    rw [show (21 : ℕ) = 20 + 1 from rfl, Function.iterate_succ_apply', e19]
+    rewrite [show (21 : ℕ) = 20 + 1 from rfl, Function.iterate_succ_apply', e19]
     rfl
   have e21 : (bisectStep ym hp a ze v83)^[22] ((0 : ℝ), v28) = (v503, v504) := by
-    rw [show (22 : ℕ) = 21 + 1 from rfl, Function.iterate_succ_apply', e20]
+    rewrite [show (22 : ℕ) = 21 + 1 from rfl, Function.iterate_succ_apply', e20]
     rfl
   have e22 : (bisectStep ym hp a ze v83)^[23] ((0 : ℝ), v28) = (v522, v523) := by
-    rw [show (23 : ℕ) = 22 + 1 from rfl, Function.iterate_succ_apply', e21]
+    rewrite [show (23 : ℕ) = 22 + 1 from rfl, Function.iterate_succ_apply', e21]
     rfl
   have key : swingOfLength ym hp a ze v28 v83 = (((if v540 then v525 else v522) + (if v540 then v523 else v525)) / (2 : ℝ)) := by
     show ((((bisectStep ym hp a ze v83)^[24] ((0 : ℝ), v28)).1 + (((bisectStep ym hp a ze v83)^[24] ((0 : ℝ), v28)).2)) / (2 : ℝ)) = _
-    rw [show (24 : ℕ) = 23 + 1 from rfl, Function.iterate_succ_apply', e22]
+    rewrite [show (24 : ℕ) = 23 + 1 from rfl, Function.iterate_succ_apply', e22]
     rfl
-  rw [show deadPoint ym hp a ze = v28 from rfl]
-  rw [show wireLen ym hp a ze 0 = v47 from rfl]
-  rw [show wireLen ym hp a ze v28 = v61 from rfl]
-  rw [show wireLen ym hp a ze t = v75 from rfl]
-  rw [show (if v75 + slack - ωd * rDrum * dt < v61 then v61 else if v47 < v75 + slack - ωd * rDrum * dt then v47 else v75 + slack - ωd * rDrum * dt) = v83 from rfl]
-  rw [key]
+  rewrite [show deadPoint ym hp a ze = v28 from rfl]
+  rewrite [show wireLen ym hp a ze 0 = v47 from rfl]
+  rewrite [show wireLen ym hp a ze v28 = v61 from rfl]
+  rewrite [show wireLen ym hp a ze t = v75 from rfl]
+  rewrite [show (if v75 + slack - ωd * rDrum * dt < v61 then v61 else if v47 < v75 + slack - ωd * rDrum * dt then v47 else v75 + slack - ωd * rDrum * dt) = v83 from rfl]
+  rewrite [key]
   rfl
 
 theorem stepParams_ccc : stepParams =
@@ -2396,72 +2396,72 @@ theorem swingOfLength_ccc : swingOfLength = fun (ym : ℝ) (hp : ℝ) (a : ℝ) 
   show ((((bisectStep ym hp a ze L)^[24] ((0 : ℝ), tDead)).1 + (((bisectStep ym hp a ze L)^[24] ((0 : ℝ), tDead)).2)) / (2 : ℝ)) = _
   have e0 : (bisectStep ym hp a ze L)^[1] ((0 : ℝ), tDead) = (v29, v30) := rfl
   have e1 : (bisectStep ym hp a ze L)^[2] ((0 : ℝ), tDead) = (v48, v49) := by
-    rw [show (2 : ℕ) = 1 + 1 from rfl, Function.iterate_succ_apply', e0]
+    rewrite [show (2 : ℕ) = 1 + 1 from rfl, Function.iterate_succ_apply', e0]
     rfl
   have e2 : (bisectStep ym hp a ze L)^[3] ((0 : ℝ), tDead) = (v67, v68) := by
-    rw [show (3 : ℕ) = 2 + 1 from rfl, Function.iterate_succ_apply', e1]
+    rewrite [show (3 : ℕ) = 2 + 1 from rfl, Function.iterate_succ_apply', e1]
     rfl
   have e3 : (bisectStep ym hp a ze L)^[4] ((0 : ℝ), tDead) = (v86, v87) := by
-    rw [show (4 : ℕ) = 3 + 1 from rfl, Function.iterate_succ_apply', e2]
+    rewrite [show (4 : ℕ) = 3 + 1 from rfl, Function.iterate_succ_apply', e2]
     rfl
   have e4 : (bisectStep ym hp a ze L)^[5] ((0 : ℝ), tDead) = (v105, v106) := by
-    rw [show (5 : ℕ) = 4 + 1 from rfl, Function.iterate_succ_apply', e3]
+    rewrite [show (5 : ℕ) = 4 + 1 from rfl, Function.iterate_succ_apply', e3]
     rfl
   have e5 : (bisectStep ym hp a ze L)^[6] ((0 : ℝ), tDead) = (v124, v125) := by
-    rw [show (6 : ℕ) = 5 + 1 from rfl, Function.iterate_succ_apply', e4]
+    rewrite [show (6 : ℕ) = 5 + 1 from rfl, Function.iterate_succ_apply', e4]
     rfl
   have e6 : (bisectStep ym hp a ze L)^[7] ((0 : ℝ), tDead) = (v143, v144) := by
-    rw [show (7 : ℕ) = 6 + 1 from rfl, Function.iterate_succ_apply', e5]
+    rewrite [show (7 : ℕ) = 6 + 1 from rfl, Function.iterate_succ_apply', e5]
     rfl
   have e7 : (bisectStep ym hp a ze L)^[8] ((0 : ℝ), tDead) = (v162, v163) := by
-    rw [show (8 : ℕ) = 7 + 1 from rfl, Function.iterate_succ_apply', e6]
+    rewrite [show (8 : ℕ) = 7 + 1 from rfl, Function.iterate_succ_apply', e6]
     rfl
   have e8 : (bisectStep ym hp a ze L)^[9] ((0 : ℝ), tDead) = (v181, v182) := by
-    rw [show (9 : ℕ) = 8 + 1 from rfl, Function.iterate_succ_apply', e7]
+    rewrite [show (9 : ℕ) = 8 + 1 from rfl, Function.iterate_succ_apply', e7]
     rfl
   have e9 : (bisectStep ym hp a ze L)^[10] ((0 : ℝ), tDead) = (v200, v201) := by
-    rw [show (10 : ℕ) = 9 + 1 from rfl, Function.iterate_succ_apply', e8]
+    rewrite [show (10 : ℕ) = 9 + 1 from rfl, Function.iterate_succ_apply', e8]
     rfl
   have e10 : (bisectStep ym hp a ze L)^[11] ((0 : ℝ), tDead) = (v219, v220) := by
-    rw [show (11 : ℕ) = 10 + 1 from rfl, Function.iterate_succ_apply', e9]
+    rewrite [show (11 : ℕ) = 10 + 1 from rfl, Function.iterate_succ_apply', e9]
     rfl
   have e11 : (bisectStep ym hp a ze L)^[12] ((0 : ℝ), tDead) = (v238, v239) := by
-    rw [show (12 : ℕ) = 11 + 1 from rfl, Function.iterate_succ_apply', e10]
+    rewrite [show (12 : ℕ) = 11 + 1 from rfl, Function.iterate_succ_apply', e10]
     rfl
   have e12 : (bisectStep ym hp a ze L)^[13] ((0 : ℝ), tDead) = (v257, v258) := by
-    rw [show (13 : ℕ) = 12 + 1 from rfl, Function.iterate_succ_apply', e11]
+    rewrite [show (13 : ℕ) = 12 + 1 from rfl, Function.iterate_succ_apply', e11]
     rfl
   have e13 : (bisectStep ym hp a ze L)^[14] ((0 : ℝ), tDead) = (v276, v277) := by
-    rw [show (14 : ℕ) = 13 + 1 from rfl, Function.iterate_succ_apply', e12]
+    rewrite [show (14 : ℕ) = 13 + 1 from rfl, Function.iterate_succ_apply', e12]
     rfl
   have e14 : (bisectStep ym hp a ze L)^[15] ((0 : ℝ), tDead) = (v295, v296) := by
-    rw [show (15 : ℕ) = 14 + 1 from rfl, Function.iterate_succ_apply', e13]
+    rewrite [show (15 : ℕ) = 14 + 1 from rfl, Function.iterate_succ_apply', e13]
     rfl
   have e15 : (bisectStep ym hp a ze L)^[16] ((0 : ℝ), tDead) = (v314, v315) := by
-    rw [show (16 : ℕ) = 15 + 1 from rfl, Function.iterate_succ_apply', e14]
+    rewrite [show (16 : ℕ) = 15 + 1 from rfl, Function.iterate_succ_apply', e14]
     rfl
   have e16 : (bisectStep ym hp a ze L)^[17] ((0 : ℝ), tDead) = (v333, v334) := by
-    rw [show (17 : ℕ) = 16 + 1 from rfl, Function.iterate_succ_apply', e15]
+    rewrite [show (17 : ℕ) = 16 + 1 from rfl, Function.iterate_succ_apply', e15]
     rfl
   have e17 : (bisectStep ym hp a ze L)^[18] ((0 : ℝ), tDead) = (v352, v353) := by
-    rw [show (18 : ℕ) = 17 + 1 from rfl, Function.iterate_succ_apply', e16]
+    rewrite [show (18 : ℕ) = 17 + 1 from rfl, Function.iterate_succ_apply', e16]
     rfl
   have e18 : (bisectStep ym hp a ze L)^[19] ((0 : ℝ), tDead) = (v371, v372) := by
-    rw [show (19 : ℕ) = 18 + 1 from rfl, Function.iterate_succ_apply', e17]
+    rewrite [show (19 : ℕ) = 18 + 1 from rfl, Function.iterate_succ_apply', e17]
     rfl
   have e19 : (bisectStep ym hp a ze L)^[20] ((0 : ℝ), tDead) = (v390, v391) := by
-    rw [show (20 : ℕ) = 19 + 1 from rfl, Function.iterate_succ_apply', e18]
+    rewrite [show (20 : ℕ) = 19 + 1 from rfl, Function.iterate_succ_apply', e18]
     rfl
   have e20 : (bisectStep ym hp a ze L)^[21] ((0 : ℝ), tDead) = (v409, v410) := by
-    rw [show (21 : ℕ) = 20 + 1 from rfl, Function.iterate_succ_apply', e19]
+    rewrite [show (21 : ℕ) = 20 + 1 from rfl, Function.iterate_succ_apply', e19]
     rfl
   have e21 : (bisectStep ym hp a ze L)^[22] ((0 : ℝ), tDead) = (v428, v429) := by
-    rw [show (22 : ℕ) = 21 + 1 from rfl, Function.iterate_succ_apply', e20]
+    rewrite [show (22 : ℕ) = 21 + 1 from rfl, Function.iterate_succ_apply', e20]
     rfl
   have e22 : (bisectStep ym hp a ze L)^[23] ((0 : ℝ), tDead) = (v447, v448) := by
-    rw [show (23 : ℕ) = 22 + 1 from rfl, Function.iterate_succ_apply', e21]
+    rewrite [show (23 : ℕ) = 22 + 1 from rfl, Function.iterate_succ_apply', e21]
     rfl
-  rw [show (24 : ℕ) = 23 + 1 from rfl, Function.iterate_succ_apply', e22]
+  rewrite [show (24 : ℕ) = 23 + 1 from rfl, Function.iterate_succ_apply', e22]
   rfl
 
 theorem swingTwist_ccc : swingTwist = fun (apexH : ℝ) (zBolt : ℝ) =>
