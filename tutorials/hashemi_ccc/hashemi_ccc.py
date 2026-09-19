@@ -32908,6 +32908,97 @@ def hk_check_uPipeCyl_pos(L, Do, Dins, kIns, V):
     t33 = np.logical_or(np.logical_not(t6), t32)
     return t33
 
+def hk_uaExch(kw, Lc, Dc, d):
+    t0 = kw
+    t1 = Lc
+    t2 = Dc
+    t3 = d
+    t4 = 2
+    t5 = (t4 * t3)
+    t6 = 0.000001
+    t7 = np.maximum(t2, t6)
+    t8 = (t5 / t7)
+    t9 = 1.0001
+    t10 = np.maximum(t8, t9)
+    t11 = np.pi
+    t12 = (t4 * t11)
+    t13 = (t12 * t0)
+    t14 = (t13 * t1)
+    t15 = (t10 ** 2)
+    t16 = 1
+    t17 = (t15 - t16)
+    t18 = np.sqrt(np.maximum(t17, 0.0))
+    t19 = (t10 + t18)
+    t20 = np.log(t19)
+    t21 = (t14 / t20)
+    return t21
+
+def hk_check_uaExch_mono_kw(kw, kw_p, Lc, Dc, d):
+    t0 = kw
+    t1 = kw_p
+    t2 = Lc
+    t3 = Dc
+    t4 = d
+    t5 = 0
+    t6 = (t5 <= t2)
+    t7 = (t0 <= t1)
+    t8 = 2
+    t9 = (t8 * t4)
+    t10 = 0.000001
+    t11 = np.maximum(t3, t10)
+    t12 = (t9 / t11)
+    t13 = 1.0001
+    t14 = np.maximum(t12, t13)
+    t15 = np.pi
+    t16 = (t8 * t15)
+    t17 = (t16 * t0)
+    t18 = (t17 * t2)
+    t19 = (t14 ** 2)
+    t20 = 1
+    t21 = (t19 - t20)
+    t22 = np.sqrt(np.maximum(t21, 0.0))
+    t23 = (t14 + t22)
+    t24 = np.log(t23)
+    t25 = (t18 / t24)
+    t26 = (t16 * t1)
+    t27 = (t26 * t2)
+    t28 = (t27 / t24)
+    t29 = (t25 <= t28)
+    t30 = np.logical_or(np.logical_not(t7), t29)
+    t31 = np.logical_or(np.logical_not(t6), t30)
+    return t31
+
+def hk_check_uaExch_pos(kw, Lc, Dc, d):
+    t0 = kw
+    t1 = Lc
+    t2 = Dc
+    t3 = d
+    t4 = 0
+    t5 = (t4 < t0)
+    t6 = (t4 < t1)
+    t7 = 2
+    t8 = (t7 * t3)
+    t9 = 0.000001
+    t10 = np.maximum(t2, t9)
+    t11 = (t8 / t10)
+    t12 = 1.0001
+    t13 = np.maximum(t11, t12)
+    t14 = np.pi
+    t15 = (t7 * t14)
+    t16 = (t15 * t0)
+    t17 = (t16 * t1)
+    t18 = (t13 ** 2)
+    t19 = 1
+    t20 = (t18 - t19)
+    t21 = np.sqrt(np.maximum(t20, 0.0))
+    t22 = (t13 + t21)
+    t23 = np.log(t22)
+    t24 = (t17 / t23)
+    t25 = (t4 < t24)
+    t26 = np.logical_or(np.logical_not(t6), t25)
+    t27 = np.logical_or(np.logical_not(t5), t26)
+    return t27
+
 def hk_uaOf(h, A):
     t0 = h
     t1 = A

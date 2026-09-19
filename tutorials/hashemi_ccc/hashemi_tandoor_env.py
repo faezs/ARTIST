@@ -40,7 +40,7 @@ for _p in (ROOT, TUT, HERE):
 import torch                                        # noqa: E402
 from tandoor_hashemi_env import TandoorHashemiEnv   # noqa: E402
 from hashemi_kernel import COL, mega_numpy, mega_params_numpy                       # noqa: E402
-from hashemi_env_kernel import (HashemiEnvMetal, env_numpy, env_params, pack, draws,   # noqa: E402
+from hashemi_env_kernel import (HashemiEnvMetal, env_numpy, env_params, pack, draws, exch_ua,  # noqa: E402
                                 ECOL, EIN, N_IN, N_OUT, P as ENV_RAYS, M as ENV_M, N_HIST, HIST_COLS, RET_COLS,
                                 LOOP_PARAMS, PUMP_PRICE, DEG_PRICE)
 # THE REWARD IS A PRINTED MORPHISM TOO (HashemiReward.lean `rewardStep`, compiled by the same
@@ -209,6 +209,12 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             m = load_machine(float(dish_half), design=bool(self.dish_design))
             self._params.update(**m["kernel"])
             self._params.update(**{k: v for k, v in m["mount"].items() if k in self._params})
+            # the exchanger's ceiling follows THIS machine's coil, through the spec's own
+            # buried-cylinder law (uaExch): 0.78 W/K at his size, 4.86 at a = 2 m. It was 60.0
+            # written by hand, and the audit measured that binding on 99.9 % of a day's steps.
+            self._params["UAxMax"] = exch_ua(os.path.join(HERE, machine_name(float(dish_half), bool(self.dish_design))))
+            print("  [hashemi_ccc] the exchanger conducts %.2f W/K (uaExch, the coil in the liner)"
+                  % self._params["UAxMax"])
             # the loop's own inputs come from the same file: the coil's area and the pump's flow
             # enter the kernel (HashemiOil's qCoilLoss, hCoil, filmTemp, pumpElec), the rest of
             # the block (panel, tank, coil length, the film at stagnation) is the build's record

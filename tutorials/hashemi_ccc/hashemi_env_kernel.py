@@ -47,7 +47,15 @@ LOOP_PARAMS = dict(
     etaP=0.25,        # the pump's wire-to-water efficiency
     Pidle=8.0,        # the pump motor's standing draw, W - ABOVE HIS 5 W PANEL (see the README)
     Axch=0.20,        # the exchanger's area in the pot's wall band, m2
-    UAxMax=60.0,      # the wall-side ceiling on the exchanger's conductance, W/K
+    # the wall-side ceiling on the exchanger's conductance, W/K - NOT a constant any more:
+    # `uaExch` (HashemiOil.lean) is the buried-cylinder shape factor for the coil the spec places
+    # in the liner (Tandoor.exchangerPt, 6.3 cm behind the baking face), printed like every other
+    # law. The 60.0 that stood here had no law anywhere and the audit measured it binding on
+    # 99.9 % of a day's steps, so the whole Reynolds/Nusselt chain sat under a ceiling that always
+    # won and the machine's reported output rested on it. k = 0.25 W/mK is the ini's own
+    # insulating firebrick (tandoor_rl_env.py:74); the coil's length and bore come from the
+    # designed machine (hashemi_machine_<a>.json: coilLen, Dc).
+    UAxMax=None,      # filled by env_params() from `uaExch`, the spec's own law (see exch_ua)
     Ccoil=216.0,      # the coil's own inventory, J/K: 0.068 kg of oil + 0.19 kg of copper tube
     degA=5.73e8,      # the Arrhenius pre-exponential, 1/s (normalised, see HashemiOil.lean)
     degEa=190000.0,   # the activation energy, J/mol (an order of magnitude, not a datasheet)
@@ -64,6 +72,22 @@ def env_source():
     return MSL_PRELUDE + header_text() + ker
 
 
+K_LINER = 0.25          # W/mK, the ini's insulating firebrick (tandoor_rl_env.py:74)
+D_STANDOFF = 0.063      # m, the coil behind the baking face (Tandoor.exchangerPt)
+
+
+def exch_ua(machine=None, k_liner=K_LINER, d=D_STANDOFF):
+    """the exchanger's conductance from the spec's own law, never a host constant"""
+    import json, os
+    import hashemi_ccc as H
+    if machine is None:
+        machine = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "hashemi_machine_0.8_designed.json")
+    m = json.load(open(machine))
+    m = m.get("machine", m)
+    return float(H.hk_uaExch(k_liner, float(m["coilLen"]), float(m["Dc"]), d))
+
+
 def env_params():
     """the constant inputs, by name: the machine's, the optics', the heat's"""
     mp = mega_params_numpy()                      # rDrum W rcm Tmax rho Fdrive L10 rodLen
@@ -71,6 +95,8 @@ def env_params():
     d = dict(rDrum=mp[0], W=mp[1], rcm=mp[2], Tmax=mp[3], rho=mp[4], Fdrive=mp[5], L10=mp[6], rodLen=mp[7],
              R=tp[0], f=tp[1], a=tp[2], w=tp[3], rc=tp[4], k=DISH_K, sigmaslope=SLOPE_ERR, sigmaspec=SPEC_ERR,
              hsun=SUN_HALF_ANGLE, **LOOP_PARAMS)
+    if d.get("UAxMax") is None:
+        d["UAxMax"] = exch_ua()
     return d
 
 

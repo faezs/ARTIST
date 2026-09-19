@@ -15407,6 +15407,32 @@ HK_STATIC hk_real hk_uPipeCyl(hk_real L, hk_real Do, hk_real Dins, hk_real kIns,
   return t23;
 }
 
+HK_STATIC hk_real hk_uaExch(hk_real kw, hk_real Lc, hk_real Dc, hk_real d) {
+  const hk_real t0 = kw;
+  const hk_real t1 = Lc;
+  const hk_real t2 = Dc;
+  const hk_real t3 = d;
+  const hk_real t4 = HK_LIT(2);
+  const hk_real t5 = (t4 * t3);
+  const hk_real t6 = HK_LIT(0.000001);
+  const hk_real t7 = hk_max(t2, t6);
+  const hk_real t8 = (t5 / t7);
+  const hk_real t9 = HK_LIT(1.0001);
+  const hk_real t10 = hk_max(t8, t9);
+  const hk_real t11 = HK_PI;
+  const hk_real t12 = (t4 * t11);
+  const hk_real t13 = (t12 * t0);
+  const hk_real t14 = (t13 * t1);
+  const hk_real t15 = t10 * t10;
+  const hk_real t16 = HK_LIT(1);
+  const hk_real t17 = (t15 - t16);
+  const hk_real t18 = hk_sqrt(t17);
+  const hk_real t19 = (t10 + t18);
+  const hk_real t20 = hk_log(t19);
+  const hk_real t21 = (t14 / t20);
+  return t21;
+}
+
 HK_STATIC hk_real hk_uaOf(hk_real h, hk_real A) {
   const hk_real t0 = h;
   const hk_real t1 = A;
@@ -27901,6 +27927,74 @@ HK_STATIC bool hk_check_uPipeCyl_pos(hk_real L, hk_real Do, hk_real Dins, hk_rea
   const bool t32 = (!t7 || t31);
   const bool t33 = (!t6 || t32);
   return t33;
+}
+
+HK_STATIC bool hk_check_uaExch_mono_kw(hk_real kw, hk_real kw_p, hk_real Lc, hk_real Dc, hk_real d) {
+  const hk_real t0 = kw;
+  const hk_real t1 = kw_p;
+  const hk_real t2 = Lc;
+  const hk_real t3 = Dc;
+  const hk_real t4 = d;
+  const hk_real t5 = HK_LIT(0);
+  const bool t6 = (t5 <= t2);
+  const bool t7 = (t0 <= t1);
+  const hk_real t8 = HK_LIT(2);
+  const hk_real t9 = (t8 * t4);
+  const hk_real t10 = HK_LIT(0.000001);
+  const hk_real t11 = hk_max(t3, t10);
+  const hk_real t12 = (t9 / t11);
+  const hk_real t13 = HK_LIT(1.0001);
+  const hk_real t14 = hk_max(t12, t13);
+  const hk_real t15 = HK_PI;
+  const hk_real t16 = (t8 * t15);
+  const hk_real t17 = (t16 * t0);
+  const hk_real t18 = (t17 * t2);
+  const hk_real t19 = t14 * t14;
+  const hk_real t20 = HK_LIT(1);
+  const hk_real t21 = (t19 - t20);
+  const hk_real t22 = hk_sqrt(t21);
+  const hk_real t23 = (t14 + t22);
+  const hk_real t24 = hk_log(t23);
+  const hk_real t25 = (t18 / t24);
+  const hk_real t26 = (t16 * t1);
+  const hk_real t27 = (t26 * t2);
+  const hk_real t28 = (t27 / t24);
+  const bool t29 = (t25 <= t28);
+  const bool t30 = (!t7 || t29);
+  const bool t31 = (!t6 || t30);
+  return t31;
+}
+
+HK_STATIC bool hk_check_uaExch_pos(hk_real kw, hk_real Lc, hk_real Dc, hk_real d) {
+  const hk_real t0 = kw;
+  const hk_real t1 = Lc;
+  const hk_real t2 = Dc;
+  const hk_real t3 = d;
+  const hk_real t4 = HK_LIT(0);
+  const bool t5 = (t4 < t0);
+  const bool t6 = (t4 < t1);
+  const hk_real t7 = HK_LIT(2);
+  const hk_real t8 = (t7 * t3);
+  const hk_real t9 = HK_LIT(0.000001);
+  const hk_real t10 = hk_max(t2, t9);
+  const hk_real t11 = (t8 / t10);
+  const hk_real t12 = HK_LIT(1.0001);
+  const hk_real t13 = hk_max(t11, t12);
+  const hk_real t14 = HK_PI;
+  const hk_real t15 = (t7 * t14);
+  const hk_real t16 = (t15 * t0);
+  const hk_real t17 = (t16 * t1);
+  const hk_real t18 = t13 * t13;
+  const hk_real t19 = HK_LIT(1);
+  const hk_real t20 = (t18 - t19);
+  const hk_real t21 = hk_sqrt(t20);
+  const hk_real t22 = (t13 + t21);
+  const hk_real t23 = hk_log(t22);
+  const hk_real t24 = (t17 / t23);
+  const bool t25 = (t4 < t24);
+  const bool t26 = (!t6 || t25);
+  const bool t27 = (!t5 || t26);
+  return t27;
 }
 
 HK_STATIC bool hk_check_uaOf_mono(hk_real h1, hk_real h2, hk_real A) {

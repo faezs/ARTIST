@@ -322,6 +322,49 @@ resistance `ln(Dins/Do) / (2π kIns L)`) and the outside convection over the sle
 noncomputable def uPipeCyl (L Do Dins kIns V : ℝ) : ℝ :=
   L / (Real.log (max (Dins / Do) 1.0001) / (2 * Real.pi * kIns) + 1 / (hWind V * Real.pi * Dins))
 
+/-- **the exchanger's own conductance, which until 2026-09-20 was a bare host constant.**
+
+`hashemiEnv` caps the oil-side conductance with `UAxMax`, and that ceiling was 60 W/K written in
+`hashemi_env_kernel.py` with no law, no bound and no theorem anywhere in this library — while the
+audit measured it binding on 99.9 % of a day's steps, so the whole Reynolds/Nusselt chain above
+sat under a minimum that always won, and the machine's reported output rested on that one number.
+
+The geometry the spec does state: `Tandoor.exchangerPt` puts the coil at 1.06 of the pot's radius,
+a standoff `d` behind the baking face, buried in the liner.  A cylinder of diameter `Dc` buried at
+depth `d` in a medium of conductivity `kw` has the conduction shape factor `S = 2π L / arccosh(2d/Dc)`
+(Incropera & DeWitt, Table 4.1, case 1 — an isothermal cylinder buried in a semi-infinite medium
+with an isothermal surface), and `arccosh x = log (x + √(x² − 1))`, which is in the compilable
+vocabulary.  `2d/Dc ≥ 1` is the buried condition; the `max` keeps the log's argument above 1 so the
+conductance is finite and positive even when a caller hands it a coil touching the face. -/
+noncomputable def uaExch (kw Lc Dc d : ℝ) : ℝ :=
+  let x := max (2 * d / max Dc 1e-6) 1.0001
+  2 * Real.pi * kw * Lc / Real.log (x + Real.sqrt (x ^ 2 - 1))
+
+/-- the buried coil conducts, and only downwards: a deeper coil delivers less -/
+theorem uaExch_pos {kw Lc Dc d : ℝ} (hk : 0 < kw) (hL : 0 < Lc) : 0 < uaExch kw Lc Dc d := by
+  unfold uaExch
+  have hx : (1.0001 : ℝ) ≤ max (2 * d / max Dc 1e-6) 1.0001 := le_max_right _ _
+  set x := max (2 * d / max Dc 1e-6) 1.0001 with hxdef
+  have hx1 : (1 : ℝ) < x := lt_of_lt_of_le (by norm_num) hx
+  have hs : 0 ≤ Real.sqrt (x ^ 2 - 1) := Real.sqrt_nonneg _
+  have hlog : 0 < Real.log (x + Real.sqrt (x ^ 2 - 1)) := Real.log_pos (by linarith)
+  positivity
+
+/-- and it scales with the liner's conductivity, as Fourier says -/
+theorem uaExch_mono_kw {kw kw' Lc Dc d : ℝ} (hL : 0 ≤ Lc) (h : kw ≤ kw') :
+    uaExch kw Lc Dc d ≤ uaExch kw' Lc Dc d := by
+  unfold uaExch
+  set x := max (2 * d / max Dc 1e-6) 1.0001 with hxdef
+  have hx1 : (1 : ℝ) < x := lt_of_lt_of_le (by norm_num) (le_max_right _ _)
+  have hs : 0 ≤ Real.sqrt (x ^ 2 - 1) := Real.sqrt_nonneg _
+  have hlog : 0 < Real.log (x + Real.sqrt (x ^ 2 - 1)) := Real.log_pos (by linarith)
+  have hnum : 2 * Real.pi * kw * Lc ≤ 2 * Real.pi * kw' * Lc := by
+    have hp : (0:ℝ) < Real.pi := Real.pi_pos
+    nlinarith [mul_nonneg (mul_nonneg (by norm_num : (0:ℝ) ≤ 2) hp.le) hL]
+  have hinv : (0:ℝ) < (Real.log (x + Real.sqrt (x ^ 2 - 1)))⁻¹ := inv_pos.mpr hlog
+  simp only [div_eq_mul_inv]
+  exact mul_le_mul_of_nonneg_right hnum hinv.le
+
 /-- a pipe run has a positive conductance -/
 theorem uPipeCyl_pos {L Do Dins kIns V : ℝ} (hL : 0 < L) (hk : 0 < kIns) (hD : 0 < Dins)
     (hV : 0 ≤ V) : 0 < uPipeCyl L Do Dins kIns V := by
