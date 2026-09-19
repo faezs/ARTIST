@@ -10,10 +10,16 @@ first and third are the ones that would have failed on the two bugs of 2026-09-1
   restrictions of the one section must agree to float32, per step. (b) The day rolled on both
   paths independently (their draws do differ) is compared by hour means of `r_shape_raw`. A
   shaping put in the wrong fibre is a factor of `reward_div` and fails both at once.
-* **R2, the units.** `r_trainer · reward_div − parentRaw = r_shape_raw`, per step, on each path,
-  from the columns the kernel itself returned (the naturality square, measured).
-* **R3, non-negativity.** `min r_shape_raw ≥ 0` over the day: no per-step penalty exists, so
-  `cut_never_pays` applies and leaving is never an escape.
+* **R2, the units.** `r_trainer · reward_div − parentRaw = r_shape_raw − r_pump_raw − r_deg_raw`,
+  per step, on each path, from the columns the kernel itself returned (the naturality square,
+  measured).  Since 2026-09-19 the morphism has two COSTS beside the shaping - the pump's
+  electrical energy and the time the oil's film spends over its limit (HashemiOil.lean) - and the
+  square is stated over all three columns.
+* **R3, non-negativity OF THE CAPTURE TERM.** `min r_shape_raw ≥ 0` over the day. The two costs
+  are separate columns precisely so that this stays true of the capture term: `cut_never_pays`
+  needs a non-negative *shaping*, and the bills are paid out of `r_raw`, not out of it.
+* **R4, the bills are bills.** `min r_pump_raw ≥ 0` and `min r_deg_raw ≥ 0`: a cost is never a
+  bonus (`pumpCostRaw_nonneg`, `degCostRaw_nonneg`).
 
 They live here and not in `lake exe trace_check` because the bridge drives a Metal kernel with
 given inputs - it cannot roll a day of the puffer env on two paths, which is exactly what R1 is.
@@ -54,6 +60,8 @@ def roll(gpu, agents, day, oil_nodes):
     rows = []
     ins = []
     trn = []
+    pw = []
+    fx = []
     k = 0
     while True:
         el0, az0, _ = _m._sim.solar_position(env.lat, env.day, float(env.t_solar[0]))
@@ -71,26 +79,36 @@ def roll(gpu, agents, day, oil_nodes):
         t_before = float(env.t_solar[0])
         _, rew, _, _, _ = env.step(a)
         cols = np.asarray(env.r_cols, dtype=np.float64)
-        ins.append(np.stack([cols[:, RCOL["r_raw"]] - cols[:, RCOL["r_shape_raw"]],
+        ins.append(np.stack([cols[:, RCOL["r_raw"]] - cols[:, RCOL["r_shape_raw"]]
+                             + cols[:, RCOL["r_pump_raw"]] + cols[:, RCOL["r_deg_raw"]],
                              np.asarray(env.row[:, PIN_COL], dtype=np.float64),
                              np.asarray(env.row[:, REACH_COL], dtype=np.float64)], 1))
         trn.append(cols[:, RCOL["r_trainer"]].copy())
+        pw.append(np.asarray(env._p_pump, dtype=np.float64).copy())
+        fx.append(np.asarray(env._film_excess, dtype=np.float64).copy())
         rows.append((float(env.t_solar[0]), cols.mean(0),
                      float(np.mean(np.asarray(rew, dtype=np.float64))),
                      float(np.max(np.abs(cols[:, RCOL["r_trainer"]] * div
-                                         - (cols[:, RCOL["r_raw"]] - cols[:, RCOL["r_shape_raw"]])
-                                         - cols[:, RCOL["r_shape_raw"]]))),
-                     float(cols[:, RCOL["r_shape_raw"]].min())))
+                                         - (cols[:, RCOL["r_raw"]] - cols[:, RCOL["r_shape_raw"]]
+                                            + cols[:, RCOL["r_pump_raw"]] + cols[:, RCOL["r_deg_raw"]])
+                                         - cols[:, RCOL["r_shape_raw"]]
+                                         + cols[:, RCOL["r_pump_raw"]] + cols[:, RCOL["r_deg_raw"]]))),
+                     float(cols[:, RCOL["r_shape_raw"]].min()),
+                     float(cols[:, RCOL["r_pump_raw"]].min()), float(cols[:, RCOL["r_deg_raw"]].min()),
+                     float(cols[:, RCOL["r_pump_raw"]].sum()), float(cols[:, RCOL["r_deg_raw"]].sum())))
         k += 1
         if float(env.t_solar[0]) < t_before - 1.0 or k > 4000:
             break
     hours = np.array([r[0] for r in rows])
     cols = np.stack([r[1] for r in rows])
     return dict(hours=hours, cols=cols, rew=np.array([r[2] for r in rows]),
-                r2=max(r[3] for r in rows), r3=min(r[4] for r in rows), div=div, steps=k,
+                r2=max(r[3] for r in rows), r3=min(r[4] for r in rows),
+                r4=min(min(r[5] for r in rows), min(r[6] for r in rows)),
+                pump_day=sum(r[7] for r in rows), deg_day=sum(r[8] for r in rows), div=div, steps=k,
                 ins=np.concatenate(ins, 0), trn=np.concatenate(trn, 0),
                 dt=float(env.dt), cs=float(env.capture_shaping), rr=float(env.ROTI_REWARD_RAW),
-                re=float(env.roti_energy))
+                re=float(env.roti_energy), pp=float(env.pump_price), dp=float(env.deg_price),
+                ppw=np.concatenate(pw, 0), fex=np.concatenate(fx, 0))
 
 
 def main():
@@ -110,7 +128,7 @@ def main():
     # reward_div on every step at once.
     import torch
     x = pack_reward(a["ins"][:, 0], a["dt"], a["ins"][:, 1], a["ins"][:, 2],
-                    a["div"], a["cs"], a["rr"], a["re"])
+                    a["div"], a["cs"], a["rr"], a["re"], a["ppw"], a["fex"], a["pp"], a["dp"])
     m = HashemiRewardMetal().step(torch.as_tensor(x.astype(np.float32), device="mps")).cpu().numpy().astype(np.float64)
     scale = np.maximum(1e-3, np.abs(a["trn"]))
     per_step = float(np.max(np.abs(m[:, RCOL["r_trainer"]] - a["trn"]) / scale))
@@ -135,7 +153,7 @@ def main():
         print("   R1 FAILED: the paths do not glue (a units bug shows here as a factor of reward_div)")
 
     # ---- R2: the naturality square, per step, on each path
-    print(f"R2 units    max |r_trainer*div - parentRaw - r_shape_raw|: numpy {a['r2']:.2e}, fused {b['r2']:.2e}"
+    print(f"R2 units    max |r_trainer*div - parentRaw - (r_shape - r_pump - r_deg)|: numpy {a['r2']:.2e}, fused {b['r2']:.2e}"
           f" (reward_div {a['div']:g})")
     if max(a["r2"], b["r2"]) > 1e-4:
         ok = False
@@ -147,7 +165,15 @@ def main():
         ok = False
         print("   R3 FAILED: a per-step penalty makes the guillotine an exit")
 
-    print("R1-R3 PASS" if ok else "REWARD CHECKS FAILED")
+    # ---- R4: the two bills are costs, never bonuses
+    print(f"R4 costs    min r_pump_raw, r_deg_raw: numpy {a['r4']:.3e}, fused {b['r4']:.3e}"
+          f"; the day's bills (raw): pump {a['pump_day']:.2f}, over-limit {a['deg_day']:.2f}"
+          f" against a day's shaping {float(a['cols'][:, RCOL['r_shape_raw']].sum()):.2f}")
+    if min(a["r4"], b["r4"]) < 0.0:
+        ok = False
+        print("   R4 FAILED: a cost column went negative")
+
+    print("R1-R4 PASS" if ok else "REWARD CHECKS FAILED")
     sys.exit(0 if ok else 1)
 
 

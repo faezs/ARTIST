@@ -29,6 +29,9 @@ def main():
     ap.add_argument("--slot", type=float, default=0.06, help="the slot's width [m] for the beam-down")
     ap.add_argument("--oil-nodes", type=int, default=None, help="belt slots the coil heats (default: the ini's)")
     ap.add_argument("--dish-half", type=float, default=None, help="the reflector's half-side a [m] (his 0.8); the machine is derived in Lean (HashemiScale.lean) and read from hashemi_machine_<a>.json")
+    ap.add_argument("--pump", default="rule", choices=["off", "max", "rule"],
+                    help="the pump on the parent's pinned head 0 (HashemiPolicy.pumpOf): off (level 0), "
+                         "max (level 6) or a bang-bang rule on the film margin")
     ap.add_argument("--random", type=int, default=0, help="1: uniform-random heads instead of the follower (the return's floor)")
     args = ap.parse_args()
     kw = ini_env_kwargs(os.path.join(os.path.dirname(HERE), "puffer_tandoor", "hashemi_ccc.ini"))
@@ -51,11 +54,25 @@ def main():
     rows = []
     agree_reach = agree_lost = 0.0
     ret = np.zeros(B); rng = np.random.default_rng(0)
+    bulk_max = np.zeros(B); film_max = np.zeros(B); margin_min = np.full(B, 1e9); pump_J = np.zeros(B); fault_ct = np.zeros(B)
     while True:
         el0, az0, _ = _m._sim.solar_position(env.lat, env.day, float(env.t_solar[0]))
         az0 = np.degrees(az0 - env._ds_azs)
         a = np.zeros((B, env.N_HEADS))
         a[:, 1] = 6                                                    # the shutter open
+        # THE PUMP, on head 0 (his dish has no membrane, so the level head is the loop's).
+        # The rule is bang-bang on the film margin the kernel reported last step: open the pump
+        # whenever the wall the oil touches is within 50 K of the fluid's 375 C film limit, or
+        # whenever the oil is hot enough to be worth moving; close it otherwise, so the loop is
+        # not pumped for nothing at dawn.
+        if args.pump == "max":
+            a[:, 0] = 6
+        elif args.pump == "off":
+            a[:, 0] = 0
+        else:
+            margin = env.row[:, ECOL["film_margin"]] if k else np.full(B, 1e3)
+            hot = env.t_oil > (np.asarray(env.T[:, :env.n_nodes]).mean(1) + 20.0)
+            a[:, 0] = np.where((margin < 50.0) | hot, 6, 0)
         for h in range(5, env.N_HEADS - env.n_belt):
             a[:, h] = (nvec[h] - 1) // 2
         a[:, env.N_HEADS - env.n_belt:] = 6                            # load every slot
@@ -75,6 +92,12 @@ def main():
         # the spec's Ω-columns against the parent's flags: the sun reachable = the parent's sun up,
         # the sun lost = the parent's lost counter (its L1 error in degrees vs the spec's angle:
         # they can differ by the sqrt 2 of the norms, so agreement is counted, not required exact)
+        if args.receiver != "beam":
+            bulk_max = np.maximum(bulk_max, env.t_oil)
+            film_max = np.maximum(film_max, env.row[:, ECOL["T_film"]])
+            margin_min = np.minimum(margin_min, env.row[:, ECOL["film_margin"]])
+            pump_J += env.row[:, ECOL["p_pump"]] * env.dt
+            fault_ct += env.row[:, ECOL["fault"]]
         reach = env.hk_row[:, COL["sun_reachable"]] > 0.5
         lost = env.hk_row[:, COL["lost_sun"]] > 0.5
         lc = np.asarray(env._gpu.lost_ct.cpu() if args.gpu else env._lost_ct) > 0
@@ -86,14 +109,22 @@ def main():
             oil = args.receiver != "beam"
             rows.append((float(env.t_solar[0]), el0, float(env.el_m.mean()), float(e_el.mean()), float(env.cap_traced.mean()),
                          float(np.mean(env.p_in)), float(np.mean(T[:, :env.n_belt].max(1))), float(np.asarray(S.ep_rotis.cpu() if args.gpu else S.ep_rotis).mean()),
-                         float(np.mean(env.t_oil)) if oil else 0.0, float(np.mean(env.row[:, ECOL["q_pot"]])) if oil else float(np.mean(env.row[:, env._bk.BCOL["spot"]]))))
+                         float(np.mean(env.t_oil)) if oil else 0.0, float(np.mean(env.row[:, ECOL["q_pot"]])) if oil else float(np.mean(env.row[:, env._bk.BCOL["spot"]])),
+                         float(np.mean(env.row[:, ECOL["T_film"]])) if oil else 0.0,
+                         float(np.mean(env.u_pump)) if oil else 0.0,
+                         float(np.mean(env.row[:, ECOL["p_pump"]])) if oil else 0.0))
         if float(env.t_solar[0]) < t_before - 1.0 or k > 4000:
             break
     print(f"day {args.day} gpu={args.gpu} discrete={args.discrete} receiver={args.receiver} random={args.random}: {k} steps, {1e3 * (time.time() - t0) / k:.1f} ms/step at B={B}; "
           f"the day's return {ret.mean():+.2f} +- {ret.std():.2f} (the trainer's units, reward_div {getattr(env, 'reward_div', 1.0):g})")
-    print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis   T_oil[K]  q_pot[W]" + ("   (beam: the last column is the spot at F2 [m])" if args.receiver == "beam" else ""))
+    print("  hour  sun el  dish el   e_el   capture   p_in[W]  belt Tmax  ep_rotis   T_oil[K]  q_pot[W]  T_film[K]  u_pump  P_pump[W]" + ("   (beam: the last column is the spot at F2 [m])" if args.receiver == "beam" else ""))
     for r in rows:
-        print("  %5.2f  %6.2f  %6.2f  %+6.2f   %5.3f   %7.0f   %7.1f   %6.2f   %7.1f   %7.0f" % r)
+        print("  %5.2f  %6.2f  %6.2f  %+6.2f   %5.3f   %7.0f   %7.1f   %6.2f   %7.1f   %7.0f   %8.0f  %5.2f   %6.2f" % r)
+    if args.receiver != "beam":
+        T = np.asarray(env.row[:, ECOL["T_film"]]); mg = np.asarray(env.row[:, ECOL["film_margin"]])
+        print(f"  THE LOOP: max bulk {float(np.max(bulk_max)):.1f} K (limit 618.1), max film {float(np.max(film_max)):.0f} K "
+              f"(limit 648.1), min margin {float(np.min(margin_min)):+.0f} K, degradation {float(np.mean(env.deg)):.3e}, "
+              f"pump energy {float(np.mean(pump_J)) / 1e3:.1f} kJ, fault steps {int(fault_ct.mean())}/{k}")
     print(f"  spec vs parent: sun_reachable == sun up {100 * agree_reach / k:.1f} %, parent lost => spec lost {100 * agree_lost / k:.1f} %; discrete heads {args.discrete}")
     ok = rows[-1][7] > 50 and all(r[4] > 0.9 for r in rows) and agree_reach / k > 0.99 and agree_lost / k > 0.97
     if args.receiver == "beam":     # the beam-down's capture is the design's: report, do not judge

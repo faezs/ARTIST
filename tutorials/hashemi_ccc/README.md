@@ -542,6 +542,171 @@ They are a Python script and not TraceCheck rows because the bridge drives a Met
 given inputs; it cannot roll a day of the puffer env on two paths, which is what R1 is. The Lean
 statements behind R2 and R3 are compiled and are checked with the other theorem checks.
 
+## The oil loop, realistically
+
+Until 2026-09-19 the loop was six constants (`heatParams`: `α ε Ac hC Upipe UAx`), a fixed
+`mcp = 0.02 kg/s x 2100 J/kgK`, a pipe delay frozen at two steps and a cap written at 593 K that
+the 2 m machine simply sat on. The oil had no name, no properties, nothing moved it, and at the
+2 m reflector the env ran it to **930 K** while the trainer reported **433 rotis a day** on that
+number. A fluid at 930 K is not a fluid.
+
+`RequestProject/HashemiOil.lean` replaces the constants with a loop a builder could buy. Every
+definition has its source in its docstring and every one of them is compiled by the same driver
+into the same kernels (`hashemi_ccc.h`, `hashemi_ccc.py`, `hashemi_env.metal`,
+`hashemi_loop.metal`) and round-trips in `HashemiCccRound.lean`.
+
+### The fluid
+
+**Therminol 66** (Eastman, hydrogenated terphenyl). The property correlations are the published
+ones (Eastman technical bulletin; the same fits carried in the NREL/SAM fluid library), `Tc` in
+°C: `ρ = 1020.62 - 0.614254 Tc - 0.000321 Tc²` kg/m³, `cp = 1.496005 + 0.003313 Tc +
+8.970757e-7 Tc²` kJ/kg K, `k = 0.118294 - 3.3e-5 Tc - 1.5e-7 Tc²` W/m K,
+`μ = exp(586.375/(Tc + 62.5) - 2.2809)` mPa s. Its ratings are the two limits the loop is now
+written against: **345 °C bulk (618.15 K)** and **375 °C film (648.15 K)**, pour point -25 °C.
+They are quoted, not re-derived here.
+
+### The parameters, and where each comes from
+
+| input | value | what it is | source |
+|---|---|---|---|
+| `alpha` | 0.9 | the coil's absorptance | a blackened copper spiral; assumed, as before |
+| `eps` | 0.8 | its emissivity | assumed, as before |
+| `Ac` | 0.03 m² | the coil's wetted surface | 8 turns of 10 mm tube on the 12 cm spiral the video shows |
+| `Qmax` | 6.0e-5 m³/s | the pump at full command | **this file's choice** - the video shows no pump |
+| `Dp` | 0.012 m | the bore of the run | 12 mm copper; **chosen**, the video shows no diameter |
+| `Lp` | 6.0 m | the run | down the post, along the carriage, to the pot and back; **estimated** from the geometry the frames do show |
+| `Dins`, `kIns` | 0.062 m, 0.045 W/mK | 25 mm of mineral wool | "insulated copper pipes" is his; the thickness is **chosen** |
+| `etaP` | 0.25 | the pump's wire-to-water efficiency | a small DC pump; **typical, not a datasheet** |
+| `Pidle` | 8.0 W | the pump motor's standing draw | **no source**; a 12 V circulation pump's order of magnitude, and see the budget below |
+| `Axch` | 0.20 m² | the exchanger in the pot's wall band | **chosen**: ~3 m of 20 mm tube |
+| `UAxMax` | 60 W/K | the wall-side ceiling on `UA` | **chosen** |
+| `Ccoil` | 216 J/K | the coil's own inventory | 0.068 kg of oil + 0.19 kg of copper tube, from `Ac` and the bore |
+| `degA`, `degEa` | 5.73e8 /s, 190 kJ/mol | the Arrhenius damage law | **an order of magnitude, normalised**, see below |
+
+### What the flow now does (one head, six laws)
+
+The pump is the parent tandoor env's **pinned head 0** - the membrane's level head, which his dish
+does not have, so it was inert. `hashemi_tandoor_env.py` reads it BEFORE `neutral` overwrites it
+and `HashemiPolicy.pumpOf : Fin 7 → ℝ` maps the seven levels to `0, 1/6, …, 1` of `Qmax`. From
+that one number:
+
+* the velocity in the bore, the **Reynolds number**, the friction factor (laminar `64/Re` written
+  Hagen-Poiseuille so that it is zero, not `∞·0`, at rest; Blasius above 2300), the pressure drop
+  and the **pump's electrical power** `p_pump`;
+* the **Nusselt number** (laminar 4.364, constant-flux circular duct, Incropera table 8.1; else
+  Dittus-Boelter `0.023 Re^0.8 Pr^0.4`), so `h = Nu k / D`, so the **exchanger's `UA`** and the
+  **film temperature** both move with the flow;
+* the **transit delay** `L/v` in steps - a real number, read out of the 16-step history by
+  `lerp8` between stations - instead of HashemiField's fixed two;
+* the **exchanger** as effectiveness-NTU against the pot's wall band (`effNtu`, the Cr → 0 branch:
+  over a 15 s step the firebrick's capacity rate is far above the oil's).
+
+Two capacity rates, and the difference is the whole of what a stopped pump means: `mcpF` is the
+flow, genuinely zero at rest, so nothing is delivered and nothing crosses the exchanger; `mcpC` is
+`mcpF + Ccoil/dt`, what the coil's own balance divides by, which at rest turns `coilProfile` into a
+lumped-capacity step instead of a division by nothing. The coil's inlet is the mixing cup of the
+two.
+
+The coil's convection is now the **hour's wind** (`hWind V = 5.7 + 3.8 V`, McAdams), not a constant
+15 W/m²K, and the pipe's conductance is the **cylindrical-insulation series** (conduction through
+the sleeve plus outside convection over it) rather than a flat 0.92 W/K.
+
+### The limits, and the honest findings
+
+`T_film` is the wall the oil touches: the convective superheat `q''/h` over the bulk, **capped at
+the radiative ceiling** `εσ(T⁴-Ta⁴) = q''` - because `Tbulk + q''/h` at a high flux and a low film
+coefficient runs to fifteen thousand kelvin, which is not a wall temperature, it is the
+correlation saying it is out of range. Three things follow, and none of them is comfortable:
+
+1. **The cap binds.** `film_limit_reachable` is proved in Lean: at the 2 m reflector, in full sun,
+   with no flow, the net heat into the coil *at the film limit* is still above 4 kW. Measured
+   through the Metal bridge by `lake exe trace_check`: stopped, `T_film` 1639 K against a limit of
+   648 K; at full flow 986 K.
+2. **The 12 cm coil is too small for either dish.** Even at full flow the film sits ~340 K over the
+   limit at `a = 2` and ~430 K over at `a = 0.8`. The pump reduces the excess and cuts the damage
+   by three to five orders of magnitude, but no flow this loop can command keeps a bare 12 cm coil
+   under 375 °C at these concentrations. **The receiver, not the pump, is the next thing to fix.**
+   (His own machine is a *demonstration* - he says the coil is temporary.)
+3. **The pump does not fit on his panel.** `pumpElec` is milliwatts of hydraulic work plus the
+   motor's standing draw. `PumpWithinBudget` is a compiled Prop and it FAILS: 8 W against the 5 W
+   panel of `tracking_power_tiny`. Stated, priced in the reward, not hidden.
+
+Degradation is an Arrhenius counter on the film temperature. **The datasheet gives a maximum film
+temperature, not a rate constant**: `degEa = 190 kJ/mol` is the order of magnitude of C-C scission
+in an aromatic heat transfer fluid and `degA` is normalised so the rate at the film limit is one
+unit per thousand hours. That normalisation is a stated convention, not a measurement, and the
+column is a relative damage accumulator, not a percentage of cracked fluid.
+
+### The reward pays for it
+
+`rewardStep` (HashemiReward.lean) has five columns now: `r_shape_raw`, `r_pump_raw`, `r_deg_raw`,
+`r_raw`, `r_trainer`. The two new ones are costs in the same roti currency, with their rates as
+kernel inputs: `pumpPrice = 1` prices an electrical joule exactly as the shaping prices a thermal
+one (the most favourable accounting a pump can get), and `degPrice = 5e-7` rotis' reward per
+kelvin-second over the film limit - about one roti for a day pinned 50 K over. The capture term
+stays non-negative on its own (`rewardStep_nonneg`), which is what `cut_never_pays` needs; the
+bills are paid out of `r_raw`. `test_reward_columns.py` measures R1-R4.
+
+### The policy sees it
+
+`obsOf` went from eight observations to eleven: the film margin (scaled by 300 K), the flow it is
+running, and the damage so far. A policy cannot modulate a pump whose consequences it cannot see.
+The spec's own closed loop `hashemiLoop` gained a third output for the pump (`mlpPolicy` is
+11 → 16 → 3 now, `pumpCmd` maps its `tanh` to `[0,1]`).
+
+### Measured: the pump is worth the whole machine
+
+`test_tandoor_env.py --pump off|rule|max`, day 172, Quetta, the follower pointing, 8 agents, the
+`hashemi_ccc.ini` tandoor. "rule" is bang-bang: open the pump when the film margin is under 50 K
+or the oil is 20 K above the pot's wall.
+
+| dish | pump | rotis/day | max bulk [K] | max film [K] | min margin [K] | damage | pump energy | fault steps |
+|---|---|---|---|---|---|---|---|---|
+| 0.8 m | off  | **0.0**   | 618.1 (cap) | 1147 | -499  | 5.3e3 | 0 kJ    | 1880/1921 |
+| 0.8 m | rule | **52.0**  | 476.6       | 1078 | -430  | 3.4e1 | 248 kJ  | 0/1921 |
+| 0.8 m | max  | **51.9**  | 476.5       | 1078 | -430  | 4.0e1 | 249 kJ  | 0/1921 |
+| 2.0 m | off  | **0.0**   | 618.1 (cap) | 1792 | -1143 | 9.0e6 | 0 kJ    | 1920/1921 |
+| 2.0 m | rule | **211.1** | 618.1 (cap) | 1590 | -942  | 8.3e3 | 242 kJ  | 1546/1921 |
+| 2.0 m | max  | **210.6** | 618.1 (cap) | 1599 | -951  | 1.6e4 | 243 kJ  | 1543/1921 |
+
+With the pump shut the oil pins at its cap, delivers **nothing**, and the day is zero at both
+sizes: the cap binds, exactly as the Lean says. With it open the 2 m machine makes 211 rotis
+against the **433 the old, capless loop claimed** - the honest loop costs half the day, and the
+half it costs was the half that ran the oil to 930 K. The rule and full flow score the same here
+(the follower's day is flux-limited, not flow-limited) but the rule pays a fifth of the damage at
+2 m and leaves the 0.8 m loop at zero fault steps.
+
+### A trained checkpoint under the new loop
+
+`roll_checkpoint.py experiments/178982018014/model_000180.pt --day 172 --agents 16` (the newest
+checkpoint of the newest run; its head 0 was INERT when it trained, so what it emits is drift):
+
+```
+return +25.82; rotis 0.00
+  hr  ...  pump_lvl  T_oil  T_film
+   8        2.44      566    1163
+  12        2.52      471     845
+  15        2.76      583    1142
+  THE LOOP: max bulk 618.1 K (limit 618.1), max film 1772 K (limit 648.1),
+            min margin -1124 K, damage 1.5e6, pump energy 192 kJ, mean pump level 2.6 of 6
+```
+
+It holds the pump at about **2.6 of 6** - a number it never chose - pins the oil at its cap,
+carries 1.5e6 of damage and bakes **nothing**. That is the readout that says the policy has to be
+retrained against the loop it now lives in. (No training run was launched.)
+
+### Verification
+
+* `hashemi_env_kernel.py`, `hashemi_loop_kernel.py`, `hashemi_reward_kernel.py`: **METAL == NUMPY**
+  over the env's 96 columns, the loop's 110 and the reward's 5.
+* `test_ccc.py`: 535 functions, 1605 samples, 0 disagreeing; **193** theorem checks true.
+* `HashemiCccRound.lean`: **round-trip errors 0**, 336 theorems (285 before) - every new definition
+  states and proves its own round trip, and `hashemiEnv`/`hashemiLoop` still prove modularly.
+* `lake exe trace_check`: **42 of 42** measured theorems (36 before), the six new ones the oil
+  loop's: UA monotone in the flow, the delay antitone, the pump's bill increasing and zero at rest,
+  the film never below the bulk, the columns' energy identity, and the cap binding at 2 m.
+
+
 ## The machine at any reflector size
 
 `Hashemi.lean` is one machine at one size - `dishR = 2`, `dishF = 1`, `dishHalf = 0.8` - and two

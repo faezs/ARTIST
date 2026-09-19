@@ -2,6 +2,11 @@
     .venv/bin/python roll_checkpoint.py experiments/<run>/model_000260.pt [--day 172] [--mode sampled|greedy] [--gpu 0]
 The pointing errors are the parent's encoders (|e_el|, |e_az| foreshortened, deg) and the spec's
 pointing_err (deg); the heads' mean level and entropy; the value; the pot's power; the return.
+Since 2026-09-19 it also reports THE LOOP (HashemiOil.lean): the pump level the checkpoint's head 0
+happens to emit - which, for any checkpoint trained before the loop became a loop, is whatever the
+head drifted to while it was inert - and what that costs the oil: the bulk, the film temperature,
+the margin to the fluid's limit, the damage and the pump's energy.  This is the readout that says
+whether a checkpoint has to be retrained.
 (2026-09-19: this is how the epoch-260 policy was seen riding a 1.4 deg lag and leaving at noon.)
 """
 import argparse
@@ -41,6 +46,8 @@ def main():
     pol.load_state_dict(sd); pol.eval()
     state = {"lstm_h": None, "lstm_c": None}
     hours = {}; first_cut = np.full(B, -1); ret = np.zeros(B); k = 0
+    oil = getattr(env, "machine_receiver", "oil") != "beam"
+    bulk_max = np.zeros(B); film_max = np.zeros(B); margin_min = np.full(B, 1e9); pump_J = np.zeros(B)
     alive = np.ones(B, bool)
     with torch.no_grad():
         while k < 4000:
@@ -66,24 +73,36 @@ def main():
             ret += rew
             first_cut[d & alive & (first_cut < 0)] = k
             alive &= ~d
+            if oil:
+                bulk_max = np.maximum(bulk_max, env.t_oil)
+                film_max = np.maximum(film_max, env.row[:, ECOL["T_film"]])
+                margin_min = np.minimum(margin_min, env.row[:, ECOL["film_margin"]])
+                pump_J += env.row[:, ECOL["p_pump"]] * env.dt
             hr = int(float(env.t_solar[0]))
             pe_deg = np.degrees(env.row[:, ECOL["pointing_err"]])
             with np.errstate(all="ignore"):
                 hours.setdefault(hr, []).append((
                     np.mean(np.abs(env._e_el[alive])) if alive.any() else np.nan, np.mean(np.abs(env._e_az[alive])) if alive.any() else np.nan,
                     np.mean(pe_deg[alive]) if alive.any() else np.nan, alive.mean(), a[:, HEAD_AZ].mean(), a[:, HEAD_EL].mean(),
-                    ent_az, ent_el, float(value.mean()), float(np.mean(env.p_in)), el0, float(rew.mean())))
+                    ent_az, ent_el, float(value.mean()), float(np.mean(env.p_in)), el0, float(rew.mean()),
+                    float(a[:, 0].mean()) if oil else 0.0, float(np.mean(env.t_oil)) if oil else 0.0,
+                    float(np.mean(env.row[:, ECOL["T_film"]])) if oil else 0.0))
             if float(env.t_solar[0]) < t_before - 1.0:
                 break
     cut = first_cut[(first_cut > 0) & (first_cut < k)]
     print(f"{os.path.relpath(args.ckpt)} day {args.day} {args.mode} gpu={args.gpu} B={B}: {k} steps; "
           f"{len(cut)}/{B} cut before day over (median step {np.median(cut) if len(cut) else '-'}); "
           f"return {ret.mean():+.2f}; rotis {float(np.asarray(env.ep_rotis).mean()):.2f}")
-    print("  hr  |e_el|  |e_az|  ptg_err  alive  az_lvl el_lvl  H_az  H_el   value   p_in  sun_el  rew/step")
+    print("  hr  |e_el|  |e_az|  ptg_err  alive  az_lvl el_lvl  H_az  H_el   value   p_in  sun_el  rew/step  pump_lvl  T_oil  T_film")
     for hr in sorted(hours):
         with np.errstate(all="ignore"):
             r = np.nanmean(np.array(hours[hr], dtype=float), 0)
-        print("  %2d  %5.2f   %5.2f   %5.2f   %4.2f   %4.2f  %4.2f  %4.2f  %4.2f  %6.3f  %5.0f  %5.1f  %+.4f" % ((hr,) + tuple(r)))
+        print("  %2d  %5.2f   %5.2f   %5.2f   %4.2f   %4.2f  %4.2f  %4.2f  %4.2f  %6.3f  %5.0f  %5.1f  %+.4f     %5.2f  %5.0f  %6.0f" % ((hr,) + tuple(r)))
+    if oil:
+        print(f"  THE LOOP under the honest model: max bulk {float(np.max(bulk_max)):.1f} K (limit 618.1), "
+              f"max film {float(np.max(film_max)):.0f} K (limit 648.1), min margin {float(np.min(margin_min)):+.0f} K, "
+              f"damage {float(np.mean(env.deg)):.3e}, pump energy {float(np.mean(pump_J)) / 1e3:.1f} kJ, "
+              f"mean pump level {float(np.mean([np.nanmean(np.array(v,dtype=float)[:,12]) for v in hours.values()])):.2f} of 6")
 
 
 if __name__ == "__main__":
