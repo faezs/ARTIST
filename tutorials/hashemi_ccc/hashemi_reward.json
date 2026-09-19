@@ -1,6 +1,6 @@
 {
 "kernel": "hashemi_reward", "c": "hk_rewardStep",
-"columns": ["r_shape_raw", "r_raw", "r_trainer"],
-"inputs": ["parentRaw", "dt", "pIn", "reach", "rewardDiv", "capShaping", "rotiReward", "rotiEnergy"],
-"n_columns": 3, "n_nodes": 15
+"columns": ["r_shape_raw", "r_pump_raw", "r_deg_raw", "r_raw", "r_trainer"],
+"inputs": ["parentRaw", "dt", "pIn", "reach", "rewardDiv", "capShaping", "rotiReward", "rotiEnergy", "pPump", "filmExcess", "pumpPrice", "degPrice"],
+"n_columns": 5, "n_nodes": 31
 }

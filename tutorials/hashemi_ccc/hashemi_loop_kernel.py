@@ -2,8 +2,9 @@
 
 `hashemiLoop` composes the machine's observation (`obsOf`), a policy of the spec's interface
 (`mlpPolicy`, its weights shared tables), the two drives, and the env's step (`hashemiEnv`).
-The manifest `hashemi_policy.json` is the policy description the spec fixes: the eight
-observations, the two commands, the head levels, the loop's 37 columns.
+The manifest `hashemi_policy.json` is the policy description the spec fixes: the ELEVEN
+observations (the pointing, the wire, and the loop's bulk, film margin, flow and damage), the
+THREE commands (two motors and the pump), the head levels, the loop's columns.
 
     .venv/bin/python hashemi_loop_kernel.py     # Metal == NumPy over the loop; the follower vs a random policy
 """
@@ -33,17 +34,18 @@ def loop_source():
 
 
 def weights_random(rng, scale=0.3):
-    """W1 (16,8), b1 (16,), W2 (2,16), b2 (2,): a random policy of the interface"""
-    return dict(W1=rng.normal(0, scale, (16, 8)), b1=rng.normal(0, scale, 16),
-                W2=rng.normal(0, scale, (2, 16)), b2=rng.normal(0, scale, 2))
+    """W1 (16,11), b1 (16,), W2 (3,16), b2 (3,): a random policy of the interface"""
+    return dict(W1=rng.normal(0, scale, (16, 11)), b1=rng.normal(0, scale, 16),
+                W2=rng.normal(0, scale, (3, 16)), b2=rng.normal(0, scale, 3))
 
 
 def weights_follower(gain=109.0):
     """the follower, as a policy of the interface: u_az ~ tanh(gain e_az), u_el ~ tanh(gain e_el),
     through one hidden unit each (tanh(x) ~ x near 0)"""
-    W1 = np.zeros((16, 8)); b1 = np.zeros(16); W2 = np.zeros((2, 16)); b2 = np.zeros(2)
+    W1 = np.zeros((16, 11)); b1 = np.zeros(16); W2 = np.zeros((3, 16)); b2 = np.zeros(3)
     W1[0, 0] = gain; W2[0, 0] = 1.0        # e_az -> u_az
     W1[1, 1] = gain; W2[1, 1] = 1.0        # e_el -> u_el (positive: too high -> pay out)
+    b2[2] = 3.0                            # the pump held open (tanh 3 -> pumpCmd ~ 1)
     return dict(W1=W1, b1=b1, W2=W2, b2=b2)
 
 
@@ -58,7 +60,10 @@ def pack_loop(B, state, dt, sun, soil, twall, ta, taut, holds, tdead, b2, params
     x[:, LIN["elSun"]], x[:, LIN["azSun"]], x[:, LIN["dni"]] = sun[:, 0], sun[:, 1], sun[:, 2]
     x[:, LIN["soil"]], x[:, LIN["Twall"]], x[:, LIN["Ta"]] = soil, twall, ta
     x[:, LIN["tautPrev"]], x[:, LIN["holdsPrev"]], x[:, LIN["tDead"]] = taut, holds, tdead
-    x[:, LIN["b2_0"]], x[:, LIN["b2_1"]] = b2[0], b2[1]
+    x[:, LIN["b2_0"]], x[:, LIN["b2_1"]], x[:, LIN["b2_2"]] = b2[0], b2[1], b2[2]
+    for k in ("marginPrev", "flowPrev"):
+        if k in LIN:
+            x[:, LIN[k]] = 0.0
     return x
 
 

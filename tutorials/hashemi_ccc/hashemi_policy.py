@@ -14,8 +14,8 @@ try:
 except ImportError:                       # pragma: no cover
     from gym import spaces as _spaces
 
-OBS_NAMES = ["e_az", "e_el", "swing", "taut", "holds", "oil", "reach_s", "lost_s"]
-ACTION_NAMES = ["u_az", "u_el"]
+OBS_NAMES = ["e_az", "e_el", "swing", "taut", "holds", "oil", "reach_s", "lost_s", "margin", "flow", "deg"]
+ACTION_NAMES = ["u_az", "u_el", "u_pump"]
 ACTION_LEVELS = 7
 MOTOR_HEADS = [3, 4]                      # the parent tandoor env's azimuth and elevation heads
 N_OBS, N_ACT = len(OBS_NAMES), len(ACTION_NAMES)

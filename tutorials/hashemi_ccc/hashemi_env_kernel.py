@@ -30,10 +30,31 @@ N_HIST = int([a for a in TABLES if a["name"] == "hist"][0]["P"])
 HIST_COLS = [ECOL[f"hist_{k}"] for k in range(N_HIST)]
 RET_COLS = [ECOL[f"ret_{k}"] for k in range(N_HIST)]
 
-# the loop's parameters (HashemiHeat.lean / HashemiField.lean): alpha eps Ac hC Upipe UAx, and the
-# flow's mcp = 0.02 kg/s x 2100 J/kgK (the pipe's Green's function e^{-Upipe/mcp} lives on it)
-HEAT_PARAMS = np.array([0.9, 0.8, 0.03, 15.0, 0.92, 15.0])
-MCP = 0.02 * 2100.0
+# THE LOOP'S PARAMETERS (HashemiOil.lean; every one of them is an INPUT of the compiled kernel,
+# and every one of them has a source in that file's docstrings).  The fluid is Therminol 66; the
+# hardware the video shows is a copper spiral coil and insulated copper pipe, and the bore, the
+# run, the insulation, the pump and the exchanger's area are THIS FILE'S choices, not readings of
+# his machine.  See README.md "## The oil loop, realistically" for the table and the sources.
+LOOP_PARAMS = dict(
+    alpha=0.9,        # the coil's absorptance (a blackened copper spiral)
+    eps=0.8,          # its emissivity
+    Ac=0.03,          # the coil's wetted surface, m2: 8 turns of 10 mm tube on a 12 cm spiral
+    Qmax=6.0e-5,      # the pump at full command, m3/s (0.054 kg/s of oil at 900 kg/m3)
+    Dp=0.012,         # the bore of the run, m (12 mm copper)
+    Lp=6.0,           # the run, m (down the post, along the carriage, to the pot and back)
+    Dins=0.062,       # over the insulation, m (25 mm of mineral wool on a 12 mm pipe)
+    kIns=0.045,       # mineral wool at temperature, W/mK
+    etaP=0.25,        # the pump's wire-to-water efficiency
+    Pidle=8.0,        # the pump motor's standing draw, W - ABOVE HIS 5 W PANEL (see the README)
+    Axch=0.20,        # the exchanger's area in the pot's wall band, m2
+    UAxMax=60.0,      # the wall-side ceiling on the exchanger's conductance, W/K
+    Ccoil=216.0,      # the coil's own inventory, J/K: 0.068 kg of oil + 0.19 kg of copper tube
+    degA=5.73e8,      # the Arrhenius pre-exponential, 1/s (normalised, see HashemiOil.lean)
+    degEa=190000.0,   # the activation energy, J/mol (an order of magnitude, not a datasheet)
+)
+# the reward's prices for the two new costs (HashemiReward.lean pumpCostRaw / degCostRaw)
+PUMP_PRICE = 1.0        # an electrical joule priced as the shaping prices a thermal one
+DEG_PRICE = 5.0e-7      # rotis' reward per K s over the film limit: ~1 roti for a day 50 K over
 DISH_K, SLOPE_ERR, SPEC_ERR = -1.0, 2e-3, 1e-3
 
 
@@ -49,14 +70,15 @@ def env_params():
     tp = trace_params_numpy()                     # R f a w rc
     d = dict(rDrum=mp[0], W=mp[1], rcm=mp[2], Tmax=mp[3], rho=mp[4], Fdrive=mp[5], L10=mp[6], rodLen=mp[7],
              R=tp[0], f=tp[1], a=tp[2], w=tp[3], rc=tp[4], k=DISH_K, sigmaslope=SLOPE_ERR, sigmaspec=SPEC_ERR,
-             hsun=SUN_HALF_ANGLE, alpha=HEAT_PARAMS[0], eps=HEAT_PARAMS[1], Ac=HEAT_PARAMS[2], hC=HEAT_PARAMS[3],
-             Upipe=HEAT_PARAMS[4], UAx=HEAT_PARAMS[5], mcp=MCP)
+             hsun=SUN_HALF_ANGLE, **LOOP_PARAMS)
     return d
 
 
-def pack(B, state, cmd, dt, sun, soil, twall, ta, params=None):
+def pack(B, state, cmd, dt, sun, soil, twall, ta, params=None, u_pump=1.0, wind=0.0, deg=0.0):
     """the (B, n_in) input rows: state (B,3) az t slack; cmd (B,2) omega_m omega_d; sun (B,3) el az dni;
-    the oil's state is not here - it is the two histories along the pipe (tables)"""
+    `u_pump` is the pump's command in [0,1] (the parent's head 0 through `pumpOf`), `wind` the hour's
+    wind in m/s and `deg` the damage carried from the last step.  The oil's temperatures are not here -
+    they are the two histories along the pipe (tables)."""
     prm = env_params() if params is None else params
     x = np.zeros((B, N_IN))
     for k, v in prm.items():
@@ -66,6 +88,7 @@ def pack(B, state, cmd, dt, sun, soil, twall, ta, params=None):
     x[:, EIN["dt"]] = dt
     x[:, EIN["elSun"]], x[:, EIN["azSun"]], x[:, EIN["dni"]] = sun[:, 0], sun[:, 1], sun[:, 2]
     x[:, EIN["soil"]], x[:, EIN["Twall"]], x[:, EIN["Ta"]] = soil, twall, ta
+    x[:, EIN["uPump"]], x[:, EIN["Vw"]], x[:, EIN["degPrev"]] = u_pump, wind, deg
     return x
 
 
@@ -116,7 +139,8 @@ if __name__ == "__main__":
     # the sun within 15 deg of where the dish faces (the tracker's range), the rest of the sky is a right angle for float32
     el = np.pi / 2 - state[:, 1] + rng.uniform(-0.26, 0.26, B)
     sun = np.stack([np.clip(el, 0.05, 1.5), state[:, 0] + rng.uniform(-0.26, 0.26, B), rng.uniform(300, 1000, B)], 1)
-    x = pack(B, state, cmd, 15.0, sun, rng.uniform(0.8, 1.0, B), rng.uniform(300, 500, B), 300.0)
+    x = pack(B, state, cmd, 15.0, sun, rng.uniform(0.8, 1.0, B), rng.uniform(300, 500, B), 300.0,
+             u_pump=rng.integers(0, 7, B) / 6.0, wind=rng.uniform(0.0, 8.0, B), deg=rng.random(B) * 0.1)
     dr = draws(rng, B)
     hist = rng.uniform(300, 550, (B, N_HIST)); ret = rng.uniform(300, 500, (B, N_HIST))
     ref = env_numpy(x, hist, ret, dr)
@@ -134,7 +158,7 @@ if __name__ == "__main__":
     for j, name in enumerate(ENV["columns"]):
         a, b = out[:, j], ref[:, j]
         fin = np.isfinite(a) & np.isfinite(b)
-        if name in ("stalled", "taut", "wire_holds", "sun_reachable", "lost_sun", "obs_taut", "obs_holds"):
+        if name in ("stalled", "taut", "wire_holds", "sun_reachable", "lost_sun", "obs_taut", "obs_holds", "fault"):
             flips = float(np.mean(a[fin] != b[fin]))
             worst.append((name, flips, "flips"))
             if flips > 0.01:
@@ -144,7 +168,8 @@ if __name__ == "__main__":
                 a = np.where(fin, ((a - b + np.pi) % (2 * np.pi)) - np.pi + b, a)   # a wrapped angle: modulo 2 pi
             scale = np.maximum(1.0, np.abs(b[fin]))
             tol = 1e-2 if (name in ("capture", "capture_s", "per_dni", "p_in", "q_abs", "q_pot", "q_net", "q_coil_loss", "q_pipe", "T_oil", "obs_oil")
-                           or name.startswith(("flux_", "coil_"))) else 1e-3
+                           or name in ("T_film", "film_margin", "mcp", "UA_x", "delay", "p_pump", "expansion", "obs_margin", "deg", "obs_deg")
+                           or name.startswith(("flux_", "coil_", "hist_", "ret_"))) else 1e-3
             err = float(np.max(np.abs(a[fin] - b[fin]) / scale)) if fin.any() else 0.0
             worst.append((name, err, "rel"))
             if err > tol:
@@ -153,6 +178,10 @@ if __name__ == "__main__":
         print(f"  {name:<16} {kind} {e:.2e}")
     print(f"  capture mean {out[:, ECOL['capture']].mean():.3f}, p_in mean {out[:, ECOL['p_in']].mean():.0f} W, q_pot mean {out[:, ECOL['q_pot']].mean():.0f} W, T_out mean {out[:, ECOL['T_oil']].mean():.1f} K")
     fl = out[:, [ECOL[f'flux_{j}'] for j in range(8)]].mean(0); print("  flux bins (W, mean): " + " ".join(f"{v:.0f}" for v in fl) + f"  sum {fl.sum():.0f} vs p_in x alpha? p_in {out[:, ECOL['p_in']].mean():.0f}")
+    print(f"  flow mean {out[:, ECOL['flow']].mean():.2e} m3/s, T_film mean {out[:, ECOL['T_film']].mean():.0f} K, "
+          f"margin mean {out[:, ECOL['film_margin']].mean():+.0f} K, p_pump mean {out[:, ECOL['p_pump']].mean():.2f} W, "
+          f"mcp mean {out[:, ECOL['mcp']].mean():.1f} W/K, UA_x mean {out[:, ECOL['UA_x']].mean():.1f} W/K, "
+          f"delay mean {out[:, ECOL['delay']].mean():.2f} steps")
     print("  hist head == T_out:", bool(np.allclose(out[:, ECOL['hist_0']], out[:, ECOL['T_oil']])))
     print("METAL == NUMPY over the env's step" if bad == 0 else f"MISMATCH in {bad} columns")
     sys.exit(0 if bad == 0 else 1)

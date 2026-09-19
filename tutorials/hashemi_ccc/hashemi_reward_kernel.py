@@ -2,8 +2,10 @@
 
 `rewardStep` is the whole of the reward the trainer sees: the parent env's raw reward for the
 step, plus the shaping (the light at the receiver, `p_in`, in roti units, gated by
-`sun_reachable`), divided once by `reward_div`.  Its constants are INPUTS - the ini's values are
-handed to the kernel - and its three columns are `r_shape_raw`, `r_raw`, `r_trainer`.
+`sun_reachable`), LESS the pump's electrical energy and the over-limit bill (HashemiOil.lean's `pumpElec` and the
+film margin), both in the same roti currency, divided once by `reward_div`.  Its constants are
+INPUTS - the ini's values are handed to the kernel - and its five columns are `r_shape_raw`,
+`r_pump_raw`, `r_deg_raw`, `r_raw`, `r_trainer`.
 
 It cannot be a column of `hashemi_env`: the parent's own reward is computed AFTER the machine's
 step, so this is a second, tiny launch (one thread per agent) on the fused path, and the NumPy
@@ -33,8 +35,9 @@ def reward_source():
         return MSL_PRELUDE + header_text() + f.read()
 
 
-def pack_reward(parent_raw, dt, p_in, reach, reward_div, cap_shaping, roti_reward, roti_energy):
-    """the (B, 8) input rows, in the kernel's own input order"""
+def pack_reward(parent_raw, dt, p_in, reach, reward_div, cap_shaping, roti_reward, roti_energy,
+                p_pump=0.0, film_excess=0.0, pump_price=0.0, deg_price=0.0):
+    """the (B, n_in) input rows, in the kernel's own input order"""
     parent_raw = np.asarray(parent_raw, dtype=np.float64)
     B = parent_raw.shape[0]
     x = np.zeros((B, N_IN))
@@ -46,11 +49,15 @@ def pack_reward(parent_raw, dt, p_in, reach, reward_div, cap_shaping, roti_rewar
     x[:, RIN["capShaping"]] = cap_shaping
     x[:, RIN["rotiReward"]] = roti_reward
     x[:, RIN["rotiEnergy"]] = roti_energy
+    x[:, RIN["pPump"]] = np.asarray(p_pump, dtype=np.float64)
+    x[:, RIN["filmExcess"]] = np.asarray(film_excess, dtype=np.float64)
+    x[:, RIN["pumpPrice"]] = pump_price
+    x[:, RIN["degPrice"]] = deg_price
     return x
 
 
 def reward_numpy(x):
-    """the NumPy twin of the same graph: x (B, 8) -> (B, 3)"""
+    """the NumPy twin of the same graph: x (B, n_in) -> (B, 5)"""
     import hashemi_ccc as H
     with np.errstate(all="ignore"):
         return np.asarray(H.hk_rewardStep(*[x[:, k] for k in range(N_IN)]),
@@ -67,7 +74,7 @@ class HashemiRewardMetal:
         self._buf = {}
 
     def step(self, x):
-        """x (B, 8) float32 mps -> out (B, 3) float32 mps"""
+        """x (B, n_in) float32 mps -> out (B, 5) float32 mps"""
         torch = self.torch
         B = x.shape[0]
         bufs = self._buf.get(B)
@@ -84,8 +91,11 @@ if __name__ == "__main__":
     import torch
     rng = np.random.default_rng(7)
     B = 4096
+    from hashemi_env_kernel import PUMP_PRICE, DEG_PRICE
     x = pack_reward(rng.uniform(-80, 80, B), 15.0, rng.uniform(0, 6000, B),
-                    (rng.random(B) < 0.8).astype(np.float64), 75.0, 0.2, 5.0, 130000.0)
+                    (rng.random(B) < 0.8).astype(np.float64), 75.0, 0.2, 5.0, 130000.0,
+                    p_pump=rng.uniform(0, 12, B), film_excess=rng.uniform(-50, 150, B),
+                    pump_price=PUMP_PRICE, deg_price=DEG_PRICE)
     ref = reward_numpy(x)
     out = HashemiRewardMetal().step(torch.as_tensor(x.astype(np.float32), device="mps")).cpu().numpy().astype(np.float64)
     bad = 0
@@ -96,8 +106,10 @@ if __name__ == "__main__":
         if err > 1e-5:
             bad += 1
     # the naturality square, on the kernel's own output (R2)
-    r2 = float(np.max(np.abs(out[:, RCOL["r_trainer"]] * 75.0 - x[:, RIN["parentRaw"]] - out[:, RCOL["r_shape_raw"]])))
-    print(f"  R2 units (kernel)   max |r_trainer*div - parentRaw - r_shape_raw| = {r2:.2e}")
+    r2 = float(np.max(np.abs(out[:, RCOL["r_trainer"]] * 75.0 - x[:, RIN["parentRaw"]]
+                             - out[:, RCOL["r_shape_raw"]] + out[:, RCOL["r_pump_raw"]] + out[:, RCOL["r_deg_raw"]])))
+    print(f"  R2 units (kernel)   max |r_trainer*div - parentRaw - (r_shape - r_pump - r_deg)| = {r2:.2e}")
+    print(f"  costs: r_pump mean {out[:, RCOL['r_pump_raw']].mean():.4f}, r_deg mean {out[:, RCOL['r_deg_raw']].mean():.4f} (raw units/step)")
     print(f"  R3 min r_shape_raw  {out[:, RCOL['r_shape_raw']].min():.3e}")
     print("METAL == NUMPY over the reward" if bad == 0 else f"MISMATCH in {bad} columns")
     sys.exit(0 if bad == 0 else 1)

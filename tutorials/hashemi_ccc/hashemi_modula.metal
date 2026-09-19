@@ -126,6 +126,20 @@ kernel void mk_captureS_box(device const float* lo [[buffer(0)]], device const f
   hk_captureS_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
+kernel void mk_celsius_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_celsius_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_celsius_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_celsius_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_clearance_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[7], tdx[7], ty[1], tdy[1];
@@ -252,6 +266,34 @@ kernel void mk_cross3_box(device const float* lo [[buffer(0)]], device const flo
   hk_cross3_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 3; ++k) { olo[i*3+k] = rlo[k]; ohi[i*3+k] = rhi[k]; oL[i*3+k] = rL[k]; }
 }
+kernel void mk_dPipe_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_dPipe_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_dPipe_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_dPipe_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_darcyF_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_darcyF_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_darcyF_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_darcyF_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_deadPoint_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[4], tdx[4], ty[1], tdy[1];
@@ -264,6 +306,76 @@ kernel void mk_deadPoint_box(device const float* lo [[buffer(0)]], device const 
   float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
   for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
   hk_deadPoint_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_degCostRaw_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_degCostRaw_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_degCostRaw_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_degCostRaw_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_degradRate_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_degradRate_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_degradRate_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_degradRate_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_degradStep_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_degradStep_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_degradStep_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_degradStep_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_degraded_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_degraded_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_degraded_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_degraded_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_delayOf_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_delayOf_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_delayOf_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_delayOf_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_delivered_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
@@ -336,6 +448,34 @@ kernel void mk_dot3_box(device const float* lo [[buffer(0)]], device const float
   hk_dot3_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
+kernel void mk_dpLam_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_dpLam_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_dpLam_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_dpLam_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_dpTurb_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_dpTurb_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_dpTurb_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_dpTurb_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_driveAz_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[3], tdx[3], ty[1], tdy[1];
@@ -392,6 +532,34 @@ kernel void mk_edgeDepth_box(device const float* lo [[buffer(0)]], device const 
   hk_edgeDepth_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
+kernel void mk_effCounter_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_effCounter_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_effCounter_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_effCounter_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_effNtu_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_effNtu_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_effNtu_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_effNtu_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_elPower_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[4], tdx[4], ty[1], tdy[1];
@@ -420,6 +588,20 @@ kernel void mk_elRate_box(device const float* lo [[buffer(0)]], device const flo
   hk_elRate_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
+kernel void mk_expansionFrac_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_expansionFrac_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_expansionFrac_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_expansionFrac_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_facetSpot_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[2], tdx[2], ty[1], tdy[1];
@@ -434,6 +616,20 @@ kernel void mk_facetSpot_box(device const float* lo [[buffer(0)]], device const 
   hk_facetSpot_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
+kernel void mk_filmTemp_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_filmTemp_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_filmTemp_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_filmTemp_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_focusShift_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[2], tdx[2], ty[1], tdy[1];
@@ -446,6 +642,62 @@ kernel void mk_focusShift_box(device const float* lo [[buffer(0)]], device const
   float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
   for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
   hk_focusShift_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_frictionBlasius_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_frictionBlasius_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_frictionBlasius_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_frictionBlasius_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_frictionLam_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_frictionLam_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_frictionLam_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_frictionLam_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_hCoil_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_hCoil_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_hCoil_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_hCoil_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_hWind_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_hWind_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_hWind_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_hWind_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_hangerLength_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
@@ -464,17 +716,17 @@ kernel void mk_hangerLength_box(device const float* lo [[buffer(0)]], device con
 }
 kernel void mk_hashemiEnv_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device const float* hist_all [[buffer(2)]], device const float* ret_all [[buffer(3)]], device const float* dr_all [[buffer(4)]], device float* y [[buffer(5)]], device float* dy [[buffer(6)]], device const int* n [[buffer(7)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tx[36], tdx[36], ty[83], tdy[83];
-  for (int k = 0; k < 36; ++k) { tx[k] = x[i*36+k]; tdx[k] = dx[i*36+k]; }
-  hk_hashemiEnv_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tx[13], tx[14], tx[15], tx[16], tx[17], tx[18], tx[19], tx[20], tx[21], tx[22], tx[23], tx[24], tx[25], tx[26], tx[27], tx[28], tx[29], tx[30], tx[31], tx[32], tx[33], tx[34], tx[35], hist_all + i * 16, ret_all + i * 16, dr_all + i * 640, tdx, ty, tdy);
-  for (int k = 0; k < 83; ++k) { y[i*83+k] = ty[k]; dy[i*83+k] = tdy[k]; }
+  float tx[47], tdx[47], ty[96], tdy[96];
+  for (int k = 0; k < 47; ++k) { tx[k] = x[i*47+k]; tdx[k] = dx[i*47+k]; }
+  hk_hashemiEnv_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tx[13], tx[14], tx[15], tx[16], tx[17], tx[18], tx[19], tx[20], tx[21], tx[22], tx[23], tx[24], tx[25], tx[26], tx[27], tx[28], tx[29], tx[30], tx[31], tx[32], tx[33], tx[34], tx[35], tx[36], tx[37], tx[38], tx[39], tx[40], tx[41], tx[42], tx[43], tx[44], tx[45], tx[46], hist_all + i * 16, ret_all + i * 16, dr_all + i * 640, tdx, ty, tdy);
+  for (int k = 0; k < 96; ++k) { y[i*96+k] = ty[k]; dy[i*96+k] = tdy[k]; }
 }
 kernel void mk_hashemiEnv_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device const float* hist_all [[buffer(3)]], device const float* ret_all [[buffer(4)]], device const float* dr_all [[buffer(5)]], device float* olo [[buffer(6)]], device float* ohi [[buffer(7)]], device float* oL [[buffer(8)]], device const int* n [[buffer(9)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tlo[36], thi[36], tsc[36], rlo[83], rhi[83], rL[83];
-  for (int k = 0; k < 36; ++k) { tlo[k] = lo[i*36+k]; thi[k] = hi[i*36+k]; tsc[k] = sc[i*36+k]; }
+  float tlo[47], thi[47], tsc[47], rlo[96], rhi[96], rL[96];
+  for (int k = 0; k < 47; ++k) { tlo[k] = lo[i*47+k]; thi[k] = hi[i*47+k]; tsc[k] = sc[i*47+k]; }
   hk_hashemiEnv_box(hist_all + i * 16, ret_all + i * 16, dr_all + i * 640, tlo, thi, tsc, rlo, rhi, rL);
-  for (int k = 0; k < 83; ++k) { olo[i*83+k] = rlo[k]; ohi[i*83+k] = rhi[k]; oL[i*83+k] = rL[k]; }
+  for (int k = 0; k < 96; ++k) { olo[i*96+k] = rlo[k]; ohi[i*96+k] = rhi[k]; oL[i*96+k] = rL[k]; }
 }
 kernel void mk_hashemiEnvBeam_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device const float* dr_all [[buffer(2)]], device float* y [[buffer(3)]], device float* dy [[buffer(4)]], device const int* n [[buffer(5)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -492,17 +744,17 @@ kernel void mk_hashemiEnvBeam_box(device const float* lo [[buffer(0)]], device c
 }
 kernel void mk_hashemiLoop_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device const float* W1_all [[buffer(2)]], device const float* b1_all [[buffer(3)]], device const float* W2_all [[buffer(4)]], device const float* hist_all [[buffer(5)]], device const float* ret_all [[buffer(6)]], device const float* dr_all [[buffer(7)]], device float* y [[buffer(8)]], device float* dy [[buffer(9)]], device const int* n [[buffer(10)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tx[39], tdx[39], ty[93], tdy[93];
-  for (int k = 0; k < 39; ++k) { tx[k] = x[i*39+k]; tdx[k] = dx[i*39+k]; }
-  hk_hashemiLoop_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tx[13], tx[14], tx[15], tx[16], tx[17], tx[18], tx[19], tx[20], tx[21], tx[22], tx[23], tx[24], tx[25], tx[26], tx[27], tx[28], tx[29], tx[30], tx[31], tx[32], tx[33], tx[34], tx[35], tx[36], tx[37], tx[38], W1_all + i * 128, b1_all + i * 16, W2_all + i * 32, hist_all + i * 16, ret_all + i * 16, dr_all + i * 640, tdx, ty, tdy);
-  for (int k = 0; k < 93; ++k) { y[i*93+k] = ty[k]; dy[i*93+k] = tdy[k]; }
+  float tx[52], tdx[52], ty[110], tdy[110];
+  for (int k = 0; k < 52; ++k) { tx[k] = x[i*52+k]; tdx[k] = dx[i*52+k]; }
+  hk_hashemiLoop_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tx[13], tx[14], tx[15], tx[16], tx[17], tx[18], tx[19], tx[20], tx[21], tx[22], tx[23], tx[24], tx[25], tx[26], tx[27], tx[28], tx[29], tx[30], tx[31], tx[32], tx[33], tx[34], tx[35], tx[36], tx[37], tx[38], tx[39], tx[40], tx[41], tx[42], tx[43], tx[44], tx[45], tx[46], tx[47], tx[48], tx[49], tx[50], tx[51], W1_all + i * 176, b1_all + i * 16, W2_all + i * 48, hist_all + i * 16, ret_all + i * 16, dr_all + i * 640, tdx, ty, tdy);
+  for (int k = 0; k < 110; ++k) { y[i*110+k] = ty[k]; dy[i*110+k] = tdy[k]; }
 }
 kernel void mk_hashemiLoop_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device const float* W1_all [[buffer(3)]], device const float* b1_all [[buffer(4)]], device const float* W2_all [[buffer(5)]], device const float* hist_all [[buffer(6)]], device const float* ret_all [[buffer(7)]], device const float* dr_all [[buffer(8)]], device float* olo [[buffer(9)]], device float* ohi [[buffer(10)]], device float* oL [[buffer(11)]], device const int* n [[buffer(12)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tlo[39], thi[39], tsc[39], rlo[93], rhi[93], rL[93];
-  for (int k = 0; k < 39; ++k) { tlo[k] = lo[i*39+k]; thi[k] = hi[i*39+k]; tsc[k] = sc[i*39+k]; }
-  hk_hashemiLoop_box(W1_all + i * 128, b1_all + i * 16, W2_all + i * 32, hist_all + i * 16, ret_all + i * 16, dr_all + i * 640, tlo, thi, tsc, rlo, rhi, rL);
-  for (int k = 0; k < 93; ++k) { olo[i*93+k] = rlo[k]; ohi[i*93+k] = rhi[k]; oL[i*93+k] = rL[k]; }
+  float tlo[52], thi[52], tsc[52], rlo[110], rhi[110], rL[110];
+  for (int k = 0; k < 52; ++k) { tlo[k] = lo[i*52+k]; thi[k] = hi[i*52+k]; tsc[k] = sc[i*52+k]; }
+  hk_hashemiLoop_box(W1_all + i * 176, b1_all + i * 16, W2_all + i * 48, hist_all + i * 16, ret_all + i * 16, dr_all + i * 640, tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 110; ++k) { olo[i*110+k] = rlo[k]; ohi[i*110+k] = rhi[k]; oL[i*110+k] = rL[k]; }
 }
 kernel void mk_headToCmd_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -616,6 +868,20 @@ kernel void mk_landAt_box(device const float* lo [[buffer(0)]], device const flo
   hk_landAt_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 2; ++k) { olo[i*2+k] = rlo[k]; ohi[i*2+k] = rhi[k]; oL[i*2+k] = rL[k]; }
 }
+kernel void mk_lerp8_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[9], tdx[9], ty[1], tdy[1];
+  for (int k = 0; k < 9; ++k) { tx[k] = x[i*9+k]; tdx[k] = dx[i*9+k]; }
+  hk_lerp8_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_lerp8_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[9], thi[9], tsc[9], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 9; ++k) { tlo[k] = lo[i*9+k]; thi[k] = hi[i*9+k]; tsc[k] = sc[i*9+k]; }
+  hk_lerp8_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_leverAt_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[5], tdx[5], ty[1], tdy[1];
@@ -628,6 +894,34 @@ kernel void mk_leverAt_box(device const float* lo [[buffer(0)]], device const fl
   float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
   for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
   hk_leverAt_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_loopCap_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_loopCap_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_loopCap_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_loopCap_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_loopStep_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[7], tdx[7], ty[1], tdy[1];
+  for (int k = 0; k < 7; ++k) { tx[k] = x[i*7+k]; tdx[k] = dx[i*7+k]; }
+  hk_loopStep_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_loopStep_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[7], thi[7], tsc[7], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 7; ++k) { tlo[k] = lo[i*7+k]; thi[k] = hi[i*7+k]; tsc[k] = sc[i*7+k]; }
+  hk_loopStep_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_lostSunS_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
@@ -744,31 +1038,129 @@ kernel void mk_megaThmsState_box(device const float* lo [[buffer(0)]], device co
 }
 kernel void mk_mlpPolicy_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device const float* W1_all [[buffer(2)]], device const float* b1_all [[buffer(3)]], device const float* W2_all [[buffer(4)]], device float* y [[buffer(5)]], device float* dy [[buffer(6)]], device const int* n [[buffer(7)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tx[10], tdx[10], ty[2], tdy[2];
-  for (int k = 0; k < 10; ++k) { tx[k] = x[i*10+k]; tdx[k] = dx[i*10+k]; }
-  hk_mlpPolicy_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], W1_all + i * 128, b1_all + i * 16, W2_all + i * 32, tdx, ty, tdy);
-  for (int k = 0; k < 2; ++k) { y[i*2+k] = ty[k]; dy[i*2+k] = tdy[k]; }
+  float tx[14], tdx[14], ty[3], tdy[3];
+  for (int k = 0; k < 14; ++k) { tx[k] = x[i*14+k]; tdx[k] = dx[i*14+k]; }
+  hk_mlpPolicy_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tx[12], tx[13], W1_all + i * 176, b1_all + i * 16, W2_all + i * 48, tdx, ty, tdy);
+  for (int k = 0; k < 3; ++k) { y[i*3+k] = ty[k]; dy[i*3+k] = tdy[k]; }
 }
 kernel void mk_mlpPolicy_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device const float* W1_all [[buffer(3)]], device const float* b1_all [[buffer(4)]], device const float* W2_all [[buffer(5)]], device float* olo [[buffer(6)]], device float* ohi [[buffer(7)]], device float* oL [[buffer(8)]], device const int* n [[buffer(9)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tlo[10], thi[10], tsc[10], rlo[2], rhi[2], rL[2];
-  for (int k = 0; k < 10; ++k) { tlo[k] = lo[i*10+k]; thi[k] = hi[i*10+k]; tsc[k] = sc[i*10+k]; }
-  hk_mlpPolicy_box(W1_all + i * 128, b1_all + i * 16, W2_all + i * 32, tlo, thi, tsc, rlo, rhi, rL);
-  for (int k = 0; k < 2; ++k) { olo[i*2+k] = rlo[k]; ohi[i*2+k] = rhi[k]; oL[i*2+k] = rL[k]; }
+  float tlo[14], thi[14], tsc[14], rlo[3], rhi[3], rL[3];
+  for (int k = 0; k < 14; ++k) { tlo[k] = lo[i*14+k]; thi[k] = hi[i*14+k]; tsc[k] = sc[i*14+k]; }
+  hk_mlpPolicy_box(W1_all + i * 176, b1_all + i * 16, W2_all + i * 48, tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 3; ++k) { olo[i*3+k] = rlo[k]; ohi[i*3+k] = rhi[k]; oL[i*3+k] = rL[k]; }
+}
+kernel void mk_ntuOf_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_ntuOf_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_ntuOf_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_ntuOf_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_nusseltOf_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_nusseltOf_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_nusseltOf_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_nusseltOf_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_nusseltTurb_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_nusseltTurb_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_nusseltTurb_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_nusseltTurb_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_obsOf_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tx[8], tdx[8], ty[8], tdy[8];
-  for (int k = 0; k < 8; ++k) { tx[k] = x[i*8+k]; tdx[k] = dx[i*8+k]; }
-  hk_obsOf_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tdx, ty, tdy);
-  for (int k = 0; k < 8; ++k) { y[i*8+k] = ty[k]; dy[i*8+k] = tdy[k]; }
+  float tx[11], tdx[11], ty[11], tdy[11];
+  for (int k = 0; k < 11; ++k) { tx[k] = x[i*11+k]; tdx[k] = dx[i*11+k]; }
+  hk_obsOf_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tdx, ty, tdy);
+  for (int k = 0; k < 11; ++k) { y[i*11+k] = ty[k]; dy[i*11+k] = tdy[k]; }
 }
 kernel void mk_obsOf_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tlo[8], thi[8], tsc[8], rlo[8], rhi[8], rL[8];
-  for (int k = 0; k < 8; ++k) { tlo[k] = lo[i*8+k]; thi[k] = hi[i*8+k]; tsc[k] = sc[i*8+k]; }
+  float tlo[11], thi[11], tsc[11], rlo[11], rhi[11], rL[11];
+  for (int k = 0; k < 11; ++k) { tlo[k] = lo[i*11+k]; thi[k] = hi[i*11+k]; tsc[k] = sc[i*11+k]; }
   hk_obsOf_box(tlo, thi, tsc, rlo, rhi, rL);
-  for (int k = 0; k < 8; ++k) { olo[i*8+k] = rlo[k]; ohi[i*8+k] = rhi[k]; oL[i*8+k] = rL[k]; }
+  for (int k = 0; k < 11; ++k) { olo[i*11+k] = rlo[k]; ohi[i*11+k] = rhi[k]; oL[i*11+k] = rL[k]; }
+}
+kernel void mk_oilCp_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_oilCp_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_oilCp_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_oilCp_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_oilK_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_oilK_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_oilK_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_oilK_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_oilMu_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_oilMu_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_oilMu_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_oilMu_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_oilRho_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_oilRho_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_oilRho_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_oilRho_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_oilStep_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -782,6 +1174,20 @@ kernel void mk_oilStep_box(device const float* lo [[buffer(0)]], device const fl
   float tlo[13], thi[13], tsc[13], rlo[1], rhi[1], rL[1];
   for (int k = 0; k < 13; ++k) { tlo[k] = lo[i*13+k]; thi[k] = hi[i*13+k]; tsc[k] = sc[i*13+k]; }
   hk_oilStep_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_pipeArea_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_pipeArea_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_pipeArea_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_pipeArea_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_pipeGreen_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
@@ -840,6 +1246,20 @@ kernel void mk_postTop_box(device const float* lo [[buffer(0)]], device const fl
   hk_postTop_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 3; ++k) { olo[i*3+k] = rlo[k]; ohi[i*3+k] = rhi[k]; oL[i*3+k] = rL[k]; }
 }
+kernel void mk_prandtl_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_prandtl_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_prandtl_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_prandtl_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_pulleyAt_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[2], tdx[2], ty[2], tdy[2];
@@ -853,6 +1273,62 @@ kernel void mk_pulleyAt_box(device const float* lo [[buffer(0)]], device const f
   for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
   hk_pulleyAt_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 2; ++k) { olo[i*2+k] = rlo[k]; ohi[i*2+k] = rhi[k]; oL[i*2+k] = rL[k]; }
+}
+kernel void mk_pumpCmd_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[1], tdx[1], ty[1], tdy[1];
+  for (int k = 0; k < 1; ++k) { tx[k] = x[i*1+k]; tdx[k] = dx[i*1+k]; }
+  hk_pumpCmd_jvp(tx[0], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_pumpCmd_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[1], thi[1], tsc[1], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 1; ++k) { tlo[k] = lo[i*1+k]; thi[k] = hi[i*1+k]; tsc[k] = sc[i*1+k]; }
+  hk_pumpCmd_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_pumpCostRaw_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_pumpCostRaw_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_pumpCostRaw_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_pumpCostRaw_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_pumpElec_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[6], tdx[6], ty[1], tdy[1];
+  for (int k = 0; k < 6; ++k) { tx[k] = x[i*6+k]; tdx[k] = dx[i*6+k]; }
+  hk_pumpElec_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_pumpElec_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[6], thi[6], tsc[6], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 6; ++k) { tlo[k] = lo[i*6+k]; thi[k] = hi[i*6+k]; tsc[k] = sc[i*6+k]; }
+  hk_pumpElec_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_pumpHyd_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[4], tdx[4], ty[1], tdy[1];
+  for (int k = 0; k < 4; ++k) { tx[k] = x[i*4+k]; tdx[k] = dx[i*4+k]; }
+  hk_pumpHyd_jvp(tx[0], tx[1], tx[2], tx[3], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_pumpHyd_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[4], thi[4], tsc[4], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 4; ++k) { tlo[k] = lo[i*4+k]; thi[k] = hi[i*4+k]; tsc[k] = sc[i*4+k]; }
+  hk_pumpHyd_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_qAbs_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -880,6 +1356,20 @@ kernel void mk_qCoilLoss_box(device const float* lo [[buffer(0)]], device const 
   float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
   for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
   hk_qCoilLoss_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_qCoilLossW_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_qCoilLossW_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_qCoilLossW_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_qCoilLossW_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_qNet_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
@@ -922,6 +1412,20 @@ kernel void mk_qPot_box(device const float* lo [[buffer(0)]], device const float
   float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
   for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
   hk_qPot_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_radCeil_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_radCeil_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_radCeil_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_radCeil_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_recip_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
@@ -968,17 +1472,31 @@ kernel void mk_rewardShapeRaw_box(device const float* lo [[buffer(0)]], device c
 }
 kernel void mk_rewardStep_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tx[8], tdx[8], ty[3], tdy[3];
-  for (int k = 0; k < 8; ++k) { tx[k] = x[i*8+k]; tdx[k] = dx[i*8+k]; }
-  hk_rewardStep_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tdx, ty, tdy);
-  for (int k = 0; k < 3; ++k) { y[i*3+k] = ty[k]; dy[i*3+k] = tdy[k]; }
+  float tx[12], tdx[12], ty[5], tdy[5];
+  for (int k = 0; k < 12; ++k) { tx[k] = x[i*12+k]; tdx[k] = dx[i*12+k]; }
+  hk_rewardStep_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tx[5], tx[6], tx[7], tx[8], tx[9], tx[10], tx[11], tdx, ty, tdy);
+  for (int k = 0; k < 5; ++k) { y[i*5+k] = ty[k]; dy[i*5+k] = tdy[k]; }
 }
 kernel void mk_rewardStep_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
-  float tlo[8], thi[8], tsc[8], rlo[3], rhi[3], rL[3];
-  for (int k = 0; k < 8; ++k) { tlo[k] = lo[i*8+k]; thi[k] = hi[i*8+k]; tsc[k] = sc[i*8+k]; }
+  float tlo[12], thi[12], tsc[12], rlo[5], rhi[5], rL[5];
+  for (int k = 0; k < 12; ++k) { tlo[k] = lo[i*12+k]; thi[k] = hi[i*12+k]; tsc[k] = sc[i*12+k]; }
   hk_rewardStep_box(tlo, thi, tsc, rlo, rhi, rL);
-  for (int k = 0; k < 3; ++k) { olo[i*3+k] = rlo[k]; ohi[i*3+k] = rhi[k]; oL[i*3+k] = rL[k]; }
+  for (int k = 0; k < 5; ++k) { olo[i*5+k] = rlo[k]; ohi[i*5+k] = rhi[k]; oL[i*5+k] = rL[k]; }
+}
+kernel void mk_reynolds_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_reynolds_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_reynolds_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_reynolds_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_rollY_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -1540,6 +2058,20 @@ kernel void mk_traceSphere_box(device const float* lo [[buffer(0)]], device cons
   hk_traceSphere_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 5; ++k) { olo[i*5+k] = rlo[k]; ohi[i*5+k] = rhi[k]; oL[i*5+k] = rL[k]; }
 }
+kernel void mk_transitTime_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_transitTime_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_transitTime_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_transitTime_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_turnLoss_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[5], tdx[5], ty[1], tdy[1];
@@ -1568,6 +2100,34 @@ kernel void mk_turnOut_box(device const float* lo [[buffer(0)]], device const fl
   hk_turnOut_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
+kernel void mk_uPipeCyl_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_uPipeCyl_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_uPipeCyl_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_uPipeCyl_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_uaOf_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_uaOf_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_uaOf_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_uaOf_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_unit3_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[3], tdx[3], ty[3], tdy[3];
@@ -1581,6 +2141,20 @@ kernel void mk_unit3_box(device const float* lo [[buffer(0)]], device const floa
   for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
   hk_unit3_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 3; ++k) { olo[i*3+k] = rlo[k]; ohi[i*3+k] = rhi[k]; oL[i*3+k] = rL[k]; }
+}
+kernel void mk_velOf_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_velOf_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_velOf_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_velOf_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_wBearX_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -1693,6 +2267,20 @@ kernel void mk_wStop_box(device const float* lo [[buffer(0)]], device const floa
   for (int k = 0; k < 6; ++k) { tlo[k] = lo[i*6+k]; thi[k] = hi[i*6+k]; tsc[k] = sc[i*6+k]; }
   hk_wStop_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 6; ++k) { olo[i*6+k] = rlo[k]; ohi[i*6+k] = rhi[k]; oL[i*6+k] = rL[k]; }
+}
+kernel void mk_wallTemp_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[5], tdx[5], ty[1], tdy[1];
+  for (int k = 0; k < 5; ++k) { tx[k] = x[i*5+k]; tdx[k] = dx[i*5+k]; }
+  hk_wallTemp_jvp(tx[0], tx[1], tx[2], tx[3], tx[4], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_wallTemp_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[5], thi[5], tsc[5], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 5; ++k) { tlo[k] = lo[i*5+k]; thi[k] = hi[i*5+k]; tsc[k] = sc[i*5+k]; }
+  hk_wallTemp_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_wireLen_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
@@ -1848,6 +2436,20 @@ kernel void mk_MastClears_box(device const float* lo [[buffer(0)]], device const
   hk_MastClears_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
+kernel void mk_PumpWithinBudget_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[2], tdx[2], ty[1], tdy[1];
+  for (int k = 0; k < 2; ++k) { tx[k] = x[i*2+k]; tdx[k] = dx[i*2+k]; }
+  hk_PumpWithinBudget_jvp(tx[0], tx[1], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_PumpWithinBudget_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
+  hk_PumpWithinBudget_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
 kernel void mk_ReachesVertical_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
   if ((int)i >= n[0]) return;
   float tx[4], tdx[4], ty[1], tdy[1];
@@ -1888,6 +2490,20 @@ kernel void mk_SunReachable_box(device const float* lo [[buffer(0)]], device con
   float tlo[2], thi[2], tsc[2], rlo[1], rhi[1], rL[1];
   for (int k = 0; k < 2; ++k) { tlo[k] = lo[i*2+k]; thi[k] = hi[i*2+k]; tsc[k] = sc[i*2+k]; }
   hk_SunReachable_box(tlo, thi, tsc, rlo, rhi, rL);
+  for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
+}
+kernel void mk_TankHolds_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tx[3], tdx[3], ty[1], tdy[1];
+  for (int k = 0; k < 3; ++k) { tx[k] = x[i*3+k]; tdx[k] = dx[i*3+k]; }
+  hk_TankHolds_jvp(tx[0], tx[1], tx[2], tdx, ty, tdy);
+  for (int k = 0; k < 1; ++k) { y[i*1+k] = ty[k]; dy[i*1+k] = tdy[k]; }
+}
+kernel void mk_TankHolds_box(device const float* lo [[buffer(0)]], device const float* hi [[buffer(1)]], device const float* sc [[buffer(2)]], device float* olo [[buffer(3)]], device float* ohi [[buffer(4)]], device float* oL [[buffer(5)]], device const int* n [[buffer(6)]], uint i [[thread_position_in_grid]]) {
+  if ((int)i >= n[0]) return;
+  float tlo[3], thi[3], tsc[3], rlo[1], rhi[1], rL[1];
+  for (int k = 0; k < 3; ++k) { tlo[k] = lo[i*3+k]; thi[k] = hi[i*3+k]; tsc[k] = sc[i*3+k]; }
+  hk_TankHolds_box(tlo, thi, tsc, rlo, rhi, rL);
   for (int k = 0; k < 1; ++k) { olo[i*1+k] = rlo[k]; ohi[i*1+k] = rhi[k]; oL[i*1+k] = rL[k]; }
 }
 kernel void mk_TrackerBudget_jvp(device const float* x [[buffer(0)]], device const float* dx [[buffer(1)]], device float* y [[buffer(2)]], device float* dy [[buffer(3)]], device const int* n [[buffer(4)]], uint i [[thread_position_in_grid]]) {

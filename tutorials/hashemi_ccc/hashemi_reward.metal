@@ -3,7 +3,7 @@
 // buffer 2 the count; dispatch B threads in groups of 1.
 kernel void hashemi_reward(device const float* hk_x [[buffer(0)]], device float* hk_y [[buffer(1)]], device const int* hk_n [[buffer(2)]], uint hk_b [[threadgroup_position_in_grid]], uint hk_i [[thread_position_in_threadgroup]]) {
   if ((int)hk_b >= hk_n[0]) return;
-  device const float* hk_xb = hk_x + hk_b * 8;
+  device const float* hk_xb = hk_x + hk_b * 12;
   const hk_real t0 = hk_xb[0];
   const hk_real t1 = hk_xb[1];
   const hk_real t2 = hk_xb[2];
@@ -12,16 +12,34 @@ kernel void hashemi_reward(device const float* hk_x [[buffer(0)]], device float*
   const hk_real t5 = hk_xb[5];
   const hk_real t6 = hk_xb[6];
   const hk_real t7 = hk_xb[7];
-  const hk_real t8 = (t5 * t6);
-  const hk_real t9 = (t8 * t1);
-  const hk_real t10 = (t9 / t7);
-  const hk_real t11 = (t10 * t2);
-  const hk_real t12 = (t11 * t3);
-  const hk_real t13 = (t0 + t12);
-  const hk_real t14 = (t13 / t4);
+  const hk_real t8 = hk_xb[8];
+  const hk_real t9 = hk_xb[9];
+  const hk_real t10 = hk_xb[10];
+  const hk_real t11 = hk_xb[11];
+  const hk_real t12 = (t5 * t6);
+  const hk_real t13 = (t12 * t1);
+  const hk_real t14 = (t13 / t7);
+  const hk_real t15 = (t14 * t2);
+  const hk_real t16 = (t15 * t3);
+  const hk_real t17 = (t10 * t6);
+  const hk_real t18 = (t17 * t1);
+  const hk_real t19 = (t18 / t7);
+  const hk_real t20 = HK_LIT(0);
+  const hk_real t21 = hk_max(t20, t8);
+  const hk_real t22 = (t19 * t21);
+  const hk_real t23 = (t11 * t6);
+  const hk_real t24 = (t23 * t1);
+  const hk_real t25 = hk_max(t20, t9);
+  const hk_real t26 = (t24 * t25);
+  const hk_real t27 = (t0 + t16);
+  const hk_real t28 = (t27 - t22);
+  const hk_real t29 = (t28 - t26);
+  const hk_real t30 = (t29 / t4);
   if (hk_i == 0) {
-    hk_y[hk_b * 3 + 0] = t12;
-    hk_y[hk_b * 3 + 1] = t13;
-    hk_y[hk_b * 3 + 2] = t14;
+    hk_y[hk_b * 5 + 0] = t16;
+    hk_y[hk_b * 5 + 1] = t22;
+    hk_y[hk_b * 5 + 2] = t26;
+    hk_y[hk_b * 5 + 3] = t29;
+    hk_y[hk_b * 5 + 4] = t30;
   }
 }

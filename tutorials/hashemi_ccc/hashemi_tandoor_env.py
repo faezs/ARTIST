@@ -41,7 +41,8 @@ import torch                                        # noqa: E402
 from tandoor_hashemi_env import TandoorHashemiEnv   # noqa: E402
 from hashemi_kernel import COL, mega_numpy, mega_params_numpy                       # noqa: E402
 from hashemi_env_kernel import (HashemiEnvMetal, env_numpy, env_params, pack, draws,   # noqa: E402
-                                ECOL, EIN, N_IN, N_OUT, P as ENV_RAYS, M as ENV_M, N_HIST, HIST_COLS, RET_COLS)
+                                ECOL, EIN, N_IN, N_OUT, P as ENV_RAYS, M as ENV_M, N_HIST, HIST_COLS, RET_COLS,
+                                LOOP_PARAMS, PUMP_PRICE, DEG_PRICE)
 # THE REWARD IS A PRINTED MORPHISM TOO (HashemiReward.lean `rewardStep`, compiled by the same
 # driver): its three columns are r_shape_raw, r_raw, r_trainer and its constants - reward_div,
 # capture_shaping, the raw price of a roti, roti_energy - are INPUTS, so the ini's values are
@@ -88,7 +89,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
 
     def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.0, capture_shaping=0.2, t_amb=300.0, trace_rays=None,
-                 machine_receiver="oil", oil_nodes=8, dish_half=None, dish_R=None, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
+                 machine_receiver="oil", oil_nodes=8, pump_price=PUMP_PRICE, deg_price=DEG_PRICE, dish_half=None, dish_R=None, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
         # THE MACHINE'S RECEIVER (the parent's `receiver` - its tri chain - passes through untouched):
         # "oil" - the coil at F, hot oil in insulated pipes, the exchanger in the pot's wall
         # (HashemiHeat/HashemiField.lean); "beam" - a hyperboloid inside the coil's envelope sending
@@ -104,6 +105,13 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # it spread it over all 15 nodes (nothing reached 380 K, 0 a day) - the trainer's zero.
         # The beam receiver keeps the parent's live landing profile every step.
         self.oil_nodes = int(oil_nodes)
+        # THE LOOP IS A LOOP NOW (HashemiOil.lean, README "## The oil loop, realistically"): a named
+        # fluid with temperature-dependent properties, a variable-speed pump on the parent's pinned
+        # head 0, correlations for every conductance, and the datasheet's two limits.  The pump's
+        # electrical energy and the time the FILM spends over 375 C are priced into the reward here
+        # (`rewardStep`'s pumpPrice / degPrice inputs) - the policy pays for the flow it asks for.
+        self.pump_price = float(pump_price)
+        self.deg_price = float(deg_price)
         self.beam_design = dict(L=beam_L, dm=beam_dm, rm=beam_rm, rt=beam_rt, slotW=beam_slot, beta=beam_beta)
         # trace_rays: accepted for the ini's sake; the rays are the spec's (HashemiEnv.lean `envRays`, 64)
         if trace_rays is not None and int(trace_rays) != ENV_RAYS:
@@ -198,12 +206,16 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # over the last 16 steps (HashemiField.lean `shift`, the plug-flow kernel on the grid)
         self.hist = np.full((B, N_HIST), self.t_amb)
         self.ret = np.full((B, N_HIST), self.t_amb)
+        self.deg = np.zeros(B)                       # the Arrhenius damage accumulator
+        self.u_pump = np.zeros(B)                    # the pump's command this step (head 0)
+        self._p_pump = np.zeros(B)
+        self._film_excess = np.zeros(B)
         self.row = np.zeros((B, N_OUT))              # the last step's 27 columns (host mirror)
         self.hk_row = self.row
         self.cap_traced = np.zeros(B)
         self._q_pot = np.zeros(B)
         # the printed reward's columns for the last step (host mirrors, what the checks read)
-        self.r_cols = np.zeros((B, 3))
+        self.r_cols = np.zeros((B, 5))
         # THE HEADS MEAN WHAT THE SPEC SAYS: HashemiPolicy.lean's headToDriveAz / headToDriveEl
         # (full command = azFull / elFull of the dish, the drum's rate at the wire's CURRENT lever
         # arm), compiled; the finest step outruns the sun and stays inside the tracker's budget
@@ -234,15 +246,16 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             else:
                 self._env = HashemiEnvMetal()
                 x = pack(B, np.zeros((B, 3)), np.zeros((B, 2)), float(self.dt), np.zeros((B, 3)), np.ones(B),
-                         np.full(B, self.t_amb), self.t_amb, self._params)
+                         np.full(B, self.t_amb), self.t_amb, self._params, u_pump=0.0, wind=0.0, deg=0.0)
             self._x = torch.as_tensor(x.astype(np.float32), device=dev)
             self._st = torch.zeros(B, 3, dtype=torch.float32, device=dev)
             self._hist = torch.full((B, N_HIST), self.t_amb, dtype=torch.float32, device=dev)
             self._ret = torch.full((B, N_HIST), self.t_amb, dtype=torch.float32, device=dev)
+            self._deg_t = torch.zeros(B, dtype=torch.float32, device=dev)
             self._q_pot_t = torch.zeros(B, dtype=torch.float32, device=dev)
             self._cap_t = torch.zeros(B, dtype=torch.float32, device=dev)
             self._hk_out = torch.zeros(B, N_OUT, dtype=torch.float32, device=dev)
-            self._uax = float(self._params["UAx"])
+            self._uax = float(self._params["UAxMax"])
             self._rew = HashemiRewardMetal()
             self._rew_x = torch.zeros(B, R_N_IN, dtype=torch.float32, device=dev)
             self._rew_cols_t = None
@@ -282,9 +295,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self.t_oil[:] = self.t_amb
         self.hist[:] = self.t_amb
         self.ret[:] = self.t_amb
+        self.deg[:] = 0.0
         if self._env is not None:
             self._hist.fill_(self.t_amb)
             self._ret.fill_(self.t_amb)
+            self._deg_t.fill_(0.0)
         return res
 
     # --- the beam's node profile: where the parent's own trace puts the pot's power
@@ -335,7 +350,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             self._phi_prev_t = phi.clone(); self._pb_skip_t = resync.clone()
         return pb
 
-    def _reward_cols(self, parent_raw, p_in, reach, xp):
+    def _reward_cols(self, parent_raw, p_in, reach, xp, p_pump=None, film_excess=None):
         """THE REWARD, PRINTED (`rewardStep`, HashemiReward.lean): the three columns
         r_shape_raw, r_raw, r_trainer for this step, from the parent's raw reward, the step, the
         light at the receiver and the sun's reach - with the ini's constants as INPUTS
@@ -344,10 +359,14 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         is the gluing condition of TOPOS_REWARD.md §1, and the bug of 2026-09-19 was its failure."""
         div = float(getattr(self, "reward_div", 1.0))
         cs, rr, re = float(self.capture_shaping), float(self.ROTI_REWARD_RAW), float(self.roti_energy)
+        pp, dp = float(self.pump_price), float(self.deg_price)
         if xp is np:
+            if p_pump is None:
+                p_pump = np.zeros(self.num_agents); film_excess = np.zeros(self.num_agents)
             x = pack_reward(np.asarray(parent_raw, dtype=np.float64), float(self.dt),
                             np.asarray(p_in, dtype=np.float64), np.asarray(reach, dtype=np.float64),
-                            div, cs, rr, re)
+                            div, cs, rr, re, np.asarray(p_pump, dtype=np.float64),
+                            np.asarray(film_excess, dtype=np.float64), pp, dp)
             cols = reward_numpy(x)
             self.r_cols = cols
             return cols
@@ -360,6 +379,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         x[:, RIN["capShaping"]] = cs
         x[:, RIN["rotiReward"]] = rr
         x[:, RIN["rotiEnergy"]] = re
+        x[:, RIN["pPump"]] = 0.0 if p_pump is None else p_pump
+        x[:, RIN["filmExcess"]] = 0.0 if film_excess is None else film_excess
+        x[:, RIN["pumpPrice"]] = pp
+        x[:, RIN["degPrice"]] = dp
         cols = self._rew.step(x)
         self._rew_cols_t = cols
         return cols
@@ -373,6 +396,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
                         np.asarray(H.hk_headToDriveEl(a[:, HEAD_EL], arm, np.full(B, float(self._prm_np[0]))), dtype=np.float64)], 1)
         el, az = self._sun()
         sun = np.stack([np.full(B, el), np.full(B, az), np.asarray(self.dni, dtype=np.float64)], 1)
+        # THE PUMP IS THE PARENT'S PINNED HEAD 0 (HashemiPolicy.lean `pumpOf`): read BEFORE the
+        # host neutralises it.  His dish has no membrane, so the level head was inert; it is the
+        # loop's one free command now, seven levels from a stopped pump to full flow.
+        self.u_pump = np.clip(np.asarray(a[:, 0], dtype=np.float64), 0, 6) / 6.0
         if self.machine_receiver != "beam" and self._beam_profile is None:
             self._beam_profile = self._oil_profile(np)
         if self._beam_profile is None:
@@ -386,8 +413,9 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             self.row = self._bk.beam_numpy(x, dr)
         else:
             x = pack(B, self.hk_state, cmd, float(self.dt), sun, np.asarray(self.soil, dtype=np.float64),
-                     twall, self.t_amb, self._params)
-            x[:, EIN["UAx"]] *= (self._valve_np() > 0)            # the exchanger opens with the beam gate
+                     twall, self.t_amb, self._params, u_pump=self.u_pump,
+                     wind=np.asarray(self.wind, dtype=np.float64), deg=self.deg)
+            x[:, EIN["UAxMax"]] *= (self._valve_np() > 0)         # the exchanger opens with the beam gate
             self.row = env_numpy(x, self.hist, self.ret, dr)
             self.hist = self.row[:, HIST_COLS].copy()
             self.ret = self.row[:, RET_COLS].copy()
@@ -402,6 +430,9 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         else:
             self.t_oil = self.row[:, C["T_oil"]].copy()
             self._q_pot = self.row[:, C["q_pot"]].copy()
+            self.deg = self.row[:, C["deg"]].copy()
+            self._p_pump = self.row[:, C["p_pump"]].copy()
+            self._film_excess = np.maximum(0.0, -self.row[:, C["film_margin"]])
         self.machine_obs = self.row[:, [C["obs_" + n] for n in machine_policy.OBS_NAMES]].astype(np.float32)
         self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])
         self.az_m = np.degrees(self.hk_state[:, 0])
@@ -467,7 +498,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         prof = self._fused_profile[:, :self.n_nodes] if self._fused_profile is not None else None
         x[:, EIN["Twall"]] = F.T[:, :self.n_nodes].mean(1) if prof is None else \
             (F.T[:, :self.n_nodes] * prof).sum(1) / prof.sum(1).clamp_min(1e-9)
-        x[:, EIN["UAx"]] = self._uax * (F.gate > 0).float()    # the exchanger opens with the beam gate
+        x[:, EIN["UAxMax"]] = self._uax * (F.gate > 0).float()  # the exchanger opens with the beam gate
+        # the pump, from the parent's pinned head 0, read BEFORE `neutral` overwrites it
+        x[:, EIN["uPump"]] = a[:, 0].float().clamp(0, 6) / 6.0
+        x[:, EIN["Vw"]] = F.wind
+        x[:, EIN["degPrev"]] = self._deg_t
         g = self._gen
         dr = torch.cat([torch.rand(B, ENV_RAYS, 6, generator=g, device=self.device),
                         torch.randn(B, ENV_RAYS, 4, generator=g, device=self.device)], 2)
@@ -480,6 +515,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self._ret.copy_(out[:, RET_COLS])
         self._q_pot_t.copy_(out[:, ECOL["q_pot"]])
         self._cap_t.copy_(out[:, ECOL["capture"]])
+        self._deg_t.copy_(out[:, ECOL["deg"]])
         return self._finish_step(F, a, out, ECOL, t_before=float(self.t_solar[0]))
 
     def _finish_step(self, F, a, out, C, t_before):
@@ -508,7 +544,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         extra = self._pb_raw(out[:, C["pointing_err"]], out[:, C["sun_reachable"]], mask, torch)
         if self.lost_shaping:
             extra = extra - self.lost_shaping * out[:, C["lost_sun_s"]]
-        cols = self._reward_cols(rew_t + extra, out[:, C["p_in"]], out[:, C["sun_reachable"]], torch)
+        oil = self.machine_receiver != "beam"
+        pp_t = out[:, C["p_pump"]] if oil else torch.zeros_like(rew_t)
+        fx_t = (-out[:, C["film_margin"]]).clamp_min(0.0) if oil else torch.zeros_like(rew_t)
+        cols = self._reward_cols(rew_t + extra, out[:, C["p_in"]], out[:, C["sun_reachable"]], torch,
+                                 p_pump=pp_t, film_excess=fx_t)
         shape = cols[:, RCOL["r_shape_raw"]] + extra
         rew_t = cols[:, RCOL["r_raw"]]
         F.ep_return.add_(shape)
@@ -532,6 +572,9 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             if self.machine_receiver != "beam":
                 self.t_oil = self.row[:, C["T_oil"]]
                 self.hist = self.row[:, HIST_COLS]; self.ret = self.row[:, RET_COLS]
+                self.deg = self.row[:, C["deg"]]
+                self._p_pump = self.row[:, C["p_pump"]]
+                self._film_excess = np.maximum(0.0, -self.row[:, C["film_margin"]])
             self.machine_obs = self.row[:, [C["obs_" + n] for n in machine_policy.OBS_NAMES]].astype(np.float32)
             if self._rew_cols_t is not None:
                 self.r_cols = self._rew_cols_t.cpu().numpy().astype(np.float64)
@@ -562,7 +605,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         if self.lost_shaping:
             extra = extra - self.lost_shaping * self.row[:, C["lost_sun_s"]]
         parent_raw = np.asarray(self.rewards, dtype=np.float64) * div + extra
-        cols = self._reward_cols(parent_raw, self.row[:, C["p_in"]], self.row[:, C["sun_reachable"]], np)
+        oil = self.machine_receiver != "beam"
+        cols = self._reward_cols(parent_raw, self.row[:, C["p_in"]], self.row[:, C["sun_reachable"]], np,
+                                 p_pump=self._p_pump if oil else np.zeros(B),
+                                 film_excess=self._film_excess if oil else np.zeros(B))
         self.rewards[:] = cols[:, RCOL["r_trainer"]].astype(np.float32)
         self.ep_return += cols[:, RCOL["r_shape_raw"]] + extra
         self._sync_from_motors(resync)
