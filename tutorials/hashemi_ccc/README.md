@@ -883,8 +883,8 @@ So the renderer is a **printer of the compiler**, not a hand-written scene:
 | --- | --- |
 | `RequestProject/Scene.lean` | the vocabulary, machine-independent: `Leaf` (a definition, its frame, a renaming of its binders), `Shape` (`one`, `seg`, `rayOf`, `axesOf`), `Entry`, `Scene`; and `vertex_bound` — every vertex of every scene is bounded by its inputs' bound, whatever the frames are |
 | `RequestProject/CccScene.lean` | the printer.  It binds each distinct binder name once, applies each definition to those inputs, applies the frame to that **in the graph** (composition in the CCC: the frame's nodes are emitted over the leaf's outputs and hash-consed with everything else), and hands the single resulting `Ccc.Fun` to `Ccc.lean`'s own printers — `printSceneC`, `printNumpyScene` and `printMslScene`, the last a threadgroup per frame and a thread per ray.  It contains no machine's vocabulary at all |
-| `RequestProject/HashemiSceneInst.lean` | the instance: three frames (`roofOfCarriage`, `roofOfBolt`, `roofOfDish`, each a composition of `rot`, `swungPt` and `dishAxes`, each tied by a theorem to `megaGeom`), a handful of projections that name three columns of a nine-column trace, `sunAt`, the ray leaves over the megakernel's table, and then FOUR lists of **data** — the machine, the beam-down, one chain of the optic GADT, and the same machine composed with the env morphism |
-| `RequestProject/SceneCcc.lean` | the driver: `lake build RequestProject.SceneCcc` writes `render/scene_{hashemi,beam,optic,env}.{h,metal,py,json}`, `scene_registry.h` and `scene_sun.{h,py}` |
+| `RequestProject/HashemiSceneInst.lean` | the instance: three frames (`roofOfCarriage`, `roofOfBolt`, `roofOfDish`, each a composition of `rot`, `swungPt` and `dishAxes`, each tied by a theorem to `megaGeom`), a handful of projections that name three columns of a nine-column trace, `sunAt`, the ray leaves over the megakernel's table, and then FOUR lists of **data** — the machine, the beam-down, two chains of the optic GADT (`hashemiBeam` and `tri`), and the same machine composed with the env morphism |
+| `RequestProject/SceneCcc.lean` | the driver: `lake build RequestProject.SceneCcc` writes `render/scene_{hashemi,beam,optic,tri,env}.{h,metal,py,json}`, `scene_registry.h` and `scene_sun.{h,py}` |
 | `render/scene_kernel.py` | the FFI.  `SceneMetal` compiles `render/scene_<name>.metal` and dispatches it exactly as `HashemiEnvMetal` does the env's step — one threadgroup per frame, one thread per ray — and returns the two vertex buffers; `scene_numpy` and `scene_c` are the other two printings of the same graph |
 | `render/view.py`, `render/scene_draw.py` | the viewer, on **pyray**.  An orbit camera; the pose from the printed `hk_megaStep` driven by the proved `hk_follower` or by the keyboard through `hk_headToDriveAz/El`; the sun from the printed `sunAt`; the vertices from the kernel; the HUD's capture, p_in and oil temperature from the env megakernel's own columns over the SAME draws |
 | `render/main.c` | what is left of the C side: the C twin's harness (`--eval`, `--sun`), so `check.py` can compare the third printing.  No window, no raylib — it is not installed on this machine — and no geometry; there never was any |
@@ -904,7 +904,7 @@ is what `puffer eval puffer_hashemi_ccc --render-mode human` draws — the step 
 on, not a second walk of the mount in Python.
 
     cd render
-    make check     # C == NumPy == Metal for the four scenes; the sun; one frame from view.py
+    make check     # C == NumPy == Metal for the five scenes; the sun; one frame from view.py
     make           # the window (view.py on pyray)
     python view.py --scene hashemi --frames 1 --out .      # headless, no display needed
     python dump_day.py && python view.py --replay day.csv
@@ -914,12 +914,107 @@ own draws (C and NumPy are double and agree to the last bit; the kernel is float
 to 2e-3 relative), `sunAt` against the trainer's own `solar_position` at twenty random instants
 (3e-16 rad), and — the one that matters — **the env scene's ray vertices against the standalone
 scene's at the pose `megaStep` stepped to: 0.0e+00**.  The committed frames are
-`render/frame_hashemi_000.png` (the viewer) and `render/frame_env_000.png` (the env's own step).
+`render/frame_hashemi_000.png` (the viewer), `render/frame_env_000.png` (the env's own step) and
+`render/frame_tri_000.png` (the GADT's `tri` chain, at Quetta on day 172 at 09:10 solar).
 
-  hashemi 257 entries, 1431 static + 64 x 16 ray doubles, 29 inputs, 1 table,  3746 nodes
+  hashemi 257 entries, 1431 static + 64 x 16 ray doubles, 29 inputs, 1 table,  3749 nodes
   beam     11 entries,    3 static + 64 x 19 ray doubles, 20 inputs, 1 table,  1247 nodes
   optic     9 entries,    0 static + 64 x 27 ray doubles, 20 inputs, 1 table,  1247 nodes
-  env     261 entries, 1433 static + 64 x 16 ray doubles, 47 inputs, 3 tables, 4817 nodes
+  tri      80 entries,  327 static + 64 x 69 ray doubles, 16 inputs, 1 table,  2138 nodes
+  env     261 entries, 1433 static + 64 x 16 ray doubles, 47 inputs, 3 tables, 4820 nodes
+
+## The tri chain, drawn out of the GADT
+
+`RequestProject/OpticGadt.lean` is the indexed family every receiver of the project is a value of
+— `Optic : Port → Port → Type`, one constructor per element, `seq` for composition, `trace` for
+the interpreter — and **`tri` is one of its values**:
+
+    primary ; slot ; hyperStrip ; boreTube ; lightPipe ; elbow ; actuatedM3 ; bread
+
+the tandoor's three-mirror machine: the dish, the flapped slot cut in it, the rotating conic
+strip at the focus, the straight bore, the inlet the beam only passes, the ACTUATED M3 at the
+turn, and the loaf it images the focus onto.  No elbow re-images anything — for `tri` the pot's
+inlet is an aperture, not a mirror.  `view.py --scene tri` draws that value: which stages, in
+which order, with which fate code on each failure, is read off the GADT and nowhere else.
+
+**`trace` is not in the compiled fragment, and no printing can make it so.**  It returns
+`Fate ⊕ St b`, and `Ccc.Val` is scalar, boolean, pair, vector, structure — there is no sum;
+`Optic` is besides an *indexed* inductive, so `trace` is a matcher application, which
+`Ccc.isAutoGenerated` refuses by construction.  So the scene compiles the STAGE MORPHISMS the
+interpreter calls, at the arguments the chain hands them — `dishReflect` for `primary`, `hypHit`
+for `hyperStrip`, `ellipHit` for `actuatedM3`, and the plane crossings `slot`, `boreTube`,
+`elbow` and `bread` write out — and five theorems in `HashemiSceneInst.lean` tie each definition
+to its own clause of `trace`, by `rfl`: `hyperStrip_is_hypHit`, `actuatedM3_is_ellipHit`,
+`boreTube_is_deckCrossing`, `bread_is_planeLanding`, `slot_is_meridianTest` (and
+`primary_is_dishReflect`, which the beam-down scene already had).  `Ccc.unfoldable` — the list
+that already carried `TandoorSphere` and `TandoorMount` — gained the GADT's nine helpers
+(`sub3`, `step3`, `len3`, `norm3`, `safeDiv`, `planeT`, `facing`, `hypHit`, `ellipHit`) so the
+translator may unfold them; nothing else in the project mentions those names, and every other
+generated file is byte-identical.
+
+| the entry | the stage of `tri` it draws |
+| --- | --- |
+| `corner_*`, `aperture_*`, `slot_end_*` | `primary` and `slot`: the membrane's aperture and the meridian the flap is cut along |
+| `stage0_origin/hit/leg` | `primary` = `dishReflect`, the ray onto the membrane and off it |
+| `focus_F`, `strip_F2`, `strip_centre`, `strip_axis` | `hyperStrip`'s two foci (F and P4), its patch centre and its axis |
+| `stage2_strip/leg` | the strip's hit, `hypHit`'s columns 1-3, and the leg to it |
+| `bore_top_*`, `bore_foot_*`, `bore_rail_*` | `boreTube 0.7`: the tube itself, radius and axis the chain's own |
+| `stage3_deck/leg` | the beam's crossing of the deck plane, `boreTube`'s own `X` |
+| `duct_*`, `stage5_inlet/leg` | `elbow`: the mouth the beam passes, `Tandoor.ductRingPt` at `rDuctBuilt` |
+| `m3_vertex`, `m3_axis`, `m3_leg_out` | `actuatedM3`: the turn, the figure's axis turned by ψ, and the leg to the loaf |
+| `stage6_m3/leg` | M3's hit, `ellipHit`'s columns 1-3 at the turned figure |
+| `belt_*`, `mouth_*`, `loaf` | the oven (`Tandoor.lean`) and `bread`'s own target, `tri_target(ψ)` |
+| `stage7_land/leg` | `bread`: the landing on the loaf's plane |
+| `chain`, `fate`, `through` | the ray, coloured by `triFateT` — the GADT's codes in the GADT's order (1 off the panel, 13 the slot, 3 the strip, 6 the bore, 9 the collar, 7 M3, 8 the way to the bread, 0 through) |
+
+**Where the chain stands is the parent's**, `_build_cass_chain` at `receiver = "tri"` and
+`m4_mode = "field"`, cited line by line in section 8 of `HashemiSceneInst.lean`: F is the
+machine's own focus (the bolt line's origin), F₂ = P4 is the turn — which is `Tandoor.boreFootPt`,
+the parent's `(X_TOWER, 0, Z_DUCT)` read in the roof frame — `c_h = ‖F₂ - F‖/2` and
+`a_h = c_h - d_strip`, the strip's patch centre sits `d_strip` before F on the dish axis, M3's
+ellipsoid has foci F and the loaf and passes through P4, and the loaf is `tri_target(ψ)`: the
+pot's wall at the baking band's mid-height, turned ψ about the vertical through the turn.  Every
+one of those is `Tandoor.lean`'s own pit, so the target of the beam and the oven it lands in are
+one set of numbers.
+
+**The one thing the GADT does not carry is the change of frame.**  `primary` and `slot` are in
+the DISH frame and everything from `hyperStrip` on is in the world frame; the parent applies the
+mount between them (`p = org3 @ Mt + Cd`, tandoor_hashemi_env.py:699-701).  Here that is
+`roofOfDish`, applied to the ray once, in `triRay` — so the two stages that are the dish's are
+drawn in the dish's frame and the rest in the roof's, and there is no third copy of the mount.
+
+**A ray is drawn only as far as the chain gets.**  `trace` stops at the first `Sum.inl`, and the
+quadric hits carry their own miss sentinels (`hypHit` returns `t = 1e9`), so a stage's point is
+its hit only while the chain is alive there and the last live point after that: a ray that misses
+the strip has no bore leg to draw, because the chain has none.  That guard is `triFateT`'s own
+column 2, and it is what makes the float32 kernel and the double twin agree on a missed ray
+instead of comparing two different infinities.
+
+Two departures from the parent, both the GADT's own and both kept because the GADT is the source:
+its strip patch is a DISC of radius `rm` about the centre (`quadStage`), where the parent's is a
+polar window `th_lo..th_hi` of half-width `strip_wk·‖X - F‖`; and its `elbow` stands before
+`actuatedM3` in the chain, where the parent passes the inlet after M3.
+
+**What the picture then says, measured off the buffers** at Quetta on day 172 at 09:10 solar, the
+follower on sun (azimuth error 0.44°), the machine `hashemi_machine_2.0_designed.json`:
+
+* the strip's own focal property is exact — a ray aimed at F leaves the hyperboloid through P4 to
+  the last digit — and so is M3's: a ray from F lands on the loaf to the last digit.  Both were
+  measured against the definitions, not assumed;
+* the beam is not aimed at F but at the strip, 0.6 m short of it, so M3's chief ray leaves 12° off
+  the loaf's direction: **0.41 m beside the loaf** at the pit's wall.  The 5 cm facets add their
+  own 0.5 m at the turn, magnified 8.5× by the strip (`cs_mag`);
+* **no ray is `through`, and the reason is `bread`'s plane.**  `trace` lands the ray on the plane
+  through T with normal **ẑ** — a loaf lying flat — but `tri_target` puts the loaf on the pit's
+  WALL, 0.33 m above the turn and 3.1 m away, so the beam arrives 6° above horizontal and the
+  landing test is grazing.  The rays therefore end at M3 with the code `8`, "the way to the
+  bread", which is what the frame shows.  The parent's own landing is the crossing of a VERTICAL
+  plane (`t5` at `x = R_POT`, tandoor_hashemi_env.py:916); the GADT's `bread` is written for a
+  bake row, not for a wall, and this file draws what the GADT says.
+
+`make check` at random inputs: **tri, Metal vs NumPy 5.56e-07 static / 1.62e-04 ray, C vs NumPy
+0.00e+00 / 0.00e+00** — the third printing agrees to the last bit, and the float32 kernel to the
+kernel's own tolerance, with no ray excluded.
 
 ## The scene composes with the tandoor, and stands on the earth
 

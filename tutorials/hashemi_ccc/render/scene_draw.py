@@ -29,7 +29,14 @@ GROUND = (120, 104, 84, 255)
 # entries drawn at a sky distance: they never drive the opening camera by themselves
 FAR_LABELS = ("sun", "sky")
 WORLD = 100.0          # metres: the camera fit ignores any vertex further out (see frame_on)
-FATE = {0: (120, 120, 130), 1: (255, 120, 120), 2: (255, 190, 80), 3: (140, 255, 170)}
+# the miss ledger's codes, as `tandoor_hashemi_env._geo_core_cass` emits them and
+# `OpticGadt.lean` carries them: 0 through, 1 off the panel, 2 no hit on the secondary, 3 off
+# the strip, 5 the return leg crossed the membrane, 6 the bore, 7 M4/M3, 8 the way to the pot,
+# 9 the collar, 11 the strip's shadow, 13 the slot, 14 the strut.  A ray is drawn in its own
+# fate's colour; a code with no entry here is grey.
+FATE = {0: (120, 120, 130), 1: (255, 120, 120), 2: (255, 190, 80), 3: (140, 255, 170),
+        5: (200, 150, 255), 6: (120, 200, 255), 7: (255, 240, 120), 8: (222, 196, 150),
+        9: (120, 220, 235), 11: (150, 150, 160), 13: (255, 140, 60), 14: (196, 150, 110)}
 
 KIND_POINT, KIND_SEGMENT, KIND_RAY, KIND_AXES, KIND_SCALAR = 0, 1, 2, 3, 4
 KIND_OF = {"Scene.Kind.point": KIND_POINT, "Scene.Kind.segment": KIND_SEGMENT,

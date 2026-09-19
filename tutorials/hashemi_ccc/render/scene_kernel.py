@@ -8,7 +8,7 @@ thread writing its own ray's vertices and thread 0 the static ones.  `SceneMetal
 dispatches it exactly as `HashemiEnvMetal` does the env's step, and the draws are generated on
 the device by torch — there is no CSV of rays anywhere.
 
-    .venv/bin/python scene_kernel.py        # Metal == NumPy == C for the three scenes
+    .venv/bin/python scene_kernel.py        # Metal == NumPy == C for the scenes
 """
 import json
 import os
@@ -25,7 +25,7 @@ for p in (HERE, PARENT):
 
 from hashemi_kernel import MSL_PRELUDE                                  # noqa: E402
 
-SCENES = ["hashemi", "beam", "optic"]
+SCENES = ["hashemi", "beam", "optic", "tri"]
 # the scene composed with the env morphism: one kernel, one pose, one table of rays
 ENV_SCENE = "env"
 
@@ -166,6 +166,13 @@ def sample(name, rng):
         return 4.65e-3
     if name in ("w", "rc", "rm", "rt", "slotW", "dm", "sigmaslope", "sigmaspec", "hp"):
         return rng.uniform(0.02, 0.3)
+    # the tri chain's two design numbers, in the parent's own ranges: d_strip the strip's
+    # distance from F (DESIGN_BOX 0.4..1.2, tandoor_hashemi_env.py:2279) and psi M3's turn
+    # (M3_TURN = +-0.55 rad, line 1746)
+    if name == "dstrip":
+        return rng.uniform(0.4, 1.2)
+    if name == "psi":
+        return rng.uniform(-0.55, 0.55)
     return rng.uniform(-1.0, 1.0)
 
 

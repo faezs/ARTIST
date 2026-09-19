@@ -43,7 +43,7 @@ SCENES = scene_kernel.SCENES
 def pool(machine_path, az=np.pi, t=0.6):
     """every scene input's value, by name: the machine JSON, then the spec's own constants.
 
-    This is for the STANDALONE scenes only — `hashemi`, `beam`, `optic`, which are not composed
+    This is for the STANDALONE scenes only — `hashemi`, `beam`, `optic`, `tri`, not composed
     with any morphism and so are handed their dimensions.  The env scene is composed: its nine
     extra binders (`zBar`, `endIn`, `sgL`, `sgR`, `apexH`, `zBolt`, `ym`, `hp`, `ze`) are bound to
     nodes of the graph in `HashemiSceneInst.envScene`, its input row IS `hashemi_env.json`'s, and
@@ -68,6 +68,11 @@ def pool(machine_path, az=np.pi, t=0.6):
     p["P_1"] = p["P_2"] = 0.0               # the pivot of `swingFocus`: the bolt line
     # the secondary, as hashemi_tandoor_env.py sets it
     p.update(L=1.25, dm=0.06, rm=0.06, rt=0.55, slotW=0.06, beta=0.0, onPanel=1.0, hsun=0.00465)
+    # the tri chain's two design numbers, the parent's own defaults: the strip d_strip from F
+    # (tandoor_hashemi_env.py:996) and M3's turn, zero being the loaf straight across the pot
+    # (tri_target, line 1761; M3_TURN = +-0.55 rad, line 1746).  Everything else the tri scene
+    # asks for is the machine's own or a definition of the specification.
+    p.update(dstrip=0.6, psi=0.0)
     p.setdefault("sigmaslope", 2e-3)
     p.setdefault("sigmaspec", 1e-3)
     return p

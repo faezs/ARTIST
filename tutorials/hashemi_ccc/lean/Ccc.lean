@@ -236,11 +236,20 @@ def finLit (n j : Nat) : Expr :=
 /-- the name a `.call` prints: the Lean short name, which is what the round trip's namespace has -/
 def sanitizeCall (n : Name) : String := n.getString!
 
-/-- the names whose definitions we unfold and translate on, beyond the root namespace -/
+/-- the names whose definitions we unfold and translate on, beyond the root namespace.
+
+The `TandoorOpticGadt` entries are the STAGE MORPHISMS of the optics GADT — the two quadric hits
+and the vector helpers its interpreter calls at every chain.  `Optic.trace` itself is not here
+and cannot be: it returns `Fate ⊕ St b`, and `Val` has no sum, so a chain is drawn by compiling
+the stages it is built from (`HashemiSceneInst`'s TRI section).  Nothing else in the project
+mentions these names, so adding them changes no generated file. -/
 def unfoldable : List Name :=
   [`TandoorSphere.sag, `TandoorSphere.sphereR, `TandoorSphere.focal, `TandoorSphere.cosOf,
    `TandoorSphere.tanTwo, `TandoorSphere.blur, `TandoorSphere.axial, `TandoorSphere.bestFocus,
-   `TandoorSphere.dev, `TandoorMount.spot, `TandoorMount.spotParaxial, `TandoorMount.sat]
+   `TandoorSphere.dev, `TandoorMount.spot, `TandoorMount.spotParaxial, `TandoorMount.sat,
+   `TandoorOpticGadt.sub3, `TandoorOpticGadt.step3, `TandoorOpticGadt.len3,
+   `TandoorOpticGadt.norm3, `TandoorOpticGadt.safeDiv, `TandoorOpticGadt.planeT,
+   `TandoorOpticGadt.facing, `TandoorOpticGadt.hypHit, `TandoorOpticGadt.ellipHit]
 
 def isRealTy (t : Expr) : Bool := t.isConstOf `Real
 

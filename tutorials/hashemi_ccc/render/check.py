@@ -3,7 +3,7 @@
 
 Two things, neither of which knows any geometry:
 
-1. **the three scenes**, C against the NumPy twin against the Metal kernel.  All three are
+1. **the scenes**, C against the NumPy twin against the Metal kernel.  All three are
    printed from the SAME hash-consed graph by `RequestProject/Ccc.lean`'s own printers
    (`printSceneC`, `printNumpyScene`, `printMslScene`), so a difference is a bug in one printer,
    not in the model.  The rays are the megakernel's table, generated here and handed to all
@@ -55,7 +55,7 @@ def check_sun(rng, n=20):
 
 def main():
     rng = np.random.default_rng(20260919)
-    print("the three scenes: C == NumPy == Metal, over the megakernel's own ray table")
+    print("the scenes: C == NumPy == Metal, over the megakernel's own ray table")
     ok = scene_kernel.main() == 0
     print("the sun, against the trainer (tol %.0e rad):" % SUN_TOL)
     de, da = check_sun(rng)

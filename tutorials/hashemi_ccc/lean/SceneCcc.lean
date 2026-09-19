@@ -4,13 +4,14 @@
 `lake build RequestProject.SceneCcc` runs the `#eval` at the bottom and writes, into
 `tutorials/hashemi_ccc/render/`:
 
-* `scene_hashemi.h/.py/.json`, `scene_beam.h/.py/.json`, `scene_optic.h/.py/.json` — three scenes
-  through ONE printer (`CccScene.lean`), which has no knowledge of any of them;
-* `scene_registry.h` — the three as a table, so `main.c` picks one with `--scene`;
+* `scene_hashemi.h/.py/.json`, `scene_beam.h/.py/.json`, `scene_optic.h/.py/.json`,
+  `scene_tri.h/.py/.json` — the scenes through ONE printer (`CccScene.lean`), which has no
+  knowledge of any of them;
+* `scene_registry.h` — them as a table, so `main.c` picks one with `--scene`;
 * `scene_sun.h/.py` — `sunAt`, printed on its own so the headless check can measure it against
   the trainer's `solar_position`.
 
-There is no geometry in this file either: it names three lists of data and a printer.
+There is no geometry in this file either: it names the lists of data and a printer.
 -/
 import RequestProject.CccScene
 import RequestProject.HashemiSceneInst
@@ -36,6 +37,9 @@ def run : MetaM Unit := do
       (`sceneOptic, "optic",
         "RequestProject/HashemiSceneInst.lean, opticScene — OpticGadt.lean's hashemiBeam chain, stage by stage",
         HashemiSceneInst.opticScene),
+      (`sceneTri, "tri",
+        "RequestProject/HashemiSceneInst.lean, triScene — OpticGadt.lean's tri chain (dish, slot, conic strip, bore, inlet, actuated M3, the loaf), stage by stage",
+        HashemiSceneInst.triScene),
       (`sceneEnv, "env",
         "RequestProject/HashemiSceneInst.lean, envScene — the scene composed with hashemiEnv: one kernel, one pose, one table of rays",
         HashemiSceneInst.envScene)] do

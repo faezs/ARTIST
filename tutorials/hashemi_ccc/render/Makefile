@@ -15,7 +15,7 @@
 CC      ?= cc
 CFLAGS  ?= -O2 -std=c99 -Wall -Wno-unused-function -Wno-unused-variable
 PYTHON  ?= /Users/faezs/ARTIST/tutorials/puffer_tandoor/.venv/bin/python
-HDRS     = scene_registry.h scene_hashemi.h scene_beam.h scene_optic.h scene_sun.h
+HDRS     = scene_registry.h scene_hashemi.h scene_beam.h scene_optic.h scene_tri.h scene_sun.h
 
 all:
 	$(PYTHON) view.py --scene hashemi
