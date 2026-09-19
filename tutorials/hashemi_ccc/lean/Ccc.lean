@@ -168,6 +168,11 @@ structure TState where
   arrayScalar : Std.HashMap Nat (String × Nat × Nat) := {}
   /-- the first flattened node of each ray table ↦ (base, P, m), to recognise a symbolic index -/
   vecBase : Std.HashMap Nat (String × Nat × Nat) := {}
+  /-- the translation of a source expression, memoised: a scene of 200 leaves reads `hashemiEnv`
+  200 times and must walk its expression once (hash-consing already keeps the graph linear; this
+  keeps the WALK linear). Keyed on the expression itself; ray-index binders are fresh fvars, so
+  an application under one `∑` never aliases another's. -/
+  ecache : Std.HashMap Expr Val := {}
   /-- a SHORT vector binder (`H : Fin 3 → ℝ`) is bound component by component - no buffer, so no
   `vecBase` entry - but the definition still writes it by its name.  first component node ↦
   (the binder's Lean text, its length), so an opaque call on it prints `hyperHit f L dm t β H r`
@@ -349,6 +354,14 @@ partial def iteVal (cl : Bool) (c : Nat) : Val → Val → TM Val
 mutual
 
 partial def translate (root : Name) (e : Expr) : TM Val := do
+  if e.isApp || e.isLet then
+    if let some v := (← get).ecache[e]? then return v
+    let v ← translateCore root e
+    modify fun st => { st with ecache := st.ecache.insert e v }
+    return v
+  translateCore root e
+
+partial def translateCore (root : Name) (e : Expr) : TM Val := do
   match e with
   | .mdata _ e => translate root e
   | .fvar id =>

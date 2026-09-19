@@ -70,27 +70,78 @@ noncomputable def roofOfDish (az t apexH zBolt f : ℝ) (q : Fin 3 → ℝ) : Fi
 /-! ### The dimensions that are definitions of `a`
 
 `HashemiScale.derive` says what his machine is at any size: every length is `a`, the reflector's
-half-side, times one of his ratios.  The four the picture needs are exposed here as plain
-definitions of `a` — so that a scene may BIND a binder to one of them and the dimension is
-computed in the graph, beside the pose that uses it, instead of being pooled on a host.  Each is
-the structure's own field, definitionally. -/
+half-side, times one of his ratios.  The ones the picture needs are written here as plain
+definitions of `a`, each tied to `derive`'s own field by `rfl` below — so that a scene may BIND a
+binder to one of them and the dimension is computed in the graph, beside the pose that uses it,
+instead of being pooled on a host.  Not one number below is new: every ratio is the `Givens`
+default `derive` carries. -/
 
+/-- the sphere, `pR * a` -/
+noncomputable def ROf (a : ℝ) : ℝ := 2.5 * a
+/-- the focal length, `R / 2` (`TandoorSphere.focal_zero`) -/
+noncomputable def fOf (a : ℝ) : ℝ := ROf a / 2
+/-- the rim's depth below F (`screwLength` = `f - sag`) -/
+noncomputable def zeOf (a : ℝ) : ℝ := screwLength (ROf a) a
+/-- the deepest reach of the rim below the bolts, `FC_eq` -/
+noncomputable def FCOf (a : ℝ) : ℝ := Real.sqrt (zeOf a ^ 2 + a ^ 2)
 /-- the apex station, `kApex * a` -/
-noncomputable def apexHOf (a : ℝ) : ℝ := (derive { a := a }).apexH
+noncomputable def apexHOf (a : ℝ) : ℝ := 1.0 * a
+/-- the side gap and the bar's chord (`sideGap_eq`, `dish_between_posts`) -/
+noncomputable def sideGapOf (a : ℝ) : ℝ := 0.15 * a
+noncomputable def chordOf (a : ℝ) : ℝ := 2 * a + 2 * sideGapOf a
+/-- the A's base, `kBase * a` -/
+noncomputable def aBaseOf (a : ℝ) : ℝ := 1.225 * a
+/-- the rail's radius (`rollerRadius`) -/
+noncomputable def rRailOf (a : ℝ) : ℝ := Real.sqrt ((chordOf a / 2) ^ 2 + apexHOf a ^ 2)
+/-- the leg's upright (`hashemi_clearance`) and the hole's drop -/
+noncomputable def uprightOf (a : ℝ) : ℝ := FCOf a + 0.18125 * a
+noncomputable def holeDownOf (a : ℝ) : ℝ := 0.0625 * a
+/-- the bolt line over the bar (`receiverPost_height`) -/
+noncomputable def postHOf (a : ℝ) : ℝ := uprightOf a - holeDownOf a
+/-- the leg's triangle: foot, brace, the short side, and the brace's height -/
+noncomputable def footOf (a : ℝ) : ℝ := 0.4769230769 * uprightOf a
+noncomputable def braceOf (a : ℝ) : ℝ := 0.7384615385 * uprightOf a
+noncomputable def footShortOf (a : ℝ) : ℝ := 0.1346153846 * uprightOf a
+noncomputable def footLongOf (a : ℝ) : ℝ := footOf a - footShortOf a
+noncomputable def braceHeightOf (a : ℝ) : ℝ := Real.sqrt (braceOf a ^ 2 - footLongOf a ^ 2)
+/-- the rim hole's station along the edge, and its depth below F -/
+noncomputable def rimHoleOf (a : ℝ) : ℝ := 0.5 * a
+noncomputable def zhOf (a : ℝ) : ℝ :=
+  fOf a - TandoorSphere.sag (ROf a) (Real.sqrt (a ^ 2 + rimHoleOf a ^ 2))
+/-- the mast's station and the pulley over the bolts -/
+noncomputable def ymOf (a : ℝ) : ℝ := FCOf a + 0.08125 * a
+noncomputable def hpOf (a : ℝ) : ℝ := 0.425 * a
+/-- the stand's post carries the pulley: `postH + hp` -/
+noncomputable def standPostOf (a : ℝ) : ℝ := postHOf a + hpOf a
+/-- the stand's foot bar lies across the rails: the bar's own chord -/
+noncomputable def standFootOf (a : ℝ) : ℝ := chordOf a
 
-/-- the mast's station: `MastClears`' floor at this size, plus his margin -/
-noncomputable def ymOf (a : ℝ) : ℝ := (derive { a := a }).ym
-
-/-- the pulley over the bolt line, `kPulley * a` -/
-noncomputable def hpOf (a : ℝ) : ℝ := (derive { a := a }).hp
-
-/-- the rim's depth below F at this size (`screwLength`) -/
-noncomputable def zeOf (a : ℝ) : ℝ := (derive { a := a }).ze
-
+/-! Each one IS `derive`'s field, definitionally.  If the design changes, these fail. -/
+theorem ROf_derive (a : ℝ) : ROf a = (derive { a := a }).R := rfl
+theorem fOf_derive (a : ℝ) : fOf a = (derive { a := a }).f := rfl
+theorem zeOf_derive (a : ℝ) : zeOf a = (derive { a := a }).ze := rfl
+theorem FCOf_derive (a : ℝ) : FCOf a = (derive { a := a }).FC := rfl
 theorem apexHOf_derive (a : ℝ) : apexHOf a = (derive { a := a }).apexH := rfl
+theorem sideGapOf_derive (a : ℝ) : sideGapOf a = (derive { a := a }).sideGap := rfl
+theorem chordOf_derive (a : ℝ) : chordOf a = (derive { a := a }).chord := rfl
+theorem aBaseOf_derive (a : ℝ) : aBaseOf a = (derive { a := a }).aBase := rfl
+theorem rRailOf_derive (a : ℝ) : rRailOf a = (derive { a := a }).rRail := rfl
+theorem uprightOf_derive (a : ℝ) : uprightOf a = (derive { a := a }).upright := rfl
+theorem holeDownOf_derive (a : ℝ) : holeDownOf a = (derive { a := a }).holeDown := rfl
+theorem postHOf_derive (a : ℝ) : postHOf a = (derive { a := a }).postH := rfl
+theorem footOf_derive (a : ℝ) : footOf a = (derive { a := a }).foot := rfl
+theorem braceOf_derive (a : ℝ) : braceOf a = (derive { a := a }).brace := rfl
+theorem footShortOf_derive (a : ℝ) : footShortOf a = (derive { a := a }).footShort := rfl
+theorem braceHeightOf_derive (a : ℝ) : braceHeightOf a = (derive { a := a }).braceHeight := rfl
+theorem rimHoleOf_derive (a : ℝ) : rimHoleOf a = (derive { a := a }).rimHole := rfl
+theorem zhOf_derive (a : ℝ) : zhOf a = (derive { a := a }).zh := rfl
 theorem ymOf_derive (a : ℝ) : ymOf a = (derive { a := a }).ym := rfl
 theorem hpOf_derive (a : ℝ) : hpOf a = (derive { a := a }).hp := rfl
-theorem zeOf_derive (a : ℝ) : zeOf a = (derive { a := a }).ze := rfl
+theorem standPostOf_derive (a : ℝ) : standPostOf a = (derive { a := a }).standPost := rfl
+theorem standFootOf_derive (a : ℝ) : standFootOf a = (derive { a := a }).standFoot := rfl
+
+/-- the rail's height over the deck, his fixed base's own (`megaGeom`'s column 13 is this) -/
+noncomputable def zRailHashemi : ℝ := hashemiBase.zRail
 
 /-- a point already in the roof frame, or a vector binder drawn where it is -/
 def pointOf (O : Fin 3 → ℝ) : Fin 3 → ℝ := O
@@ -108,6 +159,99 @@ noncomputable def rimPt (a ze t sg : ℝ) : ℝ × ℝ := swungPt (sg * a) (-ze)
 
 /-- a post top at HIS carriage and HIS legs — `postTop`, with the machine's own structures -/
 noncomputable def postTopH (endIn sg : ℝ) : Fin 3 → ℝ := postTop hashemi hashemiLeg endIn sg
+
+/-! ## 2b. The members of the machine, each in the frame the specification writes it in
+
+Every point below is the machine's own dimensions arranged in one of the three frames of section
+1; not one of them introduces a length.  `sg` (which side of the bar), `u` (which way the A's
+foot splays) and the integer `j` (which station along a polygon) are the drawing's own
+conventions, bound to literals by the scene, exactly as `sgL`/`sgR` always were.
+
+**Carriage frame** — `q = (station off the tube's axis, offset along the bar, height over the
+bar)`, which is `postTop`'s own convention. -/
+
+/-- the post's foot on the bar, and its top: `postTop` at `derive`'s carriage and leg -/
+noncomputable def postBaseM (a endIn sg : ℝ) : Fin 3 → ℝ :=
+  ![apexHOf a, sg * (chordOf a / 2 - endIn), 0]
+noncomputable def postTopM (a endIn sg : ℝ) : Fin 3 → ℝ :=
+  ![apexHOf a, sg * (chordOf a / 2 - endIn), uprightOf a]
+
+/-- the A's foot, its short side, and where the brace meets the upright (`Leg`, `braceHeight`) -/
+noncomputable def legFootM (a endIn sg u : ℝ) : Fin 3 → ℝ :=
+  ![apexHOf a + u * footLongOf a, sg * (chordOf a / 2 - endIn), 0]
+noncomputable def legShortM (a endIn sg u : ℝ) : Fin 3 → ℝ :=
+  ![apexHOf a - u * footShortOf a, sg * (chordOf a / 2 - endIn), 0]
+noncomputable def legBraceM (a endIn sg : ℝ) : Fin 3 → ℝ :=
+  ![apexHOf a, sg * (chordOf a / 2 - endIn), braceHeightOf a]
+
+/-- the tube's axis: the deck under it, and the bar's own height -/
+noncomputable def tubeFootM (zBar : ℝ) : Fin 3 → ℝ := ![0, 0, -zBar]
+noncomputable def tubeTopM : Fin 3 → ℝ := ![0, 0, 0]
+
+/-- the ring rail the carriage rides, at `rollerRadius`: station `j` of twelve -/
+noncomputable def railPtM (a j : ℝ) : Fin 3 → ℝ :=
+  ![rRailOf a * Real.cos (2 * Real.pi * j / 12), rRailOf a * Real.sin (2 * Real.pi * j / 12), 0]
+
+/-- the bolt line across the bar, at the bar's ends -/
+noncomputable def boltLineM (a sg : ℝ) : Fin 3 → ℝ :=
+  ![apexHOf a, sg * (chordOf a / 2), postHOf a]
+
+/-- the receiver post: from the bar up through the slot to F on the bolt line -/
+noncomputable def receiverBaseM (a : ℝ) : Fin 3 → ℝ := ![apexHOf a, 0, 0]
+noncomputable def receiverTopM (a : ℝ) : Fin 3 → ℝ := ![apexHOf a, 0, postHOf a]
+
+/-- the stand on the outrigger's cross member, and the pulley on top of it (`pulleyAt`'s `hp`
+over the bolt line, which stands `postH` over the bar) -/
+noncomputable def mastFootM (a : ℝ) : Fin 3 → ℝ := ![-(ymOf a), 0, 0]
+noncomputable def mastTopM (a : ℝ) : Fin 3 → ℝ := ![-(ymOf a), 0, standPostOf a]
+noncomputable def standBarM (a sg : ℝ) : Fin 3 → ℝ :=
+  ![-(ymOf a), sg * (standFootOf a / 2), 0]
+
+/-- the outrigger: the two rails leave the bar `root` apart at the A's feet and taper to
+`endWidth` at `endStation` (`hashemiOutrigger`, whose last two readings are his and carry no law
+in `a`) -/
+noncomputable def outrigRootM (a sg : ℝ) : Fin 3 → ℝ := ![0, sg * (aBaseOf a / 2), 0]
+noncomputable def outrigEndM (sg : ℝ) : Fin 3 → ℝ :=
+  ![-hashemiOutrigger.endStation, sg * (hashemiOutrigger.endWidth / 2), 0]
+
+/-- a hanger's eye on the bolt line, at the half-edge middle `rimHole` along the bar -/
+noncomputable def hangerEyeM (a sgy : ℝ) : Fin 3 → ℝ :=
+  ![apexHOf a, sgy * rimHoleOf a, postHOf a]
+
+/-- and its lower end, the rim hole on the panel at that station, `zh` below F and swung by `t`
+(`swungPt`, `zh`, `hangerLength`'s own `yr`) -/
+noncomputable def hangerHoleM (a t sgx sgy : ℝ) : Fin 3 → ℝ :=
+  ![apexHOf a + (swungPt (sgx * a) (-(zhOf a)) t).1, sgy * rimHoleOf a,
+    postHOf a + (swungPt (sgx * a) (-(zhOf a)) t).2]
+
+/-! **Dish frame** — `q = (along the bolt line, along the tilt, along the face's normal)` from the
+vertex, which is the frame `traceConic` and `dishReflect` work in.  A point of the panel is its
+two panel coordinates and the specification's own conic height there. -/
+
+/-- a point of the reflector at panel coordinates `(u, v)`: `conicZ` at that radius, the very
+surface the trace strikes -/
+noncomputable def panelPtD (R k u v : ℝ) : Fin 3 → ℝ :=
+  ![u, v, conicZ (1 / R) k (Real.sqrt (u ^ 2 + v ^ 2))]
+
+/-- a corner of the square panel (`dishSide = 2a`) -/
+noncomputable def panelCornerD (a R k sgx sgy : ℝ) : Fin 3 → ℝ :=
+  panelPtD R k (sgx * a) (sgy * a)
+/-- station `j` of four along an edge, the two runs -/
+noncomputable def panelEdgeUD (a R k sgy j : ℝ) : Fin 3 → ℝ :=
+  panelPtD R k (a * j / 2) (sgy * a)
+noncomputable def panelEdgeVD (a R k sgx j : ℝ) : Fin 3 → ℝ :=
+  panelPtD R k (sgx * a) (a * j / 2)
+/-- the sag across the panel, along the bolt line and across it -/
+noncomputable def sagArcUD (a R k j : ℝ) : Fin 3 → ℝ := panelPtD R k (a * j / 2) 0
+noncomputable def sagArcVD (a R k j : ℝ) : Fin 3 → ℝ := panelPtD R k 0 (a * j / 2)
+/-- the slot the receiver post passes through, across the dish along the bolt line -/
+noncomputable def slotEndD (a R k sg : ℝ) : Fin 3 → ℝ := panelPtD R k (sg * a) 0
+/-- the vertex, and F on the axis -/
+noncomputable def apexD : Fin 3 → ℝ := ![0, 0, 0]
+noncomputable def focusD (f : ℝ) : Fin 3 → ℝ := ![0, 0, f]
+/-- the coil at F, a circle of the receiver's own radius `rc`: station `j` of eight -/
+noncomputable def coilPtD (f rc j : ℝ) : Fin 3 → ℝ :=
+  ![rc * Real.cos (2 * Real.pi * j / 8), rc * Real.sin (2 * Real.pi * j / 8), f]
 
 /-! ## 3. Repacks: three columns of a trace -/
 
@@ -279,6 +423,10 @@ noncomputable def envRimPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tm
 /-- the clip, at that swing -/
 noncomputable def envEdgeClipAt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze : ℝ) : ℝ × ℝ :=
   edgeClipAt a ze (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1)
+
+/-- a hanger's rim hole, at the swing the env stepped to -/
+noncomputable def envHangerHoleM (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a sgx sgy : ℝ) : Fin 3 → ℝ :=
+  hangerHoleM a (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) sgx sgy
 
 /-- row `i`'s ray start, at the pose the env stepped to and under the env's own sun -/
 noncomputable def envRayStartT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen f a w hsun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
@@ -460,49 +608,373 @@ namespace HashemiSceneInst
 
 open Scene
 
-/-- **the machine**: the carriage, the tow wire, the dish's axis and rim, and one traced ray in
-the dish's own frame.  The sun's elevation and azimuth ride along as numbers, so that the
-renderer's clock and the specification's `elSun`/`azSun` are the same two reals. -/
+/-! ### The nine bindings
+
+Nine of the env scene's binders are not the env morphism's own inputs: `zBar`, `endIn`, `sgL`,
+`sgR`, `apexH`, `zBolt`, `ym`, `hp`, `ze`.  Each is a definition of the specification (or a
+convention of the drawing), so each is BOUND to a node of the graph instead of being pooled on
+the host: `zBar` is `megaGeom`'s own rail height, `zBolt` his bolt line, the scaled lengths are
+`derive`'s fields at the env's own `a`, and the three conventions are literals.  With these nine
+bound, the env scene's input row IS `hashemiEnv`'s input row.  Both scenes bind them, so the
+machine's dimensions are never handed to a picture from outside. -/
+
+/-- the rail the carriage rides, `megaGeom`'s column 13 (`zRail`) at this very pose -/
+def zBarB : Bound := .node "megaGeom" (some 13)
+/-- the bolt line over the deck: his own constant -/
+def zBoltB : Bound := .node "zBoltHashemi"
+/-- the apex station at this size -/
+def apexHB : Bound := .node "apexHOf"
+/-- the mast, the pulley and the rim's depth at this size -/
+def ymB : Bound := .node "ymOf"
+def hpB : Bound := .node "hpOf"
+def zeB : Bound := .node "zeOf"
+/-- the drawing's own conventions: the two ends of the bar, and no end offset -/
+def sgLB : Bound := Bound.lit 1
+def sgRB : Bound := Bound.lit (-1)
+def endInB : Bound := Bound.lit 0
+
+/-- the carriage's frame, and the bolt plane's, as the env scene binds them -/
+def carriageB : List (String × Bound) := [("zBar", zBarB)]
+def boltB : List (String × Bound) := [("apexH", apexHB), ("zBolt", zBoltB)]
+
+/-- **the machine**: the base (the tube, the ring rail, the bar on its two A-legs), the carriage
+on it, the outrigger with the stand and the mast, the tow wire from the pulley to the clip, the
+four hangers, the reflector (its rim on the conic, its sag, its corners and its slot), the
+receiver post up to the coil at F, and one traced ray in the dish's own frame.  The sun's
+elevation and azimuth ride along as numbers, so that the renderer's clock and the
+specification's `elSun`/`azSun` are the same two reals. -/
 def hashemiScene : Scene := [
-  -- the carriage (`postTop`, at his carriage and legs), the two post tops and the bar between
-  { label := "bar",
-    shape := .seg (.pt "postTopH" (some "roofOfCarriage") [("sg", "sgL")])
-                  (.pt "postTopH" (some "roofOfCarriage") [("sg", "sgR")]),
+  { label := "tube",
+    shape := .seg (.pt "tubeFootM" (some "roofOfCarriage") [("zBar", zBarB)])
+                  (.pt "tubeTopM" (some "roofOfCarriage") [("zBar", zBarB)]),
+    colour := 1 },
+  { label := "rail_00",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 0))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "rail_01",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 1))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 2))]),
+    colour := 1 },
+  { label := "rail_02",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 2))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 3))]),
+    colour := 1 },
+  { label := "rail_03",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 3))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 4))]),
+    colour := 1 },
+  { label := "rail_04",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 4))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 5))]),
+    colour := 1 },
+  { label := "rail_05",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 5))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 6))]),
+    colour := 1 },
+  { label := "rail_06",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 6))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 7))]),
+    colour := 1 },
+  { label := "rail_07",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 7))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 8))]),
+    colour := 1 },
+  { label := "rail_08",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 8))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 9))]),
+    colour := 1 },
+  { label := "rail_09",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 9))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 10))]),
+    colour := 1 },
+  { label := "rail_10",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 10))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 11))]),
+    colour := 1 },
+  { label := "rail_11",
+    shape := .seg (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 11))])
+                  (.pt "railPtM" (some "roofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 12))]),
+    colour := 1 },
+  { label := "post_left",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "postTopM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)]),
     colour := 1 },
   { label := "post_top_left",
-    shape := .one (.pt "postTopH" (some "roofOfCarriage") [("sg", "sgL")]), colour := 1 },
+    shape := .one (.pt "postTopM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_foot_left_fore",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "legFootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "leg_brace_left_fore",
+    shape := .seg (.pt "legFootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit 1))])
+                  (.pt "legBraceM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_short_left_fore",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "legShortM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "leg_foot_left_aft",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "legFootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "leg_brace_left_aft",
+    shape := .seg (.pt "legFootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit (-1)))])
+                  (.pt "legBraceM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_short_left_aft",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "legShortM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "post_right",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "postTopM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
   { label := "post_top_right",
-    shape := .one (.pt "postTopH" (some "roofOfCarriage") [("sg", "sgR")]), colour := 1 },
-  -- the tow wire (`pulleyAt`, `edgeClipAt`), section 9
-  { label := "pulley", shape := .one (.pt "pulleyAt" (some "roofOfBolt")), colour := 2 },
-  { label := "clip", shape := .one (.pt "edgeClipAt" (some "roofOfBolt")), colour := 2 },
-  { label := "tow_wire",
-    shape := .seg (.pt "pulleyAt" (some "roofOfBolt")) (.pt "edgeClipAt" (some "roofOfBolt")),
+    shape := .one (.pt "postTopM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_foot_right_fore",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "legFootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "leg_brace_right_fore",
+    shape := .seg (.pt "legFootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit 1))])
+                  (.pt "legBraceM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_short_right_fore",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "legShortM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "leg_foot_right_aft",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "legFootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "leg_brace_right_aft",
+    shape := .seg (.pt "legFootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit (-1)))])
+                  (.pt "legBraceM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_short_right_aft",
+    shape := .seg (.pt "postBaseM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "legShortM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "bar",
+    shape := .seg (.pt "postTopM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "postTopM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "bolt_line",
+    shape := .seg (.pt "boltLineM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1))])
+                  (.pt "boltLineM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "outrigger_left",
+    shape := .seg (.pt "outrigRootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1))])
+                  (.pt "outrigEndM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1))]),
     colour := 2 },
-  -- the dish at the swing (`swungPt`, through `dishVertexPt`), and F on the bolt line
-  { label := "vertex", shape := .one (.pt "dishVertexPt" (some "roofOfBolt")), colour := 3 },
-  { label := "focus", shape := .one (.pt "boltOriginPt" (some "roofOfBolt")), colour := 4 },
-  { label := "axis",
-    shape := .seg (.pt "dishVertexPt" (some "roofOfBolt")) (.pt "boltOriginPt" (some "roofOfBolt")),
+  { label := "outrigger_right",
+    shape := .seg (.pt "outrigRootM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1)))])
+                  (.pt "outrigEndM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1)))]),
+    colour := 2 },
+  { label := "stand_bar",
+    shape := .seg (.pt "standBarM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1))])
+                  (.pt "standBarM" (some "roofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1)))]),
+    colour := 2 },
+  { label := "mast",
+    shape := .seg (.pt "mastFootM" (some "roofOfCarriage") [("zBar", zBarB)])
+                  (.pt "mastTopM" (some "roofOfCarriage") [("zBar", zBarB)]),
+    colour := 2 },
+  { label := "pulley",
+    shape := .one (.pt "pulleyAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)]),
+    colour := 2 },
+  { label := "clip",
+    shape := .one (.pt "edgeClipAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB)]),
+    colour := 2 },
+  { label := "tow_wire",
+    shape := .seg (.pt "pulleyAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)])
+                  (.pt "edgeClipAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB)]),
+    colour := 2 },
+  { label := "hanger_vertexside_left",
+    shape := .seg (.pt "hangerEyeM" (some "roofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit 1))])
+                  (.pt "hangerHoleM" (some "roofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit 1))]),
+    colour := 2 },
+  { label := "hanger_vertexside_right",
+    shape := .seg (.pt "hangerEyeM" (some "roofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit (-1)))])
+                  (.pt "hangerHoleM" (some "roofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit (-1)))]),
+    colour := 2 },
+  { label := "hanger_rimside_left",
+    shape := .seg (.pt "hangerEyeM" (some "roofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit 1))])
+                  (.pt "hangerHoleM" (some "roofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit 1))]),
+    colour := 2 },
+  { label := "hanger_rimside_right",
+    shape := .seg (.pt "hangerEyeM" (some "roofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit (-1)))])
+                  (.pt "hangerHoleM" (some "roofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))]),
+    colour := 2 },
+  { label := "vertex",
+    shape := .one (.pt "dishVertexPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
     colour := 3 },
-  { label := "rim",
-    shape := .seg (.pt "rimPt" (some "roofOfBolt") [("sg", "sgL")])
-                  (.pt "rimPt" (some "roofOfBolt") [("sg", "sgR")]),
+  { label := "focus",
+    shape := .one (.pt "boltOriginPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
     colour := 4 },
-  -- the focus as the rim nuts set it (`swingFocus`, section 11)
-  { label := "focus_nuts", shape := .one (.pt "swingFocus" (some "roofOfBolt") [("d", "dnut")]), colour := 5 },
-  -- one ray of the trace, in the dish's own frame (`traceConic`), coloured by `traceRayKErr`'s fate
+  { label := "axis",
+    shape := .seg (.pt "dishVertexPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)])
+                  (.pt "boltOriginPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
+    colour := 3 },
+  { label := "rim_u_left_0",
+    shape := .seg (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit (-2)))])
+                  (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "rim_v_left_0",
+    shape := .seg (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit (-2)))])
+                  (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "rim_u_left_1",
+    shape := .seg (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit (-1)))])
+                  (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 0))]),
+    colour := 4 },
+  { label := "rim_v_left_1",
+    shape := .seg (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit (-1)))])
+                  (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 0))]),
+    colour := 4 },
+  { label := "rim_u_left_2",
+    shape := .seg (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 0))])
+                  (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "rim_v_left_2",
+    shape := .seg (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 0))])
+                  (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "rim_u_left_3",
+    shape := .seg (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 1))])
+                  (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 2))]),
+    colour := 4 },
+  { label := "rim_v_left_3",
+    shape := .seg (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 1))])
+                  (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 2))]),
+    colour := 4 },
+  { label := "rim_u_right_0",
+    shape := .seg (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit (-2)))])
+                  (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "rim_v_right_0",
+    shape := .seg (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit (-2)))])
+                  (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "rim_u_right_1",
+    shape := .seg (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit (-1)))])
+                  (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 0))]),
+    colour := 4 },
+  { label := "rim_v_right_1",
+    shape := .seg (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit (-1)))])
+                  (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 0))]),
+    colour := 4 },
+  { label := "rim_u_right_2",
+    shape := .seg (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 0))])
+                  (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "rim_v_right_2",
+    shape := .seg (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 0))])
+                  (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "rim_u_right_3",
+    shape := .seg (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 1))])
+                  (.pt "panelEdgeUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 2))]),
+    colour := 4 },
+  { label := "rim_v_right_3",
+    shape := .seg (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 1))])
+                  (.pt "panelEdgeVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 2))]),
+    colour := 4 },
+  { label := "corner_pp",
+    shape := .one (.pt "panelCornerD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "corner_pm",
+    shape := .one (.pt "panelCornerD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "corner_mp",
+    shape := .one (.pt "panelCornerD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "corner_mm",
+    shape := .one (.pt "panelCornerD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "sag_u_0",
+    shape := .seg (.pt "sagArcUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-2)))])
+                  (.pt "sagArcUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-1)))]),
+    colour := 3 },
+  { label := "sag_v_0",
+    shape := .seg (.pt "sagArcVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-2)))])
+                  (.pt "sagArcVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-1)))]),
+    colour := 3 },
+  { label := "sag_u_1",
+    shape := .seg (.pt "sagArcUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-1)))])
+                  (.pt "sagArcUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))]),
+    colour := 3 },
+  { label := "sag_v_1",
+    shape := .seg (.pt "sagArcVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-1)))])
+                  (.pt "sagArcVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))]),
+    colour := 3 },
+  { label := "sag_u_2",
+    shape := .seg (.pt "sagArcUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))])
+                  (.pt "sagArcUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))]),
+    colour := 3 },
+  { label := "sag_v_2",
+    shape := .seg (.pt "sagArcVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))])
+                  (.pt "sagArcVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))]),
+    colour := 3 },
+  { label := "sag_u_3",
+    shape := .seg (.pt "sagArcUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))])
+                  (.pt "sagArcUD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 2))]),
+    colour := 3 },
+  { label := "sag_v_3",
+    shape := .seg (.pt "sagArcVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))])
+                  (.pt "sagArcVD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 2))]),
+    colour := 3 },
+  { label := "slot",
+    shape := .seg (.pt "slotEndD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sg", (Bound.lit 1))])
+                  (.pt "slotEndD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sg", (Bound.lit (-1)))]),
+    colour := 5 },
+  { label := "receiver_post",
+    shape := .seg (.pt "receiverBaseM" (some "roofOfCarriage") [("zBar", zBarB)])
+                  (.pt "receiverTopM" (some "roofOfCarriage") [("zBar", zBarB)]),
+    colour := 5 },
+  { label := "coil_0",
+    shape := .seg (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))])
+                  (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))]),
+    colour := 5 },
+  { label := "coil_1",
+    shape := .seg (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))])
+                  (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 2))]),
+    colour := 5 },
+  { label := "coil_2",
+    shape := .seg (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 2))])
+                  (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 3))]),
+    colour := 5 },
+  { label := "coil_3",
+    shape := .seg (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 3))])
+                  (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 4))]),
+    colour := 5 },
+  { label := "coil_4",
+    shape := .seg (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 4))])
+                  (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 5))]),
+    colour := 5 },
+  { label := "coil_5",
+    shape := .seg (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 5))])
+                  (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 6))]),
+    colour := 5 },
+  { label := "coil_6",
+    shape := .seg (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 6))])
+                  (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 7))]),
+    colour := 5 },
+  { label := "coil_7",
+    shape := .seg (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 7))])
+                  (.pt "coilPtD" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 8))]),
+    colour := 5 },
   { label := "ray",
-    shape := .rayOf (.pt "rayStartT" (some "roofOfDish"))
-                    (.pt "rayHitT" (some "roofOfDish"))
-                    (.pt "rayLandT" (some "roofOfDish"))
+    shape := .rayOf (.pt "rayStartT" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB)])
+                    (.pt "rayHitT" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB)])
+                    (.pt "rayLandT" (some "roofOfDish") [("apexH", apexHB), ("zBolt", zBoltB)])
                     (.num "rayFateT" 4),
     colour := 6 },
-  -- the sun (`sunDir` in the roof frame; `sunAt` as the clock's two reals)
-  { label := "sun_dir", shape := .one (.pt "sunDir" none), colour := 7 },
+  { label := "sun_dir", shape := .one (.pt "sunDir" none []), colour := 7 },
   { label := "sun_el", shape := .one (.num "sunAt" 0), colour := 7 },
   { label := "sun_az", shape := .one (.num "sunAt" 1), colour := 7 },
-  -- the pointing error the policy is graded on (`pointingError`)
   { label := "pointing_error", shape := .one (.num "pointingError" 0), colour := 7 }]
 
 /-- **the beam-down** (`HashemiBeamdown`): the secondary in the coil's volume, the leg from the
@@ -543,80 +1015,339 @@ def opticScene : Scene := [
   { label := "stage1_captured", shape := .one (.num "beamTraceT" 0), colour := 5 },
   { label := "stage1_fate", shape := .one (.num "beamTraceT" 7), colour := 6 }]
 
-/-! ### The nine bindings
-
-Nine of the env scene's binders are not the env morphism's own inputs: `zBar`, `endIn`, `sgL`,
-`sgR`, `apexH`, `zBolt`, `ym`, `hp`, `ze`.  Each is a definition of the specification (or a
-convention of the drawing), so each is BOUND to a node of the graph instead of being pooled on
-the host: `zBar` is `megaGeom`'s own rail height, `zBolt` his bolt line, the four scaled lengths
-are `derive`'s fields at the env's own `a`, and the three conventions are literals.  With these
-nine bound, the env scene's input row IS `hashemiEnv`'s input row. -/
-
-/-- the rail the carriage rides, `megaGeom`'s column 13 (`zRail`) at this very pose -/
-def zBarB : Bound := .node "megaGeom" (some 13)
-/-- the bolt line over the deck: his own constant -/
-def zBoltB : Bound := .node "zBoltHashemi"
-/-- the apex station at this size -/
-def apexHB : Bound := .node "apexHOf"
-/-- the mast, the pulley and the rim's depth at this size -/
-def ymB : Bound := .node "ymOf"
-def hpB : Bound := .node "hpOf"
-def zeB : Bound := .node "zeOf"
-/-- the drawing's own conventions: the two ends of the bar, and no end offset -/
-def sgLB : Bound := .lit 1
-def sgRB : Bound := .lit (-1)
-def endInB : Bound := .lit 0
-
-/-- the carriage's frame, and the bolt plane's, as the env scene binds them -/
-def carriageB : List (String × Bound) := [("zBar", zBarB)]
-def boltB : List (String × Bound) := [("apexH", apexHB), ("zBolt", zBoltB)]
-
 /-- **the env's own step, drawn**: the machine at the pose `hashemiEnv` stepped to, the rays it
 traced, and its own columns as the numbers beside them.  Compiled as ONE kernel: the vertices and
 the env's outputs come out of the same graph, over the same `dr`, so the frame the trainer shows
 IS the step the policy acted on.  Nothing in this list is a formula either. -/
 def envScene : Scene := [
-  { label := "bar",
-    shape := .seg (.pt "postTopH" (some "envRoofOfCarriage")
-                    (carriageB ++ [("sg", sgLB), ("endIn", endInB)]))
-                  (.pt "postTopH" (some "envRoofOfCarriage")
-                    (carriageB ++ [("sg", sgRB), ("endIn", endInB)])),
+  { label := "tube",
+    shape := .seg (.pt "tubeFootM" (some "envRoofOfCarriage") [("zBar", zBarB)])
+                  (.pt "tubeTopM" (some "envRoofOfCarriage") [("zBar", zBarB)]),
+    colour := 1 },
+  { label := "rail_00",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 0))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "rail_01",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 1))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 2))]),
+    colour := 1 },
+  { label := "rail_02",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 2))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 3))]),
+    colour := 1 },
+  { label := "rail_03",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 3))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 4))]),
+    colour := 1 },
+  { label := "rail_04",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 4))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 5))]),
+    colour := 1 },
+  { label := "rail_05",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 5))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 6))]),
+    colour := 1 },
+  { label := "rail_06",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 6))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 7))]),
+    colour := 1 },
+  { label := "rail_07",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 7))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 8))]),
+    colour := 1 },
+  { label := "rail_08",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 8))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 9))]),
+    colour := 1 },
+  { label := "rail_09",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 9))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 10))]),
+    colour := 1 },
+  { label := "rail_10",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 10))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 11))]),
+    colour := 1 },
+  { label := "rail_11",
+    shape := .seg (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 11))])
+                  (.pt "railPtM" (some "envRoofOfCarriage") [("zBar", zBarB), ("j", (Bound.lit 12))]),
+    colour := 1 },
+  { label := "post_left",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "postTopM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)]),
     colour := 1 },
   { label := "post_top_left",
-    shape := .one (.pt "postTopH" (some "envRoofOfCarriage")
-              (carriageB ++ [("sg", sgLB), ("endIn", endInB)])), colour := 1 },
+    shape := .one (.pt "postTopM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_foot_left_fore",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "legFootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "leg_brace_left_fore",
+    shape := .seg (.pt "legFootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit 1))])
+                  (.pt "legBraceM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_short_left_fore",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "legShortM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "leg_foot_left_aft",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "legFootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "leg_brace_left_aft",
+    shape := .seg (.pt "legFootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit (-1)))])
+                  (.pt "legBraceM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_short_left_aft",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "legShortM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB), ("u", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "post_right",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "postTopM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
   { label := "post_top_right",
-    shape := .one (.pt "postTopH" (some "envRoofOfCarriage")
-              (carriageB ++ [("sg", sgRB), ("endIn", endInB)])), colour := 1 },
+    shape := .one (.pt "postTopM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_foot_right_fore",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "legFootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "leg_brace_right_fore",
+    shape := .seg (.pt "legFootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit 1))])
+                  (.pt "legBraceM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_short_right_fore",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "legShortM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit 1))]),
+    colour := 1 },
+  { label := "leg_foot_right_aft",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "legFootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "leg_brace_right_aft",
+    shape := .seg (.pt "legFootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit (-1)))])
+                  (.pt "legBraceM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "leg_short_right_aft",
+    shape := .seg (.pt "postBaseM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)])
+                  (.pt "legShortM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB), ("u", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "bar",
+    shape := .seg (.pt "postTopM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1)), ("endIn", endInB)])
+                  (.pt "postTopM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1))), ("endIn", endInB)]),
+    colour := 1 },
+  { label := "bolt_line",
+    shape := .seg (.pt "boltLineM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1))])
+                  (.pt "boltLineM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1)))]),
+    colour := 1 },
+  { label := "outrigger_left",
+    shape := .seg (.pt "outrigRootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1))])
+                  (.pt "outrigEndM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1))]),
+    colour := 2 },
+  { label := "outrigger_right",
+    shape := .seg (.pt "outrigRootM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1)))])
+                  (.pt "outrigEndM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1)))]),
+    colour := 2 },
+  { label := "stand_bar",
+    shape := .seg (.pt "standBarM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit 1))])
+                  (.pt "standBarM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sg", (Bound.lit (-1)))]),
+    colour := 2 },
+  { label := "mast",
+    shape := .seg (.pt "mastFootM" (some "envRoofOfCarriage") [("zBar", zBarB)])
+                  (.pt "mastTopM" (some "envRoofOfCarriage") [("zBar", zBarB)]),
+    colour := 2 },
   { label := "pulley",
-    shape := .one (.pt "pulleyAt" (some "envRoofOfBolt")
-              (boltB ++ [("ym", ymB), ("hp", hpB)])), colour := 2 },
+    shape := .one (.pt "pulleyAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)]),
+    colour := 2 },
   { label := "clip",
-    shape := .one (.pt "envEdgeClipAt" (some "envRoofOfBolt") (boltB ++ [("ze", zeB)])),
+    shape := .one (.pt "envEdgeClipAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB)]),
     colour := 2 },
   { label := "tow_wire",
-    shape := .seg (.pt "pulleyAt" (some "envRoofOfBolt") (boltB ++ [("ym", ymB), ("hp", hpB)]))
-                  (.pt "envEdgeClipAt" (some "envRoofOfBolt") (boltB ++ [("ze", zeB)])),
+    shape := .seg (.pt "pulleyAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)])
+                  (.pt "envEdgeClipAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB)]),
+    colour := 2 },
+  { label := "hanger_vertexside_left",
+    shape := .seg (.pt "hangerEyeM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit 1))])
+                  (.pt "envHangerHoleM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit 1))]),
+    colour := 2 },
+  { label := "hanger_vertexside_right",
+    shape := .seg (.pt "hangerEyeM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit (-1)))])
+                  (.pt "envHangerHoleM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit (-1)))]),
+    colour := 2 },
+  { label := "hanger_rimside_left",
+    shape := .seg (.pt "hangerEyeM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit 1))])
+                  (.pt "envHangerHoleM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit 1))]),
+    colour := 2 },
+  { label := "hanger_rimside_right",
+    shape := .seg (.pt "hangerEyeM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit (-1)))])
+                  (.pt "envHangerHoleM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))]),
     colour := 2 },
   { label := "vertex",
-    shape := .one (.pt "envDishVertexPt" (some "envRoofOfBolt") boltB), colour := 3 },
-  { label := "focus",
-    shape := .one (.pt "boltOriginPt" (some "envRoofOfBolt") boltB), colour := 4 },
-  { label := "axis",
-    shape := .seg (.pt "envDishVertexPt" (some "envRoofOfBolt") boltB)
-                  (.pt "boltOriginPt" (some "envRoofOfBolt") boltB),
+    shape := .one (.pt "envDishVertexPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
     colour := 3 },
-  { label := "rim",
-    shape := .seg (.pt "envRimPt" (some "envRoofOfBolt") (boltB ++ [("ze", zeB), ("sg", sgLB)]))
-                  (.pt "envRimPt" (some "envRoofOfBolt") (boltB ++ [("ze", zeB), ("sg", sgRB)])),
+  { label := "focus",
+    shape := .one (.pt "boltOriginPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
     colour := 4 },
+  { label := "axis",
+    shape := .seg (.pt "envDishVertexPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)])
+                  (.pt "boltOriginPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
+    colour := 3 },
+  { label := "rim_u_left_0",
+    shape := .seg (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit (-2)))])
+                  (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "rim_v_left_0",
+    shape := .seg (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit (-2)))])
+                  (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "rim_u_left_1",
+    shape := .seg (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit (-1)))])
+                  (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 0))]),
+    colour := 4 },
+  { label := "rim_v_left_1",
+    shape := .seg (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit (-1)))])
+                  (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 0))]),
+    colour := 4 },
+  { label := "rim_u_left_2",
+    shape := .seg (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 0))])
+                  (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "rim_v_left_2",
+    shape := .seg (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 0))])
+                  (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "rim_u_left_3",
+    shape := .seg (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 1))])
+                  (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit 1)), ("j", (Bound.lit 2))]),
+    colour := 4 },
+  { label := "rim_v_left_3",
+    shape := .seg (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 1))])
+                  (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("j", (Bound.lit 2))]),
+    colour := 4 },
+  { label := "rim_u_right_0",
+    shape := .seg (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit (-2)))])
+                  (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "rim_v_right_0",
+    shape := .seg (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit (-2)))])
+                  (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "rim_u_right_1",
+    shape := .seg (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit (-1)))])
+                  (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 0))]),
+    colour := 4 },
+  { label := "rim_v_right_1",
+    shape := .seg (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit (-1)))])
+                  (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 0))]),
+    colour := 4 },
+  { label := "rim_u_right_2",
+    shape := .seg (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 0))])
+                  (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "rim_v_right_2",
+    shape := .seg (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 0))])
+                  (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "rim_u_right_3",
+    shape := .seg (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 1))])
+                  (.pt "panelEdgeUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgy", (Bound.lit (-1))), ("j", (Bound.lit 2))]),
+    colour := 4 },
+  { label := "rim_v_right_3",
+    shape := .seg (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 1))])
+                  (.pt "panelEdgeVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("j", (Bound.lit 2))]),
+    colour := 4 },
+  { label := "corner_pp",
+    shape := .one (.pt "panelCornerD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "corner_pm",
+    shape := .one (.pt "panelCornerD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "corner_mp",
+    shape := .one (.pt "panelCornerD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit 1))]),
+    colour := 4 },
+  { label := "corner_mm",
+    shape := .one (.pt "panelCornerD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sgx", (Bound.lit (-1))), ("sgy", (Bound.lit (-1)))]),
+    colour := 4 },
+  { label := "sag_u_0",
+    shape := .seg (.pt "sagArcUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-2)))])
+                  (.pt "sagArcUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-1)))]),
+    colour := 3 },
+  { label := "sag_v_0",
+    shape := .seg (.pt "sagArcVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-2)))])
+                  (.pt "sagArcVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-1)))]),
+    colour := 3 },
+  { label := "sag_u_1",
+    shape := .seg (.pt "sagArcUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-1)))])
+                  (.pt "sagArcUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))]),
+    colour := 3 },
+  { label := "sag_v_1",
+    shape := .seg (.pt "sagArcVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit (-1)))])
+                  (.pt "sagArcVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))]),
+    colour := 3 },
+  { label := "sag_u_2",
+    shape := .seg (.pt "sagArcUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))])
+                  (.pt "sagArcUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))]),
+    colour := 3 },
+  { label := "sag_v_2",
+    shape := .seg (.pt "sagArcVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))])
+                  (.pt "sagArcVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))]),
+    colour := 3 },
+  { label := "sag_u_3",
+    shape := .seg (.pt "sagArcUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))])
+                  (.pt "sagArcUD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 2))]),
+    colour := 3 },
+  { label := "sag_v_3",
+    shape := .seg (.pt "sagArcVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))])
+                  (.pt "sagArcVD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 2))]),
+    colour := 3 },
+  { label := "slot",
+    shape := .seg (.pt "slotEndD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sg", (Bound.lit 1))])
+                  (.pt "slotEndD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("sg", (Bound.lit (-1)))]),
+    colour := 5 },
+  { label := "receiver_post",
+    shape := .seg (.pt "receiverBaseM" (some "envRoofOfCarriage") [("zBar", zBarB)])
+                  (.pt "receiverTopM" (some "envRoofOfCarriage") [("zBar", zBarB)]),
+    colour := 5 },
+  { label := "coil_0",
+    shape := .seg (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 0))])
+                  (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))]),
+    colour := 5 },
+  { label := "coil_1",
+    shape := .seg (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 1))])
+                  (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 2))]),
+    colour := 5 },
+  { label := "coil_2",
+    shape := .seg (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 2))])
+                  (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 3))]),
+    colour := 5 },
+  { label := "coil_3",
+    shape := .seg (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 3))])
+                  (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 4))]),
+    colour := 5 },
+  { label := "coil_4",
+    shape := .seg (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 4))])
+                  (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 5))]),
+    colour := 5 },
+  { label := "coil_5",
+    shape := .seg (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 5))])
+                  (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 6))]),
+    colour := 5 },
+  { label := "coil_6",
+    shape := .seg (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 6))])
+                  (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 7))]),
+    colour := 5 },
+  { label := "coil_7",
+    shape := .seg (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 7))])
+                  (.pt "coilPtD" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB), ("j", (Bound.lit 8))]),
+    colour := 5 },
   { label := "ray",
-    shape := .rayOf (.pt "envRayStartT" (some "envRoofOfDish") boltB)
-                    (.pt "envRayHitT" (some "envRoofOfDish") boltB)
-                    (.pt "envRayLandT" (some "envRoofOfDish") boltB)
+    shape := .rayOf (.pt "envRayStartT" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB)])
+                    (.pt "envRayHitT" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB)])
+                    (.pt "envRayLandT" (some "envRoofOfDish") [("apexH", apexHB), ("zBolt", zBoltB)])
                     (.num "envRayFateT" 4),
     colour := 6 },
-  -- the env's own columns, beside the picture of the step that produced them
   { label := "pointing_err", shape := .one (.num "hashemiEnv" 11), colour := 7 },
   { label := "capture", shape := .one (.num "hashemiEnv" 17), colour := 7 },
   { label := "per_dni", shape := .one (.num "hashemiEnv" 19), colour := 7 },
