@@ -28,7 +28,7 @@ def main():
     ap.add_argument("--receiver", default="oil", help="oil (the coil and the loop) or beam (the hyperboloid beam-down through the slot)")
     ap.add_argument("--slot", type=float, default=0.06, help="the slot's width [m] for the beam-down")
     ap.add_argument("--oil-nodes", type=int, default=None, help="belt slots the coil heats (default: the ini's)")
-    ap.add_argument("--dish-half", type=float, default=None, help="the reflector's half-side a [m] (his 0.8); the sphere scales with it")
+    ap.add_argument("--dish-half", type=float, default=None, help="the reflector's half-side a [m] (his 0.8); the machine is derived in Lean (HashemiScale.lean) and read from hashemi_machine_<a>.json")
     ap.add_argument("--random", type=int, default=0, help="1: uniform-random heads instead of the follower (the return's floor)")
     args = ap.parse_args()
     kw = ini_env_kwargs(os.path.join(os.path.dirname(HERE), "puffer_tandoor", "hashemi_ccc.ini"))

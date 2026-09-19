@@ -26,3 +26,9 @@ root = "BridgeSmoke"
 [[lean_exe]]
 name = "trace_check"
 root = "TraceCheck"
+
+# `lake exe machine_scale <a> [out.json]`: his machine derived at another reflector size
+# (RequestProject/HashemiScale.lean), with a verdict per constraint
+[[lean_exe]]
+name = "machine_scale"
+root = "MachineScale"

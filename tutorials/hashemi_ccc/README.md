@@ -541,3 +541,93 @@ coboundary and a gate, not units, and when they are on they are folded into the 
 They are a Python script and not TraceCheck rows because the bridge drives a Metal kernel with
 given inputs; it cannot roll a day of the puffer env on two paths, which is what R1 is. The Lean
 statements behind R2 and R3 are compiled and are checked with the other theorem checks.
+
+## The machine at any reflector size
+
+`Hashemi.lean` is one machine at one size - `dishR = 2`, `dishF = 1`, `dishHalf = 0.8` - and two
+hundred declarations that DERIVE the rest from those three: the sag (`HD_eq`), the screw length
+(`FH_eq`), the deepest reach F-C (`FC_eq`), the bar through `dish_between_posts`/`sideGap_eq`, the
+hanger (`hangerLength_halfEdge`), the pulley (`pulley_above_pivot`), the mast (`mastClears_hashemi`),
+the dead point (`deadTan_at_ym`), the arm (`wireLever_rest_at_ym`), the post (`receiverPost_height`),
+the spot (`facetSpot_hashemi`). Each of those is a FUNCTION of the givens applied at one point.
+`RequestProject/HashemiScale.lean` names the point and runs them forwards:
+
+* **`structure Givens`** - the reflector's half-side `a`, the proportions his figures fix against
+  it (`pR = R/a = 2.5`, `sideGap/a = 0.15`, `apexH/a = 1`, `(upright − FC)/a = 0.18125`,
+  `holeDown/a`, `(ym − FC)/a`, `hp/a = 0.425`, the rim hole at `a/2`, the leg's triangle as a
+  SIMILAR triangle - similarity is what preserves `brace_cuts_moment` and `brace_stiffens`
+  exactly), and the numbers the file fixes with no law attached, each marked
+  `-- held: the spec gives no law`: the 5 cm facet, the 12 cm coil, the 1.7° sensor, the dish's
+  weight, the wire's rating, the drum, the rod, the M12 bolt, the 5 W panel, the two motor rates.
+* **`derive : Givens → Machine`** - fifty-odd dependent dimensions, each field the file's own
+  definition (`TandoorSphere.sag`, `screwLength`, `rollerRadius`, the bound of `edgeDepth_le`,
+  `braceHeight`, `hangerLength`, `rodTan`, `facetSpot`, `tiltOfMismatch`, `boltStress`) with the
+  constants replaced by the fields. Nothing is invented.
+* **`Sound : Machine → Prop`** - fifteen conjuncts, each a named constraint of the file
+  generalised: `dish_between_posts`, `MastClears`, `clearance_hashemi`, `dish_swings_to_vertical`,
+  `HangerClearsPost`, `setLength_surj`, `HoldsDish`, `sixty_reachable`, the coil over the facet's
+  own beam, `TrackerBudget`, `quantum_within_budget`, `m12_carries_dish`, `tracking_power_tiny`,
+  `one_turn_tilt`. **`sound_his : Sound (derive his)` is proved**, so nothing about his machine
+  moves. `ReachesVertical` is reported beside `Sound` and not inside it, because
+  `wire_short_of_vertical` says HIS machine fails it.
+* **`#machine 2.0`** (a command) and **`lake exe machine_scale <a> [out.json]`** print the derived
+  table with a verdict per constraint - `holds` / `FAILS` / `undecided`, never silence - and write
+  `hashemi_machine_<a>.json`. The exe first checks its Float twin against the intervals the
+  theorems PROVE at `a = 0.8` (`hisChecks`: `FH_bounds`, `FC_bounds`, `ymHashemi`,
+  `pulley_above_pivot`, `receiverPost_height`, `hangerLength_bounds`, `wireLever_rest_at_ym`,
+  `deadTan_at_ym`, `facetSpot_hashemi`, `slot_exit_hashemi`, `rollerRadius_hashemi_bounds`,
+  `sideGap_eq`, `braceHeight_hashemi`, `rodTan_bounds`, `wireLeft_at_ym`) and refuses to print if
+  one of them has drifted.
+
+`#machine 0.8` reproduces his build: bar 1.840, apex 0.800, rail 1.2192, FH 0.8330, F-C 1.1550,
+upright 1.3000, post 1.2500, mast 1.2200, pulley 0.3400, stand 1.5900, hanger 0.8845, rod lean
+27.0°, dead point 61.73°, arm at rest 1.034, slot exit 43.84°, spot at F 0.0593, tracker budget
+1.74°. All fifteen hold.
+
+| | a = 0.8 (his) | a = 2.0 |
+|---|---|---|
+| R, f | 2.000, 1.000 | 5.000, 2.500 |
+| sag, FH (rim below F) | 0.1670, 0.8330 | 0.4174, 2.0826 |
+| side, bar, rail | 1.600, 1.840, 1.219 | 4.000, 4.600, 3.048 |
+| F-C, upright, post to F | 1.1550, 1.3000, 1.2500 | 2.8874, 3.2499, 3.1249 |
+| mast station, pulley, stand | 1.2200, 0.3400, 1.5900 | 3.0499, 0.8500, 3.9749 |
+| hanger, rod lean | 0.8845, 27.0° | 2.2112, 27.0° |
+| dead point, arm at rest, wire taken in | 61.73°, 1.034, 1.134 | 61.73°, 2.585, 2.836 |
+| slot exit | 43.84° | 43.84° |
+| spot at F, coil margin, budget | 0.0593, 0.0303, 1.74° | 0.0733, 0.0234, **0.54°** |
+
+Every angle is invariant - the dead point, the swing range, the rod's lean, the slot's exit - and
+every length scales by `a/0.8`, because the derivation is a similarity on everything the file
+gives a proportion for. **What breaks is what the file holds fixed.** At `a = 2.0`:
+
+* **`TrackerBudget` FAILS**: the coil stays 12 cm while `f` grows to 2.5 m, so the facet's beam is
+  7.3 cm at F and only 2.34 cm of margin is left; the budget falls from 1.74° to 0.54°, and his
+  sensor's 1.7° (`tracker_margin_hashemi`) is 3.2 times too coarse. A 2 m reflector needs a bigger
+  receiver or a better tracker, and the file says which by how much.
+* **`ReachesVertical` fails at both sizes**, unchanged: `wire_short_of_vertical`.
+* Everything else holds, but three of them hold only because of the file's silence: with the dish's
+  weight HELD at 300 N (`megaParams`' "one-man lift" - the file states no law by which mass follows
+  from area) `HoldsDish` keeps its factor of 7.7, `m12_carries_dish` falls from 3.6 to 1.44 and
+  `tracking_power_tiny` from 3.7 to 1.52 - those last two only because the eye's reach and the
+  centre of mass scale. Scale the mass as the area (6.25x) and the bolt goes over at once. The
+  honest reading is that the load constraints at `a = 2` are untested, not satisfied.
+* `one_turn_tilt` is invariant (`f/side` does not move): one turn of a rim nut is 0.94 mm at F at
+  any size, at 93 % of the 1 mm allowance.
+
+### In the env
+
+`hashemi_tandoor_env.py`'s `dish_half` no longer scales anything: it READS
+`hashemi_machine_<a>.json` (shipped for 0.8 and 2.0, otherwise generated by `lake exe
+machine_scale`), feeds `kernel` (`R f a w rc`) and `mount` (`rDrum W rcm Tmax rho Fdrive L10
+rodLen`) to `env_params`/`beam_params`, and prints any constraint the spec does not call `holds`.
+The `a/0.4` scaling of commit 79645fdf is gone. **Not scaled in the kernel**: the wire's geometry
+(`ym`, `hp`, `ze`, `a`) is compiled into `megaStep` at his literals, so the kernel's elevation
+lever arm and dead point stay his; the JSON carries the derived ones for the host and for the
+build. Scaling those means recompiling the mount with `a` as an input.
+
+The one number the derivation carries as a proportion rather than a formula is `rcm` (the centre
+of mass below the bolt line): `megaParams` gives 0.9 m with the file's own reason - "the panel
+hangs between its vertex 1 m down and its rim 0.83 m down" - and both of those scale with `a`, so
+`rcm = 1.125 a` reproduces his 0.9 exactly (`derive_his_rcm`) and stays between `ze` and `f`
+(`derive_his_rcm_between`) at every size. At `a = 0.8` every mount parameter the env feeds the
+kernel is therefore identical to `env_params()`'s, and his machine's behaviour is untouched.

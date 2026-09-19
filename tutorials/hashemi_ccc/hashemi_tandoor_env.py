@@ -57,6 +57,32 @@ HEAD_AZ, HEAD_EL = POLICY["motor_heads"]
 import hashemi_policy as machine_policy              # noqa: E402  the generated spaces module
 OBS_COLS = [ECOL["obs_" + n] for n in machine_policy.OBS_NAMES]
 
+LEAN_DIR = os.environ.get("HASHEMI_LEAN_DIR", os.path.expanduser("~/manifold-pareto/lean"))
+
+
+def machine_name(a):
+    """`hashemi_machine_0.8.json`, `hashemi_machine_2.0.json`"""
+    s = "%g" % float(a)
+    return "hashemi_machine_" + (s if "." in s else s + ".0") + ".json"
+
+
+def load_machine(a):
+    """THE MACHINE AT HALF-SIDE `a`, DERIVED IN LEAN (RequestProject/HashemiScale.lean).
+
+    Reads the shipped `hashemi_machine_<a>.json`; if there is none, asks Lean for it
+    (`lake exe machine_scale <a> <path>`), which is the only thing allowed to compute it - the
+    numbers are `derive`'s, the verdicts are `Sound`'s conjuncts. Nothing here scales anything.
+    """
+    path = os.path.join(HERE, machine_name(a))
+    if not os.path.exists(path):
+        import subprocess
+        r = subprocess.run(["lake", "exe", "machine_scale", "%g" % float(a), path],
+                           cwd=LEAN_DIR, capture_output=True, text=True)
+        if r.returncode != 0 or not os.path.exists(path):
+            raise RuntimeError(f"no {os.path.basename(path)} and `lake exe machine_scale` failed "
+                               f"in {LEAN_DIR}:\n{r.stdout}\n{r.stderr}")
+    return json.load(open(path))
+
 
 class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
@@ -132,17 +158,39 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         super().__init__(*args, **kwargs)
         B = self.num_agents
         self._params = env_params()
-        # THE REFLECTOR'S EXTENT (user, 2026-09-20): the panel is the square section of half-side
-        # `a` cut from the sphere of radius `R` (built as a plaster mould off a curved rod, an iron
-        # frame and a fibre-resin skin with mirror facets or Mylar); his numbers a = 0.8, R = 2
-        # (f = R/2). dish_half sets a from the ini; dish_R the sphere, default his proportion
-        # a/R = 0.4 so the cap stays a cap. The facets (w) and the coil (rc) are unchanged, the
-        # slot is the mount's; there is no aperture. Both receivers take the same optics.
+        # THE REFLECTOR'S EXTENT IS DERIVED, NOT SCALED BY HAND (2026-09-19). The panel is the
+        # square section of half-side `a` cut from the sphere of radius `R`; his numbers are
+        # a = 0.8, R = 2, f = R/2. Until this commit `dish_half` multiplied a by 1/0.4 and left
+        # everything else alone - an invented proportion beside a machine whose file DERIVES every
+        # dimension from `dishR`/`dishF`/`dishHalf`. Now `RequestProject/HashemiScale.lean` runs
+        # those derivations forwards (`derive : Givens -> Machine`, `Sound` the conjunction of the
+        # file's own constraint theorems, `sound_his` proved) and `lake exe machine_scale <a>`
+        # writes `hashemi_machine_<a>.json`: the kernel's optics inputs R f a w rc, the mount
+        # parameters rDrum W rcm Tmax rho Fdrive L10 rodLen, every build dimension, and a verdict
+        # per constraint. The env READS that file; it computes no scaling of its own. The facets
+        # (w) and the coil (rc) are held there, because the spec states no law by which they
+        # follow from the dish - which is why the tracker's budget shrinks as `a` grows, and why
+        # `machine_scale 2.0` reports TrackerBudget as FAILS. Both receivers take the same optics.
+        # NOT SCALED IN THE KERNEL: the wire's geometry (ym, hp, ze, a) is compiled into
+        # `megaStep` at his literals, so the elevation lever arm and the dead point stay his; the
+        # JSON carries the derived ones for the host and for the build. Scaling those means
+        # recompiling the mount with `a` as an input, not a knob here.
         if dish_half is not None:
-            a = float(dish_half)
-            R = float(dish_R) if dish_R is not None else a / 0.4
-            self._params.update(a=a, R=R, f=R / 2.0)
-            self.beam_design.update(a=a, R=R, f=R / 2.0)
+            m = load_machine(float(dish_half))
+            self._params.update(**m["kernel"])
+            self._params.update(**{k: v for k, v in m["mount"].items() if k in self._params})
+            self.beam_design.update(**{k: m["kernel"][k] for k in ("a", "R", "f")})
+            self.machine = m
+            bad = {k: v for k, v in m["constraints"].items() if v != "holds"}
+            if bad:
+                print(f"  [hashemi_ccc] the machine at a={dish_half} does not satisfy the spec: "
+                      + ", ".join(f"{k}: {v}" for k, v in bad.items()))
+            # dish_R: an explicit departure from his proportion R/a = 2.5. The derived table no
+            # longer describes the machine then - only the sphere and the focus move.
+            if dish_R is not None:
+                R = float(dish_R)
+                self._params.update(R=R, f=R / 2.0)
+                self.beam_design.update(R=R, f=R / 2.0)
         self.dish_area = (2.0 * float(self._params["a"])) ** 2
         self.hk_state = np.zeros((B, 3))
         self.t_oil = np.full(B, self.t_amb)
