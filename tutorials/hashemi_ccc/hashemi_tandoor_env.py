@@ -62,7 +62,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
 
     def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.0, capture_shaping=0.2, t_amb=300.0, trace_rays=None,
-                 machine_receiver="oil", oil_nodes=8, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
+                 machine_receiver="oil", oil_nodes=8, dish_half=None, dish_R=None, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
         # THE MACHINE'S RECEIVER (the parent's `receiver` - its tri chain - passes through untouched):
         # "oil" - the coil at F, hot oil in insulated pipes, the exchanger in the pot's wall
         # (HashemiHeat/HashemiField.lean); "beam" - a hyperboloid inside the coil's envelope sending
@@ -132,6 +132,18 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         super().__init__(*args, **kwargs)
         B = self.num_agents
         self._params = env_params()
+        # THE REFLECTOR'S EXTENT (user, 2026-09-20): the panel is the square section of half-side
+        # `a` cut from the sphere of radius `R` (built as a plaster mould off a curved rod, an iron
+        # frame and a fibre-resin skin with mirror facets or Mylar); his numbers a = 0.8, R = 2
+        # (f = R/2). dish_half sets a from the ini; dish_R the sphere, default his proportion
+        # a/R = 0.4 so the cap stays a cap. The facets (w) and the coil (rc) are unchanged, the
+        # slot is the mount's; there is no aperture. Both receivers take the same optics.
+        if dish_half is not None:
+            a = float(dish_half)
+            R = float(dish_R) if dish_R is not None else a / 0.4
+            self._params.update(a=a, R=R, f=R / 2.0)
+            self.beam_design.update(a=a, R=R, f=R / 2.0)
+        self.dish_area = (2.0 * float(self._params["a"])) ** 2
         self.hk_state = np.zeros((B, 3))
         self.t_oil = np.full(B, self.t_amb)
         # THE OIL'S STATE IS THE FIELD ALONG THE PIPE: the coil's outlet and the exchanger's outlet
