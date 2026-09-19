@@ -39,7 +39,9 @@ def run : MetaM Unit := do
       (`sceneEnv, "env",
         "RequestProject/HashemiSceneInst.lean, envScene — the scene composed with hashemiEnv: one kernel, one pose, one table of rays",
         HashemiSceneInst.envScene)] do
-    match ← emitScene outDir root nm sceneName src sc with
+    -- the env scene is dispatched on the env morphism's OWN row: same names, same columns
+    let order := if sceneName == "env" then some (root ++ `hashemiEnv) else none
+    match ← emitScene outDir root nm sceneName src sc order with
     | some row => rows := rows ++ [row]; names := names ++ [sceneName]
     | none => pure ()
   IO.FS.writeFile (outDir ++ "/scene_registry.h") (registryHeader names rows)

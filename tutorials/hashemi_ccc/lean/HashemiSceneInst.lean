@@ -26,6 +26,7 @@ eqs. 1.6.1, 1.6.5, 1.6.6), and `render/check.py` measures it against the trainer
 -/
 import RequestProject.Hashemi
 import RequestProject.HashemiMega
+import RequestProject.HashemiScale
 import RequestProject.HashemiTrace
 import RequestProject.HashemiBeamdown
 import RequestProject.OpticGadt
@@ -65,6 +66,31 @@ noncomputable def roofOfDish (az t apexH zBolt f : ℝ) (q : Fin 3 → ℝ) : Fi
       + (q 0 * (dishAxes az t).1 1 + q 1 * (dishAxes az t).2.1 1 + q 2 * (dishAxes az t).2.2 1),
     roofOfBolt az apexH zBolt (swungPt 0 (-f) t) 2
       + (q 0 * (dishAxes az t).1 2 + q 1 * (dishAxes az t).2.1 2 + q 2 * (dishAxes az t).2.2 2)]
+
+/-! ### The dimensions that are definitions of `a`
+
+`HashemiScale.derive` says what his machine is at any size: every length is `a`, the reflector's
+half-side, times one of his ratios.  The four the picture needs are exposed here as plain
+definitions of `a` — so that a scene may BIND a binder to one of them and the dimension is
+computed in the graph, beside the pose that uses it, instead of being pooled on a host.  Each is
+the structure's own field, definitionally. -/
+
+/-- the apex station, `kApex * a` -/
+noncomputable def apexHOf (a : ℝ) : ℝ := (derive { a := a }).apexH
+
+/-- the mast's station: `MastClears`' floor at this size, plus his margin -/
+noncomputable def ymOf (a : ℝ) : ℝ := (derive { a := a }).ym
+
+/-- the pulley over the bolt line, `kPulley * a` -/
+noncomputable def hpOf (a : ℝ) : ℝ := (derive { a := a }).hp
+
+/-- the rim's depth below F at this size (`screwLength`) -/
+noncomputable def zeOf (a : ℝ) : ℝ := (derive { a := a }).ze
+
+theorem apexHOf_derive (a : ℝ) : apexHOf a = (derive { a := a }).apexH := rfl
+theorem ymOf_derive (a : ℝ) : ymOf a = (derive { a := a }).ym := rfl
+theorem hpOf_derive (a : ℝ) : hpOf a = (derive { a := a }).hp := rfl
+theorem zeOf_derive (a : ℝ) : zeOf a = (derive { a := a }).ze := rfl
 
 /-- a point already in the roof frame, or a vector binder drawn where it is -/
 def pointOf (O : Fin 3 → ℝ) : Fin 3 → ℝ := O
@@ -517,38 +543,77 @@ def opticScene : Scene := [
   { label := "stage1_captured", shape := .one (.num "beamTraceT" 0), colour := 5 },
   { label := "stage1_fate", shape := .one (.num "beamTraceT" 7), colour := 6 }]
 
+/-! ### The nine bindings
+
+Nine of the env scene's binders are not the env morphism's own inputs: `zBar`, `endIn`, `sgL`,
+`sgR`, `apexH`, `zBolt`, `ym`, `hp`, `ze`.  Each is a definition of the specification (or a
+convention of the drawing), so each is BOUND to a node of the graph instead of being pooled on
+the host: `zBar` is `megaGeom`'s own rail height, `zBolt` his bolt line, the four scaled lengths
+are `derive`'s fields at the env's own `a`, and the three conventions are literals.  With these
+nine bound, the env scene's input row IS `hashemiEnv`'s input row. -/
+
+/-- the rail the carriage rides, `megaGeom`'s column 13 (`zRail`) at this very pose -/
+def zBarB : Bound := .node "megaGeom" (some 13)
+/-- the bolt line over the deck: his own constant -/
+def zBoltB : Bound := .node "zBoltHashemi"
+/-- the apex station at this size -/
+def apexHB : Bound := .node "apexHOf"
+/-- the mast, the pulley and the rim's depth at this size -/
+def ymB : Bound := .node "ymOf"
+def hpB : Bound := .node "hpOf"
+def zeB : Bound := .node "zeOf"
+/-- the drawing's own conventions: the two ends of the bar, and no end offset -/
+def sgLB : Bound := .lit 1
+def sgRB : Bound := .lit (-1)
+def endInB : Bound := .lit 0
+
+/-- the carriage's frame, and the bolt plane's, as the env scene binds them -/
+def carriageB : List (String × Bound) := [("zBar", zBarB)]
+def boltB : List (String × Bound) := [("apexH", apexHB), ("zBolt", zBoltB)]
+
 /-- **the env's own step, drawn**: the machine at the pose `hashemiEnv` stepped to, the rays it
 traced, and its own columns as the numbers beside them.  Compiled as ONE kernel: the vertices and
 the env's outputs come out of the same graph, over the same `dr`, so the frame the trainer shows
 IS the step the policy acted on.  Nothing in this list is a formula either. -/
 def envScene : Scene := [
   { label := "bar",
-    shape := .seg (.pt "postTopH" (some "envRoofOfCarriage") [("sg", "sgL")])
-                  (.pt "postTopH" (some "envRoofOfCarriage") [("sg", "sgR")]),
+    shape := .seg (.pt "postTopH" (some "envRoofOfCarriage")
+                    (carriageB ++ [("sg", sgLB), ("endIn", endInB)]))
+                  (.pt "postTopH" (some "envRoofOfCarriage")
+                    (carriageB ++ [("sg", sgRB), ("endIn", endInB)])),
     colour := 1 },
   { label := "post_top_left",
-    shape := .one (.pt "postTopH" (some "envRoofOfCarriage") [("sg", "sgL")]), colour := 1 },
+    shape := .one (.pt "postTopH" (some "envRoofOfCarriage")
+              (carriageB ++ [("sg", sgLB), ("endIn", endInB)])), colour := 1 },
   { label := "post_top_right",
-    shape := .one (.pt "postTopH" (some "envRoofOfCarriage") [("sg", "sgR")]), colour := 1 },
-  { label := "pulley", shape := .one (.pt "pulleyAt" (some "envRoofOfBolt")), colour := 2 },
-  { label := "clip", shape := .one (.pt "envEdgeClipAt" (some "envRoofOfBolt")), colour := 2 },
-  { label := "tow_wire",
-    shape := .seg (.pt "pulleyAt" (some "envRoofOfBolt")) (.pt "envEdgeClipAt" (some "envRoofOfBolt")),
+    shape := .one (.pt "postTopH" (some "envRoofOfCarriage")
+              (carriageB ++ [("sg", sgRB), ("endIn", endInB)])), colour := 1 },
+  { label := "pulley",
+    shape := .one (.pt "pulleyAt" (some "envRoofOfBolt")
+              (boltB ++ [("ym", ymB), ("hp", hpB)])), colour := 2 },
+  { label := "clip",
+    shape := .one (.pt "envEdgeClipAt" (some "envRoofOfBolt") (boltB ++ [("ze", zeB)])),
     colour := 2 },
-  { label := "vertex", shape := .one (.pt "envDishVertexPt" (some "envRoofOfBolt")), colour := 3 },
-  { label := "focus", shape := .one (.pt "boltOriginPt" (some "envRoofOfBolt")), colour := 4 },
+  { label := "tow_wire",
+    shape := .seg (.pt "pulleyAt" (some "envRoofOfBolt") (boltB ++ [("ym", ymB), ("hp", hpB)]))
+                  (.pt "envEdgeClipAt" (some "envRoofOfBolt") (boltB ++ [("ze", zeB)])),
+    colour := 2 },
+  { label := "vertex",
+    shape := .one (.pt "envDishVertexPt" (some "envRoofOfBolt") boltB), colour := 3 },
+  { label := "focus",
+    shape := .one (.pt "boltOriginPt" (some "envRoofOfBolt") boltB), colour := 4 },
   { label := "axis",
-    shape := .seg (.pt "envDishVertexPt" (some "envRoofOfBolt"))
-                  (.pt "boltOriginPt" (some "envRoofOfBolt")),
+    shape := .seg (.pt "envDishVertexPt" (some "envRoofOfBolt") boltB)
+                  (.pt "boltOriginPt" (some "envRoofOfBolt") boltB),
     colour := 3 },
   { label := "rim",
-    shape := .seg (.pt "envRimPt" (some "envRoofOfBolt") [("sg", "sgL")])
-                  (.pt "envRimPt" (some "envRoofOfBolt") [("sg", "sgR")]),
+    shape := .seg (.pt "envRimPt" (some "envRoofOfBolt") (boltB ++ [("ze", zeB), ("sg", sgLB)]))
+                  (.pt "envRimPt" (some "envRoofOfBolt") (boltB ++ [("ze", zeB), ("sg", sgRB)])),
     colour := 4 },
   { label := "ray",
-    shape := .rayOf (.pt "envRayStartT" (some "envRoofOfDish"))
-                    (.pt "envRayHitT" (some "envRoofOfDish"))
-                    (.pt "envRayLandT" (some "envRoofOfDish"))
+    shape := .rayOf (.pt "envRayStartT" (some "envRoofOfDish") boltB)
+                    (.pt "envRayHitT" (some "envRoofOfDish") boltB)
+                    (.pt "envRayLandT" (some "envRoofOfDish") boltB)
                     (.num "envRayFateT" 4),
     colour := 6 },
   -- the env's own columns, beside the picture of the step that produced them

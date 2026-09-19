@@ -23,13 +23,13 @@
 #define HK_PI HK_LIT(3.14159265358979323846)
 #endif
 #ifndef hk_sqrt
-#define hk_sqrt sqrt
+#define hk_sqrt(x) sqrt(hk_max((x), 0.0))
 #define hk_sin sin
 #define hk_cos cos
 #define hk_tan tan
 #define hk_atan atan
-#define hk_acos acos
-#define hk_asin asin
+#define hk_acos(x) acos(hk_min(hk_max((x), -1.0), 1.0))
+#define hk_asin(x) asin(hk_min(hk_max((x), -1.0), 1.0))
 #define hk_exp exp
 #define hk_log log
 #define hk_fabs fabs

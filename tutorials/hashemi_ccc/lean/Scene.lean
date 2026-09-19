@@ -52,29 +52,50 @@ inductive Kind where
 def Kind.code : Kind → Nat
   | .point => 0 | .segment => 1 | .ray => 2 | .axes => 3 | .scalar => 4
 
+/-- **what a leaf's binder is bound to**.  A binder is not only renameable onto a scene input:
+it may be bound to any expression of the graph, which is composition in the CCC and not host
+glue.  The printer emits the bound expression's nodes over the scene's own inputs and hash-conses
+them with everything else, so a dimension that is a *definition* of the specification enters the
+picture as that definition, computed in the same launch as the rest.
+
+* `inp n` — the binder is the scene input `n` (the plain renaming: `sg` as `sgL`);
+* `lit v` — an integer literal of the drawing's own convention (`sg = ±1`, `endIn = 0`);
+* `node d none` — the definition `d` of the specification, applied to the scene inputs its own
+  binders name (a constant like `zBoltHashemi`, or a scaled field like `ymOf a`);
+* `node d (some c)` — column `c` of such a definition's output vector (`megaGeom`'s `zRail`). -/
+inductive Bound where
+  | inp (name : String)
+  | lit (v : Int)
+  | node (defn : String) (col : Option Nat := none)
+  deriving Repr, Inhabited
+
+/-- a bare string still means "this scene input", so a plain renaming reads as it always did -/
+instance : Coe String Bound := ⟨Bound.inp⟩
+
 /-- a leaf of a shape: one application of one definition of the specification, in its own frame.
 
 `defn` is the definition's short name; `frame` the short name of the definition that carries its
 coordinates to the world frame (`none`: it is already there).  `col`, on a `num` leaf, picks one
 column of the definition's output vector. -/
 inductive Leaf where
-  /-- three reals: a point (or two reals a frame lifts to three).  `bind` renames the
-  definition's (or its frame's) binders onto scene inputs, so that the same definition may be
-  drawn twice at two arguments — the left and the right post are `postTop` at `sg = ±1`, which is
-  a renaming, not a second definition. -/
-  | pt (defn : String) (frame : Option String) (bind : List (String × String) := [])
+  /-- three reals: a point (or two reals a frame lifts to three).  `bind` binds the definition's
+  (or its frame's) binders — onto scene inputs, so that the same definition may be drawn twice at
+  two arguments (the left and the right post are `postTop` at `sg = ±1`), or onto a node of the
+  graph, so that a binder which is itself a definition of the specification is COMPOSED rather
+  than pooled on the host. -/
+  | pt (defn : String) (frame : Option String) (bind : List (String × Bound) := [])
   /-- one real: column `col` of a definition's output (a fate, a flag, a radius) -/
-  | num (defn : String) (col : Nat) (bind : List (String × String) := [])
+  | num (defn : String) (col : Nat) (bind : List (String × Bound) := [])
   deriving Repr, Inhabited
 
-/-- the renaming a leaf applies to its definition's binders -/
-def Leaf.bind : Leaf → List (String × String)
+/-- the binding a leaf applies to its definition's binders -/
+def Leaf.bind : Leaf → List (String × Bound)
   | .pt _ _ b => b
   | .num _ _ b => b
 
-/-- a binder name as this leaf names it -/
-def Leaf.rename (l : Leaf) (nm : String) : String :=
-  ((l.bind.find? (·.1 == nm)).map (·.2)).getD nm
+/-- what this leaf binds a binder to (an input of the same name, by default) -/
+def Leaf.rename (l : Leaf) (nm : String) : Bound :=
+  ((l.bind.find? (·.1 == nm)).map (·.2)).getD (.inp nm)
 
 /-- how many doubles a leaf writes -/
 def Leaf.width : Leaf → Nat

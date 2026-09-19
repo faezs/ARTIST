@@ -43,7 +43,7 @@ def hk_sceneSunAt(lat, doy, hour):
     t35 = (-t34)
     t36 = np.minimum(t34, t33)
     t37 = np.maximum(t35, t36)
-    t38 = np.arcsin(t37)
+    t38 = np.arcsin(np.clip(t37, -1.0, 1.0))
     t39 = (t33 * t25)
     t40 = (t26 - t39)
     t41 = np.cos(t38)
@@ -53,7 +53,7 @@ def hk_sceneSunAt(lat, doy, hour):
     t45 = (t40 / t44)
     t46 = np.minimum(t34, t45)
     t47 = np.maximum(t35, t46)
-    t48 = np.arccos(t47)
+    t48 = np.arccos(np.clip(t47, -1.0, 1.0))
     t49 = 0
     t50 = (t49 < t24)
     t51 = (t11 - t48)

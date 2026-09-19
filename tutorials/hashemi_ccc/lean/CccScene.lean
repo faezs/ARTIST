@@ -48,6 +48,15 @@ def sigOf (n : Name) (drop : Nat := 0) : MetaM (Array (String × Expr)) := do
       out := out.push (nm, ← instantiateMVars (← inferType x))
     pure out
 
+/-- **the inputs a bound binder asks of the scene**.  An input is one input; a literal is none;
+a node is *its own* definition's binders, which are scene inputs by their own names — the node is
+computed in the graph, so nothing about it reaches the host. -/
+def boundSig (root : Name) (b : Scene.Bound) (ty : Expr) : MetaM (Array (String × Expr)) := do
+  match b with
+  | .inp n => pure #[(n, ty)]
+  | .lit _ => pure #[]
+  | .node d _ => sigOf (root ++ d.toName)
+
 /-- the full signature a leaf needs: the frame's leading binders, then the definition's. -/
 def leafSig (root : Name) (l : Scene.Leaf) : MetaM (Array (String × Expr)) := do
   let raw ← match l with
@@ -56,7 +65,10 @@ def leafSig (root : Name) (l : Scene.Leaf) : MetaM (Array (String × Expr)) := d
       let b ← sigOf (root ++ d.toName)
       pure (a ++ b)
     | .num d _ _ => sigOf (root ++ d.toName)
-  pure (raw.map fun (nm, ty) => (l.rename nm, ty))
+  let mut out : Array (String × Expr) := #[]
+  for (nm, ty) in raw do
+    out := out ++ (← boundSig root (l.rename nm) ty)
+  pure out
 
 /-- the scene's inputs: every binder of every leaf, deduplicated by name in first-seen order.
 Two leaves that name a binder alike share it — that is what makes a scene one morphism of the
@@ -68,6 +80,17 @@ def sceneSig (root : Name) (sc : Scene.Scene) : MetaM (Array (String × Expr)) :
       for (nm, ty) in ← leafSig root l do
         unless out.any (·.1 == nm) do out := out.push (nm, ty)
   pure out
+
+/-- **the scene's input row, in another morphism's order**.  A scene composed with a morphism of
+the specification is dispatched on that morphism's own row: the same numbers, in the same
+columns.  `order` names that morphism; its data binders come first, in its order, and anything
+the scene asks for beyond them follows.  When the scene is exactly composed — every binder either
+one of that morphism's or bound to a node — the two rows are equal, name for name. -/
+def orderSig (order : Name) (sig : Array (String × Expr)) : MetaM (Array (String × Expr)) := do
+  let ord := (← sigOf order).map (·.1)
+  let head := ord.filterMap fun nm => sig.find? (·.1 == nm)
+  let tail := sig.filter fun p => !ord.contains p.1
+  pure (head ++ tail)
 
 /-! ## The compiler -/
 
@@ -90,10 +113,11 @@ def rayIndexOf (e : Expr) : MetaM (Option (Nat × Expr)) := do
 
 /-- compile a whole scene into one `Ccc.Fun`.  `root` is the namespace whose definitions are
 unfolded (`Ccc.translate`'s rule); `name` names the printed function. -/
-def compileScene (root : Name) (name : Name) (sc : Scene.Scene) :
+def compileScene (root : Name) (name : Name) (sc : Scene.Scene) (order : Option Name := none) :
     MetaM (Except String Fun) := do
   try
     let sig ← sceneSig root sc
+    let sig ← match order with | none => pure sig | some o => orderSig o sig
     let decls : Array (Name × (Array Expr → MetaM Expr)) :=
       sig.map fun (nm, ty) => (nm.toName, fun _ => pure ty)
     withLocalDeclsD decls fun xs => do
@@ -102,6 +126,31 @@ def compileScene (root : Name) (name : Name) (sc : Scene.Scene) :
       let inp := fun (nm : String) => match idx[nm]? with
         | some e => pure e
         | none => throwError "the scene has no input {nm}"
+      -- **a bound binder, as an expression of the graph**.  This is the composition: a binder
+      -- may be an input, a literal of the drawing's own convention, or another definition of the
+      -- specification applied to the scene's inputs (and then one column of it).  The result is
+      -- an ordinary sub-expression, so `translate` hash-conses it with everything else and the
+      -- host is never asked for its value.
+      let boundArg : Scene.Bound → Expr → MetaM Expr := fun b ty => do
+        match b with
+        | .inp n => inp n
+        | .lit v =>
+          let n ← mkAppOptM ``OfNat.ofNat #[ty, mkNatLit v.natAbs, none]
+          if v < 0 then mkAppM ``Neg.neg #[n] else pure n
+        | .node d col =>
+          let dn := root ++ d.toName
+          let args ← (← sigOf dn).mapM fun (nm, _) => inp nm
+          let e := mkAppN (mkConst dn) args
+          match col with
+          | none => pure e
+          | some c =>
+            let ety ← whnfR (← inferType e)
+            match ety with
+            | .forallE _ dom _ _ =>
+              match natLit? dom.getAppArgs[0]! with
+              | some P => pure (mkApp e (finLit P c))
+              | none => throwError "the bound node {d} is not indexed by a literal Fin"
+            | _ => throwError "column {c} asked of {d}, which is not a vector"
       -- translate one leaf: its definition applied to the scene's inputs, then — when the
       -- definition takes a ray index — that application under the ray index, and then the frame
       -- composed onto it IN THE GRAPH
@@ -124,13 +173,13 @@ def compileScene (root : Name) (name : Name) (sc : Scene.Scene) :
             match l with
             | .pt d fr _ => do
               let dn := root ++ d.toName
-              let dargs ← (← sigOf dn).mapM fun (nm, _) => inp (l.rename nm)
+              let dargs ← (← sigOf dn).mapM fun (nm, ty) => boundArg (l.rename nm) ty
               let body := mkAppN (mkConst dn) dargs
               let wrap : Expr → Expr ← match fr with
                 | none => pure id
                 | some f => do
                   let fn := root ++ f.toName
-                  let fargs ← (← sigOf fn 1).mapM fun (nm, _) => inp (l.rename nm)
+                  let fargs ← (← sigOf fn 1).mapM fun (nm, ty) => boundArg (l.rename nm) ty
                   pure (fun b => mkAppN (mkConst fn) (fargs.push b))
               let v ← leafVal wrap body
               match v with
@@ -141,7 +190,7 @@ def compileScene (root : Name) (name : Name) (sc : Scene.Scene) :
               | w => throwError "the point {d} is a {w.shape}, not three reals"
             | .num d c _ => do
               let dn := root ++ d.toName
-              let dargs ← (← sigOf dn).mapM fun (nm, _) => inp (l.rename nm)
+              let dargs ← (← sigOf dn).mapM fun (nm, ty) => boundArg (l.rename nm) ty
               let v ← leafVal id (mkAppN (mkConst dn) dargs)
               match v with
               | .s _ => outs := outs.push v
@@ -414,16 +463,24 @@ def registryRow (f : Fun) (sc : Scene.Scene) (sceneName : String) : String :=
   s!"  \{ {jsonStr sceneName}, {tag}_N_IN, {tag}_N_STATIC, {tag}_N_RAY, {tag}_P, {tag}_N_ENTRY, {tag}_N_TAB, {tag}_KIND, {tag}_COLOUR, " ++
   s!"{tag}_OFF, {tag}_W, {tag}_RAY, {tag}_TAB, {tag}_LABEL, {tag}_INPUT, {tag}_TABNAME, {cn}_eval }"
 
+/-- how the manifest records a binding: an input by name, a literal, or the definition (and the
+column of it) the binder is composed with -/
+def boundJson : Scene.Bound → String
+  | .inp n => jsonStr n
+  | .lit v => "{\"lit\": " ++ toString v ++ "}"
+  | .node d col => "{\"node\": " ++ jsonStr d ++
+      (match col with | none => "" | some c => ", \"col\": " ++ toString c) ++ "}"
+
 /-- a leaf, as the manifest records it: which definition, in which frame -/
 def leafJson (l : Scene.Leaf) : String :=
   match l with
   | .pt d fr b => "{" ++ ", ".intercalate [
       "\"leaf\": \"pt\"", "\"defn\": " ++ jsonStr d,
       "\"frame\": " ++ (match fr with | none => "null" | some f => jsonStr f),
-      "\"bind\": " ++ jsonList (b.map fun (x, y) => jsonList [jsonStr x, jsonStr y])] ++ "}"
+      "\"bind\": " ++ jsonList (b.map fun (x, y) => jsonList [jsonStr x, boundJson y])] ++ "}"
   | .num d c b => "{" ++ ", ".intercalate [
       "\"leaf\": \"num\"", "\"defn\": " ++ jsonStr d, "\"col\": " ++ toString c,
-      "\"bind\": " ++ jsonList (b.map fun (x, y) => jsonList [jsonStr x, jsonStr y])] ++ "}"
+      "\"bind\": " ++ jsonList (b.map fun (x, y) => jsonList [jsonStr x, boundJson y])] ++ "}"
 
 /-- the JSON manifest: what each entry is, which region and where in it its doubles are, which
 ray tables the scene reads, and — the point of the whole exercise — which definition of the
@@ -467,8 +524,8 @@ def preamble (guard : String) : Array String := #[
   "#ifndef hk_real", "#define hk_real double", "#endif",
   "#ifndef HK_LIT", "#define HK_LIT(x) ((hk_real)(x))", "#endif",
   "#ifndef HK_PI", "#define HK_PI HK_LIT(3.14159265358979323846)", "#endif",
-  "#ifndef hk_sqrt", "#define hk_sqrt sqrt", "#define hk_sin sin", "#define hk_cos cos",
-  "#define hk_tan tan", "#define hk_atan atan", "#define hk_acos acos", "#define hk_asin asin",
+  "#ifndef hk_sqrt", "#define hk_sqrt(x) sqrt(hk_max((x), 0.0))", "#define hk_sin sin", "#define hk_cos cos",
+  "#define hk_tan tan", "#define hk_atan atan", "#define hk_acos(x) acos(hk_min(hk_max((x), -1.0), 1.0))", "#define hk_asin(x) asin(hk_min(hk_max((x), -1.0), 1.0))",
   "#define hk_exp exp", "#define hk_log log",
   "#define hk_fabs fabs", "#define hk_floor floor", "#define hk_tanh tanh",
   "#define hk_min fmin", "#define hk_max fmax", "#endif",
@@ -481,8 +538,8 @@ def preamble (guard : String) : Array String := #[
 /-- compile a scene and write its header, its Metal kernel, its NumPy twin and its manifest.
 Returns the registry row, so a driver can collect several scenes into one table. -/
 def emitScene (outDir : String) (root : Name) (name : Name) (sceneName source : String)
-    (sc : Scene.Scene) : MetaM (Option String) := do
-  match ← compileScene root name sc with
+    (sc : Scene.Scene) (order : Option Name := none) : MetaM (Option String) := do
+  match ← compileScene root name sc order with
   | .error msg =>
     logInfo m!"scene {sceneName} did not compile: {msg}"
     pure none
