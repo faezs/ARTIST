@@ -121,6 +121,100 @@ noncomputable def dishDirPt (R f a w k σslope σspec cx cy ux uy dx dy dz e1 e2
     dishReflect R f a w k σslope σspec cx cy ux uy dx dy dz e1 e2 s1 s2 4,
     dishReflect R f a w k σslope σspec cx cy ux uy dx dy dz e1 e2 s1 s2 5]
 
+/-! ## 3b. The rays, as the megakernel has them: one TABLE, sampled through `sampleRay`
+
+A picture of a trace is not a picture of *a* ray.  The kernel's rays are a table
+`dr : Fin 64 → Fin 10 → ℝ` — six uniforms and four normals per ray, the layout `hashemiEnv` and
+`hashemiEnvBeam` already take — and the sampler that turns a row into a ray is the
+specification's own `sampleRay`.  So the scene's ray leaves take that table and a row index, and
+the printer gives each row its own thread.  Nothing here samples anything: every one of these is
+`sampleRay`, `traceConic`, `traceRayKErr`, `dishReflect`, `hyperHit` or `traceBeam` applied to a
+row of the table.  There is no `rays.csv`; the draws are the kernel's. -/
+
+/-- **a row of the draws through the spec's sampler**: `sampleRay` at the pose's sun, on the
+row `i` of the table the env kernel is given -/
+noncomputable def sceneRay (a w hsun az t elSun azSun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+    (i : Fin 64) : Fin 7 → ℝ :=
+  sampleRay a w hsun (sunInDish az t elSun azSun)
+    (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5)
+
+/-- where row `i`'s ray starts, in the dish's frame: `traceRayKErr`'s own `O` -/
+noncomputable def rayStartT (f a w hsun az t elSun azSun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+    (i : Fin 64) : Fin 3 → ℝ :=
+  let r := sceneRay a w hsun az t elSun azSun dr i
+  ![r 0 + r 2, r 1 + r 3, 2 * f]
+
+/-- where row `i`'s ray strikes the figure: `traceConic`'s `H` -/
+noncomputable def rayHitT (R k f a w hsun az t elSun azSun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+    (i : Fin 64) : Fin 3 → ℝ :=
+  let r := sceneRay a w hsun az t elSun azSun dr i
+  let O : Fin 3 → ℝ := ![r 0 + r 2, r 1 + r 3, 2 * f]
+  let d : Fin 3 → ℝ := ![r 4, r 5, r 6]
+  ![traceConic (1 / R) k f O d 0, traceConic (1 / R) k f O d 1, traceConic (1 / R) k f O d 2]
+
+/-- where row `i`'s ray lands on the receiver's plane: `traceConic`'s `L` at the height `f` -/
+noncomputable def rayLandT (R k f a w hsun az t elSun azSun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+    (i : Fin 64) : Fin 3 → ℝ :=
+  let r := sceneRay a w hsun az t elSun azSun dr i
+  let O : Fin 3 → ℝ := ![r 0 + r 2, r 1 + r 3, 2 * f]
+  let d : Fin 3 → ℝ := ![r 4, r 5, r 6]
+  ![traceConic (1 / R) k f O d 6, traceConic (1 / R) k f O d 7, f]
+
+/-- row `i`'s fate, with the optical errors the table's last four columns carry:
+`traceRayKErr`'s eight outputs, the scene reads its column 4 -/
+noncomputable def rayFateT (R f a w rc k σslope σspec hsun az t elSun azSun : ℝ)
+    (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 8 → ℝ :=
+  let r := sceneRay a w hsun az t elSun azSun dr i
+  traceRayKErr R f a w rc k σslope σspec (r 0) (r 1) (r 2) (r 3) (r 4) (r 5) (r 6)
+    (dr i 6) (dr i 7) (dr i 8) (dr i 9)
+
+/-- row `i` off the primary: `dishReflect`, exactly as `hashemiEnvBeam` calls it -/
+noncomputable def beamRayT (R f a w k σslope σspec hsun az t elSun azSun : ℝ)
+    (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 7 → ℝ :=
+  let r := sceneRay a w hsun az t elSun azSun dr i
+  dishReflect R f a w k σslope σspec (r 0) (r 1) (r 2) (r 3) (r 4) (r 5) (r 6)
+    (dr i 6) (dr i 7) (dr i 8) (dr i 9)
+
+/-- the primary's hit for row `i` (`dishReflect`'s `H`) -/
+noncomputable def dishHitT (R f a w k σslope σspec hsun az t elSun azSun : ℝ)
+    (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 3 → ℝ :=
+  let d := beamRayT R f a w k σslope σspec hsun az t elSun azSun dr i
+  ![d 0, d 1, d 2]
+
+/-- the primary's reflected direction for row `i` (`dishReflect`'s `r`) -/
+noncomputable def dishDirT (R f a w k σslope σspec hsun az t elSun azSun : ℝ)
+    (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 3 → ℝ :=
+  let d := beamRayT R f a w k σslope σspec hsun az t elSun azSun dr i
+  ![d 3, d 4, d 5]
+
+/-- row `i` on the secondary: `hyperHit`'s `H`, fed by the primary's own reflection -/
+noncomputable def beamHitT (R f a w k σslope σspec hsun az t elSun azSun L dm β : ℝ)
+    (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 3 → ℝ :=
+  let d := beamRayT R f a w k σslope σspec hsun az t elSun azSun dr i
+  ![hyperHit f L dm t β ![d 0, d 1, d 2] ![d 3, d 4, d 5] 0,
+    hyperHit f L dm t β ![d 0, d 1, d 2] ![d 3, d 4, d 5] 1,
+    hyperHit f L dm t β ![d 0, d 1, d 2] ![d 3, d 4, d 5] 2]
+
+/-- the secondary's outward normal at row `i`'s hit: `hyperHit`'s `n̂` -/
+noncomputable def beamNormalT (R f a w k σslope σspec hsun az t elSun azSun L dm β : ℝ)
+    (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 3 → ℝ :=
+  let d := beamRayT R f a w k σslope σspec hsun az t elSun azSun dr i
+  ![hyperHit f L dm t β ![d 0, d 1, d 2] ![d 3, d 4, d 5] 5,
+    hyperHit f L dm t β ![d 0, d 1, d 2] ![d 3, d 4, d 5] 6,
+    hyperHit f L dm t β ![d 0, d 1, d 2] ![d 3, d 4, d 5] 7]
+
+/-- row `i` on the secondary, radially: `hyperHit`'s `ρ` -/
+noncomputable def beamRadiusT (R f a w k σslope σspec hsun az t elSun azSun L dm β : ℝ)
+    (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 8 → ℝ :=
+  let d := beamRayT R f a w k σslope σspec hsun az t elSun azSun dr i
+  hyperHit f L dm t β ![d 0, d 1, d 2] ![d 3, d 4, d 5]
+
+/-- what became of row `i`: `traceBeam`, exactly as `hashemiEnvBeam` calls it -/
+noncomputable def beamTraceT (R f a w k σslope σspec hsun az t elSun azSun L dm rm rt slotW β : ℝ)
+    (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 8 → ℝ :=
+  let d := beamRayT R f a w k σslope σspec hsun az t elSun azSun dr i
+  traceBeam R f a k L dm rm rt slotW t β ![d 0, d 1, d 2] ![d 3, d 4, d 5] (d 6)
+
 /-! ## 4. The sun
 
 The specification takes `elSun` and `azSun`; nothing in it says where the sun is.  This is the
@@ -314,10 +408,10 @@ def hashemiScene : Scene := [
   { label := "focus_nuts", shape := .one (.pt "swingFocus" (some "roofOfBolt") [("d", "dnut")]), colour := 5 },
   -- one ray of the trace, in the dish's own frame (`traceConic`), coloured by `traceRayKErr`'s fate
   { label := "ray",
-    shape := .rayOf (.pt "rayStart" (some "roofOfDish") [("p", "f"), ("d", "dray")])
-                    (.pt "rayHit" (some "roofOfDish") [("p", "f"), ("d", "dray")])
-                    (.pt "rayLand" (some "roofOfDish") [("p", "f"), ("d", "dray")])
-                    (.num "traceRayKErr" 4),
+    shape := .rayOf (.pt "rayStartT" (some "roofOfDish"))
+                    (.pt "rayHitT" (some "roofOfDish"))
+                    (.pt "rayLandT" (some "roofOfDish"))
+                    (.num "rayFateT" 4),
     colour := 6 },
   -- the sun (`sunDir` in the roof frame; `sunAt` as the clock's two reals)
   { label := "sun_dir", shape := .one (.pt "sunDir" none), colour := 7 },
@@ -330,42 +424,38 @@ def hashemiScene : Scene := [
 dish's reflection to it, its normal, and what `traceBeam` says became of the ray. -/
 def beamScene : Scene := [
   { label := "beam_axis", shape := .one (.pt "beamAxis" (some "roofOfDish")), colour := 1 },
-  { label := "secondary_hit",
-    shape := .one (.pt "hyperPt" (some "roofOfDish") [("O", "H"), ("d", "r")]), colour := 2 },
+  { label := "secondary_hit", shape := .one (.pt "beamHitT" (some "roofOfDish")), colour := 2 },
   { label := "beam_leg",
-    shape := .seg (.pt "pointOf" (some "roofOfDish") [("O", "H")])
-                  (.pt "hyperPt" (some "roofOfDish") [("O", "H"), ("d", "r")]),
+    shape := .seg (.pt "dishHitT" (some "roofOfDish")) (.pt "beamHitT" (some "roofOfDish")),
     colour := 2 },
   { label := "secondary_normal",
-    shape := .one (.pt "hyperNormal" (some "roofOfDish") [("O", "H"), ("d", "r")]), colour := 3 },
-  { label := "captured", shape := .one (.num "traceBeam" 0), colour := 4 },
-  { label := "hit_secondary", shape := .one (.num "traceBeam" 1), colour := 4 },
-  { label := "spill", shape := .one (.num "traceBeam" 3), colour := 4 },
-  { label := "crossing_x", shape := .one (.num "traceBeam" 4), colour := 5 },
-  { label := "crossing_y", shape := .one (.num "traceBeam" 5), colour := 5 },
-  { label := "radius_on_secondary", shape := .one (.num "hyperHit" 4 [("O", "H"), ("d", "r")]), colour := 5 },
-  { label := "fate", shape := .one (.num "traceBeam" 7), colour := 6 }]
+    shape := .one (.pt "beamNormalT" (some "roofOfDish")), colour := 3 },
+  { label := "captured", shape := .one (.num "beamTraceT" 0), colour := 4 },
+  { label := "hit_secondary", shape := .one (.num "beamTraceT" 1), colour := 4 },
+  { label := "spill", shape := .one (.num "beamTraceT" 3), colour := 4 },
+  { label := "crossing_x", shape := .one (.num "beamTraceT" 4), colour := 5 },
+  { label := "crossing_y", shape := .one (.num "beamTraceT" 5), colour := 5 },
+  { label := "radius_on_secondary", shape := .one (.num "beamRadiusT" 4), colour := 5 },
+  { label := "fate", shape := .one (.num "beamTraceT" 7), colour := 6 }]
 
 /-- **one chain of `OpticGadt`**: `hashemiBeam = primary ; beamDown`.  Its first stage is
 `dishReflect` (`primary_is_dishReflect`) and its second is `traceBeam`
 (`TandoorOpticGadt.hashemiBeam_agrees`), so these entries draw the interpreter's own trace. -/
 def opticScene : Scene := [
   -- stage 0, `primary`: the ray onto the membrane and off it
-  { label := "stage0_origin", shape := .one (.pt "dishOriginPt" (some "roofOfDish")), colour := 1 },
-  { label := "stage0_hit", shape := .one (.pt "dishHitPt" (some "roofOfDish")), colour := 2 },
+  { label := "stage0_origin", shape := .one (.pt "rayStartT" (some "roofOfDish")), colour := 1 },
+  { label := "stage0_hit", shape := .one (.pt "dishHitT" (some "roofOfDish")), colour := 2 },
   { label := "stage0_leg",
-    shape := .seg (.pt "dishOriginPt" (some "roofOfDish")) (.pt "dishHitPt" (some "roofOfDish")),
+    shape := .seg (.pt "rayStartT" (some "roofOfDish")) (.pt "dishHitT" (some "roofOfDish")),
     colour := 2 },
-  { label := "stage0_dir", shape := .one (.pt "dishDirPt" (some "roofOfDish")), colour := 3 },
-  { label := "stage0_on_panel", shape := .one (.num "dishReflect" 6), colour := 3 },
+  { label := "stage0_dir", shape := .one (.pt "dishDirT" (some "roofOfDish")), colour := 3 },
+  { label := "stage0_on_panel", shape := .one (.num "beamRayT" 6), colour := 3 },
   -- stage 1, `beamDown`: the secondary, and the chain's fate
-  { label := "stage1_secondary",
-    shape := .one (.pt "hyperPt" (some "roofOfDish") [("O", "H"), ("d", "r")]), colour := 4 },
+  { label := "stage1_secondary", shape := .one (.pt "beamHitT" (some "roofOfDish")), colour := 4 },
   { label := "stage1_leg",
-    shape := .seg (.pt "pointOf" (some "roofOfDish") [("O", "H")])
-                  (.pt "hyperPt" (some "roofOfDish") [("O", "H"), ("d", "r")]),
+    shape := .seg (.pt "dishHitT" (some "roofOfDish")) (.pt "beamHitT" (some "roofOfDish")),
     colour := 4 },
-  { label := "stage1_captured", shape := .one (.num "traceBeam" 0), colour := 5 },
-  { label := "stage1_fate", shape := .one (.num "traceBeam" 7), colour := 6 }]
+  { label := "stage1_captured", shape := .one (.num "beamTraceT" 0), colour := 5 },
+  { label := "stage1_fate", shape := .one (.num "beamTraceT" 7), colour := 6 }]
 
 end HashemiSceneInst

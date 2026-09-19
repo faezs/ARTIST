@@ -1727,6 +1727,55 @@ partial def leanBody (f : Fun) (real : Bool) (outs : Array Nat) (v : Val) (inden
   lines := lines.push (indent ++ prVal v)
   return "\n".intercalate lines.toList
 
+/-- the NumPy right-hand side of one node, vectorised over agents.  Factored out of
+`printNumpy` so that a printer with a different OUTPUT shape - `CccScene.lean`'s scene, whose
+ray-level outputs stay `(B, P)` instead of being reduced - emits the very same node lines. -/
+def npRhs (f : Fun) (L : Layers) (i : Nat) : Option String := Id.run do
+  let g := f.graph
+  let tableRead := fun (b : String) (row : Option Nat) (k : Nat) =>
+    let m := f.tableM b
+    let sh := f.shared.contains b
+    match row with
+    | some j => if sh then (if m == 0 then s!"{b}[{j}]" else s!"{b}[{j}, {k}]")
+                else (if m == 0 then s!"{b}[:, {j}]" else s!"{b}[:, {j}, {k}]")
+    | none => if m == 0 then s!"{b}" else s!"{b}[:, :, {k}]"
+  let isLeaf := fun (j : Nat) => match g.nodes[j]! with | .lit _ | .natLit _ | .bconst _ | .pi => true | _ => false
+  let t := fun (j : Nat) =>
+    if L.ray[i]! && !L.ray[j]! && !isLeaf j then s!"np.asarray(t{j})[..., None]" else s!"t{j}"
+  match g.nodes[i]! with
+  | .input nm _ =>
+    match f.arrayScalar[i]? with
+    | some (b, j, k) => some (tableRead b (some j) k)
+    | none => some nm
+  | .rayIn b k => some (tableRead b none k)
+  | .sum P a => some (if L.ray[a]! then s!"np.sum(t{a}, axis=-1)" else s!"({P} * t{a})")
+  | .call fn _ _ c _ => some s!"(_ for _ in ()).throw(RuntimeError('{fn}[{c}]: a .call node in a kernel graph'))"
+  | .lit s => some s
+  | .natLit s => some s
+  | .bconst b => some (if b then "True" else "False")
+  | .pi => some "np.pi"
+  | .un op a =>
+    let av := t a
+    some (match op with
+      | "neg" => s!"(-{av})" | "not" => s!"np.logical_not({av})" | "sqrt" => s!"np.sqrt({av})"
+      | "sin" => s!"np.sin({av})" | "cos" => s!"np.cos({av})" | "tan" => s!"np.tan({av})"
+      | "arctan" => s!"np.arctan({av})" | "arccos" => s!"np.arccos({av})" | "arcsin" => s!"np.arcsin({av})"
+      | "exp" => s!"np.exp({av})" | "log" => s!"np.log({av})"
+      | "abs" => s!"np.abs({av})" | "floor" => s!"np.floor({av})" | "sigmoid" => s!"(1.0 / (1.0 + np.exp(-{av})))"
+      | "tanh" => s!"np.tanh({av})"
+      | o => s!"None  # ? {o}")
+  | .bin op a b =>
+    some (match op with
+      | "min" => s!"np.minimum({t a}, {t b})" | "max" => s!"np.maximum({t a}, {t b})"
+      | "==" => if g.isBool a then s!"({t a} == {t b})" else s!"hk_eq({t a}, {t b})"
+      | "!=" => if g.isBool a then s!"({t a} != {t b})" else s!"np.logical_not(hk_eq({t a}, {t b}))"
+      | "&&" => s!"np.logical_and({t a}, {t b})" | "||" => s!"np.logical_or({t a}, {t b})"
+      | "->" => s!"np.logical_or(np.logical_not({t a}), {t b})"
+      | o => s!"({t a} {o} {t b})")
+  | .pow a n => some s!"({t a} ** {n})"
+  | .ite c a b => some s!"np.where({t c}, {t a}, {t b})"
+  | .iteC c a b => some s!"np.where({t c}, {t a}, {t b})"
+
 /-- NumPy, vectorised over agents: every scalar input an array `(B,)` (or a float), ray tables
 `(B, P, m)`, every op elementwise; ray-level nodes are `(B, P)` and read agent-level operands
 through a new axis; a sum is `np.sum(…, axis=-1)`; `if` as `np.where` -/
@@ -1738,52 +1787,8 @@ def printNumpy (f : Fun) (fname : String) : String := Id.run do
   let params := scalars ++ (f.arrays.map (·.1))
   lines := lines.push s!"def {fname}({", ".intercalate params.toList}):"
   if !L.err.isEmpty then lines := lines.push s!"    raise ValueError({("\"" ++ L.err ++ "\"")})"
-  let tableRead := fun (b : String) (row : Option Nat) (k : Nat) =>
-    let m := f.tableM b
-    let sh := f.shared.contains b
-    match row with
-    | some j => if sh then (if m == 0 then s!"{b}[{j}]" else s!"{b}[{j}, {k}]")
-                else (if m == 0 then s!"{b}[:, {j}]" else s!"{b}[:, {j}, {k}]")
-    | none => if m == 0 then s!"{b}" else s!"{b}[:, :, {k}]"
   for i in [0:g.nodes.size] do
-    let isLeaf := fun (j : Nat) => match g.nodes[j]! with | .lit _ | .natLit _ | .bconst _ | .pi => true | _ => false
-    -- an agent-level operand read at ray level gets the ray axis
-    let t := fun (j : Nat) =>
-      if L.ray[i]! && !L.ray[j]! && !isLeaf j then s!"np.asarray(t{j})[..., None]" else s!"t{j}"
-    let rhs : Option String := match g.nodes[i]! with
-      | .input nm _ =>
-        match f.arrayScalar[i]? with
-        | some (b, j, k) => some (tableRead b (some j) k)
-        | none => some nm
-      | .rayIn b k => some (tableRead b none k)
-      | .sum P a => some (if L.ray[a]! then s!"np.sum(t{a}, axis=-1)" else s!"({P} * t{a})")
-      | .call fn _ _ c _ => some s!"(_ for _ in ()).throw(RuntimeError('{fn}[{c}]: a .call node in a kernel graph'))"
-      | .lit s => some s
-      | .natLit s => some s
-      | .bconst b => some (if b then "True" else "False")
-      | .pi => some "np.pi"
-      | .un op a =>
-        let av := t a
-        some (match op with
-          | "neg" => s!"(-{av})" | "not" => s!"np.logical_not({av})" | "sqrt" => s!"np.sqrt({av})"
-          | "sin" => s!"np.sin({av})" | "cos" => s!"np.cos({av})" | "tan" => s!"np.tan({av})"
-          | "arctan" => s!"np.arctan({av})" | "arccos" => s!"np.arccos({av})" | "arcsin" => s!"np.arcsin({av})"
-          | "exp" => s!"np.exp({av})" | "log" => s!"np.log({av})"
-          | "abs" => s!"np.abs({av})" | "floor" => s!"np.floor({av})" | "sigmoid" => s!"(1.0 / (1.0 + np.exp(-{av})))"
-          | "tanh" => s!"np.tanh({av})"
-          | o => s!"None  # ? {o}")
-      | .bin op a b =>
-        some (match op with
-          | "min" => s!"np.minimum({t a}, {t b})" | "max" => s!"np.maximum({t a}, {t b})"
-          | "==" => if g.isBool a then s!"({t a} == {t b})" else s!"hk_eq({t a}, {t b})"
-          | "!=" => if g.isBool a then s!"({t a} != {t b})" else s!"np.logical_not(hk_eq({t a}, {t b}))"
-          | "&&" => s!"np.logical_and({t a}, {t b})" | "||" => s!"np.logical_or({t a}, {t b})"
-          | "->" => s!"np.logical_or(np.logical_not({t a}), {t b})"
-          | o => s!"({t a} {o} {t b})")
-      | .pow a n => some s!"({t a} ** {n})"
-      | .ite c a b => some s!"np.where({t c}, {t a}, {t b})"
-      | .iteC c a b => some s!"np.where({t c}, {t a}, {t b})"
-    match rhs with
+    match npRhs f L i with
     | some r => lines := lines.push s!"    t{i} = {r}"
     | none => pure ()
   let shapeOf := if scalars.isEmpty then

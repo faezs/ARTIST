@@ -71,6 +71,23 @@ def sceneSig (root : Name) (sc : Scene.Scene) : MetaM (Array (String × Expr)) :
 
 /-! ## The compiler -/
 
+/-- **a ray leaf**: a definition whose remaining binder, after its data binders, is an index
+`Fin P` over a ray TABLE (its codomain is still a function, so the `Fin P` is not the output
+vector's index).  Such a leaf is compiled against the ray index itself — the very `.rayIn` nodes
+a `∑ i : Fin P` produces — so the printers give each row of the table its own thread. -/
+def rayIndexOf (e : Expr) : MetaM (Option (Nat × Expr)) := do
+  let ty ← whnfR (← inferType e)
+  match ty with
+  | .forallE _ dom cod _ =>
+    if dom.getAppFn.isConstOf ``Fin then
+      let cod' ← whnfR cod
+      if isRealTy cod' then pure none
+      else match natLit? dom.getAppArgs[0]! with
+        | some P => pure (some (P, dom))
+        | none => pure none
+    else pure none
+  | _ => pure none
+
 /-- compile a whole scene into one `Ccc.Fun`.  `root` is the namespace whose definitions are
 unfolded (`Ccc.translate`'s rule); `name` names the printed function. -/
 def compileScene (root : Name) (name : Name) (sc : Scene.Scene) :
@@ -82,9 +99,22 @@ def compileScene (root : Name) (name : Name) (sc : Scene.Scene) :
     withLocalDeclsD decls fun xs => do
       let idx : Std.HashMap String Expr :=
         (Array.zip (sig.map (·.1)) xs).foldl (fun m (k, v) => m.insert k v) {}
-      let get := fun (nm : String) => match idx[nm]? with
+      let inp := fun (nm : String) => match idx[nm]? with
         | some e => pure e
         | none => throwError "the scene has no input {nm}"
+      -- translate one leaf: its definition applied to the scene's inputs, then — when the
+      -- definition takes a ray index — that application under the ray index, and then the frame
+      -- composed onto it IN THE GRAPH
+      let leafVal : (Expr → Expr) → Expr → TM Val := fun wrap body => do
+        match ← rayIndexOf body with
+        | none => translate root (wrap body)
+        | some (P, dom) =>
+          let st0 ← get
+          let (v, st') ← withLocalDeclD `i dom fun ii =>
+            (translate root (wrap (mkApp body ii).headBeta)).run
+              { st0 with env := st0.env.insert ii.fvarId! .rayIdx, inSum := some P }
+          set { st' with inSum := none }
+          pure v
       let act : TM Val := do
         for x in xs do
           let _ ← bindBinder root x xs.size
@@ -94,15 +124,15 @@ def compileScene (root : Name) (name : Name) (sc : Scene.Scene) :
             match l with
             | .pt d fr _ => do
               let dn := root ++ d.toName
-              let dargs ← (← sigOf dn).mapM fun (nm, _) => get (l.rename nm)
+              let dargs ← (← sigOf dn).mapM fun (nm, _) => inp (l.rename nm)
               let body := mkAppN (mkConst dn) dargs
-              let expr ← match fr with
-                | none => pure body
+              let wrap : Expr → Expr ← match fr with
+                | none => pure id
                 | some f => do
                   let fn := root ++ f.toName
-                  let fargs ← (← sigOf fn 1).mapM fun (nm, _) => get (l.rename nm)
-                  pure (mkAppN (mkConst fn) (fargs.push body))
-              let v ← translate root expr
+                  let fargs ← (← sigOf fn 1).mapM fun (nm, _) => inp (l.rename nm)
+                  pure (fun b => mkAppN (mkConst fn) (fargs.push b))
+              let v ← leafVal wrap body
               match v with
               | .vec vs =>
                 unless vs.size == 3 do
@@ -111,8 +141,8 @@ def compileScene (root : Name) (name : Name) (sc : Scene.Scene) :
               | w => throwError "the point {d} is a {w.shape}, not three reals"
             | .num d c _ => do
               let dn := root ++ d.toName
-              let dargs ← (← sigOf dn).mapM fun (nm, _) => get (l.rename nm)
-              let v ← translate root (mkAppN (mkConst dn) dargs)
+              let dargs ← (← sigOf dn).mapM fun (nm, _) => inp (l.rename nm)
+              let v ← leafVal id (mkAppN (mkConst dn) dargs)
               match v with
               | .s _ => outs := outs.push v
               | .vec vs =>
@@ -127,6 +157,49 @@ def compileScene (root : Name) (name : Name) (sc : Scene.Scene) :
   catch ex =>
     pure (Except.error (← ex.toMessageData.toString))
 
+/-! ## The two regions of a scene's output
+
+A scene over a ray table has vertices of two kinds.  The static ones — the carriage, the rim, the
+sun — are one per frame; the ray ones are one per row of the table.  So the printed function
+writes TWO buffers: `vs` of `n_static` doubles, and `vr` of `P x n_ray`.  Which is which is not
+declared anywhere: it is read off the graph, a vertex being a ray vertex exactly when its node
+is ray-level (`Ccc.layers`).  An entry whose leaves disagree is drawn in the ray region. -/
+
+structure Split where
+  /-- per entry: is it a ray entry -/
+  isRay : Array Bool
+  /-- per entry: its offset within its own region -/
+  off : Array Nat
+  /-- per output node (in `f.output` order): is it a ray vertex -/
+  rayOut : Array Bool
+  nStatic : Nat
+  nRay : Nat
+  P : Nat
+
+def splitOf (f : Fun) (sc : Scene.Scene) : Split := Id.run do
+  let L := layers f.graph
+  let outs := f.output.flatten
+  let rayOut := outs.map fun i => L.ray[i]!
+  let mut isRay : Array Bool := #[]
+  let mut off : Array Nat := #[]
+  let mut ns := 0
+  let mut nr := 0
+  let mut k := 0
+  for e in sc do
+    let w := e.shape.width
+    let mut r := false
+    for j in [0:w] do if rayOut[k + j]! then r := true
+    isRay := isRay.push r
+    if r then
+      off := off.push nr
+      nr := nr + w
+    else
+      off := off.push ns
+      ns := ns + w
+    k := k + w
+  let P := if L.P != 0 then L.P else (match f.arrays[0]? with | some (_, p, _) => p | none => 1)
+  return { isRay, off, rayOut, nStatic := ns, nRay := nr, P }
+
 /-! ## The printed wrapper and the manifest -/
 
 def jsonStr (s : String) : String :=
@@ -137,35 +210,206 @@ def jsonList (xs : List String) : String := "[" ++ ", ".intercalate xs ++ "]"
 
 def upper (s : String) : String := s.map Char.toUpper
 
-/-- C99: the scene's own function (printed by `Ccc.printC`), then a flat entry point taking the
-inputs as an array, and the static tables the renderer reads.  Nothing geometric: the wrapper
-only unpacks an array into the printed function's parameters. -/
+/-- C99: the scene, as one function over the scalar inputs and the ray table, writing the two
+regions — `vs`, the static vertices, once; `vr`, `P` rows of `n_ray`, one per ray.  The node
+lines are `Ccc.lean`'s own (`cNodeLines`); the phases are the graph's layers, so the C twin and
+the Metal kernel are the same three phases written two ways. -/
 def printSceneC (f : Fun) (sc : Scene.Scene) : String := Id.run do
+  let g := f.graph
   let cn := cName f.name
   let tag := upper (sanitize f.name.getString!)
-  let offs := Scene.Scene.offsets sc
-  let mut ls : Array String := #[printC f, ""]
+  let sp := splitOf f sc
+  let L := layers g
+  let outs := f.output.flatten
+  let live := liveNodes g outs
+  let sums := L.sums.filter live.contains
+  let nameOf := fun (i : Nat) => ((f.inputs.find? (·.2 == i)).map (·.1)).getD "?"
+  let node := fun (i : Nat) (ind : String) =>
+    (cNodeLines f .value nameOf (fun _ => "0") (fun _ => ("0", "0", "0")) "hk_i" i).map (ind ++ ·)
+  let params := (cParams f).push "hk_real HK_ADDR* vs" |>.push "hk_real HK_ADDR* vr"
+  let mut ls : Array String := #[s!"HK_STATIC void {cn}({", ".intercalate params.toList}) \{"]
+  if !L.err.isEmpty then ls := ls.push s!"#error \"{L.err}\""
+  for i in [0:g.nodes.size] do
+    if live.contains i && !L.ray[i]! && !L.post[i]! then ls := ls ++ node i "  "
+  for sm in sums do ls := ls.push s!"  hk_real acc{sm} = HK_LIT(0);"
+  ls := ls.push s!"  for (int hk_i = 0; hk_i < {sp.P}; ++hk_i) \{"
+  for i in [0:g.nodes.size] do
+    if live.contains i && L.ray[i]! then ls := ls ++ node i "    "
+  for sm in sums do
+    match g.nodes[sm]! with
+    | .sum _ a => ls := ls.push s!"    acc{sm} += t{a};"
+    | _ => pure ()
+  -- the ray vertices, this row's
+  let mut rk := 0
+  for k in [0:outs.size] do
+    if sp.rayOut[k]! then
+      ls := ls.push s!"    vr[hk_i * {max sp.nRay 1} + {rk}] = t{outs[k]!};"
+      rk := rk + 1
+  ls := ls.push "  }"
+  for i in [0:g.nodes.size] do
+    if live.contains i && L.post[i]! then
+      match g.nodes[i]! with
+      | .sum _ _ => ls := ls.push s!"  const hk_real t{i} = acc{i};"
+      | _ => ls := ls ++ node i "  "
+  let mut sk := 0
+  for k in [0:outs.size] do
+    if !sp.rayOut[k]! then
+      ls := ls.push s!"  vs[{sk}] = t{outs[k]!};"
+      sk := sk + 1
+  ls := ls.push "}"
+  ls := ls.push ""
   let args := (List.range f.inputs.size).map fun i => s!"in[{i}]"
-  ls := ls.push s!"HK_STATIC void {cn}_eval(const hk_real *in, hk_real *verts) \{"
-  ls := ls.push s!"  {cn}({", ".intercalate args}{if f.inputs.isEmpty then "" else ", "}verts);"
+  let tabs := (f.arrays.map (·.1)).toList
+  ls := ls.push s!"HK_STATIC void {cn}_eval(const hk_real *in, const hk_real *dr, hk_real *vs, hk_real *vr) \{"
+  ls := ls.push s!"  {cn}({", ".intercalate (args ++ tabs.map (fun _ => "dr") ++ ["vs", "vr"])});"
   ls := ls.push "}"
   ls := ls.push s!"#define {tag}_N_IN {f.inputs.size}"
-  ls := ls.push s!"#define {tag}_N_VERT {Scene.Scene.width sc}"
+  ls := ls.push s!"#define {tag}_N_STATIC {sp.nStatic}"
+  ls := ls.push s!"#define {tag}_N_RAY {sp.nRay}"
+  ls := ls.push s!"#define {tag}_P {sp.P}"
   ls := ls.push s!"#define {tag}_N_ENTRY {sc.length}"
   ls := ls.push s!"static const char *{tag}_INPUT[] = \{{", ".intercalate ((f.inputs.map (·.1)).toList.map jsonStr)}};"
   ls := ls.push s!"static const char *{tag}_LABEL[] = \{{", ".intercalate (sc.map fun e => jsonStr e.label)}};"
   ls := ls.push s!"static const int {tag}_KIND[] = \{{", ".intercalate (sc.map fun e => toString e.shape.kind.code)}};"
   ls := ls.push s!"static const int {tag}_COLOUR[] = \{{", ".intercalate (sc.map fun e => toString e.colour)}};"
-  ls := ls.push s!"static const int {tag}_OFF[] = \{{", ".intercalate (offs.map toString)}};"
+  ls := ls.push s!"static const int {tag}_OFF[] = \{{", ".intercalate (sp.off.toList.map toString)}};"
+  ls := ls.push s!"static const int {tag}_RAY[] = \{{", ".intercalate (sp.isRay.toList.map fun b => if b then "1" else "0")}};"
   ls := ls.push s!"static const int {tag}_W[] = \{{", ".intercalate (sc.map fun e => toString e.shape.width)}};"
   return "\n".intercalate ls.toList
 
+/-! ## The scene as a Metal kernel
+
+One threadgroup per frame, one thread per ray — the megakernel's own shape, with the outputs
+split instead of only reduced.  Thread 0 computes the agent level and broadcasts what the rays
+read through `hk_pre`; every thread evaluates its own row of the table and writes its own ray
+vertices; the sums, when the scene has any (the composed env scene does), reduce in threadgroup
+memory and thread 0 finishes and writes the static vertices. -/
+def printMslScene (f : Fun) (sc : Scene.Scene) (kname : String) : String := Id.run do
+  let g := f.graph
+  let L := layers g
+  let sp := splitOf f sc
+  let outs := f.output.flatten
+  let nin := f.inputs.size
+  let P := sp.P
+  let live := liveNodes g outs
+  let sums := L.sums.filter live.contains
+  let mut params : Array String := #["device const float* hk_x [[buffer(0)]]"]
+  let mut bi := 1
+  for (b, _, _) in f.arrays do
+    params := params.push s!"device const float* {b}_all [[buffer({bi})]]"
+    bi := bi + 1
+  params := params.push s!"device float* hk_vs [[buffer({bi})]]"
+  params := params.push s!"device float* hk_vr [[buffer({bi + 1})]]"
+  params := params.push s!"device const int* hk_n [[buffer({bi + 2})]]"
+  let mut lines : Array String := #[]
+  lines := lines.push s!"kernel void {kname}({", ".intercalate params.toList}, uint hk_b [[threadgroup_position_in_grid]], uint hk_i [[thread_position_in_threadgroup]]) \{"
+  lines := lines.push "  if ((int)hk_b >= hk_n[0]) return;"
+  for sm in sums do lines := lines.push s!"  threadgroup float hk_sh{sm}[{P}];"
+  lines := lines.push s!"  device const float* hk_xb = hk_x + hk_b * {nin};"
+  for (b, p, m) in f.arrays do
+    lines := lines.push s!"  device const float* {b} = {b}_all + hk_b * {p * (if m == 0 then 1 else m)};"
+  let mut inIdx : Std.HashMap Nat Nat := {}
+  for k in [0:nin] do inIdx := inIdx.insert (f.inputs[k]!).2 k
+  let inRef := fun (i : Nat) => if g.isBool i then s!"(hk_xb[{inIdx.getD i 0}] != 0.0f)" else s!"hk_xb[{inIdx.getD i 0}]"
+  let node := fun (i : Nat) (ind : String) =>
+    (cNodeLines f .value inRef (fun _ => "0") (fun _ => ("0", "0", "0")) "hk_i" i).map (ind ++ ·)
+  if !L.err.isEmpty then lines := lines.push s!"#error \"{L.err}\""
+  let isA := fun (i : Nat) => live.contains i && !L.ray[i]! && !L.post[i]!
+  -- the agent level once, on thread 0, broadcast to the rays
+  let mut needed : Array Nat := #[]
+  let mut seen : Std.HashSet Nat := {}
+  for i in [0:g.nodes.size] do
+    if live.contains i && L.ray[i]! then
+      for d in g.nodes[i]!.deps do
+        if isA d && !seen.contains d then
+          seen := seen.insert d
+          needed := needed.push d
+  lines := lines.push s!"  threadgroup float hk_pre[{max needed.size 1}];"
+  for i in [0:g.nodes.size] do
+    if isA i then
+      let ty := if g.isBool i then "bool" else "hk_real"
+      lines := lines.push s!"  {ty} t{i};"
+  lines := lines.push "  if (hk_i == 0) {"
+  for i in [0:g.nodes.size] do
+    if isA i then
+      match cRhs f inRef "hk_i" i with
+      | some r => lines := lines.push s!"    t{i} = {r};"
+      | none => pure ()
+  for k in [0:needed.size] do
+    let d := needed[k]!
+    lines := lines.push s!"    hk_pre[{k}] = {if g.isBool d then s!"(t{d} ? 1.0f : 0.0f)" else s!"t{d}"};"
+  lines := lines.push "  }"
+  lines := lines.push "  threadgroup_barrier(mem_flags::mem_threadgroup);"
+  for k in [0:needed.size] do
+    let d := needed[k]!
+    lines := lines.push s!"  t{d} = {if g.isBool d then s!"(hk_pre[{k}] != 0.0f)" else s!"hk_pre[{k}]"};"
+  -- every thread: its own row of the table, and its own ray vertices
+  for i in [0:g.nodes.size] do
+    if live.contains i && L.ray[i]! then lines := lines ++ node i "  "
+  let mut rk := 0
+  for k in [0:outs.size] do
+    if sp.rayOut[k]! then
+      lines := lines.push s!"  hk_vr[(hk_b * {P} + hk_i) * {max sp.nRay 1} + {rk}] = t{outs[k]!};"
+      rk := rk + 1
+  for sm in sums do
+    match g.nodes[sm]! with
+    | .sum _ a => lines := lines.push s!"  hk_sh{sm}[hk_i] = t{a};"
+    | _ => pure ()
+  lines := lines.push "  threadgroup_barrier(mem_flags::mem_threadgroup);"
+  lines := lines.push "  if (hk_i == 0) {"
+  for sm in sums do
+    lines := lines.push s!"    \{ float acc = 0.0f; for (int j = 0; j < {P}; ++j) acc += hk_sh{sm}[j]; hk_sh{sm}[0] = acc; }"
+  for i in [0:g.nodes.size] do
+    if live.contains i && L.post[i]! then
+      match g.nodes[i]! with
+      | .sum _ _ => lines := lines.push s!"    const hk_real t{i} = hk_sh{i}[0];"
+      | _ => lines := lines ++ node i "    "
+  let mut sk := 0
+  for k in [0:outs.size] do
+    if !sp.rayOut[k]! then
+      lines := lines.push s!"    hk_vs[hk_b * {max sp.nStatic 1} + {sk}] = t{outs[k]!};"
+      sk := sk + 1
+  lines := lines.push "  }"
+  lines := lines.push "}"
+  return "\n".intercalate lines.toList
+
+/-! ## The NumPy twin of the same graph, with the two regions -/
+
+def printNumpyScene (f : Fun) (sc : Scene.Scene) (fname : String) : String := Id.run do
+  let g := f.graph
+  let L := layers g
+  let sp := splitOf f sc
+  let outs := f.output.flatten
+  let scalars := f.inputs.map (·.1)
+  let params := scalars ++ (f.arrays.map (·.1))
+  let mut lines : Array String := #[s!"def {fname}({", ".intercalate params.toList}):"]
+  if !L.err.isEmpty then lines := lines.push s!"    raise ValueError({("\"" ++ L.err ++ "\"")})"
+  for i in [0:g.nodes.size] do
+    match npRhs f L i with
+    | some r => lines := lines.push s!"    t{i} = {r}"
+    | none => pure ()
+  let shapeOf := if scalars.isEmpty then
+      (if f.arrays.isEmpty then "()" else s!"({(f.arrays[0]!).1}.shape[0],)")
+    else s!"np.broadcast(*[np.asarray(x) for x in [{", ".intercalate scalars.toList}]]).shape"
+  lines := lines.push s!"    _sh = {shapeOf}"
+  lines := lines.push s!"    _shr = _sh + ({sp.P},)"
+  let stat := (List.range outs.size).filter (fun k => !sp.rayOut[k]!)
+  let rays := (List.range outs.size).filter (fun k => sp.rayOut[k]!)
+  let bc := fun (sh : String) (k : Nat) => s!"np.broadcast_to(np.asarray(t{outs[k]!}, dtype=float), {sh})"
+  lines := lines.push ("    _vs = np.stack([" ++ ", ".intercalate (stat.map (bc "_sh")) ++ "], axis=-1) if " ++
+    toString stat.length ++ " else np.zeros(_sh + (0,))")
+  lines := lines.push ("    _vr = np.stack([" ++ ", ".intercalate (rays.map (bc "_shr")) ++ "], axis=-1) if " ++
+    toString rays.length ++ " else np.zeros(_shr + (0,))")
+  lines := lines.push "    return _vs, _vr"
+  return "\n".intercalate lines.toList
+
 /-- the entry of the C registry `render/main.c` walks -/
-def registryRow (f : Fun) (sceneName : String) : String :=
+def registryRow (f : Fun) (sc : Scene.Scene) (sceneName : String) : String :=
   let cn := cName f.name
   let tag := upper (sanitize f.name.getString!)
-  s!"  \{ {jsonStr sceneName}, {tag}_N_IN, {tag}_N_VERT, {tag}_N_ENTRY, {tag}_KIND, {tag}_COLOUR, " ++
-  s!"{tag}_OFF, {tag}_W, {tag}_LABEL, {tag}_INPUT, {cn}_eval }"
+  let _ := sc
+  s!"  \{ {jsonStr sceneName}, {tag}_N_IN, {tag}_N_STATIC, {tag}_N_RAY, {tag}_P, {tag}_N_ENTRY, {tag}_KIND, {tag}_COLOUR, " ++
+  s!"{tag}_OFF, {tag}_W, {tag}_RAY, {tag}_LABEL, {tag}_INPUT, {cn}_eval }"
 
 /-- a leaf, as the manifest records it: which definition, in which frame -/
 def leafJson (l : Scene.Leaf) : String :=
@@ -178,24 +422,32 @@ def leafJson (l : Scene.Leaf) : String :=
       "\"leaf\": \"num\"", "\"defn\": " ++ jsonStr d, "\"col\": " ++ toString c,
       "\"bind\": " ++ jsonList (b.map fun (x, y) => jsonList [jsonStr x, jsonStr y])] ++ "}"
 
-/-- the JSON manifest: what each entry is, where its doubles are, and — the point of the whole
-exercise — which definition of the specification each vertex came from. -/
-def printSceneJson (f : Fun) (sc : Scene.Scene) (sceneName source : String) : String :=
-  let offs := Scene.Scene.offsets sc
-  let rows := (List.zip sc offs).map fun (e, off) =>
+/-- the JSON manifest: what each entry is, which region and where in it its doubles are, which
+ray tables the scene reads, and — the point of the whole exercise — which definition of the
+specification each vertex came from. -/
+def printSceneJson (f : Fun) (sc : Scene.Scene) (sceneName source kname : String) : String :=
+  let sp := splitOf f sc
+  let rows := (List.zip sc (List.zip sp.isRay.toList sp.off.toList)).map fun (e, r, off) =>
     "  {" ++ ", ".intercalate [
       "\"label\": " ++ jsonStr e.label,
       "\"kind\": " ++ jsonStr (toString (repr e.shape.kind)),
       "\"colour\": " ++ toString e.colour,
+      "\"ray\": " ++ (if r then "true" else "false"),
       "\"offset\": " ++ toString off,
       "\"width\": " ++ toString e.shape.width,
       "\"leaves\": " ++ jsonList (e.shape.leaves.map leafJson)] ++ "}"
+  let arrs := f.arrays.toList.map fun (b, p, m) =>
+    "{\"name\": " ++ jsonStr b ++ ", \"P\": " ++ toString p ++ ", \"m\": " ++ toString m ++ "}"
   "{\n" ++
   "\"scene\": " ++ jsonStr sceneName ++ ",\n" ++
   "\"source\": " ++ jsonStr source ++ ",\n" ++
   "\"c\": " ++ jsonStr (cName f.name) ++ ",\n" ++
+  "\"kernel\": " ++ jsonStr kname ++ ",\n" ++
   "\"inputs\": " ++ jsonList ((f.inputs.map (·.1)).toList.map jsonStr) ++ ",\n" ++
-  "\"n_vert\": " ++ toString (Scene.Scene.width sc) ++ ",\n" ++
+  "\"arrays\": " ++ jsonList arrs ++ ",\n" ++
+  "\"rays\": " ++ toString sp.P ++ ",\n" ++
+  "\"n_static\": " ++ toString sp.nStatic ++ ",\n" ++
+  "\"n_ray\": " ++ toString sp.nRay ++ ",\n" ++
   "\"n_nodes\": " ++ toString f.graph.nodes.size ++ ",\n" ++
   "\"entries\": [\n" ++ ",\n".intercalate rows ++ "\n]\n}\n"
 
@@ -223,8 +475,8 @@ def preamble (guard : String) : Array String := #[
   "#ifndef hk_sigmoid", "#define hk_sigmoid(x) (HK_LIT(1) / (HK_LIT(1) + hk_exp(-(x))))", "#endif",
   "#ifndef HK_RADDR", "#define HK_RADDR", "#endif", ""]
 
-/-- compile a scene and write its header, its NumPy twin and its manifest.  Returns the registry
-row, so a driver can collect several scenes into one table. -/
+/-- compile a scene and write its header, its Metal kernel, its NumPy twin and its manifest.
+Returns the registry row, so a driver can collect several scenes into one table. -/
 def emitScene (outDir : String) (root : Name) (name : Name) (sceneName source : String)
     (sc : Scene.Scene) : MetaM (Option String) := do
   match ← compileScene root name sc with
@@ -232,27 +484,34 @@ def emitScene (outDir : String) (root : Name) (name : Name) (sceneName source : 
     logInfo m!"scene {sceneName} did not compile: {msg}"
     pure none
   | .ok f =>
-    logInfo m!"scene {sceneName}: {sc.length} entries, {Scene.Scene.width sc} doubles, \
-      {f.inputs.size} inputs, {f.graph.nodes.size} nodes"
+    let sp := splitOf f sc
+    logInfo m!"scene {sceneName}: {sc.length} entries, {sp.nStatic} static + {sp.P} x {sp.nRay} ray \
+      doubles, {f.inputs.size} inputs, {f.arrays.size} tables, {f.graph.nodes.size} nodes"
     let guard := "SCENE_" ++ upper (sanitize name.getString!) ++ "_H"
     let h := (preamble guard).push (printSceneC f sc) |>.push "#endif"
     IO.FS.createDirAll outDir
     IO.FS.writeFile (outDir ++ "/scene_" ++ sceneName ++ ".h") ("\n".intercalate h.toList)
+    let kname := "scene_" ++ sceneName
+    IO.FS.writeFile (outDir ++ "/scene_" ++ sceneName ++ ".metal") (printMslScene f sc kname ++ "\n")
     let py : Array String := #[
       s!"# generated by RequestProject/CccScene.lean - do not edit.",
-      s!"# The same graph as render/scene_{sceneName}.h, printed for NumPy: the reference twin.",
+      s!"# The same graph as render/scene_{sceneName}.h and render/scene_{sceneName}.metal,",
+      "# printed for NumPy: the reference twin.  It returns (static vertices, ray vertices).",
       "import numpy as np", "",
       "def hk_eq(a, b):",
       "    return np.abs(a - b) <= 1e-9 * np.maximum(1.0, np.maximum(np.abs(a), np.abs(b)))", "",
-      printNumpy f (cName f.name), "",
+      printNumpyScene f sc (cName f.name), "",
       "INPUTS = " ++ jsonList ((f.inputs.map (·.1)).toList.map jsonStr) ++ "",
-      s!"N_VERT = {Scene.Scene.width sc}"]
+      "ARRAYS = " ++ jsonList (f.arrays.toList.map fun (b, p, m) =>
+        "(" ++ jsonStr b ++ ", " ++ toString p ++ ", " ++ toString m ++ ")"),
+      s!"N_STATIC = {sp.nStatic}", s!"N_RAY = {sp.nRay}", s!"P = {sp.P}",
+      s!"KERNEL = {jsonStr kname}"]
     IO.FS.writeFile (outDir ++ "/scene_" ++ sceneName ++ ".py") ("\n".intercalate py.toList)
     IO.FS.writeFile (outDir ++ "/scene_" ++ sceneName ++ ".json")
-      (printSceneJson f sc sceneName source)
-    pure (some (registryRow f sceneName))
+      (printSceneJson f sc sceneName source kname)
+    pure (some (registryRow f sc sceneName))
 
-/-- the registry header: the three scenes as one table, so `main.c` picks one by name. -/
+/-- the registry header: the scenes as one table, so `main.c` picks one by name. -/
 def registryHeader (scenes : List String) (rows : List String) : String :=
   let incl := scenes.map fun s => s!"#include \"scene_{s}.h\""
   "\n".intercalate ([
@@ -260,11 +519,11 @@ def registryHeader (scenes : List String) (rows : List String) : String :=
     "#ifndef SCENE_REGISTRY_H", "#define SCENE_REGISTRY_H"] ++ incl ++ [
     "typedef struct {",
     "  const char *name;",
-    "  int n_in, n_vert, n_entry;",
-    "  const int *kind, *colour, *off, *w;",
+    "  int n_in, n_static, n_ray, n_rays, n_entry;",
+    "  const int *kind, *colour, *off, *w, *ray;",
     "  const char **label;",
     "  const char **input;",
-    "  void (*eval)(const hk_real *, hk_real *);",
+    "  void (*eval)(const hk_real *, const hk_real *, hk_real *, hk_real *);",
     "} hk_scene_t;",
     "static const hk_scene_t HK_SCENES[] = {"] ++ [",\n".intercalate rows] ++ [
     "};",
