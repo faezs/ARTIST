@@ -48,13 +48,13 @@ using namespace metal;
 #define HK_STATIC static inline
 #define HK_LIT(x) ((float)(x))
 #define HK_PI 3.14159265358979323846f
-#define hk_sqrt sqrt
+#define hk_sqrt(x) sqrt(fmax((x), 0.0f))
 #define hk_sin sin
 #define hk_cos cos
 #define hk_tan tan
 #define hk_atan atan
-#define hk_acos acos
-#define hk_asin asin
+#define hk_acos(x) acos(fmin(fmax((x), -1.0f), 1.0f))
+#define hk_asin(x) asin(fmin(fmax((x), -1.0f), 1.0f))
 #define hk_exp exp
 #define hk_log log
 #define hk_fabs fabs
@@ -73,13 +73,13 @@ CUDA_PRELUDE = """
 #define HK_STATIC __device__ __forceinline__
 #define HK_LIT(x) ((float)(x))
 #define HK_PI 3.14159265358979323846f
-#define hk_sqrt sqrtf
+#define hk_sqrt(x) sqrtf(fmaxf((x), 0.0f))
 #define hk_sin sinf
 #define hk_cos cosf
 #define hk_tan tanf
 #define hk_atan atanf
-#define hk_acos acosf
-#define hk_asin asinf
+#define hk_acos(x) acosf(fminf(fmaxf((x), -1.0f), 1.0f))
+#define hk_asin(x) asinf(fminf(fmaxf((x), -1.0f), 1.0f))
 #define hk_exp expf
 #define hk_log logf
 #define hk_fabs fabsf
