@@ -796,3 +796,41 @@ hangs between its vertex 1 m down and its rim 0.83 m down" - and both of those s
 `rcm = 1.125 a` reproduces his 0.9 exactly (`derive_his_rcm`) and stays between `ze` and `f`
 (`derive_his_rcm_between`) at every size. At `a = 0.8` every mount parameter the env feeds the
 kernel is therefore identical to `env_params()`'s, and his machine's behaviour is untouched.
+
+## The scene as a printer
+
+There is no such thing as a Hashemi scene.  There is a scene.
+
+A drawing of a machine is not another model of it: it is a *functor to drawings* applied to the
+definitions that are already there.  `Hashemi.lean` names about seventy point-valued definitions —
+`rot`, `postTop`, `swungPt`, `pulleyAt`, `edgeClipAt`, `swingFocus`, `dishAxes`, `traceConic`,
+`hyperHit`, `dishReflect` — each written in whatever frame its section works in.  Objects of that
+category go to vertices; the frame morphisms that relate one section's coordinates to another's go
+to the composition that places those vertices in the roof frame.  A "scene definition" with
+coordinates written into it would be the geometry written a second time, and a second copy is a
+copy that can disagree.
+
+So the renderer is a **printer of the compiler**, not a hand-written scene:
+
+| file | what it is |
+| --- | --- |
+| `RequestProject/Scene.lean` | the vocabulary, machine-independent: `Leaf` (a definition, its frame, a renaming of its binders), `Shape` (`one`, `seg`, `rayOf`, `axesOf`), `Entry`, `Scene`; and `vertex_bound` — every vertex of every scene is bounded by its inputs' bound, whatever the frames are |
+| `RequestProject/CccScene.lean` | the printer.  It binds each distinct binder name once, applies each definition to those inputs, applies the frame to that **in the graph** (composition in the CCC: the frame's nodes are emitted over the leaf's outputs and hash-consed with everything else), and hands the single resulting `Ccc.Fun` to `Ccc.lean`'s own `printC` and `printNumpy`.  It contains no machine's vocabulary at all |
+| `RequestProject/HashemiSceneInst.lean` | the instance: three frames (`roofOfCarriage`, `roofOfBolt`, `roofOfDish`, each a composition of `rot`, `swungPt` and `dishAxes`, each tied by a theorem to `megaGeom`), a handful of projections that name three columns of a nine-column trace, `sunAt`, and then three lists of **data** |
+| `RequestProject/SceneCcc.lean` | the driver: `lake build RequestProject.SceneCcc` writes `render/scene_{hashemi,beam,optic}.{h,py,json}`, `scene_registry.h` and `scene_sun.{h,py}` |
+| `render/main.c` | generic over the manifest.  It reads dimensions from `hashemi_machine_<a>.json` (and, for what the JSON lacks, calls the spec's own printed constant), advances the pose with `hk_megaStep` through `hk_headToDriveAz/El`, puts the sun where `hk_sceneSunAt` says, binds every scene input **by name**, calls `scene_eval`, and draws doubles by kind and colour.  Nothing geometric is in it |
+
+That the printer is generic is not a claim, it is a demonstration: the same printer emits three
+scenes — the machine, `HashemiBeamdown`'s secondary, and one chain of the `OpticGadt` receiver
+GADT, stage by stage (`primary_is_dishReflect`, `hashemiBeam_agrees`) — and none of them is
+mentioned in it.
+
+    cd render
+    make check     # the three scenes, C against the NumPy twin; the sun against the trainer
+    make           # the raylib window (TAB cycles scenes, F the follower, +/- the clock)
+    python dump_day.py && ./hashemi_render --replay day.csv
+
+`make check` compares `scene_eval` in C with the NumPy twin of the *same graph* at five random
+inputs per scene (they agree exactly, 0.0), and `sunAt` against the trainer's own
+`solar_position` at twenty random instants (2e-16 rad).  The committed SVG frames are
+`render/frame_{hashemi,beam,optic}.svg`.
