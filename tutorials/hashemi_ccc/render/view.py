@@ -43,9 +43,11 @@ SCENES = scene_kernel.SCENES
 def pool(machine_path, az=np.pi, t=0.6):
     """every scene input's value, by name: the machine JSON, then the spec's own constants.
 
-    This is `main.c`'s old pooling, in Python and unchanged in substance: the JSON is the only
-    source of dimensions, and what it does not carry (`zBar`, `zBolt`, `ym`, `hp`, `ze`) is a
-    printed constant of the specification, never arithmetic here."""
+    This is for the STANDALONE scenes only — `hashemi`, `beam`, `optic`, which are not composed
+    with any morphism and so are handed their dimensions.  The env scene is composed: its nine
+    extra binders (`zBar`, `endIn`, `sgL`, `sgR`, `apexH`, `zBolt`, `ym`, `hp`, `ze`) are bound to
+    nodes of the graph in `HashemiSceneInst.envScene`, its input row IS `hashemi_env.json`'s, and
+    neither the trainer nor this function pools anything for it."""
     j = json.load(open(machine_path))
     m = dict(j.get("machine", {}))
     m.update(j.get("kernel", {}))
@@ -197,8 +199,9 @@ def main():
             if pose.hour > 19.0:
                 pose.hour = 5.0
 
-        dr = scene_kernel.device_draws(torch, 1, a.seed + frame, kern.P,
-                                       int(man["arrays"][0]["m"]))
+        m_dr = [aa["m"] for aa in man["arrays"] if aa["name"] == "dr"] or \
+               [man["arrays"][0]["m"]]
+        dr = scene_kernel.device_draws(torch, 1, a.seed + frame, kern.P, int(m_dr[0]))
         x = scene_row(kern, p, pose)
         vs, vr = kern(torch.as_tensor(x, device="mps"), dr)
         vs = vs.cpu().numpy()[0, :kern.n_static]

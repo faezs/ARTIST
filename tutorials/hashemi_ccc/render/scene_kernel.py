@@ -182,15 +182,15 @@ def _rel(a, b):
 
 
 def env_case(rng, B=4):
-    """the env scene's inputs: the env kernel's OWN row, by name, over the machine's dimensions.
+    """the env scene's inputs: the env kernel's OWN row, and nothing else.
 
-    Nothing is invented — `hashemi_env_kernel.pack` builds exactly the row the env kernel is
-    given, and `view.pool` the dimensions from `hashemi_machine_<a>.json` and the spec's printed
-    constants.  The scene's row is those two, gathered by name."""
+    Since the nine dimensions the picture needs beyond the env morphism's inputs are bound in the
+    GRAPH (`HashemiSceneInst.envScene`), the scene's input row is exactly the env kernel's row —
+    `hashemi_env_kernel.pack` builds it, and the scene takes it column for column.  `view.pool`
+    is still read, but only for the STANDALONE scene the vertices are compared against."""
     import hashemi_env_kernel as EK
     import view
     k = SceneMetal(ENV_SCENE)
-    pool = view.pool(os.path.join(PARENT, "hashemi_machine_2.0.json"))
     state = np.stack([rng.uniform(0, 2 * np.pi, B), rng.uniform(0.2, 1.0, B),
                       np.zeros(B)], 1)
     cmd = np.stack([rng.uniform(-0.5, 0.5, B), rng.uniform(-0.1, 0.1, B)], 1)
@@ -198,15 +198,23 @@ def env_case(rng, B=4):
     sun = np.stack([np.clip(el, 0.05, 1.5), state[:, 0] + rng.uniform(-0.05, 0.05, B),
                     rng.uniform(600, 1000, B)], 1)
     xe = EK.pack(B, state, cmd, 15.0, sun, 0.95, 420.0, 300.0)
-    x = k.row(pool, B).astype(np.float64)
-    for n in k.inputs:
-        if n in EK.EIN:
-            x[:, k.inputs.index(n)] = xe[:, EK.EIN[n]]
+    assert k.inputs == list(EK.EIN), "the env scene's row is not the env kernel's row"
+    x = np.asarray(xe, dtype=np.float64).copy()
+    # the standalone scene is compared at the SAME machine: the one the env row's `a` names,
+    # which is what the composed scene derives its own lengths from
+    pool = view.pool(os.path.join(PARENT, "hashemi_machine_%g.json" % x[0, EK.EIN["a"]]))
     hist = rng.uniform(380, 520, (B, EK.N_HIST))
     ret = rng.uniform(360, 480, (B, EK.N_HIST))
     dr = draws(rng, B, k.P, EK.M)
-    # the kernel's OWN buffer order (scene_env.json "arrays"): dr, hist, ret
     return k, x, hist, ret, dr, xe, pool
+
+
+def env_tables(k, dr, hist, ret):
+    """the ray tables in the KERNEL's own buffer order, whatever that order is.
+
+    `scene_env.json`'s "arrays" is the graph's, not a convention of this file."""
+    by = {"dr": dr, "hist": hist, "ret": ret}
+    return [by[aa["name"]] for aa in k.man["arrays"]]
 
 
 def check_env(rng, have_c):
@@ -216,17 +224,18 @@ def check_env(rng, have_c):
     k, x, hist, ret, dr, xe, pool = env_case(rng)
     man = k.man
     f32 = lambda a: torch.as_tensor(np.asarray(a, dtype=np.float32), device="mps")
-    vs, vr = k(f32(x), f32(dr), f32(hist), f32(ret))
+    tabs = env_tables(k, dr, hist, ret)
+    vs, vr = k(f32(x), *[f32(t) for t in tabs])
     vs = vs.cpu().numpy()[:, :k.n_static]
     vr = vr.cpu().numpy()[:, :, :k.n_ray]
-    rs, rr = scene_numpy(ENV_SCENE, x, dr, hist, ret)
+    rs, rr = scene_numpy(ENV_SCENE, x, *tabs)
     line = ("  %-8s %2d entries  %3d static + %d x %-3d ray   %d inputs, %d tables   "
             "Metal vs NumPy %.2e / %.2e"
             % (ENV_SCENE, len(man["entries"]), k.n_static, k.P, k.n_ray, k.n_in,
                len(man["arrays"]), _rel(vs, rs), _rel(vr, rr)))
     ok = max(_rel(vs, rs), _rel(vr, rr)) <= 2e-3
     if have_c:
-        cs, cr = scene_c(ENV_SCENE, x, [dr, hist, ret])
+        cs, cr = scene_c(ENV_SCENE, x, tabs)
         line += "   C vs NumPy %.2e / %.2e" % (_rel(cs, rs), _rel(cr, rr))
         ok = ok and max(_rel(cs, rs), _rel(cr, rr)) <= 1e-9
     print(line)
@@ -249,7 +258,10 @@ def check_env(rng, have_c):
     ss, sr = scene_numpy("hashemi", xs, dr)
     d = _rel(rr, sr)
     print("  the env scene's ray vertices vs the standalone scene's at megaStep's pose: %.2e" % d)
-    ok = ok and d <= 1e-9
+    # the standalone scene is HANDED `ze`, `apexH`, `ym`, `hp` as the machine JSON rounds them,
+    # while the composed one computes `derive`'s own fields at this `a` in the graph; the two
+    # agree to the JSON's six figures, not to the last bit
+    ok = ok and d <= 1e-6
     return ok
 
 

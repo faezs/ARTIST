@@ -607,25 +607,35 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             sys.path.insert(0, rd)
         sk = importlib.import_module("scene_kernel")
         sd = importlib.import_module("scene_draw")
-        view = importlib.import_module("view")
         name = "beam" if self.machine_receiver == "beam" else "env"
         self._scene_sk, self._scene_sd = sk, sd
         self._scene_name = name
         self._scene_kern = sk.SceneMetal(name)
         self._scene_man = self._scene_kern.man
-        # the dimensions: the machine JSON this env already loaded, and the spec's own constants
-        a = float(self._params.get("a", 2.0))
-        mach = os.path.join(HERE, machine_name(a))
-        if not os.path.exists(mach):
-            load_machine(a)                      # Lean derives it; nothing is scaled here
-        self._scene_pool = view.pool(mach)
-        row = self._scene_kern.row(self._scene_pool, 1)
-        self._scene_x = torch.as_tensor(row, device=self.device)
-        # which of the env kernel's input columns are also the scene's, by NAME (a gather, not
-        # arithmetic): the pose, the sun, the optics and the loop all come straight across
+        k = self._scene_kern
         IN = self._bk.BIN if self.machine_receiver == "beam" else EIN
-        self._scene_map = [(self._scene_kern.inputs.index(n), IN[n])
-                           for n in self._scene_kern.inputs if n in IN]
+        self._scene_x = torch.zeros((1, k.n_in), dtype=torch.float32, device=self.device)
+        if name == "env":
+            # NOTHING is pooled here.  Every dimension the picture needs that is not one of the
+            # env morphism's own inputs — `zBar`, `endIn`, `sgL`, `sgR`, `apexH`, `zBolt`, `ym`,
+            # `hp`, `ze` — is BOUND IN THE GRAPH by HashemiSceneInst.envScene (`megaGeom`'s own
+            # column, his constants, `derive`'s fields at this `a`, and the drawing's ±1), so the
+            # scene's input row IS the env kernel's, name for name and column for column.
+            missing = [n for n in k.inputs if n not in IN]
+            if missing:
+                raise RuntimeError("the env scene still asks for %s off the graph" % missing)
+            self._scene_map = [(j, IN[n]) for j, n in enumerate(k.inputs)]
+        else:
+            # the standalone beam scene is not composed with the env: its dimensions come from
+            # the machine JSON this env already loaded, and the spec's own printed constants
+            view = importlib.import_module("view")
+            a = float(self._params.get("a", 2.0))
+            mach = os.path.join(HERE, machine_name(a, bool(self.dish_design)))
+            if not os.path.exists(mach):
+                load_machine(a, design=bool(self.dish_design))   # Lean derives it; nothing is scaled here
+            self._scene_pool = view.pool(mach)
+            self._scene_x = torch.as_tensor(k.row(self._scene_pool, 1), device=self.device)
+            self._scene_map = [(k.inputs.index(n), IN[n]) for n in k.inputs if n in IN]
         self._scene_win = sd.SceneWindow("hashemi — %s (the env's own step)" % name)
 
     def render(self):
@@ -652,9 +662,15 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             dr = self._scene_sk.device_draws(torch, self.num_agents, 0, k.P, ENV_M)
         # the kernel's own buffer order (scene_<name>.json "arrays"); the oil histories are the
         # env's own, of this step
-        tabs = [dr[:1]]
-        for nm in [aa["name"] for aa in k.man["arrays"][1:]]:
-            tabs.append(getattr(self, "_" + nm)[:1])
+        def tab(nm):
+            if nm == "dr":
+                return dr[:1]
+            t = getattr(self, "_" + nm, None)               # the device copy, on the gpu path
+            if t is None:                                   # the host path keeps it in numpy
+                t = torch.as_tensor(np.asarray(getattr(self, nm), dtype=np.float32),
+                                    device=self.device)
+            return t[:1]
+        tabs = [tab(aa["name"]) for aa in k.man["arrays"]]
         with np.errstate(all="ignore"):
             vs, vr = k(self._scene_x, *tabs)
         vs = vs.cpu().numpy()[0, :k.n_static]
