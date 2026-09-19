@@ -401,6 +401,11 @@ theorem filmTemp_ccc : filmTemp = fun (Tbulk : ℝ) (qFlux : ℝ) (h : ℝ) =>
 theorem focusShift_ccc : focusShift = fun (h : ℝ) (ε : ℝ) =>
     (h * (Real.sin ε)) := rfl
 
+theorem follower_ccc : follower = fun (eAz : ℝ) (eEl : ℝ) (dt : ℝ) =>
+    let v8 := ((((0.035 : ℝ) * Real.pi) / (180 : ℝ)) * dt)
+    let v16 := ((((0.025 : ℝ) * Real.pi) / (180 : ℝ)) * dt)
+    ![((max (-v8) (min eAz v8)) / v8), ((max (-v16) (min eEl v16)) / v16)] := rfl
+
 theorem frictionBlasius_ccc : frictionBlasius = fun (Re : ℝ) =>
     ((0.3164 : ℝ) / (Real.sqrt (Real.sqrt (max Re (1 : ℝ))))) := rfl
 

@@ -235,7 +235,7 @@ def sanitizeCall (n : Name) : String := n.getString!
 def unfoldable : List Name :=
   [`TandoorSphere.sag, `TandoorSphere.sphereR, `TandoorSphere.focal, `TandoorSphere.cosOf,
    `TandoorSphere.tanTwo, `TandoorSphere.blur, `TandoorSphere.axial, `TandoorSphere.bestFocus,
-   `TandoorSphere.dev, `TandoorMount.spot, `TandoorMount.spotParaxial]
+   `TandoorSphere.dev, `TandoorMount.spot, `TandoorMount.spotParaxial, `TandoorMount.sat]
 
 def isRealTy (t : Expr) : Bool := t.isConstOf `Real
 

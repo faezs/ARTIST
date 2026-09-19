@@ -3728,6 +3728,129 @@ def hk_check_focus_on_axis(psi, p_1, p_2):
     t21 = np.logical_or(np.logical_not(t3), t20)
     return t21
 
+def hk_follower(eAz, eEl, dt):
+    t0 = eAz
+    t1 = eEl
+    t2 = dt
+    t3 = 0.035
+    t4 = np.pi
+    t5 = (t3 * t4)
+    t6 = 180
+    t7 = (t5 / t6)
+    t8 = (t7 * t2)
+    t9 = (-t8)
+    t10 = np.minimum(t0, t8)
+    t11 = np.maximum(t9, t10)
+    t12 = (t11 / t8)
+    t13 = 0.025
+    t14 = (t13 * t4)
+    t15 = (t14 / t6)
+    t16 = (t15 * t2)
+    t17 = (-t16)
+    t18 = np.minimum(t1, t16)
+    t19 = np.maximum(t17, t18)
+    t20 = (t19 / t16)
+    return np.stack([np.broadcast_to(np.asarray(t12, dtype=float), np.broadcast(*[np.asarray(x) for x in [eAz, eEl, dt]]).shape), np.broadcast_to(np.asarray(t20, dtype=float), np.broadcast(*[np.asarray(x) for x in [eAz, eEl, dt]]).shape)], axis=-1)
+
+def hk_check_follower_bounded(eAz, eEl, dt):
+    t0 = eAz
+    t1 = eEl
+    t2 = dt
+    t3 = 0
+    t4 = (t3 < t2)
+    t5 = 0.035
+    t6 = np.pi
+    t7 = (t5 * t6)
+    t8 = 180
+    t9 = (t7 / t8)
+    t10 = (t9 * t2)
+    t11 = (-t10)
+    t12 = np.minimum(t0, t10)
+    t13 = np.maximum(t11, t12)
+    t14 = (t13 / t10)
+    t15 = 0.025
+    t16 = (t15 * t6)
+    t17 = (t16 / t8)
+    t18 = (t17 * t2)
+    t19 = (-t18)
+    t20 = np.minimum(t1, t18)
+    t21 = np.maximum(t19, t20)
+    t22 = (t21 / t18)
+    t23 = np.abs(t14)
+    t24 = 1
+    t25 = (t23 <= t24)
+    t26 = np.abs(t22)
+    t27 = (t26 <= t24)
+    t28 = np.logical_and(t25, t27)
+    t29 = np.logical_or(np.logical_not(t4), t28)
+    return t29
+
+def hk_check_follower_step_az(eAz, eEl, dt):
+    t0 = eAz
+    t1 = eEl
+    t2 = dt
+    t3 = 0
+    t4 = (t3 < t2)
+    t5 = np.abs(t0)
+    t6 = 0.035
+    t7 = np.pi
+    t8 = (t6 * t7)
+    t9 = 180
+    t10 = (t8 / t9)
+    t11 = (t10 * t2)
+    t12 = (t5 <= t11)
+    t13 = (-t11)
+    t14 = np.minimum(t0, t11)
+    t15 = np.maximum(t13, t14)
+    t16 = (t15 / t11)
+    t17 = 0.025
+    t18 = (t17 * t7)
+    t19 = (t18 / t9)
+    t20 = (t19 * t2)
+    t21 = (-t20)
+    t22 = np.minimum(t1, t20)
+    t23 = np.maximum(t21, t22)
+    t24 = (t23 / t20)
+    t25 = (t11 * t16)
+    t26 = (t0 - t25)
+    t27 = hk_eq(t26, t3)
+    t28 = np.logical_or(np.logical_not(t12), t27)
+    t29 = np.logical_or(np.logical_not(t4), t28)
+    return t29
+
+def hk_check_follower_step_el(eAz, eEl, dt):
+    t0 = eAz
+    t1 = eEl
+    t2 = dt
+    t3 = 0
+    t4 = (t3 < t2)
+    t5 = np.abs(t1)
+    t6 = 0.025
+    t7 = np.pi
+    t8 = (t6 * t7)
+    t9 = 180
+    t10 = (t8 / t9)
+    t11 = (t10 * t2)
+    t12 = (t5 <= t11)
+    t13 = 0.035
+    t14 = (t13 * t7)
+    t15 = (t14 / t9)
+    t16 = (t15 * t2)
+    t17 = (-t16)
+    t18 = np.minimum(t0, t16)
+    t19 = np.maximum(t17, t18)
+    t20 = (t19 / t16)
+    t21 = (-t11)
+    t22 = np.minimum(t1, t11)
+    t23 = np.maximum(t21, t22)
+    t24 = (t23 / t11)
+    t25 = (t11 * t24)
+    t26 = (t1 - t25)
+    t27 = hk_eq(t26, t3)
+    t28 = np.logical_or(np.logical_not(t12), t27)
+    t29 = np.logical_or(np.logical_not(t4), t28)
+    return t29
+
 def hk_frictionBlasius(Re):
     t0 = Re
     t1 = 0.3164

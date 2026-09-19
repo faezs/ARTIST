@@ -5398,6 +5398,102 @@ HK_STATIC void hk_focusShift_box(const hk_real HK_ADDR* hk_lo, const hk_real HK_
   hk_olo[0] = lo3; hk_ohi[0] = hi3; hk_oL[0] = L3;
 }
 
+HK_STATIC void hk_follower_jvp(hk_real eAz, hk_real eEl, hk_real dt, const hk_real HK_ADDR* hk_dx, hk_real HK_ADDR* hk_out, hk_real HK_ADDR* hk_dout) {
+  const hk_real t0 = eAz;
+  const hk_real d0 = hk_dx[0];
+  const hk_real t1 = eEl;
+  const hk_real d1 = hk_dx[1];
+  const hk_real t2 = dt;
+  const hk_real d2 = hk_dx[2];
+  const hk_real t3 = HK_LIT(0.035);
+  const hk_real d3 = HK_LIT(0);
+  const hk_real t4 = HK_PI;
+  const hk_real d4 = HK_LIT(0);
+  const hk_real t5 = (t3 * t4);
+  const hk_real d5 = (d3 * t4 + t3 * d4);
+  const hk_real t6 = HK_LIT(180);
+  const hk_real d6 = HK_LIT(0);
+  const hk_real t7 = (t5 / t6);
+  const hk_real d7 = ((d5 * t6 - t5 * d6) / (t6 * t6));
+  const hk_real t8 = (t7 * t2);
+  const hk_real d8 = (d7 * t2 + t7 * d2);
+  const hk_real t9 = (-t8);
+  const hk_real d9 = (-d8);
+  const hk_real t10 = hk_min(t0, t8);
+  const hk_real d10 = (t0 <= t8 ? d0 : d8);
+  const hk_real t11 = hk_max(t9, t10);
+  const hk_real d11 = (t9 >= t10 ? d9 : d10);
+  const hk_real t12 = (t11 / t8);
+  const hk_real d12 = ((d11 * t8 - t11 * d8) / (t8 * t8));
+  const hk_real t13 = HK_LIT(0.025);
+  const hk_real d13 = HK_LIT(0);
+  const hk_real t14 = (t13 * t4);
+  const hk_real d14 = (d13 * t4 + t13 * d4);
+  const hk_real t15 = (t14 / t6);
+  const hk_real d15 = ((d14 * t6 - t14 * d6) / (t6 * t6));
+  const hk_real t16 = (t15 * t2);
+  const hk_real d16 = (d15 * t2 + t15 * d2);
+  const hk_real t17 = (-t16);
+  const hk_real d17 = (-d16);
+  const hk_real t18 = hk_min(t1, t16);
+  const hk_real d18 = (t1 <= t16 ? d1 : d16);
+  const hk_real t19 = hk_max(t17, t18);
+  const hk_real d19 = (t17 >= t18 ? d17 : d18);
+  const hk_real t20 = (t19 / t16);
+  const hk_real d20 = ((d19 * t16 - t19 * d16) / (t16 * t16));
+  hk_out[0] = t12;
+  hk_dout[0] = d12;
+  hk_out[1] = t20;
+  hk_dout[1] = d20;
+}
+
+HK_STATIC void hk_follower_box(const hk_real HK_ADDR* hk_lo, const hk_real HK_ADDR* hk_hi, const hk_real HK_ADDR* hk_sc, hk_real HK_ADDR* hk_olo, hk_real HK_ADDR* hk_ohi, hk_real HK_ADDR* hk_oL) {
+  hk_real lo0, hi0, L0;
+  lo0 = hk_lo[0]; hi0 = hk_hi[0]; L0 = hk_sc[0];
+  hk_real lo1, hi1, L1;
+  lo1 = hk_lo[1]; hi1 = hk_hi[1]; L1 = hk_sc[1];
+  hk_real lo2, hi2, L2;
+  lo2 = hk_lo[2]; hi2 = hk_hi[2]; L2 = hk_sc[2];
+  hk_real lo3, hi3, L3;
+  lo3 = HK_LIT(0.035); hi3 = HK_LIT(0.035); L3 = HK_LIT(0);
+  hk_real lo4, hi4, L4;
+  lo4 = HK_PI; hi4 = HK_PI; L4 = HK_LIT(0);
+  hk_real lo5, hi5, L5;
+  hk_bx_mul(lo3, hi3, L3, lo4, hi4, L4, &lo5, &hi5, &L5);
+  hk_real lo6, hi6, L6;
+  lo6 = HK_LIT(180); hi6 = HK_LIT(180); L6 = HK_LIT(0);
+  hk_real lo7, hi7, L7;
+  hk_bx_div(lo5, hi5, L5, lo6, hi6, L6, &lo7, &hi7, &L7);
+  hk_real lo8, hi8, L8;
+  hk_bx_mul(lo7, hi7, L7, lo2, hi2, L2, &lo8, &hi8, &L8);
+  hk_real lo9, hi9, L9;
+  hk_bx_neg(lo8, hi8, L8, &lo9, &hi9, &L9);
+  hk_real lo10, hi10, L10;
+  hk_bx_min(lo0, hi0, L0, lo8, hi8, L8, &lo10, &hi10, &L10);
+  hk_real lo11, hi11, L11;
+  hk_bx_max(lo9, hi9, L9, lo10, hi10, L10, &lo11, &hi11, &L11);
+  hk_real lo12, hi12, L12;
+  hk_bx_div(lo11, hi11, L11, lo8, hi8, L8, &lo12, &hi12, &L12);
+  hk_real lo13, hi13, L13;
+  lo13 = HK_LIT(0.025); hi13 = HK_LIT(0.025); L13 = HK_LIT(0);
+  hk_real lo14, hi14, L14;
+  hk_bx_mul(lo13, hi13, L13, lo4, hi4, L4, &lo14, &hi14, &L14);
+  hk_real lo15, hi15, L15;
+  hk_bx_div(lo14, hi14, L14, lo6, hi6, L6, &lo15, &hi15, &L15);
+  hk_real lo16, hi16, L16;
+  hk_bx_mul(lo15, hi15, L15, lo2, hi2, L2, &lo16, &hi16, &L16);
+  hk_real lo17, hi17, L17;
+  hk_bx_neg(lo16, hi16, L16, &lo17, &hi17, &L17);
+  hk_real lo18, hi18, L18;
+  hk_bx_min(lo1, hi1, L1, lo16, hi16, L16, &lo18, &hi18, &L18);
+  hk_real lo19, hi19, L19;
+  hk_bx_max(lo17, hi17, L17, lo18, hi18, L18, &lo19, &hi19, &L19);
+  hk_real lo20, hi20, L20;
+  hk_bx_div(lo19, hi19, L19, lo16, hi16, L16, &lo20, &hi20, &L20);
+  hk_olo[0] = lo12; hk_ohi[0] = hi12; hk_oL[0] = L12;
+  hk_olo[1] = lo20; hk_ohi[1] = hi20; hk_oL[1] = L20;
+}
+
 HK_STATIC void hk_frictionBlasius_jvp(hk_real Re, const hk_real HK_ADDR* hk_dx, hk_real HK_ADDR* hk_out, hk_real HK_ADDR* hk_dout) {
   const hk_real t0 = Re;
   const hk_real d0 = hk_dx[0];

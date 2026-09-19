@@ -1566,6 +1566,32 @@ HK_STATIC hk_real hk_focusShift(hk_real h, hk_real eps) {
   return t3;
 }
 
+HK_STATIC void hk_follower(hk_real eAz, hk_real eEl, hk_real dt, hk_real HK_ADDR* out) {
+  const hk_real t0 = eAz;
+  const hk_real t1 = eEl;
+  const hk_real t2 = dt;
+  const hk_real t3 = HK_LIT(0.035);
+  const hk_real t4 = HK_PI;
+  const hk_real t5 = (t3 * t4);
+  const hk_real t6 = HK_LIT(180);
+  const hk_real t7 = (t5 / t6);
+  const hk_real t8 = (t7 * t2);
+  const hk_real t9 = (-t8);
+  const hk_real t10 = hk_min(t0, t8);
+  const hk_real t11 = hk_max(t9, t10);
+  const hk_real t12 = (t11 / t8);
+  const hk_real t13 = HK_LIT(0.025);
+  const hk_real t14 = (t13 * t4);
+  const hk_real t15 = (t14 / t6);
+  const hk_real t16 = (t15 * t2);
+  const hk_real t17 = (-t16);
+  const hk_real t18 = hk_min(t1, t16);
+  const hk_real t19 = hk_max(t17, t18);
+  const hk_real t20 = (t19 / t16);
+  out[0] = t12;
+  out[1] = t20;
+}
+
 HK_STATIC hk_real hk_frictionBlasius(hk_real Re) {
   const hk_real t0 = Re;
   const hk_real t1 = HK_LIT(0.3164);
@@ -21284,6 +21310,90 @@ HK_STATIC bool hk_check_focus_on_axis(hk_real psi, hk_real p_1, hk_real p_2) {
   const bool t20 = (!t15 || t19);
   const bool t21 = (!t3 || t20);
   return t21;
+}
+
+HK_STATIC bool hk_check_follower_bounded(hk_real eAz, hk_real eEl, hk_real dt) {
+  const hk_real t0 = eAz;
+  const hk_real t1 = eEl;
+  const hk_real t2 = dt;
+  const hk_real t3 = HK_LIT(0);
+  const bool t4 = (t3 < t2);
+  const hk_real t5 = HK_LIT(0.035);
+  const hk_real t6 = HK_PI;
+  const hk_real t7 = (t5 * t6);
+  const hk_real t8 = HK_LIT(180);
+  const hk_real t9 = (t7 / t8);
+  const hk_real t10 = (t9 * t2);
+  const hk_real t11 = (-t10);
+  const hk_real t12 = hk_min(t0, t10);
+  const hk_real t13 = hk_max(t11, t12);
+  const hk_real t14 = (t13 / t10);
+  const hk_real t15 = HK_LIT(0.025);
+  const hk_real t16 = (t15 * t6);
+  const hk_real t17 = (t16 / t8);
+  const hk_real t18 = (t17 * t2);
+  const hk_real t19 = (-t18);
+  const hk_real t20 = hk_min(t1, t18);
+  const hk_real t21 = hk_max(t19, t20);
+  const hk_real t22 = (t21 / t18);
+  const hk_real t23 = hk_fabs(t14);
+  const hk_real t24 = HK_LIT(1);
+  const bool t25 = (t23 <= t24);
+  const hk_real t26 = hk_fabs(t22);
+  const bool t27 = (t26 <= t24);
+  const bool t28 = (t25 && t27);
+  const bool t29 = (!t4 || t28);
+  return t29;
+}
+
+HK_STATIC bool hk_check_follower_step_az(hk_real eAz, hk_real eEl, hk_real dt) {
+  const hk_real t0 = eAz;
+  const hk_real t2 = dt;
+  const hk_real t3 = HK_LIT(0);
+  const bool t4 = (t3 < t2);
+  const hk_real t5 = hk_fabs(t0);
+  const hk_real t6 = HK_LIT(0.035);
+  const hk_real t7 = HK_PI;
+  const hk_real t8 = (t6 * t7);
+  const hk_real t9 = HK_LIT(180);
+  const hk_real t10 = (t8 / t9);
+  const hk_real t11 = (t10 * t2);
+  const bool t12 = (t5 <= t11);
+  const hk_real t13 = (-t11);
+  const hk_real t14 = hk_min(t0, t11);
+  const hk_real t15 = hk_max(t13, t14);
+  const hk_real t16 = (t15 / t11);
+  const hk_real t25 = (t11 * t16);
+  const hk_real t26 = (t0 - t25);
+  const bool t27 = hk_eq(t26, t3);
+  const bool t28 = (!t12 || t27);
+  const bool t29 = (!t4 || t28);
+  return t29;
+}
+
+HK_STATIC bool hk_check_follower_step_el(hk_real eAz, hk_real eEl, hk_real dt) {
+  const hk_real t1 = eEl;
+  const hk_real t2 = dt;
+  const hk_real t3 = HK_LIT(0);
+  const bool t4 = (t3 < t2);
+  const hk_real t5 = hk_fabs(t1);
+  const hk_real t6 = HK_LIT(0.025);
+  const hk_real t7 = HK_PI;
+  const hk_real t8 = (t6 * t7);
+  const hk_real t9 = HK_LIT(180);
+  const hk_real t10 = (t8 / t9);
+  const hk_real t11 = (t10 * t2);
+  const bool t12 = (t5 <= t11);
+  const hk_real t21 = (-t11);
+  const hk_real t22 = hk_min(t1, t11);
+  const hk_real t23 = hk_max(t21, t22);
+  const hk_real t24 = (t23 / t11);
+  const hk_real t25 = (t11 * t24);
+  const hk_real t26 = (t1 - t25);
+  const bool t27 = hk_eq(t26, t3);
+  const bool t28 = (!t12 || t27);
+  const bool t29 = (!t4 || t28);
+  return t29;
 }
 
 HK_STATIC bool hk_check_grooved_reciprocal_yaw(hk_real c_chord, hk_real c_apexH, hk_real c_aBase, hk_real c_cross, hk_real c_barW, hk_real c_rDrive, hk_real b_rRail, hk_real b_zRail, hk_real b_zTube, hk_real b_zBearing, hk_real b_dPipe, hk_real b_nSpokes) {
