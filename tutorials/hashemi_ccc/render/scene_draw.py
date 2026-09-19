@@ -28,6 +28,7 @@ SKY_TOP, SKY_LOW = (26, 44, 78), (96, 118, 146)
 GROUND = (120, 104, 84, 255)
 # entries drawn at a sky distance: they never drive the opening camera by themselves
 FAR_LABELS = ("sun", "sky")
+WORLD = 100.0          # metres: the camera fit ignores any vertex further out (see frame_on)
 FATE = {0: (120, 120, 130), 1: (255, 120, 120), 2: (255, 190, 80), 3: (140, 255, 170)}
 
 KIND_POINT, KIND_SEGMENT, KIND_RAY, KIND_AXES, KIND_SCALAR = 0, 1, 2, 3, 4
@@ -147,12 +148,14 @@ class SceneWindow:
             tgt = far if e["label"].startswith(FAR_LABELS) else near
             for j in range(0, len(d) - 2, 3):
                 q = d[j:j + 3]
-                if np.all(np.isfinite(q)):    # a scene may hand back NaN for a missed ray
+                # finite AND plausible: a machine on a roof lives within tens of metres of
+                # the deck; past WORLD is a sentinel from a definition handed a zero row
+                if np.all(np.isfinite(q)) and np.all(np.abs(q) < WORLD):
                     tgt.append(q)
         if not near:
             near = far
         if not near:
-            return
+            return False
         a = np.asarray(near, dtype=float)
         lo, hi = a.min(0), a.max(0)
         if far:
@@ -160,6 +163,9 @@ class SceneWindow:
             lo2, hi2 = np.minimum(lo, b.min(0)), np.maximum(hi, b.max(0))
             if float(np.max(hi2 - lo2)) <= 1.6 * float(np.max(hi - lo)):
                 lo, hi = lo2, hi2
+        span = float(np.max(hi - lo))
+        if not np.isfinite(span) or span < 0.5:
+            return False           # nothing real to look at yet: keep the default eye and retry
         c = 0.5 * (lo + hi)
         # raylib's fovy is vertical: the visible height at a distance d is 0.93 d
         self.dist = float(np.clip(1.45 * float(np.max(hi - lo)), 4.0, 60.0))
@@ -171,11 +177,17 @@ class SceneWindow:
                   % (np.round(self.target, 2).tolist(), self.dist,
                      lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]))
 
+        return True
+
     def draw(self, man, vs, vr, hud=(), ray_stride=1):
         rl = self.rl
+        # THE FIRST FRAME MAY HAVE NO GEOMETRY: pufferlib's eval loop renders BEFORE it steps, so
+        # the first call comes from an env that has only reset - its input row is zeros, and a
+        # definition handed zeros returns its own sentinel (measured: a vertex at x = -1e5). A fit
+        # on that box aims the camera 50 km away for the rest of the run: a blank window with a
+        # live HUD. The fit rejects implausible vertices and RETRIES until the scene has extent.
         if not getattr(self, "_framed", False):
-            self.frame_on(man, vs, vr)
-            self._framed = True
+            self._framed = bool(self.frame_on(man, vs, vr))
         self.orbit()
         rl.begin_drawing()
         rl.clear_background(rl.Color(14, 16, 22, 255))
