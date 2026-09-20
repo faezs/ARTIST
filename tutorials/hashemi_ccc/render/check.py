@@ -34,6 +34,8 @@ SUN_TOL = 1e-3
 # length would agree to the last bit; what limits this is that `hashemi_machine_<a>.json` writes
 # `ym`, `hp` and `ze` to six decimals, and a half-micron on `ym` is a quarter-micron on the span.
 WIRE_TOL = 1e-5
+# and the hangers' lean, in degrees: `rodTan` reaches this file through the same six-decimal JSON
+LEAN_TOL = 1e-3
 
 
 def _entry_points(vs, man, label):
@@ -42,13 +44,13 @@ def _entry_points(vs, man, label):
     return np.asarray(vs[e["offset"]:e["offset"] + e["width"]], dtype=np.float64).reshape(-1, 3)
 
 
-def check_wire(scene="hashemi", sizes=(0.8, 2.0), swings=(0.0, 0.5, 1.0)):
+def check_wire(scene="hashemi", sizes=(0.8, 2.0), swings=(0.0, 0.5, 1.0), slacks=(0.0, 0.3)):
     """**the drawn tow wire is the compiled path**, drum -> pulley -> clip.
 
     The wire is not a picture with two ends chosen by hand: `winch_drum` is `HashemiWire.drumAt`,
     `pulley` is `Hashemi.pulleyAt` and `clip` is `Hashemi.edgeClipAt`, all three carried into the
     roof by the same frame, and the two drawn legs are measured here against the compiled lengths
-    at three swings and two reflector sizes.  Five things, none of which writes a cosine:
+    at three swings and two reflector sizes.  Six things, none of which writes a cosine:
 
       1. the span, pulley to clip, IS `wireLen` (HashemiStep) at that swing;
       2. the mast leg, drum to pulley, does not move with the swing — which is
@@ -59,7 +61,11 @@ def check_wire(scene="hashemi", sizes=(0.8, 2.0), swings=(0.0, 0.5, 1.0)):
          (`edgeClip_radius`), and the drawn `clip` point is that same end;
       5. the pulley end sits on the drawn mast's top (`mastTop_is_pulley`) and the drum end on
          the drawn winch bracket (`drumFoot_is_drumAt`) — the two stations that were 2.00 m out
-         at a = 2 m until 2026-09-20, which is what left the wire hanging off the pulley.
+         at a = 2 m until 2026-09-20, which is what left the wire hanging off the pulley;
+      6. **a slack wire is drawn slack**: the span is two legs through `bightPt`, and their sum
+         is `wireLen + slack` — the wire the drum has actually paid out (`bight_leg`).  At
+         `slack = 0` the vertex is the chord's own midpoint and the two legs are the straight
+         taut wire again (`bightPt_taut`), which is why the scene needs no case split.
 
     The machine's own numbers (`ym`, `hp`, `ze`, `FC`) are read from `hashemi_machine_<a>.json`,
     which is Lean's own `machine_scale` derivation, not a table in this file.
@@ -74,10 +80,10 @@ def check_wire(scene="hashemi", sizes=(0.8, 2.0), swings=(0.0, 0.5, 1.0)):
     for a in sizes:
         m = load_machine(a)["machine"]
         ym, hp, ze, FC = (float(m[k]) for k in ("ym", "hp", "ze", "FC"))
-        legs, spans = [], []
-        for t in swings:
+        legs, spans, hangs = [], [], []
+        for t, slack in [(t, 0.0) for t in swings] + [(swings[1], sk) for sk in slacks if sk]:
             vals = dict(a=a, f=float(m["f"]), R=float(m["R"]), rc=float(m["rc"]), w=float(m["w"]),
-                        az=0.0, t=t, dt=1.0, elSun=0.9, azSun=0.3, dni=900.0, rho=0.85,
+                        az=0.0, t=t, slack=slack, dt=1.0, elSun=0.9, azSun=0.3, dni=900.0, rho=0.85,
                         rDrum=float(m["rDrum"]), W=float(m["W"]), rcm=float(m["rcm"]),
                         Tmax=float(m["Tmax"]), Fdrive=float(m["Fdrive"]), L10=float(m["L10"]),
                         rodLen=float(m["rodLen"]), hsun=4.65e-3, lat=30.2, doy=172.0, hour=12.0)
@@ -86,31 +92,58 @@ def check_wire(scene="hashemi", sizes=(0.8, 2.0), swings=(0.0, 0.5, 1.0)):
                 vs, _ = fn(*args, np.zeros((1, man["rays"], man["arrays"][0]["m"])))
             vs = np.asarray(vs).reshape(-1)
             P = lambda lab: _entry_points(vs, man, lab)                       # noqa: E731
-            span_pts, leg_pts = P("tow_wire"), P("tow_wire_mast")
-            span, leg = (np.linalg.norm(q[1] - q[0]) for q in (span_pts, leg_pts))
-            spans.append(span); legs.append(leg)
-            ref = float(H.hk_wireLen(ym, hp, a, ze, t))
+            a_pts, b_pts, leg_pts = P("tow_wire"), P("tow_wire_slack"), P("tow_wire_mast")
+            span = sum(float(np.linalg.norm(q[1] - q[0])) for q in (a_pts, b_pts))
+            leg = float(np.linalg.norm(leg_pts[1] - leg_pts[0]))
+            if not slack:
+                spans.append(span); legs.append(leg)
+            ref = float(H.hk_wireLen(ym, hp, a, ze, t)) + slack
             d_span = abs(span - ref)
             # the clip end, on the rim about F
-            d_rim = abs(np.linalg.norm(span_pts[1] - P("focus")[0]) - FC)
-            d_clip = np.linalg.norm(span_pts[1] - P("clip")[0])
+            d_rim = abs(np.linalg.norm(b_pts[1] - P("focus")[0]) - FC)
+            d_clip = np.linalg.norm(b_pts[1] - P("clip")[0])
             # the pulley end on the mast's top, the drum end on the winch bracket
-            d_mast = np.linalg.norm(span_pts[0] - P("mast")[1])
+            d_mast = np.linalg.norm(a_pts[0] - P("mast")[1])
             d_drum = np.linalg.norm(leg_pts[0] - P("winch_bracket")[0])
             bad = max(d_span, d_rim, d_clip, d_mast, d_drum)
             ok = ok and bad <= WIRE_TOL
-            print("  wire a=%.1f t=%.2f  span %.6f m (wireLen %.6f, d %.1e)  mast leg %.6f m   "
-                  "rim %.1e  clip %.1e  onMast %.1e  onDrum %.1e  %s"
-                  % (a, t, span, ref, d_span, leg, d_rim, d_clip, d_mast, d_drum,
+            if not slack:
+                # the four hangers at THIS swing: the segment's length, and its lean off the
+                # vertical.  The eye is on the bolt line and only the `rimHole` offset turns with
+                # the dish, so the length is swing-invariant and the lean is `t ± atan(rodTan)`.
+                for lab in ("hanger_vertexside_left", "hanger_vertexside_right",
+                            "hanger_rimside_left", "hanger_rimside_right"):
+                    q = P(lab)
+                    d = q[1] - q[0]
+                    n = float(np.linalg.norm(d))
+                    hangs.append((t, lab, n,
+                                  float(np.degrees(np.arccos(min(1.0, abs(d[2]) / max(n, 1e-12)))))))
+            sag = float(np.linalg.norm(a_pts[1] - 0.5 * (a_pts[0] + b_pts[1])))
+            print("  wire a=%.1f t=%.2f slack %.2f  drawn %.6f m (wireLen+slack %.6f, d %.1e)  "
+                  "bight %.4f m  mast leg %.6f  rim %.1e  clip %.1e  onMast %.1e  onDrum %.1e  %s"
+                  % (a, t, slack, span, ref, d_span, sag, leg, d_rim, d_clip, d_mast, d_drum,
                      "ok" if bad <= WIRE_TOL else "FAIL"))
-        # while we have the scene open: the hangers, which hold F on the bolt line, are drawn at
-        # the spec's own `hangerLength R a rimHole 0` = `derive`'s `hanger` (`hanger_drawn_length`)
-        d_hang = max(abs(np.linalg.norm(q[1] - q[0]) - float(m["hanger"]))
-                     for q in (P(l) for l in ("hanger_vertexside_left", "hanger_rimside_left",
-                                              "hanger_vertexside_right", "hanger_rimside_right")))
-        ok = ok and d_hang <= WIRE_TOL
-        print("  hang a=%.1f       the four drawn hangers == hangerLength (%.6f m) to %.1e m   %s"
-              % (a, float(m["hanger"]), d_hang, "ok" if d_hang <= WIRE_TOL else "FAIL"))
+        # while we have the scene open: the hangers, which hold F on the bolt line.  They are
+        # two V-pairs, one per bolt - the eye on the bolt line over the edge the post faces, the
+        # two rods to the middles of that edge's two halves - so each is drawn at the spec's own
+        # `hangerLength R a rimHole 0` = `derive`'s `hanger` (`hanger_drawn_length`), at EVERY
+        # swing, and leans `t ± atan(rodTan)` off the vertical, the pair a V of 2 atan(rodTan).
+        # Until 2026-09-20 the two stations were swapped: the eyes sat at ±rimHole along the bar
+        # and the holes at ±a across it, so every hanger came out `√(a² + zh²)` - 27 % too long
+        # at every size - and the four of them hung as one plumb pair in the swing plane.
+        lean0 = float(np.degrees(np.arctan(float(m["rodTan"]))))
+        d_hang = max(abs(n - float(m["hanger"])) for _, _, n, _ in hangs)
+        d_lean = max(min(abs(ang - abs(np.degrees(t) - lean0)), abs(ang - (np.degrees(t) + lean0)))
+                     for t, _, _, ang in hangs)
+        # the lean's own tolerance is the JSON's: `rodTan` is written to six decimals, which is
+        # 2e-5 of a degree on the angle it names
+        ok = ok and d_hang <= WIRE_TOL and d_lean <= LEAN_TOL
+        print("  hang a=%.1f       the four drawn hangers == hangerLength (%.6f m, %.1f %% of the "
+              "dish's side) to %.1e m at %d swings; the lean is t ± %.2f deg (a V of %.2f) to "
+              "%.1e deg   %s"
+              % (a, float(m["hanger"]), 100 * float(m["hanger"]) / (2 * a), d_hang,
+                 len(swings), lean0, 2 * lean0, d_lean,
+                 "ok" if d_hang <= WIRE_TOL and d_lean <= LEAN_TOL else "FAIL"))
         # the mast leg is the same at every swing, and the drawn pay-out is `payOut`
         d_fixed = float(np.ptp(legs))
         d_pay = max(abs((spans[i] - spans[j]) - float(H.hk_payOut(ym, hp, a, ze, swings[i], swings[j])))

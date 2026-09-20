@@ -56,8 +56,12 @@ def pool(machine_path, az=np.pi, t=0.6):
     p.setdefault("k", 0.0)
     # the drawing's own conventions: which end of the bar, and the two posts
     p.update(sgL=1.0, sgR=-1.0, endIn=0.0)
+    # `megaGeom` and the five beside it take the mount's own three dimensions now
+    # (`dHalf wFacet rCoil`, HashemiMega.lean): the machine's `a`, `w`, `rc`, the same triple the
+    # optics take, so the drawn mount is THIS build's and not his 0.8 m one.
     g = np.asarray(H.hk_megaGeom(az, t, 0, 0, 0, 0, 0, 0, 0, p["rDrum"], p["W"], p["rcm"],
-                                 p["Tmax"], p["rho"], p["Fdrive"], p["L10"], p["rodLen"]),
+                                 p["Tmax"], p["rho"], p["Fdrive"], p["L10"], p["rodLen"],
+                                 p["a"], p["w"], p["rc"]),
                    dtype=float)
     p["zBar"] = float(g[13])
     p["zBolt"] = float(H.hk_zBoltHashemi())
@@ -89,7 +93,8 @@ class Pose:
         self.follow = True
         self.hAz, self.hEl = 3.0, 3.0
         self.mount = dict(rDrum=p["rDrum"], W=p["W"], rcm=p["rcm"], Tmax=p["Tmax"],
-                          rho=p["rho"], Fdrive=p["Fdrive"], L10=p["L10"], rodLen=p["rodLen"])
+                          rho=p["rho"], Fdrive=p["Fdrive"], L10=p["L10"], rodLen=p["rodLen"],
+                          dHalf=p["a"], wFacet=p["w"], rCoil=p["rc"])
         self.R = float(H.hk_rollerRadius(p.get("chord", 4.6), p.get("apexH", 2.0),
                                          p.get("aBase", 2.45), p.get("cross", 0.975),
                                          p.get("barW", 0.3375), p.get("rDrive", 0.02)))

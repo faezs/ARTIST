@@ -917,6 +917,28 @@ scene's at the pose `megaStep` stepped to: 0.0e+00**.  The committed frames are
 `render/frame_hashemi_000.png` (the viewer), `render/frame_env_000.png` (the env's own step) and
 `render/frame_tri_000.png` (the GADT's `tri` chain, at Quetta on day 172 at 09:10 solar).
 
+**The swing's four hangers were drawn as two plumb lines** until 2026-09-20.  The bolt line runs
+ALONG THE BAR, and `hangerLength R a yr dx = sqrt(dx^2 + yr^2 + (f - sag)^2)` reads off that: from
+an eye ON the bolt line, `dx` outboard of the edge line, to a rim hole on the edge the post faces,
+`yr` along it.  One eye per bolt, two rods off it to the middles of that edge's two halves -
+`rodTan = yr/zh`, "each rod 27 deg off the vertical, the pair a V of 54 deg" - which is the pair of
+threaded rods joined at one clevis the frames show.  `hangerEyeM`/`hangerHoleM` had the two
+stations SWAPPED: the eyes at `+-rimHole` along the bar and the holes at `+-a` across it, so every
+hanger was `sqrt(a^2 + zh^2)`, **27.0 % too long at every size** (1.124 m against 0.884 at his
+0.8 m, 2.809 against 2.211 at a = 2), and the whole of it lay in the swing plane, so the four hung
+as one plumb pair that leaned with the dish instead of standing as two V's across the bar.  The eye
+is over the edge line now (`dx = 0`, the case `hangerLength_halfEdge` and `derive` both state) and
+only the `rimHole` offset turns; `hanger_drawn_length` proves the drawn segment is
+`hangerLength (ROf a) a (rimHoleOf a) 0` at every swing, and `check.py` measures it:
+
+    hang a=0.8   the four drawn hangers == hangerLength (0.884472 m, 55.3 % of the dish's side)
+                 to 2.9e-07 m at 3 swings; the lean is t +- 26.89 deg (a V of 53.78) to 2.0e-05
+    hang a=2.0   the four drawn hangers == hangerLength (2.211181 m, 55.3 % of the dish's side)
+                 to 2.7e-07 m at 3 swings; the lean is t +- 26.89 deg (a V of 53.78) to 2.0e-05
+
+The error was the renderer's, not the specification's: `hangerLength`, `rodTan` and `derive`'s
+`hanger` field were right all along, and the drawing simply did not use them.
+
   hashemi 257 entries, 1431 static + 64 x 16 ray doubles, 29 inputs, 1 table,  3749 nodes
   beam     11 entries,    3 static + 64 x 19 ray doubles, 20 inputs, 1 table,  1247 nodes
   optic     9 entries,    0 static + 64 x 27 ray doubles, 20 inputs, 1 table,  1247 nodes
