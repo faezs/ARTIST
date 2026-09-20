@@ -2557,6 +2557,109 @@ noncomputable def massOf (a : ℝ) : ℝ := kAreal * sideOf a ^ 2
 line times the rate, so it grows as `a³` against a panel that does not -/
 noncomputable def trackWOf (a : ℝ) : ℝ := weightOf a * rcmOf a * 7.3e-5
 
+/-! ### 16.6 The file's own structures, at any size
+
+`Carriage`, `FixedBase`, `Leg` and `OutriggerGeom` at half-side `a`, with their constraint fields
+discharged, so that a SIZE is a machine and not a table of numbers.  They are HERE, in the
+compiled namespace, for a compiler reason as much as a conceptual one: `Ccc.lean` unfolds a
+constant only when it is in the root namespace, so `megaScrew`'s
+`constraints (carriageOf dHalf) (baseOf dHalf)` and `megaThmsState`'s fifty theorems compile only
+if these do.  `carriageOf`/`baseOf`/`legOf`/`outriggerOf` are the same four with NO hypothesis - a
+kernel function's binders are reals, so they clamp at `max a aMin` rather than demand `0 < a`. -/
+
+/-- a positive reflector gives a positive upright, which every leg ratio needs -/
+theorem upright_pos {a : ℝ} (ha : 0 < a) : 0 < uprightOf a := by
+  unfold uprightOf FCOf
+  have h1 : (0:ℝ) ≤ Real.sqrt (zeOf a ^ 2 + a ^ 2) := Real.sqrt_nonneg _
+  have h2 : (0:ℝ) < kHead * a := by unfold kHead; linarith
+  linarith
+
+/-- and a positive mast station -/
+theorem ym_pos {a : ℝ} (ha : 0 < a) : 0 < ymOf a := by
+  unfold ymOf FCOf
+  have h1 : (0:ℝ) ≤ Real.sqrt (zeOf a ^ 2 + a ^ 2) := Real.sqrt_nonneg _
+  have h2 : (0:ℝ) < kMast * a := by unfold kMast; linarith
+  linarith
+
+/-- the carriage of §2 at half-side `a` -/
+noncomputable def carriageAt (a : ℝ) (ha : 0 < a) : Carriage where
+  chord := chordOf a
+  apexH := apexHOf a
+  aBase := aBaseOf a
+  cross := crossOf a
+  barW := barWOf a
+  rDrive := hashemi.rDrive
+  chord_pos := by unfold chordOf sideOf sideGapOf kGap; linarith
+  apex_pos := by unfold apexHOf kApex; linarith
+  cross_lt := by unfold crossOf apexHOf kCross kApex; linarith
+  base_le := by unfold aBaseOf chordOf sideOf sideGapOf kBase kGap; linarith
+  drive_pos := by show (0:ℝ) < hashemi.rDrive; unfold hashemi; norm_num
+
+/-- the fixed base of §1 at half-side `a`: the rail where the rollers are, the heights held -/
+noncomputable def baseAt (a : ℝ) (ha : 0 < a) : FixedBase where
+  rRail := rRailOf a
+  zRail := zRailOf a
+  zTube := zTubeOf a
+  zBearing := zBearingOf a
+  rail_pos := by
+    unfold rRailOf
+    apply Real.sqrt_pos.mpr
+    have : (0:ℝ) < apexHOf a := by unfold apexHOf kApex; linarith
+    positivity
+  tube_above_rail := by
+    show hashemiBase.zRail < hashemiBase.zTube
+    exact hashemiBase.tube_above_rail
+  bearing_on_tube := hashemiBase.bearing_on_tube
+
+/-- the leg of §5 at half-side `a`: a SIMILAR triangle on the upright the clearance sets -/
+noncomputable def legAt (a : ℝ) (ha : 0 < a) : Leg where
+  upright := uprightOf a
+  foot := footOf a
+  brace := braceOf a
+  footShort := footShortOf a
+  upright_pos := upright_pos ha
+  foot_pos := by unfold footOf kFoot; linarith [upright_pos ha]
+  short_nonneg := by unfold footShortOf kShort; linarith [upright_pos ha]
+  short_lt := by unfold footShortOf footOf kShort kFoot; nlinarith [upright_pos ha]
+  brace_reaches := by
+    unfold footOf footShortOf braceOf kFoot kShort kBrace
+    nlinarith [upright_pos ha]
+
+/-- the outrigger of §12 at half-side `a`.  `stand_le_end` is the law that broke: the rails must
+reach at least as far as the stand they carry, and the stand's station scales -/
+noncomputable def outriggerAt (a : ℝ) (ha : 0 < a) : OutriggerGeom where
+  root := outRootOf a
+  standStation := standStationOf a
+  endStation := endStationOf a
+  endWidth := endWidthOf a
+  root_pos := by unfold outRootOf aBaseOf kBase; linarith
+  stand_pos := by unfold standStationOf; exact ym_pos ha
+  stand_le_end := by
+    unfold standStationOf endStationOf
+    have hk : (1:ℝ) ≤ kEnd := by unfold kEnd; norm_num
+    calc ymOf a = 1 * ymOf a := (one_mul _).symm
+      _ ≤ kEnd * ymOf a := mul_le_mul_of_nonneg_right hk (ym_pos ha).le
+  end_lt_root := by unfold endWidthOf outRootOf aBaseOf kWidth kBase; linarith
+
+/-! #### The same four, with no hypothesis
+
+The megakernel cannot carry a proof: a kernel function's binders are reals.  These are the
+builders above at `max a ε`, so a machine is a machine for any input a kernel can hand them, and
+they agree with the hypothesis-taking versions wherever the reflector is real (`carriageOf_his`).
+`ε = 1e-9 m` is a nanometre of reflector. -/
+
+/-- the smallest reflector the kernel will build a machine for -/
+noncomputable def aMin : ℝ := 1e-9
+
+theorem aClamp_pos (a : ℝ) : 0 < max a aMin :=
+  lt_max_of_lt_right (by unfold aMin; norm_num)
+
+noncomputable def carriageOf (a : ℝ) : Carriage := carriageAt (max a aMin) (aClamp_pos a)
+noncomputable def baseOf (a : ℝ) : FixedBase := baseAt (max a aMin) (aClamp_pos a)
+noncomputable def legOf (a : ℝ) : Leg := legAt (max a aMin) (aClamp_pos a)
+noncomputable def outriggerOf (a : ℝ) : OutriggerGeom := outriggerAt (max a aMin) (aClamp_pos a)
+
+
 end TandoorHashemi
 
 /-!
@@ -2801,100 +2904,6 @@ def machine (h : Held) (a : ℝ) : Dims where
 
 /-- **the machine at his held values**: the one function every consumer reads -/
 def machineAt (a : ℝ) : Dims := machine hisHeld a
-
-/-! ## The specification's own structures, at any size -/
-
-/-- a positive reflector gives a positive upright, which every leg ratio needs -/
-theorem upright_pos {a : ℝ} (ha : 0 < a) : 0 < uprightOf a := by
-  unfold uprightOf FCOf
-  have h1 : (0:ℝ) ≤ Real.sqrt (zeOf a ^ 2 + a ^ 2) := Real.sqrt_nonneg _
-  have h2 : (0:ℝ) < kHead * a := by unfold kHead; linarith
-  linarith
-
-/-- and a positive mast station -/
-theorem ym_pos {a : ℝ} (ha : 0 < a) : 0 < ymOf a := by
-  unfold ymOf FCOf
-  have h1 : (0:ℝ) ≤ Real.sqrt (zeOf a ^ 2 + a ^ 2) := Real.sqrt_nonneg _
-  have h2 : (0:ℝ) < kMast * a := by unfold kMast; linarith
-  linarith
-
-/-- the carriage of §2 at half-side `a` -/
-def carriageAt (a : ℝ) (ha : 0 < a) : Carriage where
-  chord := chordOf a
-  apexH := apexHOf a
-  aBase := aBaseOf a
-  cross := crossOf a
-  barW := barWOf a
-  rDrive := hisHeld.rDrive
-  chord_pos := by unfold chordOf sideOf sideGapOf kGap; linarith
-  apex_pos := by unfold apexHOf kApex; linarith
-  cross_lt := by unfold crossOf apexHOf kCross kApex; linarith
-  base_le := by unfold aBaseOf chordOf sideOf sideGapOf kBase kGap; linarith
-  drive_pos := by show (0:ℝ) < 0.05; norm_num
-
-/-- the fixed base of §1 at half-side `a`: the rail where the rollers are, the heights held -/
-def baseAt (a : ℝ) (ha : 0 < a) : FixedBase where
-  rRail := rRailOf a
-  zRail := zRailOf a
-  zTube := zTubeOf a
-  zBearing := zBearingOf a
-  rail_pos := by
-    unfold rRailOf
-    apply Real.sqrt_pos.mpr
-    have : (0:ℝ) < apexHOf a := by unfold apexHOf kApex; linarith
-    positivity
-  tube_above_rail := by
-    show hashemiBase.zRail < hashemiBase.zTube
-    exact hashemiBase.tube_above_rail
-  bearing_on_tube := hashemiBase.bearing_on_tube
-
-/-- the leg of §5 at half-side `a`: a SIMILAR triangle on the upright the clearance sets -/
-def legAt (a : ℝ) (ha : 0 < a) : Leg where
-  upright := uprightOf a
-  foot := footOf a
-  brace := braceOf a
-  footShort := footShortOf a
-  upright_pos := upright_pos ha
-  foot_pos := by unfold footOf kFoot; linarith [upright_pos ha]
-  short_nonneg := by unfold footShortOf kShort; linarith [upright_pos ha]
-  short_lt := by unfold footShortOf footOf kShort kFoot; nlinarith [upright_pos ha]
-  brace_reaches := by
-    unfold footOf footShortOf braceOf kFoot kShort kBrace
-    nlinarith [upright_pos ha]
-
-/-- the outrigger of §12 at half-side `a`.  `stand_le_end` is the law that broke: the rails must
-reach at least as far as the stand they carry, and the stand's station scales -/
-def outriggerAt (a : ℝ) (ha : 0 < a) : OutriggerGeom where
-  root := outRootOf a
-  standStation := standStationOf a
-  endStation := endStationOf a
-  endWidth := endWidthOf a
-  root_pos := by unfold outRootOf aBaseOf kBase; linarith
-  stand_pos := by unfold standStationOf; exact ym_pos ha
-  stand_le_end := by
-    unfold standStationOf endStationOf
-    have hk : (1:ℝ) ≤ kEnd := by unfold kEnd; norm_num
-    calc ymOf a = 1 * ymOf a := (one_mul _).symm
-      _ ≤ kEnd * ymOf a := mul_le_mul_of_nonneg_right hk (ym_pos ha).le
-  end_lt_root := by unfold endWidthOf outRootOf aBaseOf kWidth kBase; linarith
-
-/-! ### The same four, with no hypothesis
-
-The megakernel cannot carry a proof: a kernel function's binders are reals.  These are the
-builders above at `max a ε`, so a machine is a machine for any input a kernel can hand them, and
-they agree with the hypothesis-taking versions wherever the reflector is real (`carriageOf_his`).
-`ε = 1e-9 m` is a nanometre of reflector. -/
-
-/-- the smallest reflector the kernel will build a machine for -/
-def aMin : ℝ := 1e-9
-
-theorem aClamp_pos (a : ℝ) : 0 < max a aMin :=
-  lt_max_of_lt_right (by unfold aMin; norm_num)
-
-def carriageOf (a : ℝ) : Carriage := carriageAt (max a aMin) (aClamp_pos a)
-def baseOf (a : ℝ) : FixedBase := baseAt (max a aMin) (aClamp_pos a)
-def legOf (a : ℝ) : Leg := legAt (max a aMin) (aClamp_pos a)
-def outriggerOf (a : ℝ) : OutriggerGeom := outriggerAt (max a aMin) (aClamp_pos a)
 
 /-! ## His machine is this function at `a = 0.8` -/
 
@@ -3198,7 +3207,6 @@ namespace TandoorHashemi
 /-! the design side of §16: `machineAt a` is every dimension as one record,
 `carriageAt`/`baseAt`/`legAt`/`outriggerAt` are the file's own structures at that size, and
 `HashemiDims`' theorems recover HIS machine at `a = 0.8`. -/
-export HashemiDims (Held Dims machine machineAt carriageAt baseAt legAt outriggerAt hisHeld
-  wWeight scaledNames heldNames carriageOf baseOf legOf outriggerOf aMin)
+export HashemiDims (Held Dims machine machineAt hisHeld wWeight scaledNames heldNames)
 
 end TandoorHashemi
