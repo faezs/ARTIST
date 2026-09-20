@@ -1,0 +1,36 @@
+digraph "TandoorHashemi.rRailOf_pos" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="a", shape=box];
+  n1 [label="0", shape=plaintext];
+  n2 [label="<", shape=ellipse];
+  n1 -> n2; n0 -> n2;
+  n3 [label="2", shape=plaintext];
+  n4 [label="*", shape=ellipse];
+  n3 -> n4; n0 -> n4;
+  n5 [label="0.15", shape=plaintext];
+  n6 [label="*", shape=ellipse];
+  n5 -> n6; n0 -> n6;
+  n7 [label="*", shape=ellipse];
+  n3 -> n7; n6 -> n7;
+  n8 [label="+", shape=ellipse];
+  n4 -> n8; n7 -> n8;
+  n9 [label="/", shape=ellipse];
+  n8 -> n9; n3 -> n9;
+  n10 [label="^2", shape=ellipse];
+  n9 -> n10;
+  n11 [label="1.0", shape=plaintext];
+  n12 [label="*", shape=ellipse];
+  n11 -> n12; n0 -> n12;
+  n13 [label="^2", shape=ellipse];
+  n12 -> n13;
+  n14 [label="+", shape=ellipse];
+  n10 -> n14; n13 -> n14;
+  n15 [label="sqrt", shape=ellipse];
+  n14 -> n15;
+  n16 [label="<", shape=ellipse];
+  n1 -> n16; n15 -> n16;
+  n17 [label="->", shape=ellipse];
+  n2 -> n17; n16 -> n17;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n17 -> out0;
+}
