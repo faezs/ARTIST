@@ -76,6 +76,63 @@ cd ~/ARTIST-compliant/tutorials/hashemi_ccc
 5. **The theorems at the machine's states.** Through two days at Quetta, every one of the 106
    theorem columns of the row is 1 at every step of every agent.
 
+## The physics tensor is GRADED: every column knows what it is
+
+`hashemiEnv : … → Fin 330 → ℝ` is one tensor and one kernel, and until now every column of it was
+an anonymous float. Every defect found this week was a typing failure that a flat row cannot
+catch: a reward that differed by 75x between the two paths (a raw-unit term added to a divided
+column), scene inputs pooled in the wrong frame, the mount pinned to his 0.8 m constants while
+the optics scaled, an exchanger conductance that was a bare number with no law, a figure pinned
+at the favourable end of its own interval.
+
+So every emitted column now carries a **grade** — `subsystem` (mount | optics | receiver | loop |
+pot | policy | reward | omega | scene), `kind` (length | angle | temperature | power | energy |
+mass | force | moment | rate | dimensionless | truth), `unit` as an exact string, `frame` (roof |
+dish | bolt | pot | carriage | sky | none) and the `decl` it comes from. `RequestProject/
+HashemiGrade.lean` is the whole of it, in one place; `HashemiCcc.lean` emits it into each
+kernel's own manifest as a `"grades"` array parallel to `"columns"`, plus the derived `"truth"`
+mask.
+
+**Derived, not written.** The truth kind is read off the compiled graph (a boolean node, or the
+`if c then 1 else 0` that `b2r` compiles to), so the 113 proposition columns of `megaReqs`,
+`megaThmsClosed` and `megaThmsState` grade themselves and a theorem added tomorrow is graded the
+day it is added; the defining declaration is looked up in the environment (`prop_<name>` first);
+the frame morphisms' domain and codomain come from their own names (`roofOfDish` is `dish → roof`).
+What is stated is the subsystem, kind, unit and frame of the ~160 columns that are not
+propositions, grouped so no grade is typed twice.
+
+**The gate.** A column with no grade fails the emit: `lake build RequestProject.HashemiCcc` errors
+with the column's name until it is graded. It has already refused three times for real reasons —
+the four new wire columns, and `taut_obs`, which the graph said was a real while the table said
+truth (`obs_taut` of the env's row IS `b2r` of the flag this step; `taut_obs` of the closed loop's
+row is last step's flag handed back in as an input, a real in {0,1} whose bound is the identity's).
+
+**What it does.** Four things, none of them decorative:
+
+1. `Ccc.printCBox` stops computing a Lipschitz bound for an indicator. 357 of 1387 columns are
+   truth-valued (83 modules entirely so); their box keeps the three-valued interval and reports
+   `HK_TRUTH` instead of a number that reads like a bound, and the `L` chain that fed them is not
+   printed at all — 7699 of 18612 box nodes (41 %) no longer carry a Lipschitz local. Measured
+   against the previous header: 239 of 249 `_jvp` functions are byte-identical and 107 of the 117
+   changed `_box` functions have a byte-identical jvp, so nothing but the specialisation moved
+   them. `hashemi_modula.py`'s soundness check reads `truth_outputs` and no longer pretends to
+   bound them.
+2. `hashemi_grade.py --fail-demo` asserts the reward's units: the four `roti (raw)` columns and
+   the one `roti (raw) / reward_div` column differ by exactly the ini's divisor, and the raw total
+   is the parent's reward plus the shaping less the two bills. On a deliberately mis-scaled copy
+   (the shaping added to the trainer's column undivided) it fails and names the factor: 75.0x.
+3. The runtime selects by grade. `machine_obs`, the reward's inputs (`p_in` as the optics' power
+   in watts, the gate as the omega column, the pump's bill as the loop's power) and the scene's
+   HUD are resolved through `hashemi_grade.index`, which checks the grade it is handed — so the
+   230 mount columns landing underneath cannot shift them, and neither can a column quietly
+   changing meaning.
+4. The scene printer refuses a frame error. Every vertex-producing leaf declares the frame its
+   own coordinates are written in, and `CccScene.emitScene` will not write a scene in which an
+   embedding's domain is not that frame. It refused on its first run, on a leaf added the same
+   hour (`towBightPt`, drawn through `roofOfBolt` with no frame declared).
+
+    .venv/bin/python hashemi_grade.py [--fail-demo]
+
 ## The competing env: his concentrator on the tandoor (`puffer_hashemi_ccc`)
 
 `hashemi_tandoor_env.py`, `puffer_tandoor/hashemi_ccc.ini` (hashemi.ini with `gpu = 0`,

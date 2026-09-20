@@ -56,7 +56,71 @@ import json                                         # noqa: E402
 POLICY = json.load(open(os.path.join(HERE, "hashemi_policy.json")))
 HEAD_AZ, HEAD_EL = POLICY["motor_heads"]
 import hashemi_policy as machine_policy              # noqa: E402  the generated spaces module
-OBS_COLS = [ECOL["obs_" + n] for n in machine_policy.OBS_NAMES]
+# ---------------------------------------------------------------------------------------------
+# THE COLUMNS THIS ENV READS, BY GRADE (hashemi_grade.py, from RequestProject/HashemiGrade.lean).
+#
+# The manifest now says what every column IS - its subsystem, its kind, its unit, its frame and
+# the declaration it came from - and every read below states the grade it expects.  The index is
+# the same integer a name lookup gives; what changes is the failure.  230 mount columns landed
+# underneath the env's own 96 this week and nothing here moved - but neither would it have moved
+# if `p_in` had quietly stopped being the optics' power in watts, or `capture` had become one of
+# the mount's truth columns.  Now that raises.
+from hashemi_grade import index as _gcol, obs_cols as _gobs          # noqa: E402
+
+ENV_MAN = json.load(open(os.path.join(HERE, "hashemi_env.json")))
+BEAM_MAN = json.load(open(os.path.join(HERE, "hashemi_beam.json")))
+
+
+class GradedRow:
+    """one kernel's row, resolved once: an attribute per column this env reads, and the grade
+    that column must have.  A receiver whose kernel has no oil loop leaves those `None`."""
+
+    SLOTS = (
+        # attribute      column           subsystem  kind             unit
+        ("p_in",         "p_in",          "optics",  "power",         "W"),
+        ("capture",      "capture",       "optics",  "dimensionless", None),
+        ("reach",        "sun_reachable", "omega",   "truth",         None),
+        ("lost_s",       "lost_sun_s",    "omega",   "dimensionless", None),
+        ("point_err",    "pointing_err",  "mount",   "angle",         "rad"),
+        ("t_oil",        "T_oil",         "loop",    "temperature",   "K"),
+        ("film_margin",  "film_margin",   "loop",    "temperature",   "K"),
+        ("p_pump",       "p_pump",        "loop",    "power",         "W"),
+        ("q_pot",        "q_pot",         "pot",     "power",         "W"),
+    )
+
+    def __init__(self, man):
+        self.man = man
+        self.absent = []
+        for attr, name, sub, kind, unit in self.SLOTS:
+            if name not in man["columns"]:          # this receiver has no such column at all
+                setattr(self, attr, None)
+                self.absent.append(name)
+                continue
+            setattr(self, attr, _gcol(man, name, subsystem=sub, kind=kind, unit=unit))
+
+    @property
+    def obs(self):
+        """the policy's observations, in the POLICY's order, every one of them graded `policy`"""
+        cols = getattr(self, "_obs", None)
+        if cols is None:
+            cols = _gobs(self.man, machine_policy.OBS_NAMES)
+            self._obs = cols
+        return cols
+
+
+_GRADED = {}
+
+
+def graded(receiver):
+    """the graded row of whichever receiver's kernel is running"""
+    g = _GRADED.get(receiver)
+    if g is None:
+        g = GradedRow(BEAM_MAN if receiver == "beam" else ENV_MAN)
+        _GRADED[receiver] = g
+    return g
+
+
+OBS_COLS = graded("oil").obs
 
 LEAN_DIR = os.environ.get("HASHEMI_LEAN_DIR", os.path.expanduser("~/manifold-pareto/lean"))
 
@@ -474,7 +538,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             self.deg = self.row[:, C["deg"]].copy()
             self._p_pump = self.row[:, C["p_pump"]].copy()
             self._film_excess = np.maximum(0.0, -self.row[:, C["film_margin"]])
-        self.machine_obs = self.row[:, [C["obs_" + n] for n in machine_policy.OBS_NAMES]].astype(np.float32)
+        self.machine_obs = self.row[:, graded(self.machine_receiver).obs].astype(np.float32)
         self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])
         self.az_m = np.degrees(self.hk_state[:, 0])
 
@@ -586,13 +650,16 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # kernel returns r_shape_raw / r_raw / r_trainer. `rew_t` leaves here RAW, because step
         # and step_torch divide by reward_div after this - i.e. the parent's own division IS the
         # morphism's third column (measured per step by R2 in test_reward_columns.py).
-        extra = self._pb_raw(out[:, C["pointing_err"]], out[:, C["sun_reachable"]], mask, torch)
+        # THE REWARD'S INPUTS, BY GRADE: the light is the optics' power in watts, the gate is the
+        # omega column, the pump's bill the loop's power, the film's margin the loop's kelvins.
+        G = graded(self.machine_receiver)
+        extra = self._pb_raw(out[:, G.point_err], out[:, G.reach], mask, torch)
         if self.lost_shaping:
-            extra = extra - self.lost_shaping * out[:, C["lost_sun_s"]]
+            extra = extra - self.lost_shaping * out[:, G.lost_s]
         oil = self.machine_receiver != "beam"
-        pp_t = out[:, C["p_pump"]] if oil else torch.zeros_like(rew_t)
-        fx_t = (-out[:, C["film_margin"]]).clamp_min(0.0) if oil else torch.zeros_like(rew_t)
-        cols = self._reward_cols(rew_t + extra, out[:, C["p_in"]], out[:, C["sun_reachable"]], torch,
+        pp_t = out[:, G.p_pump] if oil else torch.zeros_like(rew_t)
+        fx_t = (-out[:, G.film_margin]).clamp_min(0.0) if oil else torch.zeros_like(rew_t)
+        cols = self._reward_cols(rew_t + extra, out[:, G.p_in], out[:, G.reach], torch,
                                  p_pump=pp_t, film_excess=fx_t)
         shape = cols[:, RCOL["r_shape_raw"]] + extra
         rew_t = cols[:, RCOL["r_raw"]]
@@ -686,7 +753,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
             vs, vr = k(self._scene_x, *tabs)
         vs = vs.cpu().numpy()[0, :k.n_static]
         vr = vr.cpu().numpy()[0, :, :k.n_ray]
-        C = self._bk.BCOL if self.machine_receiver == "beam" else ECOL
+        # THE HUD READS BY GRADE TOO: it shows the optics' fraction and power, the mount's angle,
+        # the loop's two temperatures and the pot's power - and it says so, so a column that
+        # changes subsystem or unit stops the picture instead of mislabelling it.
+        G = graded(self.machine_receiver)
         r = self.row[0] if getattr(self, "row", None) is not None else None
         hud = ["puffer_hashemi_ccc — the env's own step, drawn from scene_%s.metal" % self._scene_name,
                "agent 0   %02d:%02.0f   az %7.2f deg   t %6.2f deg"
@@ -694,10 +764,10 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
                   np.degrees(self.hk_state[0, 0]), np.degrees(self.hk_state[0, 1]))]
         if r is not None:
             hud.append("capture %.3f   p_in %6.0f W   point %.3f deg"
-                       % (r[C["capture"]], r[C["p_in"]], np.degrees(r[C["pointing_err"]])))
+                       % (r[G.capture], r[G.p_in], np.degrees(r[G.point_err])))
             if self.machine_receiver != "beam":
                 hud.append("T_oil %6.1f K   film margin %+6.1f K   q_pot %6.0f W"
-                           % (r[C["T_oil"]], r[C["film_margin"]], r[C["q_pot"]]))
+                           % (r[G.t_oil], r[G.film_margin], r[G.q_pot]))
         hud.append("rotis %.0f   scorch %.0f   reward %.3f"
                    % (float(self.ep_rotis[0]), float(getattr(self, "ep_scorch", [0])[0]),
                       float(np.asarray(self.rewards).ravel()[0])))
@@ -727,7 +797,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
                 self.deg = self.row[:, C["deg"]]
                 self._p_pump = self.row[:, C["p_pump"]]
                 self._film_excess = np.maximum(0.0, -self.row[:, C["film_margin"]])
-            self.machine_obs = self.row[:, [C["obs_" + n] for n in machine_policy.OBS_NAMES]].astype(np.float32)
+            self.machine_obs = self.row[:, graded(self.machine_receiver).obs].astype(np.float32)
             if self._rew_cols_t is not None:
                 self.r_cols = self._rew_cols_t.cpu().numpy().astype(np.float64)
             self.el_m = 90.0 - np.degrees(self.hk_state[:, 1])
@@ -753,12 +823,13 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # (`scale_natural`, RewardTopos.lean: the only change of base there is) and the trainer's
         # reward is the function's third column - never host arithmetic on units.
         div = float(getattr(self, "reward_div", 1.0))
-        extra = self._pb_raw(self.row[:, C["pointing_err"]], self.row[:, C["sun_reachable"]], resync, np)
+        G = graded(self.machine_receiver)               # the same inputs, by grade, on this path
+        extra = self._pb_raw(self.row[:, G.point_err], self.row[:, G.reach], resync, np)
         if self.lost_shaping:
-            extra = extra - self.lost_shaping * self.row[:, C["lost_sun_s"]]
+            extra = extra - self.lost_shaping * self.row[:, G.lost_s]
         parent_raw = np.asarray(self.rewards, dtype=np.float64) * div + extra
         oil = self.machine_receiver != "beam"
-        cols = self._reward_cols(parent_raw, self.row[:, C["p_in"]], self.row[:, C["sun_reachable"]], np,
+        cols = self._reward_cols(parent_raw, self.row[:, G.p_in], self.row[:, G.reach], np,
                                  p_pump=self._p_pump if oil else np.zeros(B),
                                  film_excess=self._film_excess if oil else np.zeros(B))
         self.rewards[:] = cols[:, RCOL["r_trainer"]].astype(np.float32)

@@ -1,6 +1,14 @@
 {
 "kernel": "hashemi_reward", "c": "hk_rewardStep",
 "columns": ["r_shape_raw", "r_pump_raw", "r_deg_raw", "r_raw", "r_trainer"],
+"truth": [false, false, false, false, false],
+"grades": [
+  {"name": "r_shape_raw", "subsystem": "reward", "kind": "dimensionless", "unit": "roti (raw)", "frame": "none", "decl": "TandoorHashemi.rewardShapeRaw"},
+  {"name": "r_pump_raw", "subsystem": "reward", "kind": "dimensionless", "unit": "roti (raw)", "frame": "none", "decl": "TandoorHashemi.pumpCostRaw"},
+  {"name": "r_deg_raw", "subsystem": "reward", "kind": "dimensionless", "unit": "roti (raw)", "frame": "none", "decl": "TandoorHashemi.degCostRaw"},
+  {"name": "r_raw", "subsystem": "reward", "kind": "dimensionless", "unit": "roti (raw)", "frame": "none", "decl": "TandoorHashemi.rewardStep"},
+  {"name": "r_trainer", "subsystem": "reward", "kind": "dimensionless", "unit": "roti (raw) / reward_div", "frame": "none", "decl": "TandoorHashemi.rewardStep"}],
+"raw_unit": "roti (raw)", "trainer_unit": "roti (raw) / reward_div",
 "inputs": ["parentRaw", "dt", "pIn", "reach", "rewardDiv", "capShaping", "rotiReward", "rotiEnergy", "pPump", "filmExcess", "pumpPrice", "degPrice"],
 "n_columns": 5, "n_nodes": 31
 }

@@ -102,7 +102,13 @@ def soundness(mm, rng, n_boxes=64, n_probe=32, width=0.05):
     for name, m in MODULES.items():
         n_in, n_out = m["n_in"], m["n_out"]
         real_in = ~np.array(m["bool_inputs"])
-        real_out = ~np.array(m["bool_outputs"])
+        # A TRUTH COLUMN HAS NO BOUND TO CHECK (the grading, HashemiGrade.lean): an indicator -
+        # a boolean, or `b2r p = if p then 1 else 0`, which is what every Prop column of the spec
+        # compiles to - does not move, it jumps. The box prints `HK_TRUTH` (-1) in its Lipschitz
+        # slot instead of a number that reads like a bound, and the soundness of a bound is not a
+        # question one can ask of it. `bool_outputs` caught only the first kind; `truth_outputs`
+        # is the derived mask over both.
+        real_out = ~np.array(m.get("truth_outputs", m["bool_outputs"]))
         if not real_out.any():
             continue
         c = rng.uniform(0.2, 1.8, (n_boxes, n_in))
@@ -169,10 +175,12 @@ def dish_stage(mm, rng, el, az, dpose, P, design=False, t_dead=1.076):
     y, dy = mm.jvp("dishPower", t32(x), t32(dx))
     y = y.cpu().numpy().astype(np.float64); dy = np.abs(dy.cpu().numpy().astype(np.float64))
     fin = lambda a: np.where(np.isfinite(a), a, 0.0)
-    # the capture (0) is a step per ray: its tangent is 0 and its box jumps; the landing radius (3)
-    # and the smooth capture (4) carry the physics' modulus
+    # the capture (0) is a step per ray: its tangent is 0 and it has no bound at all. It is a
+    # TRUTH column (the grading), so its box is the three-valued interval and its Lipschitz slot
+    # is HK_TRUTH - the boxes it cannot decide are the ones where lo != hi, which is the same
+    # measurement the old `oL >= HK_INF` made and the honest way to make it.
     return dict(cap_lo=float(olo[:, 0].mean()), cap_hi=float(ohi[:, 0].mean()), cap=float(y[:, 0].mean()),
-                cap_jump_frac=float((oL[:, 0] >= HK_INF).mean()),
+                cap_jump_frac=float((olo[:, 0] != ohi[:, 0]).mean()),
                 rad_L_bound=float(np.median(np.minimum(oL[:, 3], HK_INF))), rad_L_inf_frac=float((oL[:, 3] >= HK_INF).mean()),
                 rad_L_meas_max=float(np.max(fin(dy[:, 3]))), rad_L_meas_mean=float(np.mean(fin(dy[:, 3]))),
                 capS=float(y[:, 4].mean()), capS_L_bound=float(np.median(np.minimum(oL[:, 4], HK_INF))),
@@ -231,7 +239,10 @@ def env_step_sensitivity(mm, rng, B=512):
     cmd = np.stack([rng.uniform(-1, 1, B), rng.uniform(-0.3, 0.3, B)], 1)
     el = np.clip(math.pi / 2 - state[:, 1] + rng.uniform(-0.01, 0.01, B), 0.5, 1.5)
     sun = np.stack([el, state[:, 0] + rng.uniform(-0.01, 0.01, B), np.full(B, 800.0)], 1)
-    x = pack(B, state, cmd, 15.0, sun, np.full(B, 0.95), rng.uniform(350, 500, B), rng.uniform(350, 450, B), 300.0)
+    # soil, the pot's wall band, the ambient. The stray ninth positional this call used to carry
+    # landed on `params` (`pack`'s first keyword), so `env_params()` was never read and every
+    # section from here down died on `'float' object has no attribute 'items'`.
+    x = pack(B, state, cmd, 15.0, sun, np.full(B, 0.95), rng.uniform(350, 500, B), 300.0)
     tabs = [t32(np.concatenate([rng.random((B, 64, 6)), rng.standard_normal((B, 64, 4))], 2))]
     out = {}
     for head, w in (("omegam", 0.05), ("omegad", 0.02)):
