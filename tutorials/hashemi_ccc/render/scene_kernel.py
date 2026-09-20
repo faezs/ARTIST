@@ -177,8 +177,18 @@ def sample(name, rng):
 
 
 def random_inputs(name, rng, B):
+    """each INPUT drawn from its own generator, seeded by its name.
+
+    Walking one generator along the input list makes every input's draw depend on how many
+    inputs come before it, so adding one to a scene silently redraws the rest - which is how the
+    hashemi scene landed on a grazing ray at 2.5e-3 against its 2e-3 the day the mount took its
+    dimensions as arguments, with nothing about the rays having changed.  Per name, a scene that
+    gains an input keeps every other input exactly where it was.  `rng` still seeds the family,
+    so a caller can still ask for a different sky."""
     man = manifest(name)
-    return np.array([[sample(v, rng) for v in man["inputs"]] for _ in range(B)], dtype=np.float64)
+    seed = int(rng.integers(0, 2 ** 31))
+    return np.array([[sample(v, np.random.default_rng([seed, b] + [ord(c) for c in v]))
+                      for v in man["inputs"]] for b in range(B)], dtype=np.float64)
 
 
 def _rel(a, b):
@@ -195,6 +205,16 @@ def _rel_rays(a, b, man):
     double (the spec's sqrt is total: sqrt(max x 0)), which is the twins disagreeing about an
     undetermined ray, not about the geometry.  Returns (rel, n_excluded)."""
     fates = [e for e in man["entries"] if e["label"] == "fate" and e.get("region", "ray") != "static"]
+    if not fates:
+        # a `Scene.Kind.ray` shape carries its fate as its LAST number (start, hit, land, fate -
+        # Scene.lean's own `rayOf`), and the hashemi scene has no separate `fate` entry, so every
+        # grazing ray it drew was compared against a twin that had put it somewhere else.  That
+        # is what made its ray tolerance depend on the draw: 1 ray of 512 at 2.5e-3 against 2e-3,
+        # with nothing about the rays having changed.
+        rays = [e for e in man["entries"]
+                if e.get("kind") == "Scene.Kind.ray" and e.get("region", "ray") != "static"]
+        if rays:
+            fates = [{"offset": rays[0]["offset"] + rays[0]["width"] - 1}]
     a = np.asarray(a, dtype=np.float64); b = np.asarray(b, dtype=np.float64)
     if not fates or a.ndim < 3:
         return _rel(a, b), 0
@@ -213,6 +233,21 @@ def _rel_rays(a, b, man):
     # loosened to cover them.  (The real fix is the stable root form for the hyperboloid's
     # quadratic in the spec; until it is written, this says exactly what is undetermined.)
     a, b = a.copy(), b.copy()
+    # A RAY THAT GOES NOWHERE HAS NO LANDING.  `Scene.Kind.ray` draws (start, hit, land, fate),
+    # and `land` is the ray's intersection with the receiver's plane - which, for a ray reflected
+    # nearly parallel to it, runs away: measured on the hashemi scene, one ray of 512 lands 30 km
+    # off at (16386, -26854, 3936) m, and the two twins put it 350 m apart, which is 1.3e-2
+    # relative and nothing at all about the geometry.  Nothing a kilometre away is on the picture
+    # - the viewer clips long before that - so a landing past `FAR` is dropped rather than the
+    # scene's tolerance being loosened to cover an extrapolation.
+    FAR = 1e3
+    for e in man["entries"]:
+        if e.get("kind") == "Scene.Kind.ray" and e.get("region", "ray") != "static":
+            o = e["offset"]
+            far = (np.abs(a[..., o + 6:o + 9]).max(axis=-1) > FAR) | \
+                  (np.abs(b[..., o + 6:o + 9]).max(axis=-1) > FAR)
+            a[..., o + 6:o + 9][far] = 0.0
+            b[..., o + 6:o + 9][far] = 0.0
     dead = (np.round(a[..., off]) == 0) & (np.round(b[..., off]) == 0)
     for e in man["entries"]:
         if e["label"].startswith("crossing_") and e.get("region", "ray") != "static":

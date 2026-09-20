@@ -105,13 +105,25 @@ def exch_ua(machine=None, k_liner=None, d=None):
     return float(H.hk_uaExch(k_liner, float(m["coilLen"]), float(m["Dc"]), d))
 
 
+def winch_params():
+    """THE TOW CABLE'S TWO MATERIAL NUMBERS, the only things the droop needs beyond the spec's own
+    geometry.  They are the parent env's, cited not chosen (tandoor_hashemi_env.py:89,
+    `EL_WINCH_SIG, EL_WINCH_E = 48e6, 110e9` - a 6x19 rope's working stress and effective
+    modulus), and they reach the kernel through the spec's own `winchSig` / `winchE` rather than
+    as literals here.  A rope's modulus is the soft number: 110 GPa is a construction value for a
+    6x19 with a fibre core and the real one depends on the lay, the core and the load history;
+    nothing in either repository measures the rope this machine uses."""
+    import hashemi_ccc as H
+    return dict(sigW=float(H.hk_winchSig()), eW=float(H.hk_winchE()))
+
+
 def env_params():
     """the constant inputs, by name: the machine's, the optics', the heat's"""
     mp = mega_params_numpy()                      # rDrum W rcm Tmax rho Fdrive L10 rodLen
     tp = trace_params_numpy()                     # R f a w rc
     d = dict(rDrum=mp[0], W=mp[1], rcm=mp[2], Tmax=mp[3], rho=mp[4], Fdrive=mp[5], L10=mp[6], rodLen=mp[7],
              R=tp[0], f=tp[1], a=tp[2], w=tp[3], rc=tp[4], k=DISH_K, sigmaslope=SLOPE_ERR, sigmaspec=SPEC_ERR,
-             hsun=SUN_HALF_ANGLE, **LOOP_PARAMS)
+             hsun=SUN_HALF_ANGLE, **LOOP_PARAMS, **winch_params())
     if d.get("UAxMax") is None:
         d["UAxMax"] = exch_ua()
     return d

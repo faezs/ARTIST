@@ -257,6 +257,16 @@ theorem potBand_is_tandoor :
     zCPotS = zCPot ∧ rSphS = rSph ∧ zBakeLoS = zBakeLo ∧ zCrownS = zCrown ∧ nBeltS = nBelt :=
   ⟨rfl, rfl, rfl, rfl, rfl⟩
 
+/-- **the rim at the ACHIEVED swing**: the commanded swing plus the droop (HashemiDroop.lean).
+The scene draws this against the commanded rim, so the deflection the drum's encoder cannot see
+is a GAP on the picture rather than a column nobody reads. -/
+noncomputable def rimAchievedPt (ym hp a ze W rcm armRest sigW eW t sg : ℝ) : ℝ × ℝ :=
+  rimPt a ze (t + droopAt ym hp a ze W rcm armRest sigW eW t) sg
+
+/-- and the dish's vertex there -/
+noncomputable def vertexAchievedPt (ym hp a ze W rcm armRest sigW eW f t : ℝ) : ℝ × ℝ :=
+  dishVertexPt f (t + droopAt ym hp a ze W rcm armRest sigW eW t)
+
 /-- the same bight, for the scene that takes the pose as its own inputs -/
 noncomputable def towBightPt (ym hp a ze slack t : ℝ) : ℝ × ℝ :=
   bightPt (pulleyAt ym hp) (edgeClipAt a ze t) slack
@@ -496,6 +506,16 @@ own midpoint, so the two drawn legs ARE the taut straight wire -/
 noncomputable def envTowBightPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen ym hp a ze w rc : ℝ) : ℝ × ℝ :=
   let st := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   bightPt (pulleyAt ym hp) (edgeClipAt a ze (st 1)) (st 2)
+
+/-- the rim at the achieved swing, at the pose the env stepped to -/
+noncomputable def envRimAchievedPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze w rc sigW eW sg : ℝ) : ℝ × ℝ :=
+  let st := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
+  rimAchievedPt (ymOf a) (hpOf a) a (zeOf a) W rcm (armRestOf a) sigW eW (st 1) sg
+
+/-- and the vertex there -/
+noncomputable def envVertexAchievedPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze w rc f sigW eW : ℝ) : ℝ × ℝ :=
+  let st := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
+  vertexAchievedPt (ymOf a) (hpOf a) a (zeOf a) W rcm (armRestOf a) sigW eW f (st 1)
 
 /-- the clip, at that swing -/
 noncomputable def envEdgeClipAt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze w rc : ℝ) : ℝ × ℝ :=
@@ -1292,6 +1312,8 @@ def apexHB : Bound := .node "apexHOf"
 def ymB : Bound := .node "ymOf"
 def hpB : Bound := .node "hpOf"
 def zeB : Bound := .node "zeOf"
+/-- the wire's lever at rest, the lever the tow cable is sized on (`armRestOf`; the droop) -/
+def armRestB : Bound := .node "armRestOf"
 /-- the outrigger's narrow end, where the winch is bolted, and the bolt line's height over the
 bar: the drum's two stations (`HashemiWire.drumAt`) -/
 def esB : Bound := .node "endStationOf"
@@ -1491,6 +1513,13 @@ def hashemiScene : Scene := [
     shape := .seg (.pt "hangerEyeM" (some "roofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit (-1)))])
                   (.pt "hangerHoleM" (some "roofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))]),
     colour := 2 },
+  { label := "rim_achieved",
+    shape := .seg (.pt "rimAchievedPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB), ("ze", zeB), ("armRest", armRestB), ("sg", (Bound.lit 1))])
+                  (.pt "rimAchievedPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB), ("ze", zeB), ("armRest", armRestB), ("sg", (Bound.lit (-1)))]),
+    colour := 5 },
+  { label := "vertex_achieved",
+    shape := .one (.pt "vertexAchievedPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB), ("ze", zeB), ("armRest", armRestB)]),
+    colour := 5 },
   { label := "vertex",
     shape := .one (.pt "dishVertexPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
     colour := 3 },
@@ -2547,6 +2576,13 @@ def envScene : Scene := [
     shape := .seg (.pt "hangerEyeM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgy", (Bound.lit (-1)))])
                   (.pt "envHangerHoleM" (some "envRoofOfCarriage") [("zBar", zBarB), ("sgx", (Bound.lit 1)), ("sgy", (Bound.lit (-1)))]),
     colour := 2 },
+  { label := "rim_achieved",
+    shape := .seg (.pt "envRimAchievedPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB), ("sg", (Bound.lit 1))])
+                  (.pt "envRimAchievedPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB), ("sg", (Bound.lit (-1)))]),
+    colour := 5 },
+  { label := "vertex_achieved",
+    shape := .one (.pt "envVertexAchievedPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB)]),
+    colour := 5 },
   { label := "vertex",
     shape := .one (.pt "envDishVertexPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB)]),
     colour := 3 },

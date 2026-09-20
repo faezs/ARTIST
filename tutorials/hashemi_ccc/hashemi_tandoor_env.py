@@ -161,7 +161,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
 
     def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.0, capture_shaping=0.2, t_amb=300.0, trace_rays=None,
-                 machine_receiver="oil", oil_nodes=8, pump_price=PUMP_PRICE, deg_price=DEG_PRICE, dish_half=None, dish_design=1, dish_R=None, dish_k=None, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
+                 machine_receiver="oil", oil_nodes=8, pump_price=PUMP_PRICE, deg_price=DEG_PRICE, winch_E=None, winch_sig=None, dish_half=None, dish_design=1, dish_R=None, dish_k=None, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
         # THE MACHINE'S RECEIVER (the parent's `receiver` - its tri chain - passes through untouched):
         # "oil" - the coil at F, hot oil in insulated pipes, the exchanger in the pot's wall
         # (HashemiHeat/HashemiField.lean); "beam" - a hyperboloid inside the coil's envelope sending
@@ -256,6 +256,15 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         # is not a free parameter but a fact about his form). The default is his.
         if dish_k is not None:
             self._params["k"] = float(np.clip(float(dish_k), -1.0, 0.0))
+        # THE DROOP'S TWO MATERIAL NUMBERS (HashemiDroop.lean; see `winch_params`).  The tow
+        # cable's working stress is a rope table's and is firm; its effective modulus is the SOFT
+        # one - 110 GPa is a construction value for a 6x19 with a fibre core, and the lay, the
+        # core and the load history move it.  Both are knobs so a day can be measured at either
+        # end of an honest bracket rather than at one number nobody measured.
+        if winch_sig is not None:
+            self._params["sigW"] = float(winch_sig)
+        if winch_E is not None:
+            self._params["eW"] = float(winch_E)
         # THE REFLECTOR'S EXTENT IS DERIVED, NOT SCALED BY HAND (2026-09-19). The panel is the
         # square section of half-side `a` cut from the sphere of radius `R`; his numbers are
         # a = 0.8, R = 2, f = R/2. Until this commit `dish_half` multiplied a by 1/0.4 and left

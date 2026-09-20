@@ -13,11 +13,12 @@ import RequestProject.HashemiHeat
 import RequestProject.HashemiField
 import RequestProject.HashemiOil
 import RequestProject.HashemiWire
+import RequestProject.HashemiDroop
 
 namespace TandoorHashemi
 open Classical
 
--- the env's row is 330 wide now (its own 100 and the mount's 230): the `Fin` literals of the
+-- the env's row is 332 wide now (its own 102 and the mount's 230): the `Fin` literals of the
 -- vector need more elaboration depth than the default
 set_option maxRecDepth 40000
 
@@ -51,14 +52,39 @@ eight observations; the FIELDS (the flux in eight annuli, the oil along the eigh
 shifted histories); then the loop's new state and the three new observations. -/
 noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
     R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta
-    uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa : ℝ)
-    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 330 → ℝ :=
+    uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW : ℝ)
+    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 332 → ℝ :=
   let s := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   let mg := megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   let ms := megaScrew az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   let mq := megaReqs az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   let mc := megaThmsClosed az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   let mt := megaThmsState az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
+  -- THE DROOP, from the screw columns above (HashemiDroop.lean): the hinge does no work on the
+  -- swing (`mount_recip_sw_h0..4`, all zero), so the wire alone holds it and the wire's own
+  -- extension under `wireTension` is the whole first-order deflection.  `tA` is where the dish
+  -- IS; `s 1` is where the drum says it is, and no encoder on the drum can tell them apart.
+  let dro := droopAt (ymOf a) (hpOf a) a (zeOf a) W rcm (armRestOf a) sigW eW (s 1)
+  -- WHAT THE RAYS DO NOT SEE, and it is a limitation, not a choice.  `tA` is where the dish is,
+  -- and the 64 rays ought to be traced from it.  They are not: the modular round trip closes by
+  -- matching the printed summand of `∑ i, dishPower …` against the definition's SYNTACTICALLY, and
+  -- a `let`-bound pose inside the summand breaks that match - measured, `hashemiEnv_ccc` then
+  -- runs past 4e6 heartbeats at `isDefEq`.  So the droop is charged to the POINTING ERROR and to
+  -- both gates (columns 11, 14, 16), which is what the parent's beam gate and its guillotine
+  -- read, and the rays still leave from the commanded attitude.  `t_achieved` is a column so the
+  -- difference is visible and so the next pass has it.
+  let tA := s 1 + dro
+  -- the gate is charged the achieved error: the commanded one plus a deflection it cannot see
+  let eA := s 11 + dro
+  -- decided EXPLICITLY, like `inBin` and `fault` below: a `b2r` whose instance the printer cannot
+  -- see prints an `ite` the round trip cannot re-elaborate (HashemiCcc.lean's own note)
+  -- THE HARD GATE AT THE ACHIEVED ERROR.  `LostSun`'s own conjunction with `SunReachable`'s body
+  -- written out (`sunReachable_iff`, HashemiDroop) and the instance given explicitly, which is
+  -- how `inBin` and `fault` are written here and for the same reason: a `b2r` whose proposition
+  -- names a COMPILED definition becomes an opaque call in the printed twin, and no `if`
+  -- re-elaborates into it - measured, `hashemiEnv_ccc` then runs past 4e6 heartbeats at
+  -- `isDefEq`.  `mount_lost_sun` keeps the mount's own flag at the COMMANDED error.
+  let lostA := @b2r (Real.pi / 2 - s 4 ≤ elSun ∧ 0.03 < eA) (Classical.propDecidable _)
   let cap := (∑ i : Fin 64, dishPower R f a w rc k σslope σspec rho hsun (s 0) (s 1) elSun azSun
     (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0) / 64
   let capS := (∑ i : Fin 64, dishPower R f a w rc k σslope σspec rho hsun (s 0) (s 1) elSun azSun
@@ -135,7 +161,8 @@ noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm 
   let wbight := bightDepth (s 3) (s 2)
   let wwind := windBack (s 2) rDrum
   let eAz := (azSun - s 0) - 2 * Real.pi * ((⌊((azSun - s 0) + Real.pi) / (2 * Real.pi)⌋ : ℤ) : ℝ)
-  ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9, s 10, s 11, s 12, s 13, s 14, s 15, s 16,
+  ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9, s 10, eA, s 12, s 13,
+    lostA, s 15, lostSunSAt (s 4) elSun 0.03 eA,
     cap, capS, per, Pin, Tout, qAbs, qCoil, qPipe, qPot, qNet,
     eAz, (Real.pi / 2 - s 1) - elSun, s 1, s 6, s 7, (Tout - 300) / 300, s 15, s 16,
     bin 0, bin 1, bin 2, bin 3, bin 4, bin 5, bin 6, bin 7,
@@ -144,7 +171,7 @@ noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm 
     r' 0, r' 1, r' 2, r' 3, r' 4, r' 5, r' 6, r' 7, r' 8, r' 9, r' 10, r' 11, r' 12, r' 13, r' 14, r' 15,
     Tfilm, margin, Q, deg, Ppump, mcpF, UAx, dly, fault, expansionFrac 293.15 Tout,
     margin / 300, uP, min (max deg 0) 1,
-    wrun, wpaid, wbight, wwind,
+    wrun, wpaid, wbight, wwind, dro, tA,
     s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9,
     s 10, s 11, s 12, s 13, s 14, s 15, s 16,
     mg 0, mg 1, mg 2, mg 3, mg 4, mg 5, mg 6, mg 7, mg 8, mg 9,
@@ -198,56 +225,54 @@ def envOwnNames : Array String := #[
   "ret_8", "ret_9", "ret_10", "ret_11", "ret_12", "ret_13", "ret_14", "ret_15",
   "T_film", "film_margin", "flow", "deg", "p_pump", "mcp", "UA_x", "delay", "fault", "expansion",
   "obs_margin", "obs_flow", "obs_deg",
-  "wire_run", "wire_paid", "wire_bight", "wire_wind"]
+  "wire_run", "wire_paid", "wire_bight", "wire_wind", "droop", "t_achieved"]
 
 /-- the columns: the env's own, then the mount's -/
 def envNames : Array String := envOwnNames ++ mountNames
 
-theorem envOwnNames_size : envOwnNames.size = 100 := by rfl
-theorem envNames_size : envNames.size = 100 + 230 := by
+theorem envOwnNames_size : envOwnNames.size = 102 := by rfl
+theorem envNames_size : envNames.size = 102 + 230 := by
   simp only [envNames, mountNames, Array.size_append, Array.size_map, envOwnNames_size,
     megaNames_size]
 
 /-- the capture is a mean of Booleans: in `[0, 1]` -/
 theorem hashemiEnv_capture_mem (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa : ℝ)
+    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW : ℝ)
     (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) :
     0 ≤ hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 17 ∧
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW hist ret dr 17 ∧
       hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 17 ≤ 1 := by
-  simp only [hashemiEnv]
-  simp only [Matrix.cons_val]
-  have h : ∀ i : Fin 64,
-      0 ≤ dishPower R f a w rc k σslope σspec rho hsun
-        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0)
-        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW hist ret dr 17 ≤ 1 := by
+  -- the bound is a fact about `dishPower` AT ANY POSE, so it is proved over a free pose and
+  -- unified with whatever the row traces at.  Since the rays moved to the ACHIEVED attitude
+  -- (`tA`, the commanded swing plus the droop) naming that pose in the statement would drag the
+  -- whole mount, the bisection and the droop through `isDefEq`; over a free pose it is O(1).
+  have h : ∀ (p q : ℝ) (i : Fin 64),
+      0 ≤ dishPower R f a w rc k σslope σspec rho hsun p q elSun azSun
         (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0 ∧
-      dishPower R f a w rc k σslope σspec rho hsun
-        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0)
-        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun
+      dishPower R f a w rc k σslope σspec rho hsun p q elSun azSun
         (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0 ≤ 1 := by
-    intro i
-    rcases dishPower_captured R f a w rc k σslope σspec rho hsun
-      (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0)
-      (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun
+    intro p q i
+    rcases dishPower_captured R f a w rc k σslope σspec rho hsun p q elSun azSun
       (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) with e | e <;>
       rw [e] <;> norm_num
+  simp only [hashemiEnv]
+  simp only [Matrix.cons_val]
   constructor
-  · exact div_nonneg (Finset.sum_nonneg fun i _ => (h i).1) (by norm_num)
+  · exact div_nonneg (Finset.sum_nonneg fun i _ => (h _ _ i).1) (by norm_num)
   · rw [div_le_one (by norm_num)]
-    calc _ ≤ ∑ _i : Fin 64, (1 : ℝ) := Finset.sum_le_sum fun i _ => (h i).2
+    calc _ ≤ ∑ _i : Fin 64, (1 : ℝ) := Finset.sum_le_sum fun i _ => (h _ _ i).2
       _ = 64 := by simp
 
 /-- **the pump's command is a command**: the flow column lies between nothing and `Qmax`, and
 the observation the policy reads of it is a fraction in `[0, 1]` - whatever the head emits -/
 theorem hashemiEnv_flow_mem (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa : ℝ)
+    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW : ℝ)
     (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) (hQ : 0 ≤ Qmax) :
     0 ≤ hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 85 ∧
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW hist ret dr 85 ∧
       hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 85 ≤ Qmax := by
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW hist ret dr 85 ≤ Qmax := by
   simp only [hashemiEnv, Matrix.cons_val]
   have h0 : 0 ≤ min (max uPump 0) 1 := le_min (le_max_right _ _) (by norm_num)
   have h1 : min (max uPump 0) 1 ≤ 1 := min_le_right _ _
@@ -257,12 +282,12 @@ theorem hashemiEnv_flow_mem (az t slack ωm ωd dt elSun azSun dni rDrum W rcm T
 
 /-- the pipe's density record moves one station: the new history's head is the coil's outlet -/
 theorem hashemiEnv_hist_head (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa : ℝ)
+    R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW : ℝ)
     (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) :
     hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 51
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW hist ret dr 51
       = hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
-        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr 21 := by
+        R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW hist ret dr 21 := by
   simp only [hashemiEnv]
   simp only [Matrix.cons_val, shift]
 
