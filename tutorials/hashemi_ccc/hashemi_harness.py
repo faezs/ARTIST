@@ -97,6 +97,7 @@ class HashemiHarness(TandoorHashemiEnv):
         self._np = G._Back()
         self.hk_state = np.zeros((B, 3))
         self.M.reset(self._np, self.hk_state)
+        self._publish_attrs(self._np)
         self.row = self.M.row_host
         self.hk_row = self.row
         self.cap_traced = np.zeros(B)
@@ -159,6 +160,7 @@ class HashemiHarness(TandoorHashemiEnv):
         self.M.reset(self._np, self.hk_state)
         if self._t is not None:
             self.M.reset(self._t, self._st)
+        self._publish_attrs(self._t if self._t is not None else self._np)
         return res
 
     # --- the beam receiver's node profile: where the parent's own trace puts the pot's power
@@ -214,15 +216,19 @@ class HashemiHarness(TandoorHashemiEnv):
                     T=np.asarray(self.T, dtype=np.float64),
                     gate=self._valve_np())
 
+    def _publish_attrs(self, be):
+        """the machine's mirrors as env attributes, before any step has run"""
+        for att, v in self.M.attrs(be).items():
+            setattr(self, att, v)
+
     def _publish(self, be):
         row = self.M.publish(be)
         self.row = row
         self.hk_row = row
         self.machine_obs = self.M.obs
         self.u_pump = self.M.u_pump
-        for att, key in G.PUBLISH:
-            if key in self.M.mirror[be.tag]:
-                setattr(self, att, be.host(self.M.mirror[be.tag][key]))
+        for att, v in self.M.attrs(be).items():
+            setattr(self, att, v)
         if self.M.oil:
             self.hist = row[:, self.M.cols.like("hist_")]
             self.ret = row[:, self.M.cols.like("ret_")]

@@ -668,12 +668,23 @@ class Machine:
             if self.oil:
                 self.tables.setdefault(be.tag, {})[name] = be.zeros(
                     (self.B, len(self.cols.like(name + "_"))), self.t_amb)
+        # before the first step the mirrors are the state the tables start in: what the kernel
+        # grades a TEMPERATURE starts at ambient, as the two pipe fields do, and the rest at zero.
+        # (The parent's own readers ask for `t_oil` before they ask for a step.)
         self.mirror.setdefault(be.tag, {})
         for att, col, who in MIRROR:
             if who == "oil" and not self.oil:
                 continue
             if col in self.cols:
-                self.mirror[be.tag].setdefault(att, be.zeros((self.B,)))
+                self.mirror[be.tag][att] = be.zeros((self.B,), self.t_amb
+                                                    if self.is_temperature(col) else 0.0)
+
+    def is_temperature(self, col):
+        """the graded manifest decides; before it is emitted, the column's own name does"""
+        try:
+            return self.cols.grade(col).get("kind") == "temperature"
+        except Exception:
+            return col.startswith("T_")
 
     def sync_state(self, be, az, t, slack):
         st = self.state[be.tag]
@@ -776,6 +787,11 @@ class Machine:
                     mir[att] = row[:, self.cols[col]].copy()
                 else:
                     mir[att] = row[:, self.cols[col]]
+
+    def attrs(self, be):
+        """the mirrors under the attribute name the parent's own readers know each by"""
+        mir = self.mirror[be.tag]
+        return {att: be.host(mir[key]) for att, key in PUBLISH if key in mir}
 
     def publish(self, be):
         """the host mirrors the parent's readers expect, and the observation row"""

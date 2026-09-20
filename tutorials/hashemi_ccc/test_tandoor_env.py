@@ -14,7 +14,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "bridge"))
 sys.path.insert(0, HERE)
 from export_scene import ini_env_kwargs               # noqa: E402
-from hashemi_tandoor_env import HashemiTandoorEnv     # noqa: E402
+# THE WRAPPER IS GENERATED (hashemi_tandoor_ccc.py, printed by RequestProject/HashemiCcc.lean
+# beside the kernels).  HASHEMI_WRAPPER=env runs the hand-written one it replaces instead; the
+# two were measured bit-identical over a day, every column and every step.
+if os.environ.get("HASHEMI_WRAPPER", "ccc") == "env":
+    from hashemi_tandoor_env import HashemiTandoorEnv  # noqa: E402
+else:
+    from hashemi_tandoor_ccc import HashemiTandoorEnv  # noqa: E402
 from hashemi_kernel import COL                        # noqa: E402
 from hashemi_env_kernel import ECOL                   # noqa: E402
 
