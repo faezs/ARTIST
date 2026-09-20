@@ -97,7 +97,7 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
     """the tandoor with his concentrator: the machine from one compiled morphism"""
 
     def __init__(self, *args, lost_shaping=0.0, pointing_shaping=0.0, capture_shaping=0.2, t_amb=300.0, trace_rays=None,
-                 machine_receiver="oil", oil_nodes=8, pump_price=PUMP_PRICE, deg_price=DEG_PRICE, dish_half=None, dish_design=1, dish_R=None, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
+                 machine_receiver="oil", oil_nodes=8, pump_price=PUMP_PRICE, deg_price=DEG_PRICE, dish_half=None, dish_design=1, dish_R=None, dish_k=None, beam_L=1.25, beam_dm=0.06, beam_rm=0.06, beam_rt=0.55, beam_slot=0.06, beam_beta=0.0, **kwargs):
         # THE MACHINE'S RECEIVER (the parent's `receiver` - its tri chain - passes through untouched):
         # "oil" - the coil at F, hot oil in insulated pipes, the exchanger in the pot's wall
         # (HashemiHeat/HashemiField.lean); "beam" - a hyperboloid inside the coil's envelope sending
@@ -177,6 +177,11 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         super().__init__(*args, **kwargs)
         B = self.num_agents
         self._params = env_params()
+        # the figure, in the spec's own homotopy: -1 a paraboloid, 0 the sphere he sweeps
+        # on his curved-rod jig (OpticsSphere proves the sphere has no single focus, so this
+        # is not a free parameter but a fact about his form). The default is his.
+        if dish_k is not None:
+            self._params["k"] = float(np.clip(float(dish_k), -1.0, 0.0))
         # THE REFLECTOR'S EXTENT IS DERIVED, NOT SCALED BY HAND (2026-09-19). The panel is the
         # square section of half-side `a` cut from the sphere of radius `R`; his numbers are
         # a = 0.8, R = 2, f = R/2. Until this commit `dish_half` multiplied a by 1/0.4 and left

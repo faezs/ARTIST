@@ -63,7 +63,13 @@ LOOP_PARAMS = dict(
 # the reward's prices for the two new costs (HashemiReward.lean pumpCostRaw / degCostRaw)
 PUMP_PRICE = 1.0        # an electrical joule priced as the shaping prices a thermal one
 DEG_PRICE = 5.0e-7      # rotis' reward per K s over the film limit: ~1 roti for a day 50 K over
-DISH_K, SLOPE_ERR, SPEC_ERR = -1.0, 2e-3, 1e-3
+# THE FIGURE IS NOT FREE, AND IT WAS PINNED AT THE FAVOURABLE END. `conicZ` carries the spec's
+# homotopy k in [-1, 0]: -1 is a paraboloid, which focuses a parallel beam to a point, and 0 is a
+# sphere, which does not (OpticsSphere.no_single_focus, caustic_fills, bestFocus). His form is a
+# SPHERE - the file's own sag, screw length and FH are `TandoorSphere` of `dishR` - and he sweeps
+# it with a curved rod on a spherical jig. This constant said -1 anyway, so every capture number
+# was a paraboloid's. `dish_k` is the env's knob now; DISH_K is its default, his own figure.
+DISH_K, SLOPE_ERR, SPEC_ERR = 0.0, 2e-3, 1e-3
 
 
 def env_source():
