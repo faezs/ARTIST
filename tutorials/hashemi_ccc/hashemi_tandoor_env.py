@@ -39,7 +39,7 @@ for _p in (ROOT, TUT, HERE):
 
 import torch                                        # noqa: E402
 from tandoor_hashemi_env import TandoorHashemiEnv   # noqa: E402
-from hashemi_kernel import COL, mega_numpy, mega_params_numpy                       # noqa: E402
+from hashemi_kernel import COL, mega_numpy, mega_params_numpy, mega_dims_numpy      # noqa: E402
 from hashemi_env_kernel import (HashemiEnvMetal, env_numpy, env_params, pack, draws, exch_ua,  # noqa: E402
                                 ECOL, EIN, N_IN, N_OUT, P as ENV_RAYS, M as ENV_M, N_HIST, HIST_COLS, RET_COLS,
                                 LOOP_PARAMS, PUMP_PRICE, DEG_PRICE)
@@ -193,7 +193,17 @@ class HashemiTandoorEnv(TandoorHashemiEnv):
         self._fused_profile = None
         self._beam_profile = None
         self._prm_np = mega_params_numpy()
-        rest = mega_numpy(np.zeros((1, 3)), np.zeros((1, 2)), 0.0, np.array([[0.5, 0.0, 800.0]]), self._prm_np)
+        # THE MOUNT AT THIS MACHINE'S SIZE.  `megaStep` and the five beside it take `dHalf wFacet
+        # rCoil` now (HashemiMega.lean), so the dead point and the aperture below are THIS
+        # reflector's and not his 0.8 m build's - until 2026-09-20 every agent's mount was his,
+        # whatever the optics were flying.
+        if dish_half is None:
+            self._dims_np = mega_dims_numpy()                      # his own, from `traceParams`
+        else:
+            _m0 = load_machine(float(dish_half), design=bool(dish_design))
+            self._dims_np = np.array([float(_m0["kernel"][k]) for k in ("a", "w", "rc")])
+        rest = mega_numpy(np.zeros((1, 3)), np.zeros((1, 2)), 0.0, np.array([[0.5, 0.0, 800.0]]),
+                          self._prm_np, self._dims_np)
         self.t_dead = float(rest[0, COL["t_dead"]])
         self.dish_area = float(rest[0, COL["dishSide"]]) ** 2
         # THE PARENT'S DAY AND CUT PULLED BACK ALONG THE SPEC'S Ω-COLUMNS: `sun_reachable`

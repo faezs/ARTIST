@@ -1,0 +1,18 @@
+digraph "TandoorHashemi.windBack_mul" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="rDrum", shape=box];
+  n1 [label="0", shape=plaintext];
+  n2 [label="!=", shape=ellipse];
+  n0 -> n2; n1 -> n2;
+  n3 [label="slack", shape=box];
+  n4 [label="/", shape=ellipse];
+  n3 -> n4; n0 -> n4;
+  n5 [label="*", shape=ellipse];
+  n4 -> n5; n0 -> n5;
+  n6 [label="==", shape=ellipse];
+  n5 -> n6; n3 -> n6;
+  n7 [label="->", shape=ellipse];
+  n2 -> n7; n6 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}

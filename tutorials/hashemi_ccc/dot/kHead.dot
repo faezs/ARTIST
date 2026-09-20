@@ -1,0 +1,6 @@
+digraph "TandoorHashemi.kHead" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="0.18125", shape=plaintext];
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n0 -> out0;
+}

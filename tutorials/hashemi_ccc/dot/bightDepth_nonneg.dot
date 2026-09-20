@@ -1,0 +1,29 @@
+digraph "TandoorHashemi.bightDepth_nonneg" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="L", shape=box];
+  n1 [label="s", shape=box];
+  n2 [label="0", shape=plaintext];
+  n3 [label="<=", shape=ellipse];
+  n2 -> n3; n0 -> n3;
+  n4 [label="<=", shape=ellipse];
+  n2 -> n4; n1 -> n4;
+  n5 [label="2", shape=plaintext];
+  n6 [label="*", shape=ellipse];
+  n5 -> n6; n0 -> n6;
+  n7 [label="+", shape=ellipse];
+  n6 -> n7; n1 -> n7;
+  n8 [label="*", shape=ellipse];
+  n1 -> n8; n7 -> n8;
+  n9 [label="sqrt", shape=ellipse];
+  n8 -> n9;
+  n10 [label="/", shape=ellipse];
+  n9 -> n10; n5 -> n10;
+  n11 [label="<=", shape=ellipse];
+  n2 -> n11; n10 -> n11;
+  n12 [label="->", shape=ellipse];
+  n4 -> n12; n11 -> n12;
+  n13 [label="->", shape=ellipse];
+  n3 -> n13; n12 -> n13;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n13 -> out0;
+}
