@@ -831,6 +831,8 @@ solved value comes with a theorem that it satisfies its conjunct by construction
 | `panelMin` | `panelW >= pumpElec + trackW` | `pump_holds_of_panel` |
 | `AcMin`, `coilLenMin` | `Ac >= alpha Pin / (h (Tfilm_max - Tbulk_max))` | `film_holds_of_Ac` |
 | `tankMin` | `Vtank >= Vloop * expansion` | `tank_holds_of_tank` |
+| `coilLenDel` | `Lxch >= qBand / ((oilBulkMax - Tcook) * uaExch_per_m)` | `delivery_holds_of_coilLen` |
+| `dMaxDel` | `dStand <= Dc/2 * cosh(2 pi k Lxch (oilBulkMax - Tcook) / qBand)` | `delivery_holds_of_d` |
 
 `design : Givens -> Givens` is the pointwise maximum of the held value and its floor - the MINIMAL
 change - and `design_tracker`, `design_pump`, `design_film`, `design_tank` are proved of it.
@@ -881,6 +883,71 @@ fixed**, and `design` is what the file's own inequalities say to do about it.
   not touch them, because no constraint of the file names the mass.
 * `one_turn_tilt` is invariant (`f/side` does not move): 0.94 mm at F at any size, 93 % of the
   1 mm allowance.
+
+### DELIVERY: the constraint that decides whether the pot bakes
+
+`uaExch` (HashemiOil.lean) made the exchanger's conductance a law - a tube of bore `Dc` and length
+`Lc` buried `d` behind the baking face in a liner of `kw` has the buried-cylinder shape factor
+`2 pi kw Lc / arccosh(2d/Dc)` - and the machine's output fell from 200 to 32 rotis a day. So the
+EMBEDMENT is the binding constraint, and `Sound` did not contain it. `SoundLoop` has a fourth
+conjunct now, `qBand <= qDeliv`, and neither side is invented:
+
+* **what the band needs**, `qBand`. `StatedLaws.TandoorLoad.rotis_le_energy` is the day's energy
+  balance (`eRoti n + loss = sun + dE`); read as a RATE it says the delivered power must cover the
+  rotis' energy rate plus the losses. Both are the parent oven's own laws at the cook's own
+  threshold `T_COOK_LO = 453 K` ("the REAL bakery loads from 180 C", tandoor_rl_env.py:88): the
+  dough drinks `h_bread (T - T_dough)`, the face radiates `0.85 sigma A (T^4 - T_cav^4)` and the
+  liner drains `g01 (T - T_sub)` into the wall behind. The band's area is `Tandoor.lean`'s: the
+  spherical zone between `zBakeLo` and `zCrown` on `rSph` over `nBelt` slots - 0.628 m2 a slot -
+  and the coil feeds `oil_nodes` of them. No rate is invented: the dough's own conductance sets it.
+  At the ini's two slots, in a cold pit: **4514 W**.
+* **what the exchanger carries**, `qDeliv`. `HashemiHeat.qPot` is `UA (Toil - Twall)`, the oil is
+  never above `oilBulkMax` and the wall must be at `Tcook` to take dough, so
+  `uaExch (oilBulkMax - Tcook)` is the most it will ever deliver there.
+
+**One finding on the way**: the length `exch_ua` was handed was `Ac / (pi Dc)` - the RECEIVER
+coil's own length at F, a different segment of the same circuit. The exchanger's buried tube is
+its own held quantity now, `Lxch`, its floor `6.3662 m` being LOOP_PARAMS' own `Axch = 0.20 m2` at
+the loop's 10 mm bore; `Lrec` keeps the receiver's.
+
+```
+  Lxch       6.366200 -> 56.123298   (Delivery)
+  the band the exchanger feeds needs 4514.15 W at 453 K (the pit cold at 300 K, 2 slots of
+  0.628007 m2); the exchanger as held carries 512.05 W (3.1005 W/K)
+  DELIVERY, the two levers: 56.1233 m of buried 0.010 m tube at the spec's 0.063 m standoff, OR
+  the tube it HAS (6.3662 m) buried no deeper than 0.005338 m; a metre of tube buys 0.487029 W/K,
+  a millimetre forward buys 0.015307 W/K
+```
+
+Measured, day 172, the follower, the 2 m machine, `--gpu 1`, 8 agents:
+
+| the exchanger | `coilLen` | `dStand` | `uaExch` | rotis/day | belt Tmax | q_pot |
+|---|---|---|---|---|---|---|
+| held `Lxch` (`Axch` at 10 mm) | 6.37 m | 63 mm | 3.10 W/K | 0.4 | 396 K | 653 W |
+| the receiver coil's length, as the code read it | 9.97 m | 63 mm | 4.86 W/K | 32.1 | 404 K | 962 W |
+| **designed by Delivery** (the length lever) | 56.12 m | 63 mm | 27.33 W/K | **116.0** | 458 K | 2266 W |
+| the same held tube at `dMaxDel` (the standoff lever) | 6.37 m | 5.3 mm | 27.35 W/K | 116.0 | 459 K | 2266 W |
+| 23 m at the baking face (both levers) | 22.92 m | 10 mm | 27.34 W/K | 116.0 | 458 K | 2266 W |
+
+(`--gpu 1`, 8 agents, `--pump rule`; the same five runs on the pre-scaling spec gave 0.4 / 32.1 /
+116.25 / 116.25 / 116.25, so the areal weight does not move them.)
+
+**Is the designed coil buildable? Not at the standoff the spec states.** The shape factor is for
+ONE isolated cylinder in a semi-infinite medium, so neighbours must be about `2d` apart or their
+fields overlap: at 63 mm that is a 126 mm pitch, and 56.12 m of tube then wants **7.07 m2** of
+wall - 5.6x the 1.26 m2 the two slots it feeds present, and 1.4x the whole 5.02 m2 band. At that
+depth the two slots hold 9.97 m, which is 4.85 W/K - **exactly where the machine already was**, so
+the length lever alone is exhausted at the 32-roti baseline. Bring the tube forward and both
+levers move together (the conductance per metre rises AND the pitch shrinks): at a 10 mm standoff -
+the 10 mm tube's wall flush with the baking face - delivery needs **22.9 m at a 20 mm pitch,
+0.46 m2**, inside ONE slot, and it measures the same 116 rotis. Per watt per kelvin the standoff is
+the cheaper lever and it is cheaper quadratically in wall area (0.259 m2 per W/K at 63 mm against
+0.017 at 10 mm); what it cannot do is run away - it saturates at the face, while the tube is
+linear and unbounded. The buildable machine is ~23 m of 10 mm copper at the baking face of two
+slots, not 56 m at 63 mm.
+
+Caveat kept with the numbers: `Ccoil` (the coil's own 216 J/K) is still the RECEIVER coil's and
+does not follow `Lxch`, so the buried tube's own thermal inventory is not carried.
 
 ### In the env
 

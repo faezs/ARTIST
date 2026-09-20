@@ -105,6 +105,13 @@ theorem standFootOf_derive (a : ℝ) : standFootOf a = (derive { a := a }).stand
 /-- the rail's height over the deck, his fixed base's own (`megaGeom`'s column 13 is this) -/
 noncomputable def zRailHashemi : ℝ := hashemiBase.zRail
 
+/-- the bar's height over the deck at this size.  `zRailOf` is §16's own, and it IS `megaGeom`'s
+column 13; this alias exists only to give its binder the name the scene binds by (`zRailOf` takes
+`_a`, which the printer would otherwise make an INPUT of every scene that draws a rail). -/
+noncomputable def zBarOf (a : ℝ) : ℝ := zRailOf a
+
+theorem zBarOf_zRail (a : ℝ) : zBarOf a = zRailOf a := rfl
+
 /-- a point already in the roof frame, or a vector binder drawn where it is -/
 def pointOf (O : Fin 3 → ℝ) : Fin 3 → ℝ := O
 
@@ -223,8 +230,8 @@ theorem drumFoot_is_drumAt (az a : ℝ) (i : Fin 3) :
 
 /-- the rails' tip is beyond the stand they carry at every size, which is what puts the drum
 outboard of the mast in the drawing: `Hashemi.lean` §16's own `stand_before_end`. -/
-theorem outrig_tip_beyond_stand {a : ℝ} (ha : 0 < a) : ymOf a < endStationOf a := by
-  exact stand_before_end ha
+theorem outrig_tip_beyond_stand {a : ℝ} (ha : 0 < a) : ymOf a < endStationOf a :=
+  HashemiDims.stand_before_end ha
 
 /-! **The four hangers are two V-pairs, one per bolt** (`Hashemi.lean` § 6, 8, 12).  The bolt line
 runs ALONG THE BAR (`boltLineM`, the carriage frame's second coordinate), the panel hangs between
@@ -558,31 +565,31 @@ theorem roofOfDish_axes (az t apexH zBolt f : ℝ) (q : Fin 3 → ℝ) (i : Fin 
   fin_cases i <;> rfl
 
 /-- **the dish frame's origin is `megaGeom`'s `V`** (columns 20 and 21, the vertex in the bolt
-plane at the swing `t`) -/
+plane at the swing `t`) - at the reflector's own size now that the mount scales -/
 theorem dishVertexPt_megaGeom (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive
-    L10 rodLen : ℝ) :
-    (dishVertexPt dishF t).1 = megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho
+    L10 rodLen a w rc : ℝ) :
+    (dishVertexPt (fOf a) t).1 = megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho
       Fdrive L10 rodLen a w rc 20 ∧
-    (dishVertexPt dishF t).2 = megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho
+    (dishVertexPt (fOf a) t).2 = megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho
       Fdrive L10 rodLen a w rc 21 := ⟨rfl, rfl⟩
 
 /-- **the bolt frame's origin is `megaGeom`'s `Froof`** (columns 47 and 48): F stands over the
-apex station, turned by the azimuth -/
+apex station, turned by the azimuth - at the reflector's own size -/
 theorem boltOriginPt_megaGeom (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive
-    L10 rodLen : ℝ) :
-    roofOfBolt az hashemi.apexH zBoltHashemi boltOriginPt 0 = megaGeom az t slack ωm ωd dt elSun
+    L10 rodLen a w rc : ℝ) :
+    roofOfBolt az (apexHOf a) (zBoltOf a) boltOriginPt 0 = megaGeom az t slack ωm ωd dt elSun
       azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 47 ∧
-    roofOfBolt az hashemi.apexH zBoltHashemi boltOriginPt 1 = megaGeom az t slack ωm ωd dt elSun
+    roofOfBolt az (apexHOf a) (zBoltOf a) boltOriginPt 1 = megaGeom az t slack ωm ωd dt elSun
       azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 48 := by
   have h47 : megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 47
-      = (rot az (hashemi.apexH, 0)).1 := rfl
+      = (rot az (apexHOf a, 0)).1 := rfl
   have h48 : megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 48
-      = (rot az (hashemi.apexH, 0)).2 := rfl
+      = (rot az (apexHOf a, 0)).2 := rfl
   rw [h47, h48]
   constructor
-  · show (rot az (hashemi.apexH + (0 : ℝ), 0)).1 = _
+  · show (rot az (apexHOf a + (0 : ℝ), 0)).1 = _
     rw [add_zero]
-  · show (rot az (hashemi.apexH + (0 : ℝ), 0)).2 = _
+  · show (rot az (apexHOf a + (0 : ℝ), 0)).2 = _
     rw [add_zero]
 
 /-- **the rim's mast-side end is the clip**: the scene draws no new point for C -/
@@ -726,8 +733,8 @@ noncomputable def skyOfDish (az t apexH zBolt f elSun azSun zt : ℝ) (q : Fin 3
   alongSun elSun azSun zt (roofOfDish az t apexH zBolt f q)
 
 /-- the same, at the pose the env's own step produced -/
-noncomputable def envSkyOfDish (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt f zt : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
-  alongSun elSun azSun zt (envRoofOfDish az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt f q)
+noncomputable def envSkyOfDish (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt f zt a w rc : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  alongSun elSun azSun zt (envRoofOfDish az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt f a w rc q)
 
 /-- **the sun's centre is `sunDir` scaled**: the body the picture draws is on the specification's
 own line of sight, not beside it -/
@@ -1271,7 +1278,12 @@ bound, the env scene's input row IS `hashemiEnv`'s input row.  Both scenes bind 
 machine's dimensions are never handed to a picture from outside. -/
 
 /-- the rail the carriage rides, `megaGeom`'s column 13 (`zRail`) at this very pose -/
-def zBarB : Bound := .node "megaGeom" (some 13)
+-- the bar's height: §16's own `zRailOf`, which IS `megaGeom`'s column 13.  It was bound to that
+-- column directly until 2026-09-20; when the mount took `dHalf wFacet rCoil` as binders, the
+-- scene inherited all three as INPUTS of its own (50 against the env kernel's 47) and the env
+-- scene would have drawn the machine at dHalf = 0.  Binding the dimension instead of the column
+-- costs nothing and keeps the two input lists equal.
+def zBarB : Bound := .node "zBarOf"
 /-- the bolt line over the deck: his own constant -/
 def zBoltB : Bound := .node "zBoltOf"      -- scales with the reflector (zBoltOf_his: his value at 0.8)
 /-- the apex station at this size -/
