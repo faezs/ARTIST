@@ -18,9 +18,11 @@ import RequestProject.HashemiTrace
 import RequestProject.HashemiTraceProps
 import RequestProject.HashemiOil
 import RequestProject.HashemiEnv
+import RequestProject.HashemiWire
 import RequestProject.HashemiPolicy
 import RequestProject.HashemiBeamdown
 import RequestProject.HashemiReward
+import RequestProject.HashemiGrade
 import RequestProject.Ccc
 
 open Lean Meta Ccc
@@ -198,7 +200,9 @@ structure StagedCfg where
 def stagedCfg : String → Option StagedCfg
   | "swingOfLength" => some { ym := "ym", hp := "hp", aa := "a", ze := "ze", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt" }
   | "step" => some { ym := "ym", hp := "hp", aa := "a", ze := "ze", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt", unf := ["step"] }
-  | "megaStep" => some { ym := "ymHashemi", hp := "hpHashemi", aa := "dishHalf", ze := "zeHashemi", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt", unf := ["megaStep", "step"] }
+  -- the mount's four constants are FUNCTIONS OF THE SIZE since 2026-09-20 (`dHalf` is
+  -- `megaStep`'s own binder), so the staged proof's `show` must name them as the twin prints them
+  | "megaStep" => some { ym := "(ymOf dHalf)", hp := "(hpOf dHalf)", aa := "dHalf", ze := "(zeOf dHalf)", t := "t", slack := "slack", ωd := "ωd", rDrum := "rDrum", dt := "dt", unf := ["megaStep", "step"] }
   | "dishPower" => some { chain := false }
   | _ => none
 
@@ -336,12 +340,933 @@ def stagedProof (txt : String) (binders : String) (cfg : StagedCfg) : Option Str
     p := p.push "  rfl"
   return some (stmt ++ "\n".intercalate p.toList)
 
+/-! ## The grading, emitted beside every kernel
+
+`HashemiGrade.lean` says what a column IS — its subsystem, its kind, its unit, its frame and its
+defining declaration.  Three parts of that are DERIVED here rather than written there:
+
+* the **truth** kind, from the compiled graph (`Ccc.Fun.truthCols`: a boolean node, or the
+  `if c then 1 else 0` that `b2r` compiles to).  Where a grade is stated the derivation CHECKS it
+  and a disagreement throws; where none is stated and the column is an indicator, the grade is
+  supplied whole (`omega`, `truth`) — so a theorem added to `megaThmsState` tomorrow is graded
+  the day it is added;
+* the **declaration**, by looking the column's name up in the environment (`prop_<n>` first: the
+  proposition columns are named after their own theorems);
+* nothing else.  A column that is neither stated nor an indicator FAILS THE EMIT, and that is the
+  gate: `lake build RequestProject.HashemiCcc` errors until it is graded. -/
+
+/-- the declaration a column's name names, if the environment has one -/
+def declInEnv (root : Name) (n : String) : MetaM (Option String) := do
+  let env ← getEnv
+  for c in [root ++ ("prop_" ++ n).toName, root ++ n.toName] do
+    if env.contains c then return some c.toString
+  return none
+
+def gradeRowJson (n : String) (g : HashemiGrade.Grade) (decl : String) : String :=
+  "{" ++ ", ".intercalate [
+    "\"name\": " ++ jsonStr n,
+    "\"subsystem\": " ++ jsonStr g.sub.name,
+    "\"kind\": " ++ jsonStr g.kind.name,
+    "\"unit\": " ++ jsonStr g.unit,
+    "\"frame\": " ++ jsonStr g.frame.name,
+    "\"decl\": " ++ jsonStr decl] ++ "}"
+
+/-- **the grades of one morphism's columns**: the JSON array that goes beside its kernel, and the
+truth mask the box printer acted on.  Throws when the names do not line up with the columns, when
+a column has no grade, or when the stated kind and the graph disagree. -/
+def gradesOf (root : Name) (who : String) (cols : Array String) (truth : Array Bool) :
+    MetaM (String × String) := do
+  unless cols.size == truth.size do
+    throwError "{who}: {cols.size} column NAMES for {truth.size} columns - the names do not line up"
+  let mut rows : Array String := #[]
+  for k in [0:cols.size] do
+    let n := cols[k]!
+    let isT := truth[k]!
+    let saw := if isT then "an indicator" else "a real"
+    let g : HashemiGrade.Grade ← match HashemiGrade.lookup n with
+      | some g =>
+        if (g.kind == HashemiGrade.Kind.truth) != isT then
+          throwError "{who}: the column {n} is graded '{g.kind.name}' and the graph says it is {saw} - one of the two is wrong"
+        else pure g
+      | none =>
+        if !isT then
+          throwError "{who}: the column {n} has NO GRADE. Give it one in HashemiGrade.rows (subsystem, kind, unit, frame); a column without a grade is not emitted."
+        else pure { sub := .omega, kind := .truth, unit := "", frame := .none, decl := "" }
+    let decl ← match g.decl with
+      | "" => do
+        match ← declInEnv root (HashemiGrade.base n) with
+        | some d => pure d
+        | none => pure (root ++ who.toName).toString
+      | d => pure (if d.any (· == '.') then d else (root ++ d.toName).toString)
+    rows := rows.push ("  " ++ gradeRowJson n g decl)
+  let truthJson := ", ".intercalate (truth.toList.map fun b => if b then "true" else "false")
+  return ("[\n" ++ ",\n".intercalate rows.toList ++ "]", "[" ++ truthJson ++ "]")
+
+-- the wrapper's fixed text is one long list literal: it nests as deep as it is long
+set_option maxRecDepth 20000
+
+/-! ## The env wrapper, printed from the same manifests as the kernels
+
+`hashemi_tandoor_env.py` was the last hand-written surface of this directory, and every defect
+found in the week of 2026-09-14 lived in it and in nothing compiled: the pointing shaping entered
+the trainer raw on one path and divided by `reward_div` on the other (75x); the exchanger's
+conductance was a bare `60.0` with no law anywhere, binding on 99.9 % of a day's steps; the
+dish's conic constant was pinned in Python at the favourable end of the spec's own interval; the
+scene's inputs were pooled on a host instead of composed in the graph; the exchanger's node
+profile was inherited by accident from the parent env's tri chain.  Each is the same defect: a
+number or a formula written twice, once per path, by hand.
+
+So the wrapper is printed too, beside the kernels, from these tables and the manifests those
+kernels already carry - and ONCE for both paths, because what differs between the parent's NumPy
+step and its fused Metal step is a backend object and nothing else.  `hashemi_harness.py` beside
+it is the hand-written half: the subclass of the parent tandoor env, its hooks, its heads, its
+device plumbing and its window - the PARENT's contract, which no manifest of Hashemi.lean can
+state.
+
+The tables below are the wrapper's whole content: which input of the compiled morphism is bound
+from which source each step (every input NOT named here is a parameter of the machine, computed
+as a set difference in the module and checked to be a partition at its import), which columns are
+the state and the two fields along the pipe, which the host mirrors, and how the reward's inputs
+are composed.  `run` checks every one of them against the compiled `hashemiEnv`,
+`hashemiEnvBeam` and `rewardStep` before printing: a rename in the spec is an error HERE, not a
+silent zero in a trainer. -/
+
+/-- the env kernel's inputs bound per step, and the source `Machine._derive` gives each -/
+def envBind : List (String × String) :=
+  [("az", "state_az"), ("t", "state_t"), ("slack", "state_slack"),
+   ("omegam", "drive_az"), ("omegad", "drive_el"),
+   ("dt", "dt"),
+   ("elSun", "sun_el"), ("azSun", "sun_az"), ("dni", "dni"), ("soil", "soil"),
+   ("Twall", "t_wall"), ("Ta", "t_amb"),
+   ("uPump", "u_pump"), ("Vw", "wind"), ("degPrev", "deg"),
+   ("UAxMax", "ua_gated")]
+
+/-- the same for the beam-down receiver's kernel: no loop, so no wall and no ceiling -/
+def beamBind : List (String × String) :=
+  [("az", "state_az"), ("t", "state_t"), ("slack", "state_slack"),
+   ("omegam", "drive_az"), ("omegad", "drive_el"),
+   ("dt", "dt"),
+   ("elSun", "sun_el"), ("azSun", "sun_az"), ("dni", "dni"), ("soil", "soil")]
+
+/-- the state the wrapper carries between steps IS three of the kernel's own columns -/
+def stateWrite : List (String × String) :=
+  [("state_az", "az_next"), ("state_t", "t_next"), ("state_slack", "slack_next")]
+
+/-- the two fields along the pipe (`HashemiField.shift`), by the prefix their columns carry -/
+def tableWrite : List (String × String) := [("hist", "hist_"), ("ret", "ret_")]
+
+/-- the columns the host keeps a mirror of, and what the wrapper calls each.  `oil` marks one
+that only the loop receiver's kernel carries. -/
+def mirrorCols : List (String × String × String) :=
+  [("cap_traced", "capture", "both"), ("arm", "arm", "both"), ("p_in", "p_in", "both"),
+   ("per_dni", "per_dni", "both"), ("pointing_err", "pointing_err", "both"),
+   ("sun_reachable", "sun_reachable", "both"), ("lost_sun_s", "lost_sun_s", "both"),
+   ("t_oil", "T_oil", "oil"), ("q_pot", "q_pot", "oil"), ("deg", "deg", "oil"),
+   ("p_pump", "p_pump", "oil"), ("film_margin", "film_margin", "oil")]
+
+/-- `rewardStep`'s inputs.  `col:` reads the env row by name, `excess:` the negative part of one,
+`?0` is zero where the receiver's kernel has no such column; the rest the harness hands over.
+This table is why `reward_div` is applied once, inside the printed morphism. -/
+def rewardBind : List (String × String) :=
+  [("parentRaw", "parent_raw"), ("dt", "dt"),
+   ("pIn", "col:p_in"), ("reach", "col:sun_reachable"),
+   ("rewardDiv", "reward_div"), ("capShaping", "cap_shaping"),
+   ("rotiReward", "roti_reward"), ("rotiEnergy", "roti_energy"),
+   ("pPump", "col:p_pump?0"), ("filmExcess", "excess:film_margin?0"),
+   ("pumpPrice", "pump_price"), ("degPrice", "deg_price")]
+
+/-- the mirrors the parent's own readers know by an attribute of the env -/
+def publishAttrs : List (String × String) :=
+  [("cap_traced", "cap_traced"), ("t_oil", "t_oil"), ("deg", "deg"),
+   ("_q_pot", "q_pot"), ("_p_pump", "p_pump")]
+
+/-- a table of pairs, as the wrapper's own Python -/
+def pyPairs (name : String) (xs : List (String × String)) : List String :=
+  [name ++ " = ("] ++ xs.map (fun (a, b) => "    (" ++ jsonStr a ++ ", " ++ jsonStr b ++ "),")
+    ++ [")"]
+
+/-- a table of triples -/
+def pyTriples (name : String) (xs : List (String × String × String)) : List String :=
+  [name ++ " = ("]
+    ++ xs.map (fun (a, b, c) => "    (" ++ jsonStr a ++ ", " ++ jsonStr b ++ ", " ++ jsonStr c ++ "),")
+    ++ [")"]
+
+/-- the generated wrapper, line by line: the fixed text of the module with the
+tables above spliced in, so a rename in the spec moves them and nothing else. -/
+def wrapperPy : List String :=
+  ["# generated by RequestProject/Ccc.lean (HashemiCcc.lean) from HashemiEnv.lean, HashemiReward.lean"
+   , "# and HashemiPolicy.lean - do not edit."
+   , "\"\"\"The wrapper of his machine onto the tandoor, GENERATED from the kernels' own manifests."
+   , ""
+   , "Every kernel of this directory is printed from Lean by one driver.  Until this module the ONE"
+   , "hand-written layer left was the wrapper, and every defect of the week lived there and nowhere in"
+   , "anything compiled: the pointing shaping entered raw on one path and divided on the other (75x);"
+   , "the exchanger's conductance was a bare `60.0` with no law behind it, binding on 99.9 % of steps;"
+   , "the dish's conic constant was pinned in Python at the favourable end of the spec's own interval;"
+   , "the scene's inputs were pooled on a host instead of composed in the graph; the exchanger's node"
+   , "profile was inherited by accident from the parent env's tri chain.  They are all the same defect:"
+   , "a number or a formula written twice, once per path, by hand."
+   , ""
+   , "So the wrapper is printed too, and it is printed ONCE for BOTH paths.  `Machine.step` is a single"
+   , "method; `Backend` is the only thing that differs between the parent's NumPy step and its fused"
+   , "Metal step.  The row the kernel is handed, the columns read back out of it, the state written"
+   , "back, the reward composed, the observation gathered - each is ONE table in this file, executed by"
+   , "both paths.  Nothing here can disagree with itself about units, because there is no second copy."
+   , ""
+   , "NOTHING IS ADDRESSED BY INDEX.  Columns and inputs are resolved by name out of the manifests"
+   , "(`hashemi_env.json`, `hashemi_reward.json`, `hashemi_policy.json`, `hashemi_beam.json`); the two"
+   , "pipe histories are found by their name pattern, not by a length; the parameters of the machine"
+   , "are exactly the kernel inputs this file does not bind, computed as a set difference and CHECKED"
+   , "to be a partition at import.  When the graded manifest lands (`\"grades\"` beside `\"columns\"`, and"
+   , "`hashemi_grade.py`), `Cols.by_grade` selects on the grade; until then it says so instead of"
+   , "guessing, and everything else works off the names it already has."
+   , ""
+   , "WHAT IS HAND-WRITTEN, and why it cannot be generated: `hashemi_harness.py` - the subclass of the"
+   , "parent tandoor env (its ini kwargs, its heads, its beam gate, its guillotine and resync, the"
+   , "torch/Metal device plumbing, the pufferlib contract, the render window).  That is the PARENT's"
+   , "contract, not this spec's: no manifest of Hashemi.lean mentions it, and it changes when the"
+   , "tandoor env changes.  The harness carries no law and no constant of the machine; it hands this"
+   , "module the parent's own quantities by name and takes back the columns."
+   , "\"\"\""
+   , "import json"
+   , "import os"
+   , "import sys"
+   , ""
+   , "import numpy as np"
+   , ""
+   , "HERE = os.path.dirname(os.path.abspath(__file__))"
+   , "TUT = os.path.dirname(HERE)"
+   , "ROOT = os.path.dirname(TUT)"
+   , "for _p in (ROOT, TUT, HERE):"
+   , "    if _p not in sys.path:"
+   , "        sys.path.insert(0, _p)"
+   , ""
+   , "import hashemi_ccc as H                                                      # noqa: E402"
+   , "import hashemi_policy as machine_policy                                      # noqa: E402"
+   , "from hashemi_env_kernel import (HashemiEnvMetal, draws, env_numpy, env_params,  # noqa: E402"
+   , "                                exch_ua, PUMP_PRICE, DEG_PRICE)"
+   , "from hashemi_reward_kernel import HashemiRewardMetal, reward_numpy           # noqa: E402"
+   , ""
+   , "LEAN_DIR = os.environ.get(\"HASHEMI_LEAN_DIR\", os.path.expanduser(\"~/manifold-pareto/lean\"))"
+   , ""
+   , ""
+   , "# --------------------------------------------------------------------------- the manifests"
+   , "class Cols:"
+   , "    \"\"\"one compiled kernel's manifest, addressed BY NAME."
+   , ""
+   , "    `m[\"p_in\"]` is the column, `m.inp(\"UAxMax\")` the input, `m.like(\"hist_\")` the columns of a"
+   , "    named table in their own order (so no length is ever written down).  `by_grade` defers to the"
+   , "    graded manifest (`hashemi_grade.py`, `\"grades\"` parallel to `\"columns\"`) and raises a clear"
+   , "    message while that is still being emitted.\"\"\""
+   , ""
+   , "    def __init__(self, stem):"
+   , "        self.stem = stem"
+   , "        self.man = json.load(open(os.path.join(HERE, stem + \".json\")))"
+   , "        self.columns = list(self.man[\"columns\"])"
+   , "        self.inputs = list(self.man.get(\"inputs\", []))"
+   , "        self.arrays = list(self.man.get(\"arrays\", []))"
+   , "        self._c = {n: i for i, n in enumerate(self.columns)}"
+   , "        self._i = {n: i for i, n in enumerate(self.inputs)}"
+   , ""
+   , "    # -- columns"
+   , "    def __contains__(self, n):"
+   , "        return n in self._c"
+   , ""
+   , "    def __getitem__(self, n):"
+   , "        return self._c[n]"
+   , ""
+   , "    def get(self, n, default=None):"
+   , "        return self._c.get(n, default)"
+   , ""
+   , "    def many(self, names):"
+   , "        return [self._c[n] for n in names]"
+   , ""
+   , "    def like(self, prefix):"
+   , "        \"\"\"the columns `<prefix><k>`, k = 0, 1, 2, ... in order - a table's width is its own\"\"\""
+   , "        out, k = [], 0"
+   , "        while (prefix + str(k)) in self._c:"
+   , "            out.append(self._c[prefix + str(k)])"
+   , "            k += 1"
+   , "        return out"
+   , ""
+   , "    # -- inputs"
+   , "    def inp(self, n):"
+   , "        return self._i[n]"
+   , ""
+   , "    def has_input(self, n):"
+   , "        return n in self._i"
+   , ""
+   , "    @property"
+   , "    def n_in(self):"
+   , "        return len(self.inputs)"
+   , ""
+   , "    @property"
+   , "    def n_out(self):"
+   , "        return int(self.man[\"n_columns\"])"
+   , ""
+   , "    def table(self, name):"
+   , "        for a in self.arrays:"
+   , "            if a[\"name\"] == name:"
+   , "                return a"
+   , "        raise KeyError(\"%s has no table %r\" % (self.stem, name))"
+   , ""
+   , "    # -- the grades (a36a754's manifest: \"grades\" parallel to \"columns\", and hashemi_grade.py)"
+   , "    def by_grade(self, **sel):"
+   , "        try:"
+   , "            import hashemi_grade"
+   , "        except ImportError:"
+   , "            hashemi_grade = None"
+   , "        if hashemi_grade is None or \"grades\" not in self.man:"
+   , "            raise RuntimeError(\"manifest %s carries no grades: rebuild RequestProject.HashemiCcc\""
+   , "                               % self.stem)"
+   , "        return hashemi_grade.cols_of(self.man, **sel)"
+   , ""
+   , "    def grade(self, name):"
+   , "        try:"
+   , "            import hashemi_grade"
+   , "        except ImportError:"
+   , "            raise RuntimeError(\"manifest %s carries no grades: rebuild RequestProject.HashemiCcc\""
+   , "                               % self.stem)"
+   , "        return hashemi_grade.grade_of(self.man, name)"
+   , ""
+   , ""
+   , "ENV = Cols(\"hashemi_env\")"
+   , "REWARD = Cols(\"hashemi_reward\")"
+   , "BEAM = Cols(\"hashemi_beam\")"
+   , "POLICY = json.load(open(os.path.join(HERE, \"hashemi_policy.json\")))"
+   , "HEAD_AZ, HEAD_EL = POLICY[\"motor_heads\"]"
+   , "ACTION_LEVELS = int(POLICY[\"action_levels\"])"
+   , "OBS_NAMES = list(machine_policy.OBS_NAMES)"
+   , "# the two full-command rates of the spec (`azFull`, `elFull`), from the compiled twin"
+   , "AZ_FULL, EL_FULL = float(H.hk_azFull()), float(H.hk_elFull())"
+   , ""
+   , ""
+   , "def kernel_of(receiver):"
+   , "    \"\"\"the compiled env step of a receiver: the oil loop's, or the hyperboloid beam-down's\"\"\""
+   , "    return BEAM if receiver == \"beam\" else ENV"
+   , ""
+   , ""
+   , "# --------------------------------------------------------------- ONE description, both paths"
+   , "#"
+   , "# THE KERNEL'S INPUT ROW.  Left: the input, as the compiled morphism names it.  Right: the source,"
+   , "# as this module names it - either a quantity the harness hands over (the parent's own) or one"
+   , "# `_derive` computes below from the compiled twin.  Every input of the manifest that is NOT in"
+   , "# this table is a PARAMETER of the machine (`Machine.params`), and `_partition` checks at import"
+   , "# that the two sets are disjoint and cover the manifest: an input added in Lean and forgotten"
+   , "# here is an error at import, not a silent zero."
+   ]
+ ++
+  pyPairs "ENV_BIND" envBind
+ ++
+  pyPairs "BEAM_BIND" beamBind
+ ++
+  ["# the state the wrapper carries between steps IS three of the kernel's own columns"
+   ]
+ ++
+  pyPairs "STATE_WRITE" stateWrite
+ ++
+  ["# the two fields along the pipe, written back into the tables the kernel reads next step"
+   ]
+ ++
+  pyPairs "TABLE_WRITE" tableWrite
+ ++
+  ["# the columns the host keeps a mirror of, and the attribute the parent's readers know them by."
+   , "# `oil` marks a column only the loop receiver's kernel carries."
+   ]
+ ++
+  pyTriples "MIRROR" mirrorCols
+ ++
+  ["# THE REWARD, in the printed morphism's own units.  `col:` reads the env row by name, `excess:`"
+   , "# the negative part of one (the film's margin below its limit), `?0` is zero when the receiver's"
+   , "# kernel does not carry that column; everything else is a quantity the harness hands over.  Both"
+   , "# paths execute THIS table: `reward_div` is applied once, inside `rewardStep`, and the 75x of"
+   , "# 2026-09-19 cannot recur because there is no second expression to disagree with."
+   ]
+ ++
+  pyPairs "REWARD_BIND" rewardBind
+ ++
+  [""
+   , ""
+   , "def _partition(cols, bind, extra=()):"
+   , "    \"\"\"the inputs this module binds per step, and the rest - the machine's parameters."
+   , ""
+   , "    A partition, checked: an input of the compiled morphism is either bound from a source above"
+   , "    or a parameter, never both and never neither.\"\"\""
+   , "    bound = [n for n, _ in bind]"
+   , "    dup = [n for n in bound if bound.count(n) > 1]"
+   , "    if dup:"
+   , "        raise RuntimeError(\"%s: bound twice: %s\" % (cols.stem, sorted(set(dup))))"
+   , "    unknown = [n for n in bound if not cols.has_input(n)]"
+   , "    if unknown:"
+   , "        raise RuntimeError(\"%s: bound inputs that the kernel does not take: %s\" % (cols.stem, unknown))"
+   , "    params = [n for n in cols.inputs if n not in bound]"
+   , "    missing = [n for n in params if n not in extra]"
+   , "    return params, missing"
+   , ""
+   , ""
+   , "PARAM_INPUTS, _ = _partition(ENV, ENV_BIND)"
+   , "BEAM_PARAM_INPUTS, _ = _partition(BEAM, BEAM_BIND)"
+   , ""
+   , ""
+   , "# --------------------------------------------------------------------------- the two backends"
+   , "class _Back:"
+   , "    \"\"\"the only thing that differs between the parent's NumPy step and its fused Metal step\"\"\""
+   , ""
+   , "    numpy = True"
+   , "    tag = \"np\""
+   , ""
+   , "    def __init__(self, device=None):"
+   , "        self.device = device"
+   , ""
+   , "    def zeros(self, shape, fill=0.0):"
+   , "        return np.full(shape, fill, dtype=np.float64)"
+   , ""
+   , "    def put(self, x, j, v):"
+   , "        x[:, j] = v"
+   , ""
+   , "    def take(self, row, j):"
+   , "        return row[:, j]"
+   , ""
+   , "    def zeros_like(self, v):"
+   , "        return np.zeros_like(v)"
+   , ""
+   , "    def where(self, c, a, b):"
+   , "        return np.where(c, a, b)"
+   , ""
+   , "    def clamp(self, v, lo, hi):"
+   , "        # min (max v lo) hi, the shape `headToCmd` is printed in"
+   , "        return np.minimum(np.maximum(v, lo), hi)"
+   , ""
+   , "    def clamp_min(self, v, lo):"
+   , "        return np.maximum(v, lo)"
+   , ""
+   , "    def gt(self, v, x):"
+   , "        return v > x"
+   , ""
+   , "    def indicator(self, c):"
+   , "        \"\"\"a gate as a number: the exchanger's ceiling opens with the parent's beam gate\"\"\""
+   , "        return np.asarray(c, dtype=np.float64)"
+   , ""
+   , "    def neg_part(self, v):"
+   , "        return np.maximum(0.0, -v)"
+   , ""
+   , "    def full(self, ref, value):"
+   , "        return np.full(ref.shape[0], value, dtype=np.float64)"
+   , ""
+   , "    def copy(self, v):"
+   , "        return np.array(v, dtype=np.float64)"
+   , ""
+   , "    def host(self, v):"
+   , "        return np.asarray(v, dtype=np.float64)"
+   , ""
+   , ""
+   , "class _TorchBack(_Back):"
+   , "    numpy = False"
+   , "    tag = \"mps\""
+   , ""
+   , "    def __init__(self, device):"
+   , "        import torch"
+   , "        self.torch = torch"
+   , "        self.device = device"
+   , ""
+   , "    def zeros(self, shape, fill=0.0):"
+   , "        return self.torch.full(shape, float(fill), dtype=self.torch.float32, device=self.device)"
+   , ""
+   , "    def zeros_like(self, v):"
+   , "        return self.torch.zeros_like(v)"
+   , ""
+   , "    def where(self, c, a, b):"
+   , "        return self.torch.where(c, a, b)"
+   , ""
+   , "    def clamp(self, v, lo, hi):"
+   , "        return v.clamp(lo, hi)"
+   , ""
+   , "    def clamp_min(self, v, lo):"
+   , "        return v.clamp_min(lo)"
+   , ""
+   , "    def indicator(self, c):"
+   , "        return c.float()"
+   , ""
+   , "    def neg_part(self, v):"
+   , "        return (-v).clamp_min(0.0)"
+   , ""
+   , "    def full(self, ref, value):"
+   , "        return self.torch.full_like(ref if ref.dim() == 1 else ref[:, 0], float(value))"
+   , ""
+   , "    def copy(self, v):"
+   , "        return v.clone()"
+   , ""
+   , "    def host(self, v):"
+   , "        return v.detach().cpu().numpy().astype(np.float64)"
+   , ""
+   , ""
+   , "# ------------------------------------------------------------------- the machine's parameters"
+   , "def machine_name(a, design=False):"
+   , "    \"\"\"`hashemi_machine_0.8.json`, `hashemi_machine_2.0_designed.json`\"\"\""
+   , "    s = \"%g\" % float(a)"
+   , "    return (\"hashemi_machine_\" + (s if \".\" in s else s + \".0\")"
+   , "            + (\"_designed\" if design else \"\") + \".json\")"
+   , ""
+   , ""
+   , "def load_machine(a, design=False):"
+   , "    \"\"\"THE MACHINE AT HALF-SIDE `a`, DERIVED IN LEAN (RequestProject/HashemiScale.lean)."
+   , ""
+   , "    Reads the shipped file; if there is none, asks Lean for it (`lake exe machine_scale <a>"
+   , "    <path>`), which is the only thing allowed to compute it.  `design=True` is the same"
+   , "    derivation with the held quantities solved from the constraints that name them.\"\"\""
+   , "    path = os.path.join(HERE, machine_name(a, design))"
+   , "    if not os.path.exists(path):"
+   , "        import subprocess"
+   , "        r = subprocess.run([\"lake\", \"exe\", \"machine_scale\", \"%g\" % float(a), path]"
+   , "                           + ([\"--design\"] if design else []),"
+   , "                           cwd=LEAN_DIR, capture_output=True, text=True)"
+   , "        if r.returncode != 0 or not os.path.exists(path):"
+   , "            raise RuntimeError(\"no %s and `lake exe machine_scale` failed in %s:\\n%s\\n%s\""
+   , "                               % (os.path.basename(path), LEAN_DIR, r.stdout, r.stderr))"
+   , "    return json.load(open(path))"
+   , ""
+   , ""
+   , "def apply_machine(params, m, a, design, cols, log=print):"
+   , "    \"\"\"the machine file into the kernel's parameters, BY NAME."
+   , ""
+   , "    Which of the file's fields are parameters is not a list here: it is the manifest's own input"
+   , "    names.  `UAxMax` is the spec's `uaExch` at this machine's buried coil (it was a hand-written"
+   , "    60.0, measured binding on 99.9 % of a day's steps).\"\"\""
+   , "    for block in (\"kernel\", \"mount\", \"loop\"):"
+   , "        for kk, vv in (m.get(block) or {}).items():"
+   , "            if cols.has_input(kk):"
+   , "                params[kk] = vv"
+   , "    if cols.has_input(\"UAxMax\"):"
+   , "        params[\"UAxMax\"] = exch_ua(os.path.join(HERE, machine_name(a, design)))"
+   , "        log(\"  [hashemi_ccc] the exchanger conducts %.2f W/K (uaExch, the coil in the liner)\""
+   , "            % params[\"UAxMax\"])"
+   , "    if m.get(\"designed\") and m.get(\"design_changes\"):"
+   , "        log(\"  [hashemi_ccc] the machine at a=%s is DESIGNED: \" % a"
+   , "            + \", \".join(\"%s %g -> %g (%s)\" % (c[\"held\"], c[\"from\"], c[\"to\"], c[\"constraint\"])"
+   , "                        for c in m[\"design_changes\"]))"
+   , "    bad = {k: v for k, v in m.get(\"constraints\", {}).items() if v != \"holds\"}"
+   , "    if bad:"
+   , "        log(\"  [hashemi_ccc] the machine at a=%s does not satisfy the spec: \" % a"
+   , "            + \", \".join(\"%s: %s\" % (k, v) for k, v in bad.items()))"
+   , "    return params"
+   , ""
+   , ""
+   , "# the pose the mount's own constants are read at: parked, no command, the sun anywhere.  `dt` is"
+   , "# 1 s and not 0 because the loop's columns divide by it; the mount's do not depend on it at zero"
+   , "# command, so the pose is the rest pose either way."
+   , "MOUNT_REST_POSE = dict(dt=1.0, elSun=0.5, azSun=0.0, dni=800.0, soil=1.0, Twall=300.0, Ta=300.0)"
+   , "# what the wrapper calls each, and the mount column it is"
+   , "MOUNT_REST_COLS = ((\"t_dead\", \"mount_t_dead\"), (\"roller_R\", \"mount_rollerRadius\"),"
+   , "                   (\"arm_rest\", \"mount_arm\"), (\"dish_side\", \"mount_dishSide\"))"
+   , ""
+   , ""
+   , "def mount_rest(params=None):"
+   , "    \"\"\"the mount's own constants, read from THE ENV MORPHISM'S OWN COLUMNS at the parked pose."
+   , ""
+   , "    `t_dead` is the dead point the parent's `el_min` is set to, `mount_rollerRadius` and"
+   , "    `mount_arm` (`wireLever` at rest) are what the drives are scaled by.  They are read out of"
+   , "    `hashemiEnv` itself - one launch of the twin at zero command - and not out of a second,"
+   , "    separately packed launch of the mount kernel: the env carries the whole mount under"
+   , "    `mountNames`, so these are the very numbers the step will use, at the literals it uses."
+   , "    (Until 2026-09-20 they came from a hand-packed `mega_numpy` call, which silently went stale"
+   , "    the moment the mount took its dimensions as arguments.)\"\"\""
+   , "    prm = dict(env_params() if params is None else params)"
+   , "    x = np.zeros((1, ENV.n_in))"
+   , "    for n in ENV.inputs:"
+   , "        x[0, ENV.inp(n)] = float(prm.get(n, MOUNT_REST_POSE.get(n, 0.0)))"
+   , "    w = len(ENV.like(\"hist_\"))"
+   , "    hist = np.full((1, w), MOUNT_REST_POSE[\"Ta\"])"
+   , "    dr = np.full((1, ENV_RAYS, ENV.table(\"dr\")[\"m\"]), 0.5)"
+   , "    with np.errstate(all=\"ignore\"):"
+   , "        row = env_numpy(x, hist, hist.copy(), dr)"
+   , "    return {k: float(row[0, ENV[c]]) for k, c in MOUNT_REST_COLS}"
+   , ""
+   , ""
+   , "# the columns the parent's own readers know by an attribute of the env (the machine's, never the"
+   , "# parent's own `p_in`): the harness publishes these and nothing else."
+   ]
+ ++
+  pyPairs "PUBLISH" publishAttrs
+ ++
+  ["ENV_RAYS = int(ENV.man[\"rays\"])"
+   , ""
+   , ""
+   , "# ------------------------------------------------------------------------- the spaces (spec's)"
+   , "def observation_space():"
+   , "    \"\"\"the machine's observations, bounded by the spec (`obsLo` / `obsHi`)\"\"\""
+   , "    return machine_policy.observation_space()"
+   , ""
+   , ""
+   , "def action_space():"
+   , "    \"\"\"the machine's commands in [-1, 1] per motor\"\"\""
+   , "    return machine_policy.action_space()"
+   , ""
+   , ""
+   , "# ------------------------------------------------------------------------------- the machine"
+   , "class Machine:"
+   , "    \"\"\"his machine inside the tandoor env: one compiled morphism, run on either backend."
+   , ""
+   , "    The harness constructs one of these and hands it the parent's own quantities each step"
+   , "    (`ctx`); everything else - the commands the heads mean, the pump's fraction, the wall the"
+   , "    exchanger sees, the row, the columns, the state, the reward - is this class, and this class"
+   , "    has one copy of each.\"\"\""
+   , ""
+   , "    def __init__(self, B, dt, receiver=\"oil\", t_amb=300.0, oil_nodes=8, n_nodes=None, n_belt=None,"
+   , "                 dish_half=None, dish_design=1, dish_k=None, dish_R=None, beam_design=None,"
+   , "                 log=print):"
+   , "        self.B, self.dt, self.receiver = int(B), float(dt), str(receiver)"
+   , "        self.t_amb = float(t_amb)"
+   , "        self.cols = kernel_of(self.receiver)"
+   , "        self.oil = self.receiver != \"beam\""
+   , "        self.oil_nodes, self.n_nodes, self.n_belt = int(oil_nodes), n_nodes, n_belt"
+   , "        self.log = log"
+   , "        self.params = env_params()"
+   , "        if dish_k is not None and self.cols.has_input(\"k\"):"
+   , "            self.params[\"k\"] = float(np.clip(float(dish_k), -1.0, 0.0))"
+   , "        self.beam_design = dict(beam_design or {})"
+   , "        self.machine = None"
+   , "        self.dish_design = int(dish_design)"
+   , "        self.r_drive = 0.05          # `Hashemi.carriage.rDrive`, replaced by the machine's own"
+   , "        if dish_half is not None:"
+   , "            m = load_machine(float(dish_half), design=bool(self.dish_design))"
+   , "            apply_machine(self.params, m, dish_half, bool(self.dish_design), self.cols, log=log)"
+   , "            self.machine = m"
+   , "            self.r_drive = float(m[\"machine\"].get(\"rDrive\", self.r_drive))"
+   , "            for kk in (\"a\", \"R\", \"f\"):"
+   , "                if kk in m[\"kernel\"]:"
+   , "                    self.beam_design[kk] = m[\"kernel\"][kk]"
+   , "            if dish_R is not None:"
+   , "                R = float(dish_R)"
+   , "                self.params.update(R=R, f=R / 2.0)"
+   , "                self.beam_design.update(R=R, f=R / 2.0)"
+   , "        for kk, vv in self.beam_design.items():"
+   , "            if self.cols.has_input(kk):"
+   , "                self.params[kk] = vv"
+   , "        self.dish_area = (2.0 * float(self.params[\"a\"])) ** 2"
+   , "        # the mount's own constants, at THIS machine's parameters - never a literal here"
+   , "        rest = mount_rest(self.params)"
+   , "        self.t_dead = rest[\"t_dead\"]"
+   , "        self.roller_R = rest[\"roller_R\"]"
+   , "        self.arm_rest = rest[\"arm_rest\"]     # `wireLever` at rest, for step one"
+   , "        self.r_drum = float(self.params[\"rDrum\"])"
+   , "        # THE DRIVES, in the printed morphism's own shape.  `headToCmd h = (min (max h 0) 6 - 3)/3`,"
+   , "        # `driveAz u rw R = u azFull R / rw`, `headToDriveEl h arm rDrum = driveEl (-(headToCmd h))"
+   , "        # arm rDrum` - so the expression below is those three, associated as the printer"
+   , "        # associates them, with `azFull` / `elFull` taken from the compiled twin and the seven"
+   , "        # levels from the policy's manifest.  It is not enough that it be algebraically right: a"
+   , "        # last-bit difference from the printed order moves a boolean in the ray sum a few hundred"
+   , "        # steps later and the day's rotis with it (measured 2026-09-20: 51.75 vs 0.62 over a day"
+   , "        # from one ulp).  `_check_drives` therefore requires EXACT equality with"
+   , "        # `headToDriveAz` / `headToDriveEl` at import, not a tolerance."
+   , "        self.h_max = float(ACTION_LEVELS - 1)"
+   , "        self.h_mid = self.h_max / 2.0"
+   , "        self._check_drives()"
+   , "        # the params of this kernel that are not bound per step, as a set difference"
+   , "        self.param_inputs = [n for n in self.cols.inputs"
+   , "                             if n not in [b for b, _ in self._bind()]]"
+   , "        miss = [n for n in self.param_inputs if n not in self.params]"
+   , "        if miss:"
+   , "            raise RuntimeError(\"the %s kernel takes %s, and neither this module nor the machine \""
+   , "                               \"file supplies them\" % (self.cols.stem, miss))"
+   , "        # the row and its tables, per backend"
+   , "        self._x = {}"
+   , "        self._kern = {}"
+   , "        self._rew_x = {}"
+   , "        self._rew_kern = {}"
+   , "        self.tables = {}"
+   , "        self.state = {}"
+   , "        self.mirror = {}"
+   , "        self.row = None                 # the last step's columns, on that step's own backend"
+   , "        self.row_host = np.zeros((self.B, self.cols.n_out))"
+   , "        self.obs = np.zeros((self.B, len(OBS_NAMES)), dtype=np.float32)"
+   , "        self.r_cols = np.zeros((self.B, REWARD.n_out))"
+   , "        self.r_cols_dev = None"
+   , "        self.u_pump = np.zeros(self.B)"
+   , "        self._profile = {}"
+   , ""
+   , "    # -- the description, per receiver"
+   , "    def _bind(self):"
+   , "        return BEAM_BIND if self.receiver == \"beam\" else ENV_BIND"
+   , ""
+   , "    def _check_drives(self):"
+   , "        \"\"\"the description against the compiled `headToDriveAz` / `headToDriveEl`, BIT FOR BIT\"\"\""
+   , "        be = _Back()"
+   , "        h = np.concatenate([np.arange(0.0, self.h_max + 1.0), np.linspace(-1.0, 7.0, 17)])"
+   , "        arm = np.linspace(0.2, 3.0, h.size)"
+   , "        az = np.asarray(H.hk_headToDriveAz(h, np.full(h.shape, self.r_drive),"
+   , "                                           np.full(h.shape, self.roller_R)), dtype=np.float64)"
+   , "        el = np.asarray(H.hk_headToDriveEl(h, arm, np.full(h.shape, self.r_drum)), dtype=np.float64)"
+   , "        u = self._cmd_of(be, h)"
+   , "        mine_az = self.drive_az(be, u)"
+   , "        mine_el = self.drive_el(be, u, arm)"
+   , "        if not (np.array_equal(mine_az, az) and np.array_equal(mine_el, el)):"
+   , "            raise RuntimeError(\"the drive description is not the printed one, bit for bit: \""
+   , "                               \"%.3e / %.3e\" % (float(np.max(np.abs(mine_az - az))),"
+   , "                                                float(np.max(np.abs(mine_el - el)))))"
+   , ""
+   , "    def _cmd_of(self, be, head):"
+   , "        \"\"\"`headToCmd`: a head's value to a command in [-1, 1], on either backend\"\"\""
+   , "        return (be.clamp(head, 0.0, self.h_max) - self.h_mid) / self.h_mid"
+   , ""
+   , "    def drive_az(self, be, u):"
+   , "        \"\"\"`driveAz`: the roller's rate, in the printer's own association\"\"\""
+   , "        return u * AZ_FULL * self.roller_R / self.r_drive"
+   , ""
+   , "    def drive_el(self, be, u, arm):"
+   , "        \"\"\"`headToDriveEl`: the drum's rate at the wire's lever arm; a positive command lowers\"\"\""
+   , "        return (-u) * EL_FULL * arm / self.r_drum"
+   , ""
+   , "    # -- the exchanger's node profile.  DEFINED, never inherited: the coil in the pot's wall heats"
+   , "    # the first `oil_nodes` belt slots uniformly and nothing on the loaf columns.  (Until"
+   , "    # 2026-09-19 it was the parent's own tri-chain spot, frozen at the first step.)"
+   , "    def profile(self, be):"
+   , "        p = self._profile.get(be.tag)"
+   , "        if p is None:"
+   , "            k = max(1, min(self.oil_nodes, self.n_belt))"
+   , "            prof = np.zeros((self.B, self.n_nodes + self.n_belt))"
+   , "            prof[:, :k] = 1.0 / k"
+   , "            if be.numpy:"
+   , "                p = prof"
+   , "            else:"
+   , "                p = be.torch.as_tensor(prof, dtype=be.torch.float32, device=be.device)"
+   , "            self._profile[be.tag] = p"
+   , "        return p"
+   , ""
+   , "    def wall_seen(self, be, T):"
+   , "        \"\"\"the wall the exchanger delivers into: the pot's nodes under the coil's own profile\"\"\""
+   , "        pn = self.profile(be)[:, :self.n_nodes]"
+   , "        return (T[:, :self.n_nodes] * pn).sum(1) / be.clamp_min(pn.sum(1), 1e-9)"
+   , ""
+   , "    def per_node(self, be, q_pot, gate):"
+   , "        \"\"\"the pot's aperture per unit DNI: the exchanger's power along the coil's own profile,"
+   , "        through the parent's own gate (`per_dni x gate x 0.85` is what its nodes absorb)\"\"\""
+   , "        per = be.where(be.gt(gate, 0.0), q_pot / be.clamp_min(gate * 0.85, 1e-9), be.zeros_like(gate))"
+   , "        return self.profile(be) * per[:, None]"
+   , ""
+   , "    # -- the state this wrapper carries, and the tables the kernel reads"
+   , "    def reset(self, be, state):"
+   , "        self.state[be.tag] = state"
+   , "        for name, _ in TABLE_WRITE:"
+   , "            if self.oil:"
+   , "                self.tables.setdefault(be.tag, {})[name] = be.zeros("
+   , "                    (self.B, len(self.cols.like(name + \"_\"))), self.t_amb)"
+   , "        self.mirror.setdefault(be.tag, {})"
+   , "        for att, col, who in MIRROR:"
+   , "            if who == \"oil\" and not self.oil:"
+   , "                continue"
+   , "            if col in self.cols:"
+   , "                self.mirror[be.tag].setdefault(att, be.zeros((self.B,)))"
+   , ""
+   , "    def sync_state(self, be, az, t, slack):"
+   , "        st = self.state[be.tag]"
+   , "        st[:, 0], st[:, 1], st[:, 2] = az, t, slack"
+   , ""
+   , "    # -- ONE step, ONE description, either backend"
+   , "    def _derive(self, be, ctx):"
+   , "        \"\"\"the sources the table above names, from the parent's own quantities."
+   , ""
+   , "        This is where the heads become the spec's commands, the pump's head becomes a fraction,"
+   , "        the pot's nodes become the wall the exchanger sees, and the exchanger's ceiling is opened"
+   , "        with the parent's beam gate.  ONE copy, so the two paths cannot drift.\"\"\""
+   , "        st = self.state[be.tag]"
+   , "        head = ctx[\"head\"]"
+   , "        arm_prev = self.mirror[be.tag][\"arm\"]"
+   , "        arm = be.where(be.gt(arm_prev, 0.05), arm_prev, be.full(arm_prev, self.arm_rest))"
+   , "        u_az = self._cmd_of(be, head[:, HEAD_AZ])"
+   , "        u_el = self._cmd_of(be, head[:, HEAD_EL])"
+   , "        # the pump is the parent's pinned head 0 (`pumpOf`), read BEFORE the host neutralises it"
+   , "        u_pump = be.clamp(head[:, 0], 0.0, self.h_max) / self.h_max"
+   , "        src = {"
+   , "            \"state_az\": st[:, 0], \"state_t\": st[:, 1], \"state_slack\": st[:, 2],"
+   , "            \"drive_az\": self.drive_az(be, u_az),"
+   , "            \"drive_el\": self.drive_el(be, u_el, arm),"
+   , "            \"dt\": self.dt, \"t_amb\": self.t_amb,"
+   , "            \"sun_el\": ctx[\"sun_el\"], \"sun_az\": ctx[\"sun_az\"],"
+   , "            \"dni\": ctx[\"dni\"], \"soil\": ctx[\"soil\"], \"wind\": ctx.get(\"wind\", 0.0),"
+   , "            \"u_pump\": u_pump,"
+   , "        }"
+   , "        if self.oil:"
+   , "            src[\"deg\"] = self.mirror[be.tag][\"deg\"]"
+   , "            src[\"t_wall\"] = self.wall_seen(be, ctx[\"T\"])"
+   , "            src[\"ua_gated\"] = float(self.params[\"UAxMax\"]) * be.indicator(be.gt(ctx[\"gate\"], 0.0))"
+   , "        return src, u_pump"
+   , ""
+   , "    def row_buffer(self, be):"
+   , "        x = self._x.get(be.tag)"
+   , "        if x is None:"
+   , "            x = be.zeros((self.B, self.cols.n_in))"
+   , "            for n in self.param_inputs:"
+   , "                be.put(x, self.cols.inp(n), float(self.params[n]))"
+   , "            self._x[be.tag] = x"
+   , "        return x"
+   , ""
+   , "    def kernel(self, be):"
+   , "        k = self._kern.get(be.tag)"
+   , "        if k is None:"
+   , "            if self.receiver == \"beam\":"
+   , "                import hashemi_beam_kernel as bk"
+   , "                k = bk.HashemiBeamMetal()"
+   , "            else:"
+   , "                k = HashemiEnvMetal()"
+   , "            self._kern[be.tag] = k"
+   , "        return k"
+   , ""
+   , "    def step(self, be, ctx):"
+   , "        \"\"\"the machine's step: assemble, launch, absorb.  The SAME method on both paths.\"\"\""
+   , "        x = self.row_buffer(be)"
+   , "        src, u_pump = self._derive(be, ctx)"
+   , "        for name, key in self._bind():"
+   , "            be.put(x, self.cols.inp(name), src[key])"
+   , "        dr = ctx[\"dr\"]"
+   , "        if be.numpy:"
+   , "            if self.receiver == \"beam\":"
+   , "                import hashemi_beam_kernel as bk"
+   , "                row = bk.beam_numpy(x, dr)"
+   , "            else:"
+   , "                tb = self.tables[be.tag]"
+   , "                row = env_numpy(x, tb[\"hist\"], tb[\"ret\"], dr)"
+   , "        else:"
+   , "            if self.receiver == \"beam\":"
+   , "                row = self.kernel(be).step(x, dr)"
+   , "            else:"
+   , "                tb = self.tables[be.tag]"
+   , "                row = self.kernel(be).step(x, tb[\"hist\"], tb[\"ret\"], dr)"
+   , "        self.absorb(be, row)"
+   , "        self.u_pump = be.host(u_pump)"
+   , "        return row"
+   , ""
+   , "    def absorb(self, be, row):"
+   , "        \"\"\"the columns back out of the row, BY NAME: the state, the two pipe fields, the mirrors\"\"\""
+   , "        self.row = row"
+   , "        st = self.state[be.tag]"
+   , "        for j, (_, col) in enumerate(STATE_WRITE):"
+   , "            st[:, j] = be.take(row, self.cols[col])"
+   , "        if self.oil:"
+   , "            tb = self.tables[be.tag]"
+   , "            for name, prefix in TABLE_WRITE:"
+   , "                js = self.cols.like(prefix)"
+   , "                if be.numpy:"
+   , "                    tb[name] = row[:, js].copy()"
+   , "                else:"
+   , "                    tb[name].copy_(row[:, js])"
+   , "        mir = self.mirror[be.tag]"
+   , "        for att, col, who in MIRROR:"
+   , "            if who == \"oil\" and not self.oil:"
+   , "                continue"
+   , "            if col in self.cols:"
+   , "                if be.numpy:"
+   , "                    mir[att] = row[:, self.cols[col]].copy()"
+   , "                else:"
+   , "                    mir[att] = row[:, self.cols[col]]"
+   , ""
+   , "    def publish(self, be):"
+   , "        \"\"\"the host mirrors the parent's readers expect, and the observation row\"\"\""
+   , "        self.row_host = be.host(self.row)"
+   , "        self.obs = self.obs_row(self.row_host)"
+   , "        return self.row_host"
+   , ""
+   , "    def obs_row(self, row_host):"
+   , "        \"\"\"the machine's observations, in the POLICY's order (`obsNames`), by name."
+   , ""
+   , "        A receiver whose kernel does not carry one of them reports zero for it rather than"
+   , "        raising: the loop's three (`margin`, `flow`, `deg`) are not columns of the beam-down.\"\"\""
+   , "        out = np.zeros((row_host.shape[0], len(OBS_NAMES)), dtype=np.float32)"
+   , "        for j, n in enumerate(OBS_NAMES):"
+   , "            c = self.cols.get(\"obs_\" + n)"
+   , "            if c is not None:"
+   , "                out[:, j] = row_host[:, c]"
+   , "        return out"
+   , ""
+   , "    def missing_obs(self):"
+   , "        return [n for n in OBS_NAMES if (\"obs_\" + n) not in self.cols]"
+   , ""
+   , "    # -- the reward, in the printed morphism's own units"
+   , "    def reward_kernel(self, be):"
+   , "        k = self._rew_kern.get(be.tag)"
+   , "        if k is None:"
+   , "            k = HashemiRewardMetal()"
+   , "            self._rew_kern[be.tag] = k"
+   , "        return k"
+   , ""
+   , "    def lift_parent(self, be, rew, divided, reward_div):"
+   , "        \"\"\"the parent's raw reward for the step."
+   , ""
+   , "        The fused path hands it over before its own division and the NumPy path after, so the"
+   , "        lift back into the morphism's fibre happens HERE, once, and never as arithmetic beside a"
+   , "        second copy of the shaping.\"\"\""
+   , "        return rew * float(reward_div) if divided else rew"
+   , ""
+   , "    def reward(self, be, ctx):"
+   , "        \"\"\"`rewardStep` (HashemiReward.lean): the five columns of the step's reward\"\"\""
+   , "        x = self._rew_x.get(be.tag)"
+   , "        if x is None:"
+   , "            x = be.zeros((self.B, REWARD.n_in))"
+   , "            self._rew_x[be.tag] = x"
+   , "        mir = self.mirror[be.tag]"
+   , "        for name, src in REWARD_BIND:"
+   , "            if src.startswith(\"col:\") or src.startswith(\"excess:\"):"
+   , "                kind, col = src.split(\":\", 1)"
+   , "                opt = col.endswith(\"?0\")"
+   , "                col = col[:-2] if opt else col"
+   , "                if col not in self.cols:"
+   , "                    if not opt:"
+   , "                        raise RuntimeError(\"the %s kernel has no column %r for the reward's %s\""
+   , "                                           % (self.cols.stem, col, name))"
+   , "                    v = 0.0"
+   , "                else:"
+   , "                    v = mir[col] if col in mir else be.take(self.row, self.cols[col])"
+   , "                    if kind == \"excess\":"
+   , "                        v = be.neg_part(v)"
+   , "                be.put(x, REWARD.inp(name), v)"
+   , "            else:"
+   , "                be.put(x, REWARD.inp(name), ctx[src])"
+   , "        if be.numpy:"
+   , "            cols = reward_numpy(x)"
+   , "            self.r_cols = cols"
+   , "        else:"
+   , "            cols = self.reward_kernel(be).step(x)"
+   , "            self.r_cols_dev = cols"
+   , "        return cols"
+   , ""
+   , "    def reward_col(self, cols, name):"
+   , "        return cols[:, REWARD[name]]"
+   , ""
+   , "    # -- the picture: the scene kernel's own input row is the env kernel's, name for name"
+   , "    def scene_map(self, scene_inputs):"
+   , "        \"\"\"NOTHING is pooled on a host: every dimension the scene needs is bound in the graph\"\"\""
+   , "        missing = [n for n in scene_inputs if not self.cols.has_input(n)]"
+   , "        if missing:"
+   , "            raise RuntimeError(\"the %s scene still asks for %s off the graph\""
+   , "                               % (self.cols.stem, missing))"
+   , "        return [(j, self.cols.inp(n)) for j, n in enumerate(scene_inputs)]"
+   , ""
+   , "    def scene_map_partial(self, scene_inputs):"
+   , "        \"\"\"a standalone scene: the inputs it shares with the env's row, by name\"\"\""
+   , "        return [(j, self.cols.inp(n)) for j, n in enumerate(scene_inputs)"
+   , "                if self.cols.has_input(n)]"
+   , ""
+   , ""
+   , "# the wrapper the trainer loads: the parent's contract from the hand-written harness, the machine"
+   , "# from this generated module.  `puffer_hashemi_ccc` names THIS class."
+   , "from hashemi_harness import HashemiHarness                                   # noqa: E402"
+   , ""
+   , ""
+   , "class HashemiTandoorEnv(HashemiHarness):"
+   , "    \"\"\"the tandoor with his concentrator: the machine from one compiled morphism\"\"\""
+   , ""
+   , "    MACHINE = Machine"
+   , "    DRAWS = staticmethod(draws)"
+   , "    PUMP_PRICE = PUMP_PRICE"
+   , "    DEG_PRICE = DEG_PRICE"
+   ]
+
 def run : MetaM Unit := do
   let env ← getEnv
   let root := `TandoorHashemi
   -- the candidates: user-level constants of the namespace, in a stable order
   let mut names : Array Name := #[]
   let notCompiled : List String := ["b2r", "megaNames", "megaNames_size", "envNames", "envNames_size", "envRays",
+    "envOwnNames", "envOwnNames_size", "mountNames",
     "loopNames", "loopNames_size", "obsNames", "actionNames", "actionLevels", "beamNames", "beamNames_size",
     "rewardNames", "rewardNames_size"]
   for (n, ci) in env.constants.toList do
@@ -498,6 +1423,10 @@ def run : MetaM Unit := do
       "\"design\": [" ++ ", ".intercalate (design.toList.map fun b => if b then "true" else "false") ++ "]",
       "\"bool_inputs\": [" ++ ", ".intercalate (boolIn.toList.map fun b => if b then "true" else "false") ++ "]",
       "\"bool_outputs\": [" ++ ", ".intercalate (boolOut.toList.map fun b => if b then "true" else "false") ++ "]",
+      -- the grading's first consumer: an indicator's Lipschitz slot is `HK_TRUTH`, not a bound,
+      -- and the `L` chain that would have fed it is not in the printed box at all
+      "\"truth_outputs\": [" ++ ", ".intercalate (f.truthCols.toList.map fun b => if b then "true" else "false") ++ "]",
+      "\"box_dead_L\": " ++ toString f.boxStats.2.1, "\"box_live_nodes\": " ++ toString f.boxStats.2.2,
       "\"n_in\": " ++ toString nin, "\"n_out\": " ++ toString nout, "\"mass\": " ++ toString mass,
       "\"arrays\": [" ++ ", ".intercalate (f.arrays.toList.map fun (b, P, m) => "{\"name\": " ++ jsonStr b ++ ", \"P\": " ++ toString P ++ ", \"m\": " ++ toString m ++ "}") ++ "]",
       "\"n_nodes\": " ++ toString g.nodes.size] ++ "}")
@@ -506,16 +1435,29 @@ def run : MetaM Unit := do
     ("{\n\"design_params\": [" ++ ", ".intercalate (designParams.map jsonStr) ++ "],\n\"composites\": {\"dishPower\": [\"sunInDish\", \"sampleRay\", \"traceRayKErr\"]},\n\"modules\": [\n" ++
      ",\n".intercalate mj.toList ++ "\n]\n}\n")
   logInfo m!"modula: {mods.size} modules (tangent + box), {(mods.filter fun f => (f.inputs.map (·.1)).any designParams.contains).size} with mass"
+  -- WHAT THE GRADING SAVED IN THE BOX: the columns that are indicators, the modules all of whose
+  -- columns are, and the live nodes whose Lipschitz component is now not computed at all
+  let bt := mods.foldl (fun (a, b, c, d) f =>
+      let (nT, nDead, nLive) := f.boxStats
+      (a + nT, b + nDead, c + nLive, d + (if nT == f.truthCols.size && nT > 0 then 1 else 0)))
+    (0, 0, 0, 0)
+  logInfo m!"box: {bt.1} truth columns over {mods.size} modules ({bt.2.2.2} of them entirely truth-valued); \
+    the Lipschitz chain is skipped at {bt.2.1} of {bt.2.2.1} live nodes"
   -- ---- dot
   for f in funs do
     IO.FS.writeFile (outDir ++ "/dot/" ++ f.name.getString! ++ ".dot") (printDot f)
   -- ---- samples, the Float twin and the round trip
   let mut json : Array String := #[]
+  -- the Float twin is a `let` chain as long as the flat graph, and `hashemiEnv`'s is 3404 long
+  -- since the env began carrying the whole mount (`mountNames`): elaborating it needs more than
+  -- the default budget.  This is a GENERATED DEFINITION, not a tactic - nothing is being forced
+  -- through - and the round trip beside it has asked for 4e6 all along.
   let mut fl : Array String := #["import Std", "namespace HashemiCccFloat", "set_option maxRecDepth 4000",
+    "set_option maxHeartbeats 2000000",
     "/-- `=` on ℝ, in floating point -/",
     "def feq (a b : Float) : Bool := Float.abs (a - b) <= 1e-9 * max 1.0 (max (Float.abs a) (Float.abs b))", ""]
   -- the round trip names every compiled definition, so it imports the top module of the chain
-  let mut rt : Array String := #["import RequestProject.HashemiTraceProps", "import RequestProject.HashemiPolicy", "import RequestProject.HashemiBeamdown", "import RequestProject.HashemiReward", "namespace TandoorHashemi",
+  let mut rt : Array String := #["import RequestProject.HashemiTraceProps", "import RequestProject.HashemiPolicy", "import RequestProject.HashemiBeamdown", "import RequestProject.HashemiReward", "import RequestProject.HashemiWire", "namespace TandoorHashemi",
     "open Classical", "set_option maxHeartbeats 4000000", "set_option maxRecDepth 8000", ""]
   let mut seed := 7
   for f in funs do
@@ -649,6 +1591,7 @@ def run : MetaM Unit := do
   let mut megaJson : Array String := #[]
   let mut off := 0
   let mut megaInputs : Array String := #[]
+  let mut megaTruth : Array Bool := #[]
   for mf in megaFns do
     match funs.find? (fun f => f.name.getString! == mf) with
     | some f =>
@@ -656,16 +1599,22 @@ def run : MetaM Unit := do
       megaJson := megaJson.push ("  {\"name\": " ++ jsonStr mf ++ ", \"c\": " ++ jsonStr (cName f.name) ++
         ", \"offset\": " ++ toString off ++ ", \"n_out\": " ++ toString n ++ "}")
       off := off + n
+      megaTruth := megaTruth ++ f.truthCols
       if megaInputs.isEmpty then megaInputs := f.inputs.map (·.1)
     | none => logInfo m!"mega function {mf} did not compile"
+  let (megaGrades, megaTruthJson) ← gradesOf root "megaStep" cols megaTruth
   IO.FS.writeFile (outDir ++ "/hashemi_mega.json")
     ("{\n\"columns\": [" ++ ", ".intercalate (cols.toList.map jsonStr) ++ "],\n\"inputs\": [" ++
      ", ".intercalate (megaInputs.toList.map jsonStr) ++ "],\n\"functions\": [\n" ++
-     ",\n".intercalate megaJson.toList ++ "\n],\n\"n_columns\": " ++ toString off ++ "\n}\n")
-  logInfo m!"mega: {off} columns in the kernel, {cols.size} names"
+     ",\n".intercalate megaJson.toList ++ "\n],\n\"n_columns\": " ++ toString off ++
+     ",\n\"truth\": " ++ megaTruthJson ++ ",\n\"grades\": " ++ megaGrades ++ "\n}\n")
+  logInfo m!"mega: {off} columns in the kernel, {cols.size} names, {(megaTruth.filter id).size} truth"
   -- ---- the env's step as ONE kernel: threadgroup per agent, thread per ray, the sum in shared memory
-  let envNamesE ← instantiateMVars ((← getConstInfo (root ++ `envNames)).value?.getD (mkConst `none))
-  let envCols := strLits envNamesE
+  -- the env's columns: its own names, then the WHOLE MOUNT under `mountNames`' prefix.  The
+  -- mount's names are `megaNames` itself (read above as `cols`), so the 230 columns the env now
+  -- carries are never typed a second time - `HashemiEnv.envNames` is this same concatenation.
+  let envNamesE ← instantiateMVars ((← getConstInfo (root ++ `envOwnNames)).value?.getD (mkConst `none))
+  let envCols := strLits envNamesE ++ cols.map (fun n => "mount_" ++ n)
   match funs.find? (fun f => f.name.getString! == "hashemiEnv") with
   | some f =>
     IO.FS.writeFile (outDir ++ "/hashemi_env.metal")
@@ -674,13 +1623,17 @@ def run : MetaM Unit := do
        "// buffer 2 the outputs (B, n_out), buffer 3 the count; dispatch B*P threads in groups of P.\n" ++
        printMslMega f "hashemi_env" ++ "\n")
     let L := layers f.graph
+    let (envGrades, envTruth) ← gradesOf root "hashemiEnv" envCols f.truthCols
+    let (nT, nDead, nLive) := f.boxStats
     IO.FS.writeFile (outDir ++ "/hashemi_env.json")
       ("{\n\"kernel\": \"hashemi_env\", \"c\": " ++ jsonStr (cName f.name) ++ ",\n\"columns\": [" ++ ", ".intercalate (envCols.toList.map jsonStr) ++ "],\n\"inputs\": [" ++
        ", ".intercalate ((f.inputs.map (·.1)).toList.map jsonStr) ++ "],\n\"arrays\": [" ++
        ", ".intercalate (f.arrays.toList.map fun (b, P, m) => "{\"name\": " ++ jsonStr b ++ ", \"P\": " ++ toString P ++ ", \"m\": " ++ toString m ++ "}") ++
        "],\n\"n_columns\": " ++ toString f.output.flatten.size ++ ", \"rays\": " ++ toString L.P ++ ", \"n_nodes\": " ++ toString f.graph.nodes.size ++
-       ", \"ray_nodes\": " ++ toString (L.ray.filter id).size ++ ", \"sums\": " ++ toString L.sums.size ++ "\n}\n")
+       ", \"ray_nodes\": " ++ toString (L.ray.filter id).size ++ ", \"sums\": " ++ toString L.sums.size ++
+       ",\n\"truth\": " ++ envTruth ++ ",\n\"grades\": " ++ envGrades ++ "\n}\n")
     logInfo m!"env: {f.output.flatten.size} columns, {f.graph.nodes.size} nodes ({(L.ray.filter id).size} ray-level, {L.sums.size} sums over {L.P} rays), {envCols.size} names"
+    logInfo m!"env grading: {nT} truth columns; the box skips the Lipschitz chain of {nDead} of {nLive} live nodes"
   | none => logInfo m!"hashemiEnv did not compile"
   -- ---- the closed loop as one kernel, and the policy's manifest: what the spec says the policy is
   let obsE ← instantiateMVars ((← getConstInfo (root ++ `obsNames)).value?.getD (mkConst `none))
@@ -697,12 +1650,14 @@ def run : MetaM Unit := do
     let arrJson := ", ".intercalate (f.arrays.toList.map fun (b, P, m) =>
       "{\"name\": " ++ jsonStr b ++ ", \"P\": " ++ toString P ++ ", \"m\": " ++ toString m ++
       ", \"shared\": " ++ (if f.shared.contains b then "true" else "false") ++ "}")
+    let (loopGrades, loopTruth) ← gradesOf root "hashemiLoop" (strLits loopE) f.truthCols
     IO.FS.writeFile (outDir ++ "/hashemi_policy.json")
       ("{\n\"kernel\": \"hashemi_loop\", \"c\": " ++ jsonStr (cName f.name) ++
        ",\n\"obs\": [" ++ ", ".intercalate ((strLits obsE).toList.map jsonStr) ++ "]" ++
        ",\n\"actions\": [" ++ ", ".intercalate ((strLits actE).toList.map jsonStr) ++ "]" ++
        ",\n\"action_levels\": 7, \"motor_heads\": [3, 4]" ++
        ",\n\"columns\": [" ++ ", ".intercalate ((strLits loopE).toList.map jsonStr) ++ "]" ++
+       ",\n\"truth\": " ++ loopTruth ++ ",\n\"grades\": " ++ loopGrades ++
        ",\n\"inputs\": [" ++ ", ".intercalate ((f.inputs.map (·.1)).toList.map jsonStr) ++ "]" ++
        ",\n\"arrays\": [" ++ arrJson ++ "]" ++
        ",\n\"n_columns\": " ++ toString f.output.flatten.size ++ ", \"rays\": " ++ toString L.P ++
@@ -780,8 +1735,9 @@ def run : MetaM Unit := do
        "// ray table (B, 64, 10), buffer 2 the outputs (B, 31), buffer 3 the count; dispatch B*64 in groups of 64.\n" ++
        printMslMega f "hashemi_beam" ++ "\n")
     let L := layers f.graph
+    let (beamGrades, beamTruth) ← gradesOf root "hashemiEnvBeam" (strLits beamE) f.truthCols
     IO.FS.writeFile (outDir ++ "/hashemi_beam.json")
-      ("{\n\"kernel\": \"hashemi_beam\", \"c\": " ++ jsonStr (cName f.name) ++ ",\n\"columns\": [" ++ ", ".intercalate ((strLits beamE).toList.map jsonStr) ++ "],\n\"inputs\": [" ++
+      ("{\n\"kernel\": \"hashemi_beam\", \"c\": " ++ jsonStr (cName f.name) ++ ",\n\"columns\": [" ++ ", ".intercalate ((strLits beamE).toList.map jsonStr) ++ "],\n\"truth\": " ++ beamTruth ++ ",\n\"grades\": " ++ beamGrades ++ ",\n\"inputs\": [" ++
        ", ".intercalate ((f.inputs.map (·.1)).toList.map jsonStr) ++ "],\n\"arrays\": [" ++
        ", ".intercalate (f.arrays.toList.map fun (b, P, m) => "{\"name\": " ++ jsonStr b ++ ", \"P\": " ++ toString P ++ ", \"m\": " ++ toString m ++ "}") ++
        "],\n\"n_columns\": " ++ toString f.output.flatten.size ++ ", \"rays\": " ++ toString L.P ++ ", \"n_nodes\": " ++ toString f.graph.nodes.size ++
@@ -800,13 +1756,56 @@ def run : MetaM Unit := do
        "// ONE kernel for the trainer's reward: buffer 0 the inputs (B, n_in), buffer 1 the outputs (B, 3),\n" ++
        "// buffer 2 the count; dispatch B threads in groups of 1.\n" ++
        printMslMega f "hashemi_reward" ++ "\n")
+    let (rewGrades, rewTruth) ← gradesOf root "rewardStep" (strLits rewardNamesE) f.truthCols
     IO.FS.writeFile (outDir ++ "/hashemi_reward.json")
       ("{\n\"kernel\": \"hashemi_reward\", \"c\": " ++ jsonStr (cName f.name) ++ ",\n\"columns\": [" ++
-       ", ".intercalate ((strLits rewardNamesE).toList.map jsonStr) ++ "],\n\"inputs\": [" ++
+       ", ".intercalate ((strLits rewardNamesE).toList.map jsonStr) ++ "],\n\"truth\": " ++ rewTruth ++
+       ",\n\"grades\": " ++ rewGrades ++
+       ",\n\"raw_unit\": " ++ jsonStr HashemiGrade.rewardRawUnit ++
+       ", \"trainer_unit\": " ++ jsonStr HashemiGrade.rewardTrainerUnit ++
+       ",\n\"inputs\": [" ++
        ", ".intercalate ((f.inputs.map (·.1)).toList.map jsonStr) ++ "],\n\"n_columns\": " ++
        toString f.output.flatten.size ++ ", \"n_nodes\": " ++ toString f.graph.nodes.size ++ "\n}\n")
     logInfo m!"reward: {f.output.flatten.size} columns, {f.graph.nodes.size} nodes, inputs {f.inputs.map (·.1)}"
   | none => logInfo m!"rewardStep did not compile"
+  -- ---- THE ENV WRAPPER, printed from the same manifests as the kernels above.
+  -- `hashemi_tandoor_ccc.py` is the module `puffer_hashemi_ccc` loads; `hashemi_harness.py`
+  -- beside it is the hand-written half (the parent tandoor env's contract).  Every table is
+  -- checked against the morphism it addresses BEFORE the file is written.
+  match funs.find? (fun f => f.name.getString! == "hashemiEnv"),
+        funs.find? (fun f => f.name.getString! == "hashemiEnvBeam"),
+        funs.find? (fun f => f.name.getString! == "rewardStep") with
+  | some fe, some fb, some fr =>
+    let envIn := (fe.inputs.map (·.1)).toList
+    let beamIn := (fb.inputs.map (·.1)).toList
+    let rewIn := (fr.inputs.map (·.1)).toList
+    let ecols := envCols.toList
+    let mut bad : List String := []
+    for (n, _) in envBind do
+      unless envIn.contains n do bad := bad ++ [s!"envBind binds {n}, which hashemiEnv does not take"]
+    for (n, _) in beamBind do
+      unless beamIn.contains n do bad := bad ++ [s!"beamBind binds {n}, which hashemiEnvBeam does not take"]
+    -- the reward has no parameters: its inputs and this table are the same set
+    for (n, _) in rewardBind do
+      unless rewIn.contains n do bad := bad ++ [s!"rewardBind binds {n}, which rewardStep does not take"]
+    for n in rewIn do
+      unless (rewardBind.map (·.1)).contains n do bad := bad ++ [s!"rewardStep takes {n}, which the wrapper never binds"]
+    for (_, c) in stateWrite do
+      unless ecols.contains c do bad := bad ++ [s!"stateWrite writes {c}, which is not a column of hashemiEnv"]
+    for (_, p) in tableWrite do
+      unless ecols.contains (p ++ "0") do bad := bad ++ [s!"tableWrite reads {p}0, which is not a column of hashemiEnv"]
+    for (_, c, _) in mirrorCols do
+      unless ecols.contains c do bad := bad ++ [s!"mirrorCols mirrors {c}, which is not a column of hashemiEnv"]
+    for (_, k) in publishAttrs do
+      unless (mirrorCols.map (fun (a, _, _) => a)).contains k do
+        bad := bad ++ [s!"publishAttrs publishes {k}, which is not a mirror"]
+    for m in bad do logInfo m!"WRAPPER: {m}"
+    if bad.isEmpty then
+      IO.FS.writeFile (outDir ++ "/hashemi_tandoor_ccc.py") ("\n".intercalate wrapperPy ++ "\n")
+      logInfo m!"wrapper: hashemi_tandoor_ccc.py, {wrapperPy.length} lines; {envBind.length} of hashemiEnv's {envIn.length} inputs bound per step, {envIn.length - envBind.length} parameters; {rewardBind.length} reward inputs; {mirrorCols.length} mirrored columns"
+    else
+      logInfo m!"wrapper NOT written: {bad.length} table(s) disagree with the compiled morphisms"
+  | _, _, _ => logInfo m!"the wrapper needs hashemiEnv, hashemiEnvBeam and rewardStep"
   let skippedJson := skipped.toList.map fun (n, m) => "  {\"name\": " ++ jsonStr n.getString! ++ ", \"reason\": " ++ jsonStr m ++ "}"
   IO.FS.writeFile (outDir ++ "/hashemi_ccc.json")
     ("{\n\"functions\": [\n" ++ ",\n".intercalate json.toList ++ "\n],\n\"skipped\": [\n" ++

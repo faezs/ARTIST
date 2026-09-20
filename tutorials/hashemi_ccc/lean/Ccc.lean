@@ -76,10 +76,42 @@ partial def Graph.isBool (g : Graph) (i : Nat) : Bool :=
   | .iteC _ a _ => g.isBool a
   | _ => false
 
+/-- a node that is the literal `v` (a decimal, or the `ℕ`-cast that prints the same) -/
+def Graph.isLit (g : Graph) (i : Nat) (v : String) : Bool :=
+  match g.nodes[i]! with
+  | .lit s => s == v
+  | .natLit s => s == v
+  | _ => false
+
+/-- **an indicator**: a boolean node, or `if c then 1 else 0` — which is what `b2r` compiles to,
+so every `Prop` column of a specification is one.  An indicator does not move, it jumps: it has
+no sensitivity, and the box functor's Lipschitz component on it is meaningless (0 where the gate
+is decided, `HK_INF` where the box straddles it, a bound on nothing either way). -/
+def Graph.isTruth (g : Graph) (i : Nat) : Bool :=
+  g.isBool i ||
+  (match g.nodes[i]! with
+   | .ite _ a b => g.isLit a "1" && g.isLit b "0"
+   | .iteC _ a b => g.isLit a "1" && g.isLit b "0"
+   | _ => false)
+
 /-- a `.call` node (it prints as the application, not as a `v` binding of its own) -/
 def Node.isCall : Node → Bool
   | .call .. => true
   | _ => false
+
+/-- **the operands whose `L` a node's own `L` is computed from**: the arithmetic rules read their
+operands' Lipschitz bounds, and a comparison, a conjunction and a branch's CONDITION read only
+their intervals (`hk_bx_lt`, `hk_bx_and`, `hk_bx_ite` take `lo, hi` for those).  This is the edge
+relation the box's third component actually flows along, and it is smaller than `deps`. -/
+def Node.lDeps : Node → Array Nat
+  | .un op a => if op == "not" then #[] else #[a]
+  | .bin op a b =>
+    if ["<", "<=", ">", ">=", "==", "!=", "&&", "||", "->"].contains op then #[] else #[a, b]
+  | .pow a _ => #[a]
+  | .ite _ a b => #[a, b]
+  | .iteC _ a b => #[a, b]
+  | .sum _ a => #[a]
+  | _ => #[]
 
 /-- the operands of a node -/
 def Node.deps : Node → Array Nat
@@ -251,6 +283,19 @@ def unfoldable : List Name :=
    `TandoorOpticGadt.norm3, `TandoorOpticGadt.safeDiv, `TandoorOpticGadt.planeT,
    `TandoorOpticGadt.facing, `TandoorOpticGadt.hypHit, `TandoorOpticGadt.ellipHit]
 
+/-- whole namespaces that are unfolded like the root's own.
+
+`HashemiDims` holds the specification's dimension builders (`machineAt`, `carriageOf`, `baseOf`,
+`legOf`, `outriggerOf` …): the structures of the machine BUILT AT A SIZE rather than at his
+constants.  The moment the mount's morphisms took the reflector's half-width as an argument they
+began calling those, and the translator refused them - not for being structure-valued (it reads a
+structure literal field by field, as it does for `hashemi`) but for sitting in a namespace beside
+`TandoorHashemi` rather than inside it.  The spec's owner has since moved the builders themselves
+into the root (Hashemi.lean §16.6) and `HashemiDims` keeps the theorems about them, so this hook
+is not exercised today; it stays because the rule it states is the rule - the translator walks
+into what it is TOLD it may, never into whatever happens to be unfoldable. -/
+def unfoldableNs : List Name := [`HashemiDims]
+
 def isRealTy (t : Expr) : Bool := t.isConstOf `Real
 
 /-- Lean's own companions of a declaration (constructors' congruence and injectivity lemmas,
@@ -279,7 +324,14 @@ def sanitize (s : String) : String :=
     else match greek.lookup c with
       | some g => acc ++ g
       | none => acc ++ "_u" ++ toString c.toNat) ""
-  if out.isEmpty then "x" else out
+  let out := if out.isEmpty then "x" else out
+  -- HYGIENE.  The C, NumPy and Metal printers name a graph node `t<i>`, so a BINDER that
+  -- sanitizes to `t` followed by digits (`t₀` does) is shadowed by node `i` in the printed
+  -- body and the twin silently computes the wrong thing: measured on `payOut ym hp a ze t₀ t₁`,
+  -- whose NumPy twin opened `t0 = ym; t1 = hp` and returned a constant.  One underscore is
+  -- enough, and no binder in the specification before `HashemiWire.lean` had such a name.
+  if out.length > 1 && out.front == 't' && (out.toList.drop 1).all Char.isDigit then out ++ "_"
+  else out
 
 /-- how many binders a definition takes before its output vector (the first `Fin n` binder) -/
 partial def dataArity (ty : Expr) : MetaM Nat := do
@@ -764,7 +816,7 @@ partial def translateConst (root : Name) (n : Name) (_f : Expr) (args : Array Ex
             pure (Val.vec xs))
         return ← applyArgs v (args.extract k args.size)
     -- a definition in the root namespace or on the allow list: unfold (delta + beta) and go on
-    if root.isPrefixOf n || unfoldable.contains n then
+    if root.isPrefixOf n || unfoldable.contains n || unfoldableNs.any (·.isPrefixOf n) then
       let some e' ← unfoldDefinition? e | throwError "cannot unfold {n}"
       return ← translate root e'.headBeta
     throwError "the constant {n} (with {args.size} arguments) is outside the vocabulary"
@@ -954,6 +1006,26 @@ def liveNodes (g : Graph) (outs : Array Nat) : Std.HashSet Nat := Id.run do
     for d in g.nodes[i]!.deps do live := live.insert d
   return live
 
+/-- the output columns that are indicators (`Graph.isTruth`) -/
+def Fun.truthCols (f : Fun) : Array Bool := f.output.flatten.map f.graph.isTruth
+
+/-- **the nodes whose Lipschitz component anything needs**: `L` is live at a node exactly when a
+NON-truth output column reaches it along `lDeps`.  Every other `L` in the function is computed
+and thrown away — for a `Prop` function that is all of them. -/
+def Fun.liveL (f : Fun) : Std.HashSet Nat := Id.run do
+  let g := f.graph
+  let outs := f.output.flatten
+  let truth := f.truthCols
+  let mut live : Std.HashSet Nat := {}
+  for k in [0:outs.size] do
+    if !truth[k]! then live := live.insert outs[k]!
+  let n := g.nodes.size
+  for k in [0:n] do
+    let i := n - 1 - k
+    if !live.contains i then continue
+    for d in g.nodes[i]!.lDeps do live := live.insert d
+  return live
+
 /-- the width of a ray table -/
 def Fun.tableM (f : Fun) (base : String) : Nat :=
   match f.arrays.find? (·.1 == base) with
@@ -1055,27 +1127,32 @@ def cDRhs (f : Fun) (dxRef : Nat → String) (i : Nat) : Option String :=
 
 /-- the box statement of a node (`lo{j}, hi{j}, L{j}` for operands); `boxRef` gives a scalar
 input's `(lo, hi, sc)` reads; a ray read is a point with no scale -/
-def cBoxStmt (f : Fun) (boxRef : Nat → String × String × String) (ridx : String) (i : Nat) : Option String :=
+def cBoxStmt (f : Fun) (boxRef : Nat → String × String × String) (ridx : String) (i : Nat)
+    (needL : Nat → Bool := fun _ => true) : Option String :=
   let g := f.graph
   let tri := fun (j : Nat) => s!"lo{j}, hi{j}"
-  let tr := fun (j : Nat) => s!"lo{j}, hi{j}, L{j}"
-  let outp := fun (j : Nat) => s!"&lo{j}, &hi{j}, &L{j}"
+  -- an operand whose `L` is dead was never declared: its rule is handed a zero (no rule's
+  -- INTERVAL reads an operand's `L`), and this node's own `L` goes to the sink
+  let tr := fun (j : Nat) => if needL j then s!"lo{j}, hi{j}, L{j}" else s!"lo{j}, hi{j}, HK_LIT(0)"
+  let outp := fun (j : Nat) =>
+    if needL j then s!"&lo{j}, &hi{j}, &L{j}" else s!"&lo{j}, &hi{j}, &hk_bx_void"
   let outb := fun (j : Nat) => s!"&lo{j}, &hi{j}"
+  let setL := fun (j : Nat) (v : String) => if needL j then s!" L{j} = {v};" else ""
   match g.nodes[i]! with
   | .input _ _ =>
     match f.arrayScalar[i]? with
-    | some (b, j, k) => let v := f.tableRead b (toString j) k; some s!"lo{i} = {v}; hi{i} = {v}; L{i} = HK_LIT(0);"
-    | none => let (lo, hi, sc) := boxRef i; some s!"lo{i} = {lo}; hi{i} = {hi}; L{i} = {sc};"
-  | .rayIn b k => let v := f.tableRead b ridx k; some s!"lo{i} = {v}; hi{i} = {v}; L{i} = HK_LIT(0);"
+    | some (b, j, k) => let v := f.tableRead b (toString j) k; some s!"lo{i} = {v}; hi{i} = {v};{setL i "HK_LIT(0)"}"
+    | none => let (lo, hi, sc) := boxRef i; some s!"lo{i} = {lo}; hi{i} = {hi};{setL i sc}"
+  | .rayIn b k => let v := f.tableRead b ridx k; some s!"lo{i} = {v}; hi{i} = {v};{setL i "HK_LIT(0)"}"
   | .sum .. => none
-  | .lit s => some s!"lo{i} = HK_LIT({s}); hi{i} = HK_LIT({s}); L{i} = HK_LIT(0);"
-  | .natLit s => some s!"lo{i} = HK_LIT({s}); hi{i} = HK_LIT({s}); L{i} = HK_LIT(0);"
-  | .bconst b => let v := if b then "1" else "0"; some s!"lo{i} = HK_LIT({v}); hi{i} = HK_LIT({v}); L{i} = HK_LIT(0);"
-  | .pi => some s!"lo{i} = HK_PI; hi{i} = HK_PI; L{i} = HK_LIT(0);"
+  | .lit s => some s!"lo{i} = HK_LIT({s}); hi{i} = HK_LIT({s});{setL i "HK_LIT(0)"}"
+  | .natLit s => some s!"lo{i} = HK_LIT({s}); hi{i} = HK_LIT({s});{setL i "HK_LIT(0)"}"
+  | .bconst b => let v := if b then "1" else "0"; some s!"lo{i} = HK_LIT({v}); hi{i} = HK_LIT({v});{setL i "HK_LIT(0)"}"
+  | .pi => some s!"lo{i} = HK_PI; hi{i} = HK_PI;{setL i "HK_LIT(0)"}"
   | .un op a =>
     some (match op with
     | "neg" => s!"hk_bx_neg({tr a}, {outp i});"
-    | "not" => s!"hk_bx_not({tri a}, {outb i}); L{i} = HK_LIT(0);"
+    | "not" => s!"hk_bx_not({tri a}, {outb i});{setL i "HK_LIT(0)"}"
     | "sqrt" => s!"hk_bx_sqrt({tr a}, {outp i});"
     | "sin" => s!"hk_bx_trig(1, {tr a}, {outp i});"
     | "cos" => s!"hk_bx_trig(0, {tr a}, {outp i});"
@@ -1089,7 +1166,7 @@ def cBoxStmt (f : Fun) (boxRef : Nat → String × String × String) (ridx : Str
     | "floor" => s!"hk_bx_floor({tr a}, {outp i});"
     | "sigmoid" => s!"hk_bx_sigmoid({tr a}, {outp i});"
     | "tanh" => s!"hk_bx_tanh({tr a}, {outp i});"
-    | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF; L{i} = HK_INF;")
+    | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF;{setL i "HK_INF"}")
   | .bin op a b =>
     some (match op with
     | "+" => s!"hk_bx_add({tr a}, {tr b}, {outp i});"
@@ -1098,16 +1175,16 @@ def cBoxStmt (f : Fun) (boxRef : Nat → String × String × String) (ridx : Str
     | "/" => s!"hk_bx_div({tr a}, {tr b}, {outp i});"
     | "min" => s!"hk_bx_min({tr a}, {tr b}, {outp i});"
     | "max" => s!"hk_bx_max({tr a}, {tr b}, {outp i});"
-    | "<" => s!"hk_bx_lt({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-    | "<=" => s!"hk_bx_le({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-    | ">" => s!"hk_bx_lt({tri b}, {tri a}, {outb i}); L{i} = HK_LIT(0);"
-    | ">=" => s!"hk_bx_le({tri b}, {tri a}, {outb i}); L{i} = HK_LIT(0);"
-    | "==" => s!"hk_bx_eq({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-    | "!=" => s!"\{ hk_real e0, e1; hk_bx_eq({tri a}, {tri b}, &e0, &e1); hk_bx_not(e0, e1, {outb i}); } L{i} = HK_LIT(0);"
-    | "&&" => s!"hk_bx_and({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-    | "||" => s!"hk_bx_or({tri a}, {tri b}, {outb i}); L{i} = HK_LIT(0);"
-    | "->" => s!"\{ hk_real n0, n1; hk_bx_not({tri a}, &n0, &n1); hk_bx_or(n0, n1, {tri b}, {outb i}); } L{i} = HK_LIT(0);"
-    | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF; L{i} = HK_INF;")
+    | "<" => s!"hk_bx_lt({tri a}, {tri b}, {outb i});{setL i "HK_LIT(0)"}"
+    | "<=" => s!"hk_bx_le({tri a}, {tri b}, {outb i});{setL i "HK_LIT(0)"}"
+    | ">" => s!"hk_bx_lt({tri b}, {tri a}, {outb i});{setL i "HK_LIT(0)"}"
+    | ">=" => s!"hk_bx_le({tri b}, {tri a}, {outb i});{setL i "HK_LIT(0)"}"
+    | "==" => s!"hk_bx_eq({tri a}, {tri b}, {outb i});{setL i "HK_LIT(0)"}"
+    | "!=" => s!"\{ hk_real e0, e1; hk_bx_eq({tri a}, {tri b}, &e0, &e1); hk_bx_not(e0, e1, {outb i}); }{setL i "HK_LIT(0)"}"
+    | "&&" => s!"hk_bx_and({tri a}, {tri b}, {outb i});{setL i "HK_LIT(0)"}"
+    | "||" => s!"hk_bx_or({tri a}, {tri b}, {outb i});{setL i "HK_LIT(0)"}"
+    | "->" => s!"\{ hk_real n0, n1; hk_bx_not({tri a}, &n0, &n1); hk_bx_or(n0, n1, {tri b}, {outb i}); }{setL i "HK_LIT(0)"}"
+    | o => s!"/* ? {o} */ lo{i} = -HK_INF; hi{i} = HK_INF;{setL i "HK_INF"}")
   | .pow a n => some s!"hk_bx_pow({tr a}, {n}, {outp i});"
   | .ite c a b => some s!"hk_bx_ite({tri c}, {tr a}, {tr b}, {outp i});"
   | .iteC c a b => some s!"hk_bx_ite({tri c}, {tr a}, {tr b}, {outp i});"
@@ -1119,7 +1196,8 @@ inductive CKind | value | jvp | box
 
 /-- the lines for one node under a kind -/
 def cNodeLines (f : Fun) (kind : CKind) (inputRef dxRef : Nat → String)
-    (boxRef : Nat → String × String × String) (ridx : String) (i : Nat) : Array String :=
+    (boxRef : Nat → String × String × String) (ridx : String) (i : Nat)
+    (needL : Nat → Bool := fun _ => true) : Array String :=
   let g := f.graph
   let ty := if g.isBool i then "bool" else "hk_real"
   match kind with
@@ -1133,14 +1211,15 @@ def cNodeLines (f : Fun) (kind : CKind) (inputRef dxRef : Nat → String)
     match cDRhs f dxRef i with
     | some r => v.push s!"const hk_real d{i} = {r};"
     | none => v
-  | .box => match cBoxStmt f boxRef ridx i with
-    | some st => #[s!"hk_real lo{i}, hi{i}, L{i};", st]
+  | .box => match cBoxStmt f boxRef ridx i needL with
+    | some st => #[if needL i then s!"hk_real lo{i}, hi{i}, L{i};" else s!"hk_real lo{i}, hi{i};", st]
     | none => #[]
 
 /-- the body in phases, loop form: before the reduction; the loop over the rays accumulating
 each sum (its value, tangent, or box); after it. Returns the lines or the layering error -/
 def cBodyLoop (f : Fun) (kind : CKind) (inputRef dxRef : Nat → String)
-    (boxRef : Nat → String × String × String) : Except String (Array String) := Id.run do
+    (boxRef : Nat → String × String × String)
+    (needL : Nat → Bool := fun _ => true) : Except String (Array String) := Id.run do
   let g := f.graph
   let L := layers g
   if !L.err.isEmpty then return .error L.err
@@ -1148,7 +1227,7 @@ def cBodyLoop (f : Fun) (kind : CKind) (inputRef dxRef : Nat → String)
   let sums := L.sums.filter live.contains          -- a sum the outputs do not need is not accumulated
   let mut lines : Array String := #[]
   let node := fun (i : Nat) (ind : String) =>
-    (cNodeLines f kind inputRef dxRef boxRef "hk_i" i).map (ind ++ ·)
+    (cNodeLines f kind inputRef dxRef boxRef "hk_i" i needL).map (ind ++ ·)
   for i in [0:g.nodes.size] do
     if live.contains i && !L.ray[i]! && !L.post[i]! then lines := lines ++ node i "  "
   if !sums.isEmpty then
@@ -1156,7 +1235,10 @@ def cBodyLoop (f : Fun) (kind : CKind) (inputRef dxRef : Nat → String)
       match kind with
       | .value => lines := lines.push s!"  hk_real acc{s} = HK_LIT(0);"
       | .jvp => lines := lines.push s!"  hk_real acc{s} = HK_LIT(0); hk_real dacc{s} = HK_LIT(0);"
-      | .box => lines := lines.push s!"  hk_real acclo{s} = HK_LIT(0), acchi{s} = HK_LIT(0), accL{s} = HK_LIT(0);"
+      | .box =>
+        lines := lines.push (if needL s
+          then s!"  hk_real acclo{s} = HK_LIT(0), acchi{s} = HK_LIT(0), accL{s} = HK_LIT(0);"
+          else s!"  hk_real acclo{s} = HK_LIT(0), acchi{s} = HK_LIT(0);")
     lines := lines.push s!"  for (int hk_i = 0; hk_i < {L.P}; ++hk_i) \{"
     for i in [0:g.nodes.size] do
       if live.contains i && L.ray[i]! then lines := lines ++ node i "    "
@@ -1166,7 +1248,10 @@ def cBodyLoop (f : Fun) (kind : CKind) (inputRef dxRef : Nat → String)
         match kind with
         | .value => lines := lines.push s!"    acc{s} += t{a};"
         | .jvp => lines := lines.push s!"    acc{s} += t{a}; dacc{s} += {if g.isBool a then "HK_LIT(0)" else s!"d{a}"};"
-        | .box => lines := lines.push s!"    acclo{s} += lo{a}; acchi{s} += hi{a}; accL{s} = hk_bx_cap(accL{s} + L{a});"
+        | .box =>
+          lines := lines.push (if needL s
+            then s!"    acclo{s} += lo{a}; acchi{s} += hi{a}; accL{s} = hk_bx_cap(accL{s} + L{a});"
+            else s!"    acclo{s} += lo{a}; acchi{s} += hi{a};")
       | _ => pure ()
     lines := lines.push "  }"
   for i in [0:g.nodes.size] do
@@ -1176,7 +1261,10 @@ def cBodyLoop (f : Fun) (kind : CKind) (inputRef dxRef : Nat → String)
         match kind with
         | .value => lines := lines.push s!"  const hk_real t{i} = acc{i};"
         | .jvp => lines := lines.push s!"  const hk_real t{i} = acc{i}; const hk_real d{i} = dacc{i};"
-        | .box => lines := lines.push s!"  hk_real lo{i} = acclo{i}, hi{i} = acchi{i}, L{i} = accL{i};"
+        | .box =>
+          lines := lines.push (if needL i
+            then s!"  hk_real lo{i} = acclo{i}, hi{i} = acchi{i}, L{i} = accL{i};"
+            else s!"  hk_real lo{i} = acclo{i}, hi{i} = acchi{i};")
       | _ => lines := lines ++ node i "  "
   return .ok lines
 
@@ -1246,6 +1334,14 @@ Booleans are three-valued: `lo = hi = 1` true, `lo = hi = 0` false, `[0, 1]` unk
 def boxRuntime : String := "
 #ifndef HK_INF
 #define HK_INF HK_LIT(1e30)
+#endif
+/* the Lipschitz slot of a TRUTH column: a boolean, or b2r = (if p then 1 else 0), has no
+   sensitivity at all - it does not move, it jumps - so no number in this slot would be a bound.
+   The interval [lo, hi] of such a column is still the three-valued truth (0, 1, or [0,1]
+   undecided); only the bound is refused, and it is refused explicitly rather than by a 0 that
+   reads like 'flat'. */
+#ifndef HK_TRUTH
+#define HK_TRUTH (-HK_LIT(1))
 #endif
 HK_STATIC hk_real hk_bx_cap(hk_real x) { return (x != x || x >= HK_INF) ? HK_INF : (x < HK_LIT(0) ? HK_LIT(0) : x); }
 HK_STATIC hk_real hk_bx_mag(hk_real lo, hk_real hi) { return hk_max(hk_fabs(lo), hk_fabs(hi)); }
@@ -1361,16 +1457,40 @@ def printCBox (f : Fun) : String := Id.run do
   let mut inIdx : Std.HashMap Nat Nat := {}
   for k in [0:f.inputs.size] do inIdx := inIdx.insert (f.inputs[k]!).2 k
   let boxOf := fun (i : Nat) => let k := inIdx.getD i 0; (s!"hk_lo[{k}]", s!"hk_hi[{k}]", s!"hk_sc[{k}]")
-  let body := match cBodyLoop f .box (fun _ => "0") (fun _ => "0") boxOf with
+  -- THE TRUTH COLUMNS: an indicator has no Lipschitz bound, so it is given `HK_TRUTH` and the
+  -- `L` chain that would have fed it is not computed at all (`Fun.liveL`)
+  let truth := f.truthCols
+  let liveL := f.liveL
+  let needL := fun (i : Nat) => liveL.contains i
+  let body := match cBodyLoop f .box (fun _ => "0") (fun _ => "0") boxOf needL with
     | .ok ls => ls
     | .error e => #[s!"#error \"{e}\""]
+  -- the sink is declared only where the body actually writes to it: a dead `L` that is never an
+  -- `outp` (an input's, a literal's, a comparison's) simply has no statement at all
+  let usesVoid := body.any fun l => (l.splitOn "hk_bx_void").length > 1
   let mut lines : Array String := #[s!"HK_STATIC void {cName f.name}_box({", ".intercalate params.toList}) \{"]
+  if usesVoid then lines := lines.push "  hk_real hk_bx_void;   /* the Lipschitz sink: no output needs these */"
   lines := lines ++ body
   for k in [0:outs.size] do
     let o := outs[k]!
-    lines := lines.push s!"  hk_olo[{k}] = lo{o}; hk_ohi[{k}] = hi{o}; hk_oL[{k}] = L{o};"
+    lines := lines.push (if truth[k]!
+      then s!"  hk_olo[{k}] = lo{o}; hk_ohi[{k}] = hi{o}; hk_oL[{k}] = HK_TRUTH;"
+      else s!"  hk_olo[{k}] = lo{o}; hk_ohi[{k}] = hi{o}; hk_oL[{k}] = L{o};")
   lines := lines.push "}"
   return "\n".intercalate lines.toList
+
+/-- what the box printer skipped, for the driver to report: the truth columns, the live nodes
+whose Lipschitz component no output needs, and the live nodes in all -/
+def Fun.boxStats (f : Fun) : Nat × Nat × Nat := Id.run do
+  let live := liveNodes f.graph f.output.flatten
+  let liveL := f.liveL
+  let mut dead := 0
+  let mut tot := 0
+  for i in [0:f.graph.nodes.size] do
+    if live.contains i then
+      tot := tot + 1
+      if !liveL.contains i then dead := dead + 1
+  return ((f.truthCols.filter id).size, dead, tot)
 
 /-! ## The megakernel: one threadgroup per agent, one thread per ray, the reduction in shared memory -/
 

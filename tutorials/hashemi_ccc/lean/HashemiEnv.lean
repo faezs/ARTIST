@@ -12,9 +12,14 @@ import RequestProject.HashemiTrace
 import RequestProject.HashemiHeat
 import RequestProject.HashemiField
 import RequestProject.HashemiOil
+import RequestProject.HashemiWire
 
 namespace TandoorHashemi
 open Classical
+
+-- the env's row is 330 wide now (its own 100 and the mount's 230): the `Fin` literals of the
+-- vector need more elaboration depth than the default
+set_option maxRecDepth 40000
 
 /-- the rays per agent per step -/
 def envRays : ℕ := 64
@@ -47,8 +52,13 @@ shifted histories); then the loop's new state and the three new observations. -/
 noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
     R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta
     uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa : ℝ)
-    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 96 → ℝ :=
-  let s := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
+    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 330 → ℝ :=
+  let s := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
+  let mg := megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
+  let ms := megaScrew az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
+  let mq := megaReqs az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
+  let mc := megaThmsClosed az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
+  let mt := megaThmsState az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   let cap := (∑ i : Fin 64, dishPower R f a w rc k σslope σspec rho hsun (s 0) (s 1) elSun azSun
     (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0) / 64
   let capS := (∑ i : Fin 64, dishPower R f a w rc k σslope σspec rho hsun (s 0) (s 1) elSun azSun
@@ -117,6 +127,13 @@ noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm 
   let deg := degradStep degPrev dt degA degEa Tfilm
   let Ppump := pumpElec Q Dp Lp Tb etaP Pidle
   let fault := @b2r (oilBulkMax ≤ Traw) (Classical.propDecidable _)
+  -- THE WIRE, END TO END, AND THE SLACK AS THE GEOMETRY IT IS (HashemiWire.lean).  `s 3` is the
+  -- span the step left the wire at and `s 2` the wire on the ground, both the mount's own
+  -- columns; nothing here re-walks the mount.
+  let wrun := wireRun (ymOf a) (hpOf a) a (zeOf a) (endStationOf a) (postHOf a) (s 1)
+  let wpaid := wrun + s 2
+  let wbight := bightDepth (s 3) (s 2)
+  let wwind := windBack (s 2) rDrum
   let eAz := (azSun - s 0) - 2 * Real.pi * ((⌊((azSun - s 0) + Real.pi) / (2 * Real.pi)⌋ : ℤ) : ℝ)
   ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9, s 10, s 11, s 12, s 13, s 14, s 15, s 16,
     cap, capS, per, Pin, Tout, qAbs, qCoil, qPipe, qPot, qNet,
@@ -126,10 +143,49 @@ noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm 
     h' 0, h' 1, h' 2, h' 3, h' 4, h' 5, h' 6, h' 7, h' 8, h' 9, h' 10, h' 11, h' 12, h' 13, h' 14, h' 15,
     r' 0, r' 1, r' 2, r' 3, r' 4, r' 5, r' 6, r' 7, r' 8, r' 9, r' 10, r' 11, r' 12, r' 13, r' 14, r' 15,
     Tfilm, margin, Q, deg, Ppump, mcpF, UAx, dly, fault, expansionFrac 293.15 Tout,
-    margin / 300, uP, min (max deg 0) 1]
+    margin / 300, uP, min (max deg 0) 1,
+    wrun, wpaid, wbight, wwind,
+    s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9,
+    s 10, s 11, s 12, s 13, s 14, s 15, s 16,
+    mg 0, mg 1, mg 2, mg 3, mg 4, mg 5, mg 6, mg 7, mg 8, mg 9,
+    mg 10, mg 11, mg 12, mg 13, mg 14, mg 15, mg 16, mg 17, mg 18, mg 19,
+    mg 20, mg 21, mg 22, mg 23, mg 24, mg 25, mg 26, mg 27, mg 28, mg 29,
+    mg 30, mg 31, mg 32, mg 33, mg 34, mg 35, mg 36, mg 37, mg 38, mg 39,
+    mg 40, mg 41, mg 42, mg 43, mg 44, mg 45, mg 46, mg 47, mg 48, mg 49,
+    mg 50, mg 51, mg 52, mg 53, mg 54, mg 55, mg 56, mg 57, mg 58, mg 59,
+    ms 0, ms 1, ms 2, ms 3, ms 4, ms 5, ms 6, ms 7, ms 8, ms 9,
+    ms 10, ms 11, ms 12, ms 13, ms 14, ms 15, ms 16, ms 17, ms 18, ms 19,
+    ms 20, ms 21, ms 22, ms 23, ms 24, ms 25, ms 26, ms 27, ms 28, ms 29,
+    ms 30, ms 31, ms 32, ms 33, ms 34, ms 35, ms 36, ms 37, ms 38, ms 39,
+    mq 0, mq 1, mq 2, mq 3, mq 4, mq 5, mq 6,
+    mc 0, mc 1, mc 2, mc 3, mc 4, mc 5, mc 6, mc 7, mc 8, mc 9,
+    mc 10, mc 11, mc 12, mc 13, mc 14, mc 15, mc 16, mc 17, mc 18, mc 19,
+    mc 20, mc 21, mc 22, mc 23, mc 24, mc 25, mc 26, mc 27, mc 28, mc 29,
+    mc 30, mc 31, mc 32, mc 33, mc 34, mc 35, mc 36, mc 37, mc 38, mc 39,
+    mc 40, mc 41, mc 42, mc 43, mc 44, mc 45, mc 46, mc 47, mc 48, mc 49,
+    mc 50, mc 51, mc 52, mc 53, mc 54, mc 55,
+    mt 0, mt 1, mt 2, mt 3, mt 4, mt 5, mt 6, mt 7, mt 8, mt 9,
+    mt 10, mt 11, mt 12, mt 13, mt 14, mt 15, mt 16, mt 17, mt 18, mt 19,
+    mt 20, mt 21, mt 22, mt 23, mt 24, mt 25, mt 26, mt 27, mt 28, mt 29,
+    mt 30, mt 31, mt 32, mt 33, mt 34, mt 35, mt 36, mt 37, mt 38, mt 39,
+    mt 40, mt 41, mt 42, mt 43, mt 44, mt 45, mt 46, mt 47, mt 48, mt 49]
 
-/-- the columns -/
-def envNames : Array String := #[
+/-- **the whole mount, carried per step.**  `hashemiEnv` called the mount already and kept 17 of
+its columns; `megaNames`' other 213 — the wire (`P_y`, `P_z`, `C_y`, `C_z`, `wireLever`,
+`wireLen`, `wireTension`, `deadPoint`, `slackSpot`, `wire_moment`), the screw solve (every
+`recip_*`, the focus's freedom velocities `vF_yaw_*` / `vF_swing_*` / `v_roll_z`,
+`drive_work_yaw`, `boltStress`, `hM12`, `elPower_screw`, `az_rpm`, `roller_rpm`, `strutStrain`,
+`cableDrop`), the machine's geometry, the focus's own motion, and the ~100 structural predicates
+(`TrackerBudget`, `HoldsDish`, `MastClears`, `ReachesVertical`, `Fits`, …) — were computed in a
+kernel the env never ran and thrown away.  They are columns of the env's step now, under this
+prefix, and they are named by `megaNames` so that no list of them is ever typed twice.
+
+They are NOT observations: `obsOf` and the policy's `machine_obs` are untouched.  These are for
+the env's own physics, the reward, the scene and the checks. -/
+def mountNames : Array String := megaNames.map (fun n => "mount_" ++ n)
+
+/-- the env's own columns -/
+def envOwnNames : Array String := #[
   "az_next", "t_next", "slack_next", "wire_len", "t_dead", "stalled", "taut", "wire_holds", "arm",
   "swing_rate", "az_rate", "pointing_err", "el_dish", "sun_reachable", "lost_sun", "sun_reachable_s", "lost_sun_s",
   "capture", "capture_s", "per_dni", "p_in", "T_oil", "q_abs", "q_coil_loss", "q_pipe", "q_pot", "q_net",
@@ -141,9 +197,16 @@ def envNames : Array String := #[
   "ret_0", "ret_1", "ret_2", "ret_3", "ret_4", "ret_5", "ret_6", "ret_7",
   "ret_8", "ret_9", "ret_10", "ret_11", "ret_12", "ret_13", "ret_14", "ret_15",
   "T_film", "film_margin", "flow", "deg", "p_pump", "mcp", "UA_x", "delay", "fault", "expansion",
-  "obs_margin", "obs_flow", "obs_deg"]
+  "obs_margin", "obs_flow", "obs_deg",
+  "wire_run", "wire_paid", "wire_bight", "wire_wind"]
 
-theorem envNames_size : envNames.size = 96 := by rfl
+/-- the columns: the env's own, then the mount's -/
+def envNames : Array String := envOwnNames ++ mountNames
+
+theorem envOwnNames_size : envOwnNames.size = 100 := by rfl
+theorem envNames_size : envNames.size = 100 + 230 := by
+  simp only [envNames, mountNames, Array.size_append, Array.size_map, envOwnNames_size,
+    megaNames_size]
 
 /-- the capture is a mean of Booleans: in `[0, 1]` -/
 theorem hashemiEnv_capture_mem (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
@@ -157,17 +220,17 @@ theorem hashemiEnv_capture_mem (az t slack ωm ωd dt elSun azSun dni rDrum W rc
   simp only [Matrix.cons_val]
   have h : ∀ i : Fin 64,
       0 ≤ dishPower R f a w rc k σslope σspec rho hsun
-        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0)
-        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun
+        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0)
+        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun
         (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0 ∧
       dishPower R f a w rc k σslope σspec rho hsun
-        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0)
-        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun
+        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0)
+        (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun
         (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) 0 ≤ 1 := by
     intro i
     rcases dishPower_captured R f a w rc k σslope σspec rho hsun
-      (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0)
-      (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun
+      (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0)
+      (megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun
       (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5) (dr i 6) (dr i 7) (dr i 8) (dr i 9) with e | e <;>
       rw [e] <;> norm_num
   constructor
