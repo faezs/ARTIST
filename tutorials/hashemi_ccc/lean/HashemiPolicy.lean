@@ -58,6 +58,56 @@ theorem driveEl_rate (u arm rDrum : ℝ) (hr : rDrum ≠ 0) (ha : arm ≠ 0) :
     elRate (driveEl u arm rDrum) rDrum arm = u * elFull := by
   unfold elRate driveEl; field_simp
 
+/-! ### The drive and the kinematics must be the SAME machine
+
+`driveAz_rate` and `driveEl_rate` above each carry a hypothesis that looks like bookkeeping - the
+ring in the drive is the ring in the rate, the arm in the drive is the arm in the rate.  It is
+not bookkeeping.  Since the mount takes its dimensions as arguments (`Hashemi.lean` §16), a caller
+can compute the command at one machine while the kernel turns the dish at another, and the four
+declarations below say exactly what that costs.  It is not a small number: at the ini's 2 m
+reflector it is two fifths. -/
+
+/-- **the ring is homogeneous in the reflector**: `rRailOf a = √((1.15 a)² + a²)`, so a machine
+`lam` times the size rides a ring `lam` times the radius.  This is why the mismatch below is a
+pure SIZE ratio and never has to be measured. -/
+theorem rRailOf_homog {lam : ℝ} (hl : 0 ≤ lam) (a : ℝ) : rRailOf (lam * a) = lam * rRailOf a := by
+  unfold rRailOf chordOf sideOf sideGapOf apexHOf
+  rw [show ((2 * (lam * a) + 2 * (kGap * (lam * a))) / 2) ^ 2 + (kApex * (lam * a)) ^ 2
+        = lam ^ 2 * (((2 * a + 2 * (kGap * a)) / 2) ^ 2 + (kApex * a) ^ 2) by ring]
+  rw [Real.sqrt_mul (by positivity), Real.sqrt_sq hl]
+
+theorem rRailOf_pos {a : ℝ} (ha : 0 < a) : 0 < rRailOf a := by
+  unfold rRailOf
+  apply Real.sqrt_pos.mpr
+  have : (0:ℝ) < apexHOf a := by unfold apexHOf kApex; linarith
+  positivity
+
+/-- **the azimuth axis, mismatched**.  `driveAz u rw R'` is the MOTOR's rate for a command,
+computed at whatever ring `R'` the caller believes in; `azRate _ rw R` turns a motor rate back
+into the DISH's, at the ring the dish actually rides.  Compose them and the command arrives scaled
+by `R' / R`.  `driveAz_rate` is this at `R' = R` - so a wrapper that computes the drive at the
+specification's ring while the kernel turns the agent's own delivers `R'/R` of what it asked for,
+silently, and the follower, the parent's `RATE_AZ` and every checkpoint assume 1. -/
+theorem azRate_driveAz_mismatch (u rw R R' : ℝ) (hrw : rw ≠ 0) (hR : R ≠ 0) :
+    azRate (driveAz u rw R') rw R = u * azFull * (R' / R) := by
+  unfold azRate driveAz; field_simp
+
+/-- **the elevation axis, mismatched**, where the tow wire's lever arm plays the ring's part: a
+`driveEl` computed at `arm'` against an `elRate` taken at `arm` delivers `arm'/arm`. -/
+theorem elRate_driveEl_mismatch (u arm arm' rDrum : ℝ) (hr : rDrum ≠ 0) (ha : arm ≠ 0) :
+    elRate (driveEl u arm' rDrum) rDrum arm = u * elFull * (arm' / arm) := by
+  unfold elRate driveEl; field_simp
+
+/-- **two fifths, derived**: his machine's ring against a 2 m machine's is
+`rRailOf dishHalf / rRailOf 2`, and by homogeneity that is just `0.8 / 2`.  So a dish commanded at
+full azimuth through HIS ring while turning on its OWN slews at `0.4 · azFull` - 0.0140 deg/s
+against 0.0350 - and no part of that figure is measured or approximate. -/
+theorem ring_ratio_hashemi_to_two : rRailOf dishHalf / rRailOf 2 = 0.4 := by
+  have hp : (0:ℝ) < rRailOf 2 := rRailOf_pos (by norm_num)
+  have hd : dishHalf = 0.4 * 2 := by unfold dishHalf; norm_num
+  rw [hd, rRailOf_homog (by norm_num : (0:ℝ) ≤ 0.4) 2]
+  field_simp
+
 /-- the sun's fastest rate, rad/s: the Earth's 15 deg/h -/
 noncomputable def sunRate : ℝ := 7.3e-5
 
@@ -214,18 +264,19 @@ columns, the eleven observations the policy acted on and its three commands. -/
 noncomputable def hashemiLoop (az t slack dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
     R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta
     Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa
-    tautPrev holdsPrev tDead marginPrev flowPrev : ℝ)
+    tautPrev holdsPrev tDead marginPrev flowPrev sigW eW : ℝ)
     (W1 : Fin 16 → Fin 11 → ℝ) (b1 : Fin 16 → ℝ) (W2 : Fin 3 → Fin 16 → ℝ) (b2 : Fin 3 → ℝ)
     (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 110 → ℝ :=
   let o := obsOf az t elSun azSun tautPrev holdsPrev (hist 0) tDead marginPrev flowPrev degPrev
   let u := mlpPolicy W1 b1 W2 b2 o
-  let arm := leverAt ymHashemi hpHashemi dishHalf zeHashemi t
+  -- the lever is THIS machine's, not his: `§16`'s dimensions of the reflector's half-side
+  let arm := leverAt (ymOf a) (hpOf a) a (zeOf a) t
   let ωm := driveAz (u 0) hashemi.rDrive (rollerRadius hashemi)
   let ωd := driveEl (u 1) arm rDrum
   let uPump := pumpCmd (u 2)
   let s := hashemiEnv az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
     R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta
-    uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa hist ret dr
+    uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW hist ret dr
   ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9, s 10, s 11, s 12, s 13, s 14, s 15,
     s 16, s 17, s 18, s 19, s 20, s 21, s 22, s 23, s 24, s 25, s 26, s 27, s 28, s 29, s 30, s 31,
     s 32, s 33, s 34, s 35, s 36, s 37, s 38, s 39, s 40, s 41, s 42, s 43, s 44, s 45, s 46, s 47,
