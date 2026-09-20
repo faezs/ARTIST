@@ -294,7 +294,14 @@ structure literal field by field, as it does for `hashemi`) but for sitting in a
 into the root (Hashemi.lean §16.6) and `HashemiDims` keeps the theorems about them, so this hook
 is not exercised today; it stays because the rule it states is the rule - the translator walks
 into what it is TOLD it may, never into whatever happens to be unfoldable. -/
-def unfoldableNs : List Name := [`HashemiDims]
+def unfoldableNs : List Name :=
+  [`HashemiDims,
+   -- the wind: `TandoorWind.dynPressure` (Membrane.lean) and `TandoorMountCompliance.windMoment`
+   -- (MountCompliance.lean).  Until 2026-09-20 nothing the driver compiled imported either, so a
+   -- library with the achieved attitude as a fixed point and a proved Lipschitz bound on the
+   -- moment was dead code beside a kernel that knew wind only as a convection coefficient.
+   -- `HashemiWind.windMomentAt_eq_windMoment` ties the compiled moment to that definition.
+   `TandoorWind, `TandoorMembrane, `TandoorMountCompliance]
 
 def isRealTy (t : Expr) : Bool := t.isConstOf `Real
 

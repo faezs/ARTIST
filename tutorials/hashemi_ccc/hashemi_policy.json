@@ -118,5 +118,5 @@
   {"name": "u_pump", "subsystem": "policy", "kind": "dimensionless", "unit": "command [-1,1]", "frame": "none", "decl": "TandoorHashemi.pumpCmd"}],
 "inputs": ["az", "t", "slack", "dt", "elSun", "azSun", "dni", "rDrum", "W", "rcm", "Tmax", "rho", "Fdrive", "L10", "rodLen", "R", "f", "a", "w", "rc", "k", "sigmaslope", "sigmaspec", "hsun", "soil", "alpha", "eps", "Ac", "Twall", "Ta", "Qmax", "Dp", "Lp", "Dins", "kIns", "Vw", "etaP", "Pidle", "Axch", "UAxMax", "Ccoil", "degPrev", "degA", "degEa", "tautPrev", "holdsPrev", "tDead", "marginPrev", "flowPrev", "sigW", "eW", "b2_0", "b2_1", "b2_2"],
 "arrays": [{"name": "W1", "P": 16, "m": 11, "shared": true}, {"name": "b1", "P": 16, "m": 0, "shared": true}, {"name": "W2", "P": 3, "m": 16, "shared": true}, {"name": "hist", "P": 16, "m": 0, "shared": false}, {"name": "ret", "P": 16, "m": 0, "shared": false}, {"name": "dr", "P": 64, "m": 10, "shared": false}],
-"n_columns": 110, "rays": 64, "n_nodes": 4354, "ray_nodes": 210, "sums": 10
+"n_columns": 110, "rays": 64, "n_nodes": 4374, "ray_nodes": 210, "sums": 10
 }

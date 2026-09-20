@@ -1,0 +1,20 @@
+digraph "TandoorHashemi.wireTensionW" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="W", shape=box];
+  n1 [label="rcm", shape=box];
+  n2 [label="rw", shape=box];
+  n3 [label="t", shape=box];
+  n4 [label="M", shape=box];
+  n5 [label="*", shape=ellipse];
+  n0 -> n5; n1 -> n5;
+  n6 [label="sin", shape=ellipse];
+  n3 -> n6;
+  n7 [label="*", shape=ellipse];
+  n5 -> n7; n6 -> n7;
+  n8 [label="-", shape=ellipse];
+  n7 -> n8; n4 -> n8;
+  n9 [label="/", shape=ellipse];
+  n8 -> n9; n2 -> n9;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out0;
+}

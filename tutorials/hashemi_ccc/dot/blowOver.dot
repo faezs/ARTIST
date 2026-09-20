@@ -1,0 +1,20 @@
+digraph "TandoorHashemi.blowOver" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="W", shape=box];
+  n1 [label="rcm", shape=box];
+  n2 [label="M", shape=box];
+  n3 [label="1", shape=plaintext];
+  n4 [label="0", shape=plaintext];
+  n5 [label="*", shape=ellipse];
+  n0 -> n5; n1 -> n5;
+  n6 [label="/", shape=ellipse];
+  n2 -> n6; n5 -> n6;
+  n7 [label="max", shape=ellipse];
+  n4 -> n7; n6 -> n7;
+  n8 [label="min", shape=ellipse];
+  n3 -> n8; n7 -> n8;
+  n9 [label="arcsin", shape=ellipse];
+  n8 -> n9;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out0;
+}

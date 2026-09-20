@@ -127,7 +127,11 @@ name is the column's name in `envNames` / `megaNames` / `loopNames` / `beamNames
 def rows : List Row := [
   -- ---- the mount's state (megaStep, and the first 17 of every morphism that calls it)
   (.mount, .angle, "rad", .roof, ["az_next", "pointing_err", "el_dish"]),
-  (.mount, .angle, "rad", .bolt, ["t_next", "t_dead", "t_achieved", "droop"]),
+  (.mount, .angle, "rad", .bolt, ["t_next", "t_dead", "t_achieved", "droop", "t_wind"]),
+  -- THE WIND, which reached the kernel only as a convection coefficient until 2026-09-20
+  (.mount, .moment, "N m", .bolt, ["wind_moment"]),
+  (.mount, .force, "N", .none, ["wire_tension_w"]),
+  (.mount, .truth, "", .none, ["taut_w"]),
   (.mount, .length, "m", .none, ["slack_next", "wire_len", "wire_run", "wire_paid"]),
   (.mount, .length, "m", .bolt, ["arm", "wire_bight"]),
   -- the slack wound back onto the drum is an ANGLE of the drum, not a length: `windBack`
@@ -242,6 +246,8 @@ def declOf : List (String × String) := [
   ("arm", "leverAt"), ("swing_rate", "elRate"), ("az_rate", "azRate"),
   ("wire_run", "wireRun"), ("wire_paid", "wireRun"), ("wire_bight", "bightDepth"),
   ("droop", "droopAt"), ("t_achieved", "swingAchieved"),
+  ("wind_moment", "windMomentAt"), ("wire_tension_w", "wireTensionW"),
+  ("taut_w", "wire_tautW_iff"), ("t_wind", "swingWind"),
   ("wire_wind", "windBack"),
   ("pointing_err", "pointingError"), ("el_dish", "megaStep"),
   ("sun_reachable", "SunReachable"), ("lost_sun", "LostSun"),

@@ -14,11 +14,12 @@ import RequestProject.HashemiField
 import RequestProject.HashemiOil
 import RequestProject.HashemiWire
 import RequestProject.HashemiDroop
+import RequestProject.HashemiWind
 
 namespace TandoorHashemi
 open Classical
 
--- the env's row is 332 wide now (its own 102 and the mount's 230): the `Fin` literals of the
+-- the env's row is 336 wide now (its own 106 and the mount's 230): the `Fin` literals of the
 -- vector need more elaboration depth than the default
 set_option maxRecDepth 40000
 
@@ -53,7 +54,7 @@ shifted histories); then the loop's new state and the three new observations. -/
 noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
     R f a w rc k σslope σspec hsun soil α ε Ac Twall Ta
     uPump Qmax Dp Lp Dins kIns Vw etaP Pidle Axch UAxMax Ccoil degPrev degA degEa sigW eW : ℝ)
-    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 332 → ℝ :=
+    (hist ret : Fin 16 → ℝ) (dr : Fin 64 → Fin 10 → ℝ) : Fin 336 → ℝ :=
   let s := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   let mg := megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   let ms := megaScrew az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
@@ -75,7 +76,17 @@ noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm 
   -- difference is visible and so the next pass has it.
   let tA := s 1 + dro
   -- the gate is charged the achieved error: the commanded one plus a deflection it cannot see
-  let eA := s 11 + dro
+  -- THE WIND (HashemiWind.lean).  `Vw` was input 38 and reached exactly one place in the kernel,
+  -- `hWind Vw` in the coil's convection: wind cooled the receiver and could do nothing else.  It
+  -- has a moment about the bolt line, it unloads the tow wire, and once the wire is slack a wire
+  -- that only pulls holds nothing - the dish runs out to where its own weight balances the wind.
+  let wM := windMomentAt airRho Vw a rcm dragCt dragCm
+  let wT := wireTensionW W rcm (s 8) (s 1) wM
+  let tautW := @b2r (wM ≤ W * rcm * Real.sin (s 1)) (Classical.propDecidable _)
+  let tW := swingWind W rcm (s 1) wM
+  -- the gate is charged the whole deflection the encoder cannot see: the wire's stretch, and
+  -- whatever the wind has blown the dish past its commanded swing (`swingWind_ge`, so ≥ 0)
+  let eA := s 11 + dro + (tW - s 1)
   -- decided EXPLICITLY, like `inBin` and `fault` below: a `b2r` whose instance the printer cannot
   -- see prints an `ite` the round trip cannot re-elaborate (HashemiCcc.lean's own note)
   -- THE HARD GATE AT THE ACHIEVED ERROR.  `LostSun`'s own conjunction with `SunReachable`'s body
@@ -171,7 +182,7 @@ noncomputable def hashemiEnv (az t slack ωm ωd dt elSun azSun dni rDrum W rcm 
     r' 0, r' 1, r' 2, r' 3, r' 4, r' 5, r' 6, r' 7, r' 8, r' 9, r' 10, r' 11, r' 12, r' 13, r' 14, r' 15,
     Tfilm, margin, Q, deg, Ppump, mcpF, UAx, dly, fault, expansionFrac 293.15 Tout,
     margin / 300, uP, min (max deg 0) 1,
-    wrun, wpaid, wbight, wwind, dro, tA,
+    wrun, wpaid, wbight, wwind, dro, tA, wM, wT, tautW, tW,
     s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, s 8, s 9,
     s 10, s 11, s 12, s 13, s 14, s 15, s 16,
     mg 0, mg 1, mg 2, mg 3, mg 4, mg 5, mg 6, mg 7, mg 8, mg 9,
@@ -225,13 +236,14 @@ def envOwnNames : Array String := #[
   "ret_8", "ret_9", "ret_10", "ret_11", "ret_12", "ret_13", "ret_14", "ret_15",
   "T_film", "film_margin", "flow", "deg", "p_pump", "mcp", "UA_x", "delay", "fault", "expansion",
   "obs_margin", "obs_flow", "obs_deg",
-  "wire_run", "wire_paid", "wire_bight", "wire_wind", "droop", "t_achieved"]
+  "wire_run", "wire_paid", "wire_bight", "wire_wind", "droop", "t_achieved",
+  "wind_moment", "wire_tension_w", "taut_w", "t_wind"]
 
 /-- the columns: the env's own, then the mount's -/
 def envNames : Array String := envOwnNames ++ mountNames
 
-theorem envOwnNames_size : envOwnNames.size = 102 := by rfl
-theorem envNames_size : envNames.size = 102 + 230 := by
+theorem envOwnNames_size : envOwnNames.size = 106 := by rfl
+theorem envNames_size : envNames.size = 106 + 230 := by
   simp only [envNames, mountNames, Array.size_append, Array.size_map, envOwnNames_size,
     megaNames_size]
 
