@@ -56,7 +56,13 @@ Everything else the file fixes is a number with no law attached to it, and it is
 * **the loop** (`HashemiOil.lean`, `hashemi_env_kernel.py`'s `LOOP_PARAMS`): the coil's surface
   `Ac = 0.03` and bore `Dc = 0.010`, the run's bore `Dp = 0.012` and length `Lp = 6`, the pump's
   full flow `Qmax`, its efficiency and its STANDING DRAW `Pidle = 8` W, the coil's absorptance,
-  the expansion tank.  The video names no oil, no pump and no pipe diameter at all.
+  the expansion tank, and the EXCHANGER's own buried tube `Lxch` (the `Axch = 0.20 m²` of that
+  file at the loop's own 10 mm bore), the liner it is buried in `kLiner` and its standoff
+  `dStand`.  The video names no oil, no pump and no pipe diameter at all.
+* **the pot** (`Tandoor.lean`, `tandoor_rl_env.py`): the liner's conductance per unit area of face
+  `uLiner`, the dough's `hBread`, the band's emissivity, the slots the coil feeds `nOil`, the
+  cook's loading temperature `Tcook` and the cold pit's `Tcold`.  The pit is the site: none of
+  them scales with the reflector either, and the delivery constraint is written in them.
 
 The file states NO law by which any of them follows from the dish - `megaParams`' W is "a one-man
 lift", the bolt is "M12, the user", the panel is "a small 5 watt panel" - so none of them is
@@ -65,8 +71,11 @@ scaled here.  That silence is the whole subject of this file.
 ## What the check reports
 
 `SoundGeom` is sixteen conjuncts, each the generalisation of a named constraint of the file, and
-`SoundLoop` is three more from `HashemiOil.lean` - the pump inside the panel's budget, the
-stagnation film temperature under the fluid's limit, the expansion tank.  `Sound` is both.
+`SoundLoop` is four more from `HashemiOil.lean` - the pump inside the panel's budget, the
+stagnation film temperature under the fluid's limit, the expansion tank, and **DELIVERY**: the
+exchanger in the pot's wall carries, at the temperature the cook may load dough at, the power the
+band it feeds needs (`Tandoor.lean`'s band, `HashemiHeat.qPot` and
+`StatedLaws.TandoorLoad.rotis_le_energy`).  `Sound` is both.
 `ReachesVertical` is NOT among them: `wire_short_of_vertical` says his own machine fails it, so it
 is reported beside `Sound` as the file reports it - a limit, not a requirement.
 
@@ -82,7 +91,10 @@ over Therminol 66's 648 K film limit.  So `not_sound_his : ~ Sound (derive his)`
 Every conjunct is an inequality in ONE held quantity, and solved for it, it is a design rule
 (section 4): `rcMin` (the coil `TrackerBudget` needs), `epsMax` (the sensor that coil allows),
 `wMax` (the facet it allows - negative at `a = 2`, which is the lever going dead), `panelMin`
-(`PumpWithinBudget`), `AcMin` and `coilLenMin` (the film limit), `tankMin` (the expansion).  Each
+(`PumpWithinBudget`), `AcMin` and `coilLenMin` (the film limit), `tankMin` (the expansion), and
+`coilLenDel` / `dMaxDel` (DELIVERY: the buried tube the band needs, and the standoff the tube the
+machine already has would allow - `uaExch` is linear in the length and falls with the depth, so
+the same inequality has two solutions and the report prices both).  Each
 has a theorem that the solved value satisfies its conjunct BY CONSTRUCTION
 (`tracker_holds_of_rc`, `pump_holds_of_panel`, `film_holds_of_Ac`, `tank_holds_of_tank`), and
 `design` takes the pointwise maximum of the held value and its floor - the MINIMAL change to the
@@ -101,6 +113,25 @@ namespace TandoorHashemi
 
 open Lean Elab Command Term
 
+/-! ## 0. The pot the exchanger feeds
+
+`Tandoor.lean` states the oven: the one sphere through the coal bed and the mouth (`zCPot`,
+`rSph`) and the baking band's edges (`zBakeLo`, `zCrown`) over its `nBelt` slots.  Those five are
+RESTATED here rather than imported, for one mechanical reason: `machine_scale` is an executable,
+`lake` puts one object path per imported module on the linker's command line, and that line is
+already 982 KB against a 1 MB `ARG_MAX` - adding the oven's module to it makes the link fail with
+"could not execute external process".  `HashemiSceneInst.lean` imports both files and checks
+them equal by `rfl` (`potBand_is_tandoor`), so the restatement cannot drift. -/
+
+/-- `Tandoor.zCPot`: the sphere's centre below the mouth -/
+noncomputable def zCPotS : ℝ := ((0.26 : ℝ) ^ 2 - (0.42 : ℝ) ^ 2 - (2.44 : ℝ) ^ 2) / (2 * 2.44)
+/-- `Tandoor.rSph` -/
+noncomputable def rSphS : ℝ := Real.sqrt ((0.26 : ℝ) ^ 2 + zCPotS ^ 2)
+/-- `Tandoor.zBakeLo`, `Tandoor.zCrown`, `Tandoor.nBelt` -/
+noncomputable def zBakeLoS : ℝ := -0.85
+noncomputable def zCrownS : ℝ := -0.22
+noncomputable def nBeltS : ℝ := 8
+
 /-! ## 1. The givens -/
 
 /-- the independent dimensions: the reflector's half-side, the proportions his figures fix
@@ -108,40 +139,8 @@ against it, and the numbers the file fixes with no law attached (held) -/
 structure Givens where
   /-- the reflector's half-side, `dishHalf`: the ONE free dimension -/
   a : ℝ
-  /-- `R/a`, his sphere's proportion (`dishR`/`dishHalf`) -/
-  pR : ℝ := 2.5
-  /-- `sideGap/a` (`sideGap_eq`) -/
-  kGap : ℝ := 0.15
-  /-- `apexH/a` -/
-  kApex : ℝ := 1.0
-  /-- `aBase/a` -/
-  kBase : ℝ := 1.225
-  /-- `cross/a` -/
-  kCross : ℝ := 0.4875
-  /-- `barW/a` -/
-  kBarW : ℝ := 0.16875
-  /-- `(upright - FC)/a` (`hashemi_clearance`) -/
-  kHead : ℝ := 0.18125
-  /-- `holeDown/a` -/
-  kHole : ℝ := 0.0625
-  /-- `(ym - FC)/a` (`ymHashemi` over `MastClears`) -/
-  kMast : ℝ := 0.08125
-  /-- `hp/a` (`pulley_above_pivot`) -/
-  kPulley : ℝ := 0.425
-  /-- `yr/a`, the rim hole along the edge -/
-  kRim : ℝ := 0.5
-  /-- the eye's reach beyond the post face, over `a` -/
-  kEye : ℝ := 0.0375
-  /-- the leg's foot, brace and short side over the upright (a similar triangle) -/
-  kFoot : ℝ := 0.4769230769
-  kBrace : ℝ := 0.7384615385
-  kShort : ℝ := 0.1346153846
-  /-- the hanger rod's full length over `a` -/
-  kRod : ℝ := 1.25
-  /-- the centre of mass below the bolt line, over `a`: `megaParams`' 0.9 at his 0.8.  The file's
-  own reason for that number - "the panel hangs between its vertex 1 m down and its rim 0.83 m
-  down" - is a statement about `f` and `ze`, both of which scale with `a`, so this does too -/
-  kCm : ℝ := 1.125
+  -- the proportions are NOT here any more: `Hashemi.lean` §16 owns every dimension as a
+  -- function of `a` (`pR`, `kGap`, ... `kAreal`), and `derive` reads them through `machine`
   -- held: the spec gives no law
   /-- the mirror tile (section 14) -- held: the spec gives no law -/
   w : ℝ := 0.05
@@ -153,8 +152,9 @@ structure Givens where
   rDrive : ℝ := 0.05
   /-- the winch drum (`megaParams`) -- held -/
   rDrum : ℝ := 0.03
-  /-- the dish's weight, N (`megaParams`, "a one-man lift") -- held: mass has no law here -/
-  W : ℝ := 300
+  /-- the dish's AREAL DENSITY, kg/m² -- held; the weight it gives is not (`kAreal`, and the
+  trainer's own `EL_HEAD_KG_M2 = 10.0`).  Held at 300 N the 4 m dish weighed 1.9 kg/m² -/
+  areal : ℝ := kAreal
   /-- the wire's rated tension, N -- held -/
   Tmax : ℝ := 2000
   /-- the mosaic's reflectance -- held -/
@@ -200,6 +200,42 @@ structure Givens where
   alphaC : ℝ := 0.9
   /-- the expansion tank, m³ -- held -/
   Vtank : ℝ := 0.001
+  -- THE EXCHANGER IN THE POT'S WALL, and the band it feeds.  `uaExch` (HashemiOil.lean) makes the
+  -- exchanger's conductance a law of a buried tube: a length `Lxch` of bore `Dc` at a standoff
+  -- `dStand` behind the baking face, in a liner of conductivity `kLiner`.  Until 2026-09-20 the
+  -- length it was given was `Ac / (π Dc)` - the length of the RECEIVER's coil at F, which is a
+  -- different segment of the same circuit and has no business setting what the wall conducts.
+  -- The pot does not scale with `a` (the pit is the site), so none of these is a proportion.
+  /-- **the exchanger's buried tube**, m: `Axch = 0.20 m²` of the loop's own parameter file
+  (`hashemi_env_kernel.py` LOOP_PARAMS, "the exchanger's area in the pot's wall band") at the
+  loop's own 10 mm bore -- held: the spec gives no law -/
+  Lxch : ℝ := 6.3662
+  /-- the liner the tube is buried in, W/mK: the ini's insulating firebrick
+  (`tandoor_rl_env.WALL_MATERIALS["ifb"]`, `wall = ifb`) -- held -/
+  kLiner : ℝ := 0.25
+  /-- the tube's standoff behind the baking face, m (`Tandoor.exchangerPt` puts the coil at 1.06
+  of the pot's radius at the belt: 6.3 cm of liner over it) -- held -/
+  dStand : ℝ := 0.063
+  /-- the liner's conductance per unit area of face to the wall behind it, W/m²K: the parent's own
+  shell series `gsph(k, r0+0.0075, r0+0.040) / A_tot` (`tandoor_rl_env._build_thermal`, the 1.5 cm
+  hot face over the 5 cm substrate), 8.0 at `k = 0.25` and the built pit's 20.0 m² of face; the
+  planar limit `k / 0.0325` is 7.7 and the cavity's curvature adds 4 % -- held -/
+  uLiner : ℝ := 8.0
+  /-- the dough's conductance to one slot, W/K: the parent's `h_bread = 25 · bread_area`
+  (`tandoor_rl_env.py:160`) at the ini's `bread_area = 0.12` -- held -/
+  hBread : ℝ := 3.0
+  /-- the band's emissivity into the cavity, the parent's own 0.85 in `q_exch` -- held -/
+  epsBand : ℝ := 0.85
+  /-- the belt slots the coil feeds (`oil_nodes`, hashemi_ccc.ini) -- held -/
+  nOil : ℝ := 2
+  /-- **the temperature a slot must hold to take dough**, K: `T_COOK_LO`
+  (`tandoor_rl_env.py:88-92`, "the REAL bakery loads from 180 °C (user): the gate is physical
+  permission") -/
+  Tcook : ℝ := 453
+  /-- the cavity behind and around it, at a COLD pit, K (`T_AMB`).  This is the state the machine
+  has to start every cold day from, and it is the worst case of the delivery constraint: a
+  seasoned cavity at the cook's own temperature removes the radiative term entirely. -/
+  Tcold : ℝ := 300
   -- the design condition the loop's limits are read at: the sun the machine must survive, the
   -- fill temperature the tank is sized from, and the temperature the pump's viscosity is read at
   /-- the design DNI, W/m² (`film_limit_reachable`'s 900) -/
@@ -210,7 +246,7 @@ structure Givens where
   Tref : ℝ := 473.15
 
 /-- **his machine**: `a = dishHalf`, every proportion at the value his figures give -/
-def his : Givens where
+noncomputable def his : Givens where
   a := dishHalf
 
 theorem his_a : his.a = dishHalf := rfl
@@ -265,6 +301,19 @@ structure Machine where
   armRest : ℝ
   wireLeft : ℝ
   wireTake : ℝ
+  /-- the dimensions that had no home before this refactor: the rail and the bolt line over the
+  DECK (the bolt line is the rail, held, plus the leg, which scales - binding it to the constant
+  `zBoltHashemi` hung the dish 1.9 m below its own frame at 2 m), the outrigger's four stations
+  (its tip follows the stand it carries, not `a`), the eye's station along the bolt, and the
+  dish's MASS, from which the weight follows -/
+  zRail : ℝ
+  zBolt : ℝ
+  outRoot : ℝ
+  outStand : ℝ
+  outEnd : ℝ
+  outWidth : ℝ
+  xh : ℝ
+  mass : ℝ
   /-- the receiver (14): the slot's exit tangent, the centre of mass below the bolts -/
   slotTan : ℝ
   rcm : ℝ
@@ -316,6 +365,27 @@ structure Machine where
   expFrac : ℝ
   Vloop : ℝ
   coilLen : ℝ
+  /-- the receiver's own coil at F, m of tube: `Ac = π Dc Lrec`.  It is NOT the exchanger. -/
+  Lrec : ℝ
+  /-- the exchanger in the pot's wall (14; HashemiOil `uaExch`): the buried tube, the liner, the
+  standoff, the conductance they give, the band one slot presents, the power the fed band needs
+  at the cook's own temperature, and the power the exchanger can carry there -/
+  Lxch : ℝ
+  kLiner : ℝ
+  dStand : ℝ
+  uaExchM : ℝ
+  aBelt : ℝ
+  qBand : ℝ
+  qDeliv : ℝ
+  Tcook : ℝ
+
+/-- the held set of `Givens` as `Hashemi.lean` §16's `Held`: the design surface `#machine ...
+with` overrides, handed to the one definition of the machine -/
+noncomputable def heldOfG (g : Givens) : HashemiDims.Held where
+  w := g.w; rc := g.rc; tanEps := g.tanEps; rDrive := g.rDrive; rDrum := g.rDrum
+  Tmax := g.Tmax; rho := g.rho; Fdrive := g.Fdrive; L10 := g.L10; dRod := g.dRod
+  eyeOffset := g.eyeOffset; pitch := g.pitch; dBolt := g.dBolt; panelW := g.panelW
+  volts := g.volts; azDeg := g.azDeg; elDeg := g.elDeg; areal := g.areal
 
 /-- **the derivation**: every field is the file's own definition with his constants replaced by
 the givens.  Nothing here is new; the right-hand sides are `TandoorSphere.sag`, `screwLength`,
@@ -323,63 +393,83 @@ the givens.  Nothing here is new; the right-hand sides are `TandoorSphere.sag`, 
 `rodTan`, `pulley_above_pivot`, `deadTan_at_ym`, `wireLever_rest`, `wireLeft_at_ym`,
 `rim_under_F_iff`, `facetSpot`, `tiltOfMismatch` and `boltStress` -/
 noncomputable def derive (g : Givens) : Machine :=
-  let a := g.a
-  let R := g.pR * a
-  let f := R / 2                                        -- TandoorSphere.focal_zero
-  let sag := TandoorSphere.sag R a                      -- HD_eq
-  let ze := screwLength R a                             -- FH_eq: f - sag
-  let side := 2 * a                                     -- dishSide
-  let sideGap := g.kGap * a                             -- sideGap_eq
-  let chord := side + 2 * sideGap                       -- dish_between_posts, the other way round
-  let apexH := g.kApex * a
-  let rRail := Real.sqrt ((chord / 2) ^ 2 + apexH ^ 2)  -- rollerRadius
-  let FC := Real.sqrt (ze ^ 2 + a ^ 2)                  -- FC_eq = the bound of edgeDepth_le
-  let upright := FC + g.kHead * a                       -- hashemi_clearance
-  let holeDown := g.kHole * a
-  let postH := upright - holeDown                       -- receiverPost_height
-  let foot := g.kFoot * upright
-  let brace := g.kBrace * upright
-  let footShort := g.kShort * upright
-  let footLong := foot - footShort
-  let rimHole := g.kRim * a
-  let zh := f - TandoorSphere.sag R (Real.sqrt (a ^ 2 + rimHole ^ 2))
-  let ym := FC + g.kMast * a                            -- MastClears' floor, plus his margin
-  let hp := g.kPulley * a                               -- pulley_above_pivot
-  let spotW := facetSpot g.w f                          -- facetSpot_hashemi
-  let margin := g.rc - spotW / 2
-  let rcm := g.kCm * a                                  -- megaParams 0.9: between the vertex (f) and the rim (ze)
-  let boltReach := g.kEye * a
+  -- THE BUILD: one definition, `Hashemi.lean` §16, at this size and this held set
+  let d := machine (heldOfG g) g.a
+  let a := d.a
+  let R := d.R
+  let f := d.f
+  let sag := d.sag
+  let ze := d.ze
+  let side := d.side
+  let sideGap := d.sideGap
+  let chord := d.chord
+  let apexH := d.apexH
+  let rRail := d.rRail
+  let FC := d.FC
+  let upright := d.upright
+  let holeDown := d.holeDown
+  let postH := d.postH
+  let foot := d.foot
+  let brace := d.brace
+  let footShort := d.footShort
+  let footLong := d.footLong
+  let rimHole := d.rimHole
+  let zh := d.zh
+  let ym := d.ym
+  let hp := d.hp
+  let spotW := d.spotW
+  let margin := d.margin
+  let rcm := d.rcm
+  let boltReach := d.boltReach
   -- the loop, at the design condition (HashemiOil.lean's own functions, nothing new)
-  let trackW := g.W * rcm * 7.3e-5                      -- tracking_power_tiny's left side
+  let trackW := d.trackW                                -- tracking_power_tiny's left side
   let pumpElecW := pumpElec g.Qmax g.Dp g.Lp g.Tref g.etaP g.Pidle
   let hCoilW := hCoil g.Qmax g.Dc oilBulkMax            -- the film coefficient at full flow
-  let PinFull := g.dniMax * (2 * a) ^ 2 * g.rho         -- the light on the coil at full sun
+  let PinFull := g.dniMax * side ^ 2 * g.rho            -- the light on the coil at full sun
   let filmStag := filmTemp oilBulkMax (g.alphaC * PinFull / g.Ac) hCoilW
-  let coilLen := g.Ac / (Real.pi * g.Dc)
+  let coilLen := g.Lxch
+  let Lrec := g.Ac / (Real.pi * g.Dc)
+  -- THE BAND (Tandoor.lean): one belt slot's face is the spherical zone between the baking
+  -- band's edges, over the eight slots - Archimedes, the parent's own `zone(z_bk, z_cr)/n_belt`
+  let aBelt := 2 * Real.pi * rSphS * (zCrownS - zBakeLoS) / nBeltS
+  -- THE POWER THE FED BAND NEEDS at the cook's own threshold, in a cold pit: what the face
+  -- radiates into the cavity (the parent's `q_exch`, and `qCoilLoss`'s own law applied to the
+  -- band), what the liner drains into the wall behind (`q01`), and what the dough drinks
+  -- (`q_b`, at `h_bread`).  `TandoorLoad.rotis_le_energy` read as a rate: the rotis' energy and
+  -- the losses are what the delivered power has to cover.
+  let qBand := g.nOil * (g.epsBand * sigmaSB * aBelt * (g.Tcook ^ 4 - g.Tcold ^ 4)
+                          + (g.uLiner * aBelt + g.hBread) * (g.Tcook - g.Tcold))
+  -- THE POWER THE EXCHANGER CAN CARRY there: the oil is never above its bulk limit
+  -- (`oilBulkMax`, and `SoundLoop` holds the FILM under `oilFilmMax`), the wall is at or above
+  -- the cook's threshold, and `qPot` (HashemiHeat) is `UA (Toil - Twall)`.
+  let uaExchM := uaExch g.kLiner coilLen g.Dc g.dStand
+  let qDeliv := uaExchM * (oilBulkMax - g.Tcook)
   { a := a, R := R, f := f, sag := sag, ze := ze, side := side,
-    chord := chord, apexH := apexH, aBase := g.kBase * a, cross := g.kCross * a,
-    barW := g.kBarW * a, rRail := rRail, sideGap := sideGap,
+    chord := chord, apexH := apexH, aBase := d.aBase, cross := d.cross,
+    barW := d.barW, rRail := rRail, sideGap := sideGap,
     upright := upright, holeDown := holeDown, postH := postH, FC := FC,
     clearance := upright - holeDown - FC,               -- clearance
     foot := foot, brace := brace, footShort := footShort,
-    braceHeight := Real.sqrt (brace ^ 2 - footLong ^ 2),-- braceHeight
+    braceHeight := d.braceHeight,                       -- braceHeight
     rimHole := rimHole, zh := zh,
-    hanger := hangerLength R a rimHole 0,               -- hangerLength_halfEdge
-    rodTan := rimHole / zh,                             -- rodTan
-    boltReach := boltReach, rodLen := g.kRod * a,
-    ym := ym, hp := hp, standPost := postH + hp, standFoot := chord,
-    deadTan := (ym * ze + hp * a) / (ym * a - hp * ze), -- deadTan_at_ym
-    armRest := (ym * ze + hp * a) / Real.sqrt ((ym - a) ^ 2 + (hp + ze) ^ 2),  -- wireLever_rest
-    wireLeft := Real.sqrt (ym ^ 2 + hp ^ 2) - FC,      -- wireLeft_at_ym
-    wireTake := Real.sqrt ((ym - a) ^ 2 + (hp + ze) ^ 2) - (Real.sqrt (ym ^ 2 + hp ^ 2) - FC),
-    slotTan := a / ze,                                  -- slot_exit_hashemi
+    hanger := d.hanger,                                 -- hangerLength_halfEdge
+    rodTan := d.rodTan,                                 -- rodTan
+    boltReach := boltReach, rodLen := d.rodLen,
+    ym := ym, hp := hp, standPost := d.standPost, standFoot := d.standFoot,
+    deadTan := d.deadTan,                               -- deadTan_at_ym
+    armRest := d.armRest,                               -- wireLever_rest
+    wireLeft := d.wireLeft,                             -- wireLeft_at_ym
+    wireTake := d.wireTake,
+    zRail := d.zRail, zBolt := d.zBolt, xh := d.xh, mass := d.mass,
+    outRoot := d.outRoot, outStand := d.outStand, outEnd := d.outEnd, outWidth := d.outWidth,
+    slotTan := d.slotTan,                               -- slot_exit_hashemi
     rcm := rcm,
     w := g.w, rc := g.rc, spotW := spotW, margin := margin,
-    budgetTan := margin / f,                            -- trackerBudget_iff
+    budgetTan := d.budgetTan,                           -- trackerBudget_iff
     tanEps := g.tanEps,
-    tiltPerTurn := g.pitch / side,                      -- tiltOfMismatch
-    boltStress := boltStress g.W boltReach g.dBolt,    -- m12_carries_dish
-    boltD := g.dBolt, W := g.W, Tmax := g.Tmax, rDrum := g.rDrum, rDrive := g.rDrive,
+    tiltPerTurn := d.tiltPerTurn,                       -- tiltOfMismatch
+    boltStress := d.boltStress,                         -- m12_carries_dish
+    boltD := g.dBolt, W := d.W, Tmax := g.Tmax, rDrum := g.rDrum, rDrive := g.rDrive,
     Fdrive := g.Fdrive, L10 := g.L10, rho := g.rho, panelW := g.panelW, volts := g.volts,
     azFullM := g.azDeg * Real.pi / 180, elFullM := g.elDeg * Real.pi / 180,
     Ac := g.Ac, Dc := g.Dc, Dp := g.Dp, Lp := g.Lp, Qmax := g.Qmax, etaP := g.etaP,
@@ -387,8 +477,11 @@ noncomputable def derive (g : Givens) : Machine :=
     trackW := trackW, pumpElecW := pumpElecW, hCoilW := hCoilW, PinFull := PinFull,
     filmStag := filmStag,
     expFrac := expansionFrac g.Tfill oilBulkMax,
-    Vloop := pipeArea g.Dp * g.Lp + g.Ac * g.Dc / 4,   -- (π Dc²/4)(Ac/(π Dc)): the π cancels
-    coilLen := coilLen }
+    -- the receiver's coil, the run, and the exchanger's buried tube - one circuit
+    Vloop := pipeArea g.Dp * g.Lp + g.Ac * g.Dc / 4 + pipeArea g.Dc * g.Lxch,
+    coilLen := coilLen, Lrec := Lrec,
+    Lxch := g.Lxch, kLiner := g.kLiner, dStand := g.dStand, uaExchM := uaExchM,
+    aBelt := aBelt, qBand := qBand, qDeliv := qDeliv, Tcook := g.Tcook }
 
 /-! ## 3. Soundness: the file's constraints, generalised -/
 
@@ -403,7 +496,10 @@ inside the wire's range (`sixty_reachable`); the coil is wider than the facet's 
 (`TrackerBudget` through `trackerBudget_iff`); the finest head step stays inside that same budget
 (`quantum_within_budget`); the pivot bolt carries the dish (`m12_carries_dish`); tracking costs
 under 1.5 % of the panel (`tracking_power_tiny`); one turn of a rim nut moves F under a
-millimetre (`one_turn_tilt`) -/
+millimetre (`one_turn_tilt`); **the outrigger's rails reach at least as far as the stand they
+carry** (`OutriggerGeom.stand_le_end`, generalised - the frozen 1.35 m tip failed it by 1.7 m at
+a = 2 m and nothing but the render window said so); and **the mast stands outside the ring**
+(`mast_beyond_ring`, generalised) -/
 def SoundGeom (m : Machine) : Prop :=
   0 < m.a ∧
   m.side < m.chord ∧
@@ -420,7 +516,9 @@ def SoundGeom (m : Machine) : Prop :=
   m.azFullM / 3 * 15 < m.budgetTan ∧ m.elFullM / 3 * 15 < m.budgetTan ∧
   m.boltStress < 1.6e8 ∧
   m.trackW ≤ 0.015 * m.panelW ∧
-  m.f * m.tiltPerTurn < 0.001
+  m.f * m.tiltPerTurn < 0.001 ∧
+  m.outStand ≤ m.outEnd ∧
+  m.rRail < m.apexH + m.outStand
 
 /-- **the loop's constraints** (`HashemiOil.lean`), which are constraints on the same held set and
 so belong in the same check.  In order: the pump fits in what the panel has left after the winch
@@ -428,11 +526,31 @@ so belong in the same check.  In order: the pump fits in what the panel has left
 itself"); the stagnation the oil's wall sees at full sun and full flow is under the fluid's
 maximum FILM temperature (`filmTemp` against `oilFilmMax` - the limit `film_limit_reachable`
 proves the machine can reach); and the expansion tank holds what the oil grows by between the
-cold fill and the bulk limit (`TankHolds`, `expansionFrac`). -/
+cold fill and the bulk limit (`TankHolds`, `expansionFrac`); and **DELIVERY** - the exchanger
+carries, at the temperature the cook may load dough at, the power the band it feeds needs.
+
+Delivery is the constraint that was missing while the exchanger's conductance was a bare 60 W/K,
+and it is the one that decides whether the pot bakes.  Its two sides are both quoted:
+
+* what the band needs, `qBand`.  `StatedLaws.TandoorLoad.rotis_le_energy` is the day's energy
+  balance - `eRoti · n + loss = sun + dE`, so the rotis are bounded by the delivered energy over
+  what a roti takes - and read as a RATE it says the delivered power must cover the rotis' energy
+  rate plus the losses.  Both are the parent oven's own laws at the cook's threshold `T_COOK_LO`:
+  the dough drinks `h_bread (T - T_dough)` (`q_b`), the face radiates `0.85 σ A (T⁴ - T_cav⁴)`
+  (`q_exch`, the same shape as `HashemiHeat.qCoilLoss`) and the liner drains `g01 (T - T_sub)`
+  into the wall behind.  The band's own area is `Tandoor.lean`'s: the spherical zone between
+  `zBakeLo` and `zCrown` on `rSph`, over `nBelt` slots (`slot_in_band`, `roti_in_band`).  No
+  target is invented - the RATE is the one the dough's own conductance sets, and a roti on a slot
+  at the loading threshold is the fastest that band can ever bake.
+* what the exchanger can carry, `qDeliv`.  `HashemiHeat.qPot` is `UA (Toil - Twall)`; the oil is
+  never above `oilBulkMax` and the wall must be at or above `Tcook`, so
+  `uaExch · (oilBulkMax - Tcook)` is the most this exchanger will ever deliver at that
+  threshold. -/
 def SoundLoop (m : Machine) : Prop :=
   PumpWithinBudget m.pumpElecW (m.panelW - m.trackW) ∧
   m.filmStag ≤ oilFilmMax ∧
-  TankHolds m.Vtank m.Vloop m.expFrac
+  TankHolds m.Vtank m.Vloop m.expFrac ∧
+  m.qBand ≤ m.qDeliv
 
 /-- **the whole check**: the build's constraints and the loop's -/
 def Sound (m : Machine) : Prop := SoundGeom m ∧ SoundLoop m
@@ -561,9 +679,10 @@ theorem derive_his_hanger :
 
 /-- the bolt's stress, **44.5 MPa** at his 300 N (`m12_carries_dish` at the same reach) -/
 theorem derive_his_boltStress : (derive his).boltStress < 1.6e8 := by
-  have h : (derive his).boltStress = boltStress 300 0.03 0.0101 := by
-    show boltStress 300 (0.0375 * 0.8) 0.0101 = _; norm_num
-  rw [h]; exact m12_carries_dish (by norm_num)
+  have h : (derive his).boltStress
+      = boltStress (weightOf dishHalf) (boltReachOf dishHalf) 0.0101 := rfl
+  have hr : boltReachOf dishHalf = 0.03 := by unfold boltReachOf kEye dishHalf; norm_num
+  rw [h, HashemiDims.W_his, hr]; exact m12_carries_dish (by norm_num)
 
 /-- **`SoundGeom (derive his)`**: every constraint his file states about the BUILD, at his
 machine, proved.  (The loop's three are below: two hold and one - the pump's - his 5 W panel
@@ -573,7 +692,8 @@ theorem sound_his : SoundGeom (derive his) := by
   have hy := derive_his_ym
   have harm := derive_his_armRest
   have hrcm := derive_his_rcm
-  refine ⟨by show (0:ℝ) < 0.8; norm_num, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨by show (0:ℝ) < 0.8; norm_num, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
+    ?_, ?_, ?_⟩
   · -- the panel between the posts
     show (2 : ℝ) * 0.8 < 2 * 0.8 + 2 * (0.15 * 0.8); norm_num
   · -- the mast clears the clip's circle
@@ -594,8 +714,8 @@ theorem sound_his : SoundGeom (derive his) := by
     linarith [derive_his_hanger.2]
   · -- the winch holds the dish
     show (derive his).W * (derive his).rcm ≤ (derive his).Tmax * (derive his).armRest
-    show (300 : ℝ) * (derive his).rcm ≤ 2000 * (derive his).armRest
-    rw [hrcm]; nlinarith [harm.1]
+    have hW : (derive his).W = 300 := HashemiDims.W_his
+    rw [hW, hrcm]; show (300:ℝ) * 0.9 ≤ 2000 * (derive his).armRest; nlinarith [harm.1]
   · -- 60 degrees of swing is inside the wire's range
     rw [Real.sin_pi_div_three, Real.cos_pi_div_three]
     have h3 : Real.sqrt 3 < 1.7321 := by rw [Real.sqrt_lt' (by norm_num)]; norm_num
@@ -615,11 +735,16 @@ theorem sound_his : SoundGeom (derive his) := by
     rw [derive_his_budgetTan]; nlinarith [Real.pi_le_four]
   · exact derive_his_boltStress
   · -- tracking under 1.5 % of the panel
-    show (300 : ℝ) * (derive his).rcm * 7.3e-5 ≤ 0.015 * 5
-    rw [hrcm]; norm_num
+    show (derive his).W * (derive his).rcm * 7.3e-5 ≤ 0.015 * 5
+    have hW : (derive his).W = 300 := HashemiDims.W_his
+    rw [hW, hrcm]; norm_num
   · -- one turn of a rim nut
     show (derive his).f * (0.0015 / ((2 : ℝ) * 0.8)) < 0.001
     rw [derive_his_f]; norm_num
+  · -- the outrigger's rails reach past the stand they carry
+    exact le_of_lt (HashemiDims.stand_before_end (show (0:ℝ) < dishHalf by unfold dishHalf; norm_num))
+  · -- the mast stands outside the ring
+    exact HashemiDims.mast_beyond_ring_at (show (0:ℝ) < dishHalf by unfold dishHalf; norm_num)
 
 /-! ### The loop at his machine: two hold, one does not
 
@@ -659,8 +784,11 @@ theorem pump_over_budget_his :
   have he : (derive his).pumpElecW = pumpHyd (6.0e-5 : ℝ) 0.012 6.0 473.15 / 0.25 + 8.0 := by
     show pumpElec (6.0e-5 : ℝ) 0.012 6.0 473.15 0.25 8.0 = _
     unfold pumpElec; rw [if_pos (by norm_num)]
+  have hW : (derive his).W = 300 := HashemiDims.W_his
   have ht : (derive his).panelW - (derive his).trackW
-      = (5 : ℝ) - 300 * (1.125 * 0.8) * 7.3e-5 := rfl
+      = (5 : ℝ) - 300 * (1.125 * 0.8) * 7.3e-5 := by
+    show (5:ℝ) - (derive his).W * (derive his).rcm * 7.3e-5 = _
+    rw [hW]; show (5:ℝ) - 300 * (1.125 * 0.8) * 7.3e-5 = _; norm_num
   unfold PumpWithinBudget
   rw [he, ht, not_le]
   have : 0 ≤ pumpHyd (6.0e-5 : ℝ) 0.012 6.0 473.15 / 0.25 := div_nonneg hnn (by norm_num)
@@ -677,7 +805,8 @@ theorem tank_holds_his :
     TankHolds (derive his).Vtank (derive his).Vloop (derive his).expFrac := by
   have hpi := Real.pi_le_four
   have hpi0 := Real.pi_pos
-  have hV0 : (derive his).Vloop = pipeArea (0.012 : ℝ) * 6.0 + (0.03 : ℝ) * 0.010 / 4 := rfl
+  have hV0 : (derive his).Vloop
+      = pipeArea (0.012 : ℝ) * 6.0 + (0.03 : ℝ) * 0.010 / 4 + pipeArea (0.010 : ℝ) * 6.3662 := rfl
   unfold pipeArea at hV0
   have hF0 : (derive his).expFrac = expansionFrac (293.15 : ℝ) oilBulkMax := rfl
   have hF : (derive his).expFrac = oilRho 293.15 / oilRho oilBulkMax - 1 := by
@@ -821,6 +950,89 @@ theorem film_fails_of_Ac_lt {g : Givens} (hh : 0 < (derive g).hCoilW)
   rw [div_div]
   linarith
 
+/-! ### The exchanger: the two levers of `uaExch`
+
+`uaExch kw Lc Dc d = 2π kw Lc / arccosh(2d/Dc)` is LINEAR in the buried length and falls with the
+standoff, so `Delivery` can be met either by more tube or by burying it less deep.  Both are
+solved here; `design` moves the length (the minimal change to the held set that no other
+constraint pushes back on), and the standoff is reported beside it, exactly as `epsMax` and
+`wMax` are reported beside `rcMin`. -/
+
+/-- **the conductance of one metre of the buried tube**, W/K m: `uaExch` is linear in the length,
+so this is the whole of the length lever -/
+noncomputable def uaPerM (g : Givens) : ℝ := uaExch g.kLiner 1 g.Dc g.dStand
+
+/-- and the linearity itself, which is all the delivery solver uses -/
+theorem uaExch_linear (kw Lc Dc d : ℝ) : uaExch kw Lc Dc d = Lc * uaExch kw 1 Dc d := by
+  unfold uaExch
+  ring
+
+/-- **the exchanger the band needs**, m of buried tube: `Delivery` solved for `Lxch`. -/
+noncomputable def coilLenDel (g : Givens) : ℝ :=
+  (derive g).qBand / ((oilBulkMax - g.Tcook) * uaPerM g)
+
+theorem delivery_holds_of_coilLen {g : Givens} (hT : 0 < oilBulkMax - g.Tcook)
+    (hu : 0 < uaPerM g) (h : coilLenDel g ≤ g.Lxch) : (derive g).qBand ≤ (derive g).qDeliv := by
+  have e : (derive g).qDeliv = g.Lxch * ((oilBulkMax - g.Tcook) * uaPerM g) := by
+    show uaExch g.kLiner g.Lxch g.Dc g.dStand * (oilBulkMax - g.Tcook) = _
+    rw [uaExch_linear]; unfold uaPerM; ring
+  unfold coilLenDel at h
+  rw [div_le_iff₀ (by positivity)] at h
+  rw [e]; exact h
+
+/-- **the standoff the exchanger the machine HAS would allow**, m: the same inequality solved for
+`d` instead.  `arccosh(2d/Dc) ≤ K` is `2d/Dc ≤ cosh K`, so the deepest the tube may be buried is
+`Dc/2 · cosh K` with `K = 2π kw Lxch (oilBulkMax - Tcook) / qBand` - and at that standoff the
+conductance is exactly the one delivery asks for (`uaExch_at_dMax`). -/
+noncomputable def dMaxDel (g : Givens) : ℝ :=
+  g.Dc / 2 * Real.cosh (2 * Real.pi * g.kLiner * g.Lxch * (oilBulkMax - g.Tcook) / (derive g).qBand)
+
+/-- the shape factor at a standoff written as `Dc/2 · cosh K` is exactly `2π kw Lc / K`: the
+buried-cylinder `arccosh` and the `cosh` undo each other, `cosh K + √(cosh²K - 1) = exp K` -/
+theorem uaExch_at_cosh {kw Lc Dc K : ℝ} (hD : 1e-6 ≤ Dc) (hD0 : 0 < Dc) (hK : 0 < K)
+    (hx : 1.0001 ≤ Real.cosh K) :
+    uaExch kw Lc Dc (Dc / 2 * Real.cosh K) = 2 * Real.pi * kw * Lc / K := by
+  have hmax : max Dc 1e-6 = Dc := max_eq_left hD
+  have h2 : 2 * (Dc / 2 * Real.cosh K) / max Dc 1e-6 = Real.cosh K := by
+    rw [hmax]; field_simp
+  have key : Real.log (Real.cosh K + Real.sqrt (Real.cosh K ^ 2 - 1)) = K := by
+    have h1 : Real.cosh K ^ 2 - 1 = Real.sinh K ^ 2 := by
+      have := Real.cosh_sq_sub_sinh_sq K; linarith
+    rw [h1, Real.sqrt_sq (Real.sinh_nonneg_iff.2 hK.le), Real.cosh_add_sinh, Real.log_exp]
+  unfold uaExch
+  simp only [h2, max_eq_left hx, key]
+
+/-- **the delivery constraint, met by the standoff**: the tube the machine already has, buried at
+`dMaxDel`, conducts exactly what the band needs.  This is the other solution of the same
+inequality - `uaExch` falls with the depth - and it is the lever that costs no copper. -/
+theorem delivery_holds_of_d {g : Givens} (hD : 1e-6 ≤ g.Dc) (hD0 : 0 < g.Dc)
+    (hk : 0 < g.kLiner) (hL : 0 < g.Lxch) (hT : 0 < oilBulkMax - g.Tcook)
+    (hq : 0 < (derive g).qBand)
+    (hx : 1.0001 ≤ Real.cosh (2 * Real.pi * g.kLiner * g.Lxch * (oilBulkMax - g.Tcook)
+                                / (derive g).qBand))
+    (hd : g.dStand = dMaxDel g) : (derive g).qBand ≤ (derive g).qDeliv := by
+  have h1 : (0:ℝ) < 2 * Real.pi := by positivity
+  have h2 : (0:ℝ) < 2 * Real.pi * g.kLiner := mul_pos h1 hk
+  have h3 : (0:ℝ) < 2 * Real.pi * g.kLiner * g.Lxch := mul_pos h2 hL
+  have h4 : (0:ℝ) < 2 * Real.pi * g.kLiner * g.Lxch * (oilBulkMax - g.Tcook) := mul_pos h3 hT
+  have hK : (0:ℝ) < 2 * Real.pi * g.kLiner * g.Lxch * (oilBulkMax - g.Tcook) / (derive g).qBand :=
+    div_pos h4 hq
+  have hne3 : (2 * Real.pi * g.kLiner * g.Lxch) ≠ 0 := ne_of_gt h3
+  have hneT : (oilBulkMax - g.Tcook) ≠ 0 := ne_of_gt hT
+  have hneq : (derive g).qBand ≠ 0 := ne_of_gt hq
+  have e : (derive g).qDeliv
+      = uaExch g.kLiner g.Lxch g.Dc
+          (g.Dc / 2 * Real.cosh (2 * Real.pi * g.kLiner * g.Lxch * (oilBulkMax - g.Tcook)
+                                   / (derive g).qBand))
+        * (oilBulkMax - g.Tcook) := by
+    show uaExch g.kLiner g.Lxch g.Dc g.dStand * (oilBulkMax - g.Tcook) = _
+    rw [hd]; rfl
+  have final : 2 * Real.pi * g.kLiner * g.Lxch
+        / (2 * Real.pi * g.kLiner * g.Lxch * (oilBulkMax - g.Tcook) / (derive g).qBand)
+        * (oilBulkMax - g.Tcook) = (derive g).qBand := by
+    field_simp
+  rw [e, uaExch_at_cosh hD hD0 hK hx, final]
+
 /-- **the tank the oil needs**: `TankHolds`, solved for the tank -/
 noncomputable def tankMin (g : Givens) : ℝ := (derive g).Vloop * (derive g).expFrac
 
@@ -834,7 +1046,7 @@ area's on the sun and the flow), so one pass is a fixed point - except the tank,
 from the loop's volume and so is set after the coil. -/
 noncomputable def design (g : Givens) : Givens :=
   let g₁ : Givens := { g with rc := max g.rc (rcMin g), panelW := max g.panelW (panelMin g),
-                              Ac := max g.Ac (AcMin g) }
+                              Ac := max g.Ac (AcMin g), Lxch := max g.Lxch (coilLenDel g) }
   { g₁ with Vtank := max g₁.Vtank (tankMin g₁) }
 
 theorem design_a (g : Givens) : (design g).a = g.a := rfl
@@ -855,6 +1067,16 @@ theorem design_film {g : Givens} (hh : 0 < (derive g).hCoilW)
     (hq : 0 < g.alphaC * (derive g).PinFull) (hA0 : 0 < g.Ac) :
     (derive (design g)).filmStag ≤ oilFilmMax :=
   film_holds_of_Ac hh hq.le (lt_of_lt_of_le hA0 (le_max_left _ _)) (le_max_right _ _)
+
+/-- **and the delivery**: the band the exchanger feeds gets the power it needs -/
+theorem design_delivery {g : Givens} (hT : 0 < oilBulkMax - g.Tcook) (hu : 0 < uaPerM g) :
+    (derive (design g)).qBand ≤ (derive (design g)).qDeliv := by
+  have hT' : 0 < oilBulkMax - (design g).Tcook := hT
+  have hu' : 0 < uaPerM (design g) := hu
+  refine delivery_holds_of_coilLen hT' hu' ?_
+  have hq : coilLenDel (design g) = coilLenDel g := rfl
+  rw [hq]
+  exact le_max_right _ _
 
 /-- **and the tank** -/
 theorem design_tank (g : Givens) :
@@ -894,7 +1116,7 @@ structure GivensF where
   tanEps : Float := 0.03
   rDrive : Float := 0.05
   rDrum : Float := 0.03
-  W : Float := 300
+  areal : Float := 300.0 / (9.81 * 1.6 * 1.6)   -- `kAreal`: his one-man lift over his aperture
   Tmax : Float := 2000
   rho : Float := 0.85
   Fdrive : Float := 10
@@ -916,6 +1138,15 @@ structure GivensF where
   Pidle : Float := 8.0
   alphaC : Float := 0.9
   Vtank : Float := 0.001
+  Lxch : Float := 6.3662
+  kLiner : Float := 0.25
+  dStand : Float := 0.063
+  uLiner : Float := 8.0
+  hBread : Float := 3.0
+  epsBand : Float := 0.85
+  nOil : Float := 2
+  Tcook : Float := 453
+  Tcold : Float := 300
   dniMax : Float := 900
   Tfill : Float := 293.15
   Tref : Float := 473.15
@@ -932,6 +1163,21 @@ def oilCpF (T : Float) : Float :=
 def oilKF (T : Float) : Float :=
   let c := T - 273.15; 0.118294 - 0.000033 * c - 0.00000015 * c * c
 def oilMuF (T : Float) : Float := Float.exp (586.375 / (T - 273.15 + 62.5) - 2.2809) / 1000
+
+def sigmaSBF : Float := 5.67e-8
+
+/-- `Tandoor.lean`'s pot, in Float: the sphere through the floor and the mouth, and the baking
+band's own edges (`zCPot`, `rSph`, `zBakeLo`, `zCrown`, `nBelt`) -/
+def zCPotF : Float := (0.26 * 0.26 - 0.42 * 0.42 - 2.44 * 2.44) / (2 * 2.44)
+def rSphF : Float := Float.sqrt (0.26 * 0.26 + zCPotF * zCPotF)
+def zBakeLoF : Float := -0.85
+def zCrownF : Float := -0.22
+def nBeltF : Float := 8
+
+/-- `uaExch` in Float: the buried cylinder's shape factor, `arccosh x = log (x + √(x²-1))` -/
+def uaExchF (kw Lc Dc d : Float) : Float :=
+  let x := max (2 * d / max Dc 1e-6) 1.0001
+  2 * piF * kw * Lc / Float.log (x + Float.sqrt (x * x - 1))
 
 def pipeAreaF (D : Float) : Float := piF * D * D / 4
 def velOfF (Q D : Float) : Float := Q / pipeAreaF D
@@ -990,13 +1236,22 @@ def deriveF (g : GivensF) : Array (String × Float) :=
   let boltReach := g.kEye * a
   let deadTan := (ym * ze + hp * a) / (ym * a - hp * ze)
   -- the loop at the design condition (HashemiOil.lean's functions, in Float)
-  let trackW := g.W * rcm * 7.3e-5
+  let W := g.areal * side * side * 9.81
+  let trackW := W * rcm * 7.3e-5
   let pumpElecW := pumpElecF g.Qmax g.Dp g.Lp g.Tref g.etaP g.Pidle
   let hCoilW := hCoilF g.Qmax g.Dc oilBulkMaxF
-  let PinFull := g.dniMax * (2 * a) * (2 * a) * g.rho
+  let PinFull := g.dniMax * side * side * g.rho
   let filmStag := oilBulkMaxF + g.alphaC * PinFull / g.Ac / hCoilW
   let expFrac := oilRhoF g.Tfill / oilRhoF oilBulkMaxF - 1
-  let Vloop := pipeAreaF g.Dp * g.Lp + g.Ac * g.Dc / 4
+  let Vloop := pipeAreaF g.Dp * g.Lp + g.Ac * g.Dc / 4 + pipeAreaF g.Dc * g.Lxch
+  -- the band, and the exchanger that has to feed it
+  let aBelt := 2 * piF * rSphF * (zCrownF - zBakeLoF) / nBeltF
+  let qBand := g.nOil * (g.epsBand * sigmaSBF * aBelt
+                          * (g.Tcook * g.Tcook * g.Tcook * g.Tcook
+                             - g.Tcold * g.Tcold * g.Tcold * g.Tcold)
+                          + (g.uLiner * aBelt + g.hBread) * (g.Tcook - g.Tcold))
+  let uaExchM := uaExchF g.kLiner g.Lxch g.Dc g.dStand
+  let qDeliv := uaExchM * (oilBulkMaxF - g.Tcook)
   #[("a", a), ("R", R), ("f", f), ("sag", sag), ("ze", ze), ("side", side),
     ("chord", chord), ("apexH", apexH), ("aBase", g.kBase * a), ("cross", g.kCross * a),
     ("barW", g.kBarW * a), ("rRail", rRail), ("sideGap", sideGap),
@@ -1006,6 +1261,9 @@ def deriveF (g : GivensF) : Array (String × Float) :=
     ("rimHole", rimHole), ("zh", zh), ("hanger", hanger), ("rodTan", rimHole / zh),
     ("boltReach", boltReach), ("rodLen", g.kRod * a),
     ("ym", ym), ("hp", hp), ("standPost", postH + hp), ("standFoot", chord),
+    ("zRail", 0.55), ("zBolt", 0.55 + postH), ("xh", chord / 2 - boltReach),
+    ("outRoot", g.kBase * a), ("outStand", ym), ("outEnd", 1.35 / 1.22 * ym),
+    ("outWidth", 0.3125 * a),
     ("deadTan", deadTan), ("deadDeg", Float.atan deadTan * 180.0 / 3.14159265358979323846),
     ("armRest", (ym * ze + hp * a) / Lrest), ("wireLeft", Ldead), ("wireTake", Lrest - Ldead),
     ("slotTan", a / ze), ("rcm", rcm),
@@ -1013,14 +1271,20 @@ def deriveF (g : GivensF) : Array (String × Float) :=
     ("budgetTan", margin / f), ("budgetDeg", Float.atan (margin / f) * 180.0 / 3.14159265358979323846),
     ("tanEps", g.tanEps),
     ("tiltPerTurn", g.pitch / side),
-    ("boltStress", (g.W / 2 * boltReach) / (3.14159265358979323846 * g.dBolt * g.dBolt * g.dBolt / 32)),
-    ("boltD", g.dBolt), ("W", g.W), ("Tmax", g.Tmax), ("rDrum", g.rDrum), ("rDrive", g.rDrive),
+    ("boltStress", (W / 2 * boltReach) / (3.14159265358979323846 * g.dBolt * g.dBolt * g.dBolt / 32)),
+    ("boltD", g.dBolt), ("W", W), ("mass", g.areal * side * side), ("areal", g.areal),
+    ("Tmax", g.Tmax), ("rDrum", g.rDrum), ("rDrive", g.rDrive),
     ("Fdrive", g.Fdrive), ("L10", g.L10), ("rho", g.rho), ("panelW", g.panelW),
     ("volts", g.volts),
     ("azFullM", g.azDeg * piF / 180), ("elFullM", g.elDeg * piF / 180),
     ("Ac", g.Ac), ("Dc", g.Dc), ("Dp", g.Dp), ("Lp", g.Lp), ("Qmax", g.Qmax),
     ("etaP", g.etaP), ("Pidle", g.Pidle), ("alphaC", g.alphaC), ("Vtank", g.Vtank),
-    ("coilLen", g.Ac / (piF * g.Dc)),
+    ("coilLen", g.Lxch), ("Lrec", g.Ac / (piF * g.Dc)),
+    ("Lxch", g.Lxch), ("kLiner", g.kLiner), ("dStand", g.dStand), ("uLiner", g.uLiner),
+    ("hBread", g.hBread), ("epsBand", g.epsBand), ("nOil", g.nOil),
+    ("Tcook", g.Tcook), ("Tcold", g.Tcold),
+    ("aBelt", aBelt), ("qBand", qBand), ("uaExch", uaExchM), ("qDeliv", qDeliv),
+    ("uaPerM", uaExchF g.kLiner 1 g.Dc g.dStand),
     ("trackW", trackW), ("pumpElecW", pumpElecW), ("hCoilW", hCoilW), ("PinFull", PinFull),
     ("filmStag", filmStag), ("expFrac", expFrac), ("Vloop", Vloop),
     ("tanEpsDeg", Float.atan g.tanEps * 180.0 / piF)]
@@ -1056,6 +1320,10 @@ def checksF (m : Array (String × Float)) : Array (String × Float × Float × S
   -- the conjuncts `Sound` states with `≤` rather than `<`: equality satisfies them, so the
   -- machine `design` puts exactly on the line is reported `holds`, not `undecided`
   let rowLe (n : String) (lhs rhs : Float) := (n, lhs, rhs, verdictLe lhs rhs)
+  -- a FROZEN figure against the law at this size: `his` when they still agree to a millimetre,
+  -- `FROZEN` when the constant has been left behind by the machine it belongs to
+  let near (n : String) (frozen law : Float) :=
+    (n, frozen, law, if (frozen - law).abs < 0.001 then "holds" else "FROZEN")
   #[row "positive_a" 0 (g "a"),
     row "dish_between_posts" (g "side") (g "chord"),
     row "MastClears" (g "FC") (g "ym"),
@@ -1073,12 +1341,23 @@ def checksF (m : Array (String × Float)) : Array (String × Float × Float × S
     row "m12_carries_dish" (g "boltStress") 1.6e8,
     rowLe "tracking_power_tiny" (g "trackW") (0.015 * g "panelW"),
     row "one_turn_tilt" (g "f" * g "tiltPerTurn") 0.001,
+    rowLe "outrigger_carries_stand" (g "outStand") (g "outEnd"),
+    row "mast_beyond_ring" (g "rRail") (g "apexH" + g "outStand"),
     -- the loop (HashemiOil.lean): the pump in the panel, the film under the fluid's limit, the tank
     rowLe "PumpWithinBudget" (g "pumpElecW") (g "panelW" - g "trackW"),
     rowLe "FilmLimit" (g "filmStag") oilFilmMaxF,
     rowLe "TankHolds" (g "Vloop" * g "expFrac") (g "Vtank"),
+    rowLe "Delivery" (g "qBand") (g "qDeliv"),
     row "ReachesVertical (not in Sound: wire_short_of_vertical)"
-      (g "ym" * g "a") (g "hp" * g "ze")]
+      (g "ym" * g "a") (g "hp" * g "ze"),
+    -- THE FROZEN FIGURES, reported beside `Sound` and not part of it: each of his rounded
+    -- readings against the law at THIS size.  At his own 0.8 m every row reads `holds` to his
+    -- own rounding; at 2 m the ones that never scaled are what the user saw in the window.
+    near "frozen zBolt (zBoltHashemi = 1.80)" 1.80 (g "zBolt"),
+    near "frozen endStation (hashemiOutrigger = 1.35)" 1.35 (g "outEnd"),
+    near "frozen W (megaParams = 300 N)" 300.0 (g "W"),
+    near "frozen ym (ymHashemi = 1.22)" 1.22 (g "ym"),
+    near "frozen upright (hashemiLeg = 1.30)" 1.30 (g "upright")]
 
 /-! ### `solve` in Float: the held quantity each constraint names, and the design
 
@@ -1094,19 +1373,38 @@ def AcMinF (m : Array (String × Float)) : Float :=
   fieldOf m "alphaC" * fieldOf m "PinFull" / (fieldOf m "hCoilW" * (oilFilmMaxF - oilBulkMaxF))
 def coilLenMinF (m : Array (String × Float)) : Float := AcMinF m / (piF * fieldOf m "Dc")
 def tankMinF (m : Array (String × Float)) : Float := fieldOf m "Vloop" * fieldOf m "expFrac"
+/-- the buried tube `Delivery` needs, and the standoff the tube the machine HAS would allow -/
+def coilLenDelF (m : Array (String × Float)) : Float :=
+  fieldOf m "qBand" / ((oilBulkMaxF - fieldOf m "Tcook") * fieldOf m "uaPerM")
+def dMaxDelF (m : Array (String × Float)) : Float :=
+  let K := 2 * piF * fieldOf m "kLiner" * fieldOf m "Lxch"
+             * (oilBulkMaxF - fieldOf m "Tcook") / fieldOf m "qBand"
+  fieldOf m "Dc" / 2 * (Float.exp K + Float.exp (-K)) / 2
+/-- what one more metre of buried tube buys, and what one millimetre closer to the face buys, both
+in W/K - the two levers of `uaExch`, priced.  The length's rate is `uaExch/Lc`, a constant; the
+standoff's is `-uaExch (2/Dc) / (arccosh · √(x²-1))`, which grows as the tube comes forward and
+is why that lever SATURATES: it cannot buy more than `uaExch` at a tube touching the face. -/
+def perMetreF (m : Array (String × Float)) : Float := fieldOf m "uaPerM"
+def perMmF (m : Array (String × Float)) : Float :=
+  let Dc := fieldOf m "Dc"
+  let x := max (2 * fieldOf m "dStand" / max Dc 1e-6) 1.0001
+  let L := Float.log (x + Float.sqrt (x * x - 1))
+  fieldOf m "uaExch" / L * (2 / Dc) / Float.sqrt (x * x - 1) / 1000
 
 /-- **the designed givens**: the held set with every floor applied -/
 def designF (g : GivensF) : GivensF :=
   let m := deriveF g
   let g₁ : GivensF := { g with rc := max g.rc (rcMinF m),
                                panelW := max g.panelW (panelMinF m),
-                               Ac := max g.Ac (AcMinF m) }
+                               Ac := max g.Ac (AcMinF m),
+                               Lxch := max g.Lxch (coilLenDelF m) }
   { g₁ with Vtank := max g₁.Vtank (tankMinF (deriveF g₁)) }
 
 /-- the held quantities `#machine ... with ...` can override -/
 def knownHeld : Array String :=
-  #["a", "w", "rc", "tanEps", "panelW", "volts", "W", "Tmax", "rho", "azDeg", "elDeg",
-    "Ac", "Dc", "Dp", "Lp", "Qmax", "etaP", "Pidle", "alphaC", "Vtank", "dniMax", "Tfill", "Tref"]
+  #["a", "w", "rc", "tanEps", "panelW", "volts", "areal", "Tmax", "rho", "azDeg", "elDeg",
+    "Ac", "Dc", "Dp", "Lp", "Qmax", "etaP", "Pidle", "alphaC", "Vtank", "dniMax", "Tfill", "Tref",
+    "Lxch", "kLiner", "dStand", "uLiner", "hBread", "epsBand", "nOil", "Tcook", "Tcold"]
 
 def applyOv (g : GivensF) (os : Array (String × Float)) : GivensF :=
   os.foldl (fun g p =>
@@ -1114,7 +1412,7 @@ def applyOv (g : GivensF) (os : Array (String × Float)) : GivensF :=
     | "a" => { g with a := p.2 }        | "w" => { g with w := p.2 }
     | "rc" => { g with rc := p.2 }      | "tanEps" => { g with tanEps := p.2 }
     | "panelW" => { g with panelW := p.2 } | "volts" => { g with volts := p.2 }
-    | "W" => { g with W := p.2 }        | "Tmax" => { g with Tmax := p.2 }
+    | "areal" => { g with areal := p.2 } | "Tmax" => { g with Tmax := p.2 }
     | "rho" => { g with rho := p.2 }    | "azDeg" => { g with azDeg := p.2 }
     | "elDeg" => { g with elDeg := p.2 } | "Ac" => { g with Ac := p.2 }
     | "Dc" => { g with Dc := p.2 }      | "Dp" => { g with Dp := p.2 }
@@ -1122,14 +1420,21 @@ def applyOv (g : GivensF) (os : Array (String × Float)) : GivensF :=
     | "etaP" => { g with etaP := p.2 }  | "Pidle" => { g with Pidle := p.2 }
     | "alphaC" => { g with alphaC := p.2 } | "Vtank" => { g with Vtank := p.2 }
     | "dniMax" => { g with dniMax := p.2 } | "Tfill" => { g with Tfill := p.2 }
-    | "Tref" => { g with Tref := p.2 }  | _ => g) g
+    | "Tref" => { g with Tref := p.2 }
+    | "Lxch" => { g with Lxch := p.2 }  | "kLiner" => { g with kLiner := p.2 }
+    | "dStand" => { g with dStand := p.2 } | "uLiner" => { g with uLiner := p.2 }
+    | "hBread" => { g with hBread := p.2 } | "epsBand" => { g with epsBand := p.2 }
+    | "nOil" => { g with nOil := p.2 }  | "Tcook" => { g with Tcook := p.2 }
+    | "Tcold" => { g with Tcold := p.2 }
+    | _ => g) g
 
 /-- **the design table**: per held quantity, the value his spec gives, the value the constraint
 demands at this size, and which constraint demanded it.  Only the ones that had to move. -/
 def designRows (g : GivensF) : Array (String × Float × Float × String) :=
   let d := designF g
   (#[("rc", g.rc, d.rc, "TrackerBudget"), ("panelW", g.panelW, d.panelW, "PumpWithinBudget"),
-     ("Ac", g.Ac, d.Ac, "FilmLimit"), ("Vtank", g.Vtank, d.Vtank, "TankHolds")] :
+     ("Ac", g.Ac, d.Ac, "FilmLimit"), ("Lxch", g.Lxch, d.Lxch, "Delivery"),
+     ("Vtank", g.Vtank, d.Vtank, "TankHolds")] :
      Array (String × Float × Float × String)).filter (fun r => r.2.1 < r.2.2.1)
 
 /-- the derived table and the verdicts, for any givens -/
@@ -1161,7 +1466,14 @@ def designReport (g : GivensF) (title : String) : String :=
     s!"  the same budget, the other way: the sensor the coil allows is tanEps <= {epsMaxF m} " ++
     s!"({epsDeg} deg, his is {hisDeg}); " ++
     s!"the facet it allows is w <= {wMaxF m} (his is {hisW})\n" ++
-    s!"  the coil the film limit demands is {AcMinF m} m2 = {coilLenMinF m} m of {dc} m tube\n"
+    s!"  the coil the film limit demands is {AcMinF m} m2 = {coilLenMinF m} m of {dc} m tube\n" ++
+    s!"  the band the exchanger feeds needs {fieldOf m "qBand"} W at {fieldOf m "Tcook"} K " ++
+    s!"(the pit cold at {fieldOf m "Tcold"} K, {fieldOf m "nOil"} slots of {fieldOf m "aBelt"} m2); " ++
+    s!"the exchanger as held carries {fieldOf m "qDeliv"} W ({fieldOf m "uaExch"} W/K)\n" ++
+    s!"  DELIVERY, the two levers: {coilLenDelF m} m of buried {dc} m tube at the spec's " ++
+    s!"{fieldOf m "dStand"} m standoff, OR the tube it HAS ({fieldOf m "Lxch"} m) buried no " ++
+    s!"deeper than {dMaxDelF m} m; a metre of tube buys {perMetreF m} W/K, a millimetre forward " ++
+    s!"buys {perMmF m} W/K\n"
   s!"{title}\n  held -> designed:\n{tbl}{alt}\n" ++ reportG "  the designed machine:" d
 
 /-- **`#machine 2.0`**: the whole machine at that half-side, and every constraint's verdict -/
@@ -1215,7 +1527,7 @@ def machineJsonG (a : Float) (g₀ : GivensF) (designed : Bool) (changes : Array
   let g := fieldOf m
   let quote (s : String) := "\"" ++ s ++ "\""
   let pairs := m.foldl (fun acc p => acc.push s!"    {quote p.1}: {p.2}") #[]
-  let isSound (n : String) := !(n.startsWith "ReachesVertical")
+  let isSound (n : String) := !(n.startsWith "ReachesVertical") && !(n.startsWith "frozen ")
   let chk := ((checksF m).filter (fun r => isSound r.1)).foldl
     (fun acc r => acc.push s!"    {quote r.1}: {quote r.2.2.2}") #[]
   let rest := ((checksF m).filter (fun r => !isSound r.1)).foldl
@@ -1223,6 +1535,12 @@ def machineJsonG (a : Float) (g₀ : GivensF) (designed : Bool) (changes : Array
   let kern := #[s!"    {quote "R"}: {g "R"}", s!"    {quote "f"}: {g "f"}", s!"    {quote "a"}: {g "a"}",
     s!"    {quote "w"}: {g "w"}", s!"    {quote "rc"}: {g "rc"}"]
   let mount := #[s!"    {quote "rDrum"}: {g "rDrum"}", s!"    {quote "W"}: {g "W"}",
+    s!"    {quote "mass"}: {g "mass"}", s!"    {quote "areal"}: {g "areal"}",
+    s!"    {quote "zBolt"}: {g "zBolt"}", s!"    {quote "ym"}: {g "ym"}",
+    s!"    {quote "hp"}: {g "hp"}", s!"    {quote "ze"}: {g "ze"}",
+    s!"    {quote "postH"}: {g "postH"}", s!"    {quote "chord"}: {g "chord"}",
+    s!"    {quote "apexH"}: {g "apexH"}", s!"    {quote "rRail"}: {g "rRail"}",
+    s!"    {quote "xh"}: {g "xh"}", s!"    {quote "outEnd"}: {g "outEnd"}",
     s!"    {quote "rcm"}: {g "rcm"}", s!"    {quote "Tmax"}: {g "Tmax"}",
     s!"    {quote "rho"}: {g "rho"}", s!"    {quote "Fdrive"}: {g "Fdrive"}",
     s!"    {quote "L10"}: {g "L10"}", s!"    {quote "rodLen"}: {g "rodLen"}"]
@@ -1232,6 +1550,10 @@ def machineJsonG (a : Float) (g₀ : GivensF) (designed : Bool) (changes : Array
     s!"    {quote "etaP"}: {g "etaP"}", s!"    {quote "Pidle"}: {g "Pidle"}",
     s!"    {quote "alpha"}: {g "alphaC"}", s!"    {quote "Dc"}: {g "Dc"}",
     s!"    {quote "coilLen"}: {g "coilLen"}", s!"    {quote "Vtank"}: {g "Vtank"}",
+    s!"    {quote "Lrec"}: {g "Lrec"}", s!"    {quote "dStand"}: {g "dStand"}",
+    s!"    {quote "kLiner"}: {g "kLiner"}", s!"    {quote "uaExch"}: {g "uaExch"}",
+    s!"    {quote "qBand"}: {g "qBand"}", s!"    {quote "qDeliv"}: {g "qDeliv"}",
+    s!"    {quote "nOil"}: {g "nOil"}",
     s!"    {quote "panelW"}: {g "panelW"}", s!"    {quote "hCoilW"}: {g "hCoilW"}",
     s!"    {quote "PinFull"}: {g "PinFull"}", s!"    {quote "filmStag"}: {g "filmStag"}"]
   let ch := changes.foldl (fun acc r =>
@@ -1269,6 +1591,9 @@ def hisChecks : Array (String × Float × Float) :=
     ("spotW", 0.0592, 0.0594), ("slotTan", 0.960, 0.9605),
     ("rRail", 1.219, 1.2195), ("sideGap", 0.1199, 0.1201),
     ("braceHeight", 0.85, 0.851), ("rodTan", 0.507, 0.5072),
-    ("wireLeft", 0.111, 0.113), ("chord", 1.8399, 1.8401), ("apexH", 0.7999, 0.8001)]
+    ("wireLeft", 0.111, 0.113), ("chord", 1.8399, 1.8401), ("apexH", 0.7999, 0.8001),
+    -- the dimensions that had no home before the scaling moved into the specification
+    ("zBolt", 1.79996, 1.79997), ("outEnd", 1.34995, 1.34997), ("W", 299.999, 300.001),
+    ("xh", 0.8899, 0.8901), ("outStand", 1.2189, 1.2201)]
 
 end TandoorHashemi

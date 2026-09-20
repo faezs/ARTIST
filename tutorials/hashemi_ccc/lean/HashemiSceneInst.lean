@@ -27,6 +27,7 @@ eqs. 1.6.1, 1.6.5, 1.6.6), and `render/check.py` measures it against the trainer
 import RequestProject.Hashemi
 import RequestProject.HashemiMega
 import RequestProject.HashemiScale
+import RequestProject.HashemiWire
 import RequestProject.HashemiTrace
 import RequestProject.HashemiBeamdown
 import RequestProject.OpticGadt
@@ -68,69 +69,14 @@ noncomputable def roofOfDish (az t apexH zBolt f : ℝ) (q : Fin 3 → ℝ) : Fi
     roofOfBolt az apexH zBolt (swungPt 0 (-f) t) 2
       + (q 0 * (dishAxes az t).1 2 + q 1 * (dishAxes az t).2.1 2 + q 2 * (dishAxes az t).2.2 2)]
 
-/-! ### The dimensions that are definitions of `a`
+/-! ### The dimensions are the SPECIFICATION's
 
-`HashemiScale.derive` says what his machine is at any size: every length is `a`, the reflector's
-half-side, times one of his ratios.  The ones the picture needs are written here as plain
-definitions of `a`, each tied to `derive`'s own field by `rfl` below — so that a scene may BIND a
-binder to one of them and the dimension is computed in the graph, beside the pose that uses it,
-instead of being pooled on a host.  Not one number below is new: every ratio is the `Givens`
-default `derive` carries. -/
-
-/-- the sphere, `pR * a` -/
-noncomputable def ROf (a : ℝ) : ℝ := 2.5 * a
-/-- the focal length, `R / 2` (`TandoorSphere.focal_zero`) -/
-noncomputable def fOf (a : ℝ) : ℝ := ROf a / 2
-/-- the rim's depth below F (`screwLength` = `f - sag`) -/
-noncomputable def zeOf (a : ℝ) : ℝ := screwLength (ROf a) a
-/-- the deepest reach of the rim below the bolts, `FC_eq` -/
-noncomputable def FCOf (a : ℝ) : ℝ := Real.sqrt (zeOf a ^ 2 + a ^ 2)
-/-- the apex station, `kApex * a` -/
-noncomputable def apexHOf (a : ℝ) : ℝ := 1.0 * a
-/-- the side gap and the bar's chord (`sideGap_eq`, `dish_between_posts`) -/
-noncomputable def sideGapOf (a : ℝ) : ℝ := 0.15 * a
-noncomputable def chordOf (a : ℝ) : ℝ := 2 * a + 2 * sideGapOf a
-/-- the A's base, `kBase * a` -/
-noncomputable def aBaseOf (a : ℝ) : ℝ := 1.225 * a
-/-- the rail's radius (`rollerRadius`) -/
-noncomputable def rRailOf (a : ℝ) : ℝ := Real.sqrt ((chordOf a / 2) ^ 2 + apexHOf a ^ 2)
-/-- the leg's upright (`hashemi_clearance`) and the hole's drop -/
-noncomputable def uprightOf (a : ℝ) : ℝ := FCOf a + 0.18125 * a
-noncomputable def holeDownOf (a : ℝ) : ℝ := 0.0625 * a
-/-- the bolt line over the bar (`receiverPost_height`) -/
-noncomputable def postHOf (a : ℝ) : ℝ := uprightOf a - holeDownOf a
-/-- **the bolt line's height at any size**.  `zBoltHashemi` (HashemiMega) is
-`hashemiBase.zRail + hashemiLeg.upright - 0.05`: the rail, the leg's upright, the hole's drop — and
-at his size `0.05 = holeDownOf 0.8`.  The rail's own height is HELD (the spec gives it no law), so
-only the leg scales.  Until 2026-09-20 the scene bound the bolt line to `zBoltHashemi` itself while
-binding every other station to its `*Of a`, so at a = 2 m the dish hung from a bolt line 1.9 m
-below its own frame — the offset the user saw in the window. -/
-noncomputable def zBoltOf (a : ℝ) : ℝ := hashemiBase.zRail + uprightOf a - holeDownOf a
-
-/-- the form, which is `zBoltHashemi`'s own with the leg scaled.  At his size the two differ by
-3.7e-5 m and no more: his `hashemiLeg.upright` is the figure's ROUNDED 1.30 m, where the formula
-gives 1.299963 (`FH_bounds` brackets the screw at 0.833 < FH < 0.8331).  So this is stated as the
-identity it is, and the 37-micron difference is his rounding, not a disagreement. -/
-theorem zBoltOf_eq (a : ℝ) :
-    zBoltOf a = hashemiBase.zRail + uprightOf a - holeDownOf a := rfl
-
-/-- the leg's triangle: foot, brace, the short side, and the brace's height -/
-noncomputable def footOf (a : ℝ) : ℝ := 0.4769230769 * uprightOf a
-noncomputable def braceOf (a : ℝ) : ℝ := 0.7384615385 * uprightOf a
-noncomputable def footShortOf (a : ℝ) : ℝ := 0.1346153846 * uprightOf a
-noncomputable def footLongOf (a : ℝ) : ℝ := footOf a - footShortOf a
-noncomputable def braceHeightOf (a : ℝ) : ℝ := Real.sqrt (braceOf a ^ 2 - footLongOf a ^ 2)
-/-- the rim hole's station along the edge, and its depth below F -/
-noncomputable def rimHoleOf (a : ℝ) : ℝ := 0.5 * a
-noncomputable def zhOf (a : ℝ) : ℝ :=
-  fOf a - TandoorSphere.sag (ROf a) (Real.sqrt (a ^ 2 + rimHoleOf a ^ 2))
-/-- the mast's station and the pulley over the bolts -/
-noncomputable def ymOf (a : ℝ) : ℝ := FCOf a + 0.08125 * a
-noncomputable def hpOf (a : ℝ) : ℝ := 0.425 * a
-/-- the stand's post carries the pulley: `postH + hp` -/
-noncomputable def standPostOf (a : ℝ) : ℝ := postHOf a + hpOf a
-/-- the stand's foot bar lies across the rails: the bar's own chord -/
-noncomputable def standFootOf (a : ℝ) : ℝ := chordOf a
+Until 2026-09-20 this file defined twenty-six `*Of a` functions - the machine's every dimension -
+and `Hashemi.lean` defined none, so a scene could bind a station to a constant and nothing but the
+render window would say so.  They now live in `Hashemi.lean` §16, in the same namespace, and are
+compiled into the megakernel so that the mount varies per agent as the optics already did.  What
+is left here is what a renderer should own: frames, stations and repacks.
+-/
 
 /-! Each one IS `derive`'s field, definitionally.  If the design changes, these fail. -/
 theorem ROf_derive (a : ℝ) : ROf a = (derive { a := a }).R := rfl
@@ -218,10 +164,29 @@ noncomputable def receiverTopM (a : ℝ) : Fin 3 → ℝ := ![apexHOf a, 0, post
 
 /-- the stand on the outrigger's cross member, and the pulley on top of it (`pulleyAt`'s `hp`
 over the bolt line, which stands `postH` over the bar) -/
-noncomputable def mastFootM (a : ℝ) : Fin 3 → ℝ := ![-(ymOf a), 0, 0]
-noncomputable def mastTopM (a : ℝ) : Fin 3 → ℝ := ![-(ymOf a), 0, standPostOf a]
+noncomputable def mastFootM (a : ℝ) : Fin 3 → ℝ := ![apexHOf a - ymOf a, 0, 0]
+noncomputable def mastTopM (a : ℝ) : Fin 3 → ℝ := ![apexHOf a - ymOf a, 0, standPostOf a]
 noncomputable def standBarM (a sg : ℝ) : Fin 3 → ℝ :=
-  ![-(ymOf a), sg * (standFootOf a / 2), 0]
+  ![apexHOf a - ymOf a, sg * (standFootOf a / 2), 0]
+
+/-- **the mast top IS the pulley**, and that is the whole content of the station above.
+
+`ymOf a` is `FCOf a + 0.08125 a`: the clip's radius about the bolt line plus a margin, so it is a
+station measured FROM THE BOLT LINE, on the mast's side — which is the coordinate `pulleyAt` is
+written in (`pulleyAt ym hp = (-ym, hp)`), and `roofOfBolt` carries that to the station
+`apexH + (-ym)`.  The carriage frame counts from the TUBE, so the mast's own station is
+`apexH - ym` and not `-ym`.  Until 2026-09-20 it was `-ym`: at a = 2 m the mast stood 2.00 m from
+the pulley it carries, and the tow wire hung off the pulley into thin air.  The heights were never
+in doubt — `standPostOf a = postHOf a + hpOf a` is BUILT to put the mast's top at the pulley — so
+this theorem is the check the station always owed, at every size and azimuth. -/
+theorem mastTop_is_pulley (az a : ℝ) (i : Fin 3) :
+    roofOfCarriage az (zBoltOf a - postHOf a) (mastTopM a) i
+      = roofOfBolt az (apexHOf a) (zBoltOf a) (pulleyAt (ymOf a) (hpOf a)) i := by
+  fin_cases i <;>
+    simp only [roofOfCarriage, mastTopM, roofOfBolt, pulleyAt, standPostOf, Matrix.cons_val_zero,
+      Matrix.cons_val_one, Matrix.cons_val_two, Matrix.head_cons, Matrix.tail_cons, neg_zero] <;>
+    ring_nf
+
 
 /-- the outrigger: the two rails leave the bar `root` apart at the A's feet and taper to
 `endWidth` at `endStation` (`hashemiOutrigger`).
@@ -235,35 +200,92 @@ tip sat at 1.35 m while the mast it carries stood at 3.05 m: the two rails conve
 tip keeps HIS PROPORTION to the stand it carries, 1.35 / 1.22 = 1.1066 of `ymOf a`, and its width
 his proportion to the reflector — the same rule every other station in this file follows.  At his
 own size both reduce to his readings (`outrigEnd_his`). -/
-noncomputable def outrigRootM (a sg : ℝ) : Fin 3 → ℝ := ![0, sg * (aBaseOf a / 2), 0]
-noncomputable def endStationOf (a : ℝ) : ℝ := (1.35 / 1.22) * ymOf a
-noncomputable def endWidthOf (a : ℝ) : ℝ := 0.3125 * a
+noncomputable def outrigRootM (a sg : ℝ) : Fin 3 → ℝ := ![apexHOf a, sg * (aBaseOf a / 2), 0]
 noncomputable def outrigEndM (a sg : ℝ) : Fin 3 → ℝ :=
-  ![-(endStationOf a), sg * (endWidthOf a / 2), 0]
+  ![apexHOf a - endStationOf a, sg * (endWidthOf a / 2), 0]
 
-/-- at his size the two scaled readings are his own -/
-theorem endWidth_his : endWidthOf 0.8 = hashemiOutrigger.endWidth := by
-  unfold endWidthOf hashemiOutrigger; norm_num
+/-- the winch on the outrigger's centreline at the narrow end, its drum on the rail: "bolted at
+the outrigger's narrow end under the mast, drum along the rail, motor up" (§7, 19:20-20:05).  The
+stations of this paragraph are all counted from the BAR — `root` at the bar, the stand at `ymOf a`
+and the tip at `endStationOf a` beyond it — so each carries `apexHOf a` into the carriage frame,
+which is `drumFoot_is_drumAt` below. -/
+noncomputable def drumFootM (a : ℝ) : Fin 3 → ℝ := ![apexHOf a - endStationOf a, 0, 0]
+/-- and the drum stands on the rail at the outrigger's narrow end, `postH` under the bolt line:
+the carriage's station of `drumAt` (`HashemiWire.lean`), which is where the same wire starts -/
+theorem drumFoot_is_drumAt (az a : ℝ) (i : Fin 3) :
+    roofOfCarriage az (zBoltOf a - postHOf a) (drumFootM a) i
+      = roofOfBolt az (apexHOf a) (zBoltOf a) (drumAt (endStationOf a) (postHOf a)) i := by
+  fin_cases i <;>
+    simp only [roofOfCarriage, drumFootM, roofOfBolt, drumAt, Matrix.cons_val_zero,
+      Matrix.cons_val_one, Matrix.cons_val_two, Matrix.head_cons, Matrix.tail_cons, neg_zero] <;>
+    ring_nf
 
-/-- and the rails' tip is beyond the stand they carry, at every size (`stand_le_end`, generalised).
-`ymOf a = FCOf a + 0.08125 a` is positive for positive `a` because `FCOf` is a square root. -/
-theorem stand_before_end {a : ℝ} (ha : 0 < a) : ymOf a < endStationOf a := by
-  have hy : 0 < ymOf a := by
-    unfold ymOf FCOf
-    have : 0 ≤ Real.sqrt (zeOf a ^ 2 + a ^ 2) := Real.sqrt_nonneg _
-    nlinarith
-  unfold endStationOf
-  nlinarith
 
-/-- a hanger's eye on the bolt line, at the half-edge middle `rimHole` along the bar -/
+/-- the rails' tip is beyond the stand they carry at every size, which is what puts the drum
+outboard of the mast in the drawing: `Hashemi.lean` §16's own `stand_before_end`. -/
+theorem outrig_tip_beyond_stand {a : ℝ} (ha : 0 < a) : ymOf a < endStationOf a := by
+  exact stand_before_end ha
+
+/-! **The four hangers are two V-pairs, one per bolt** (`Hashemi.lean` § 6, 8, 12).  The bolt line
+runs ALONG THE BAR (`boltLineM`, the carriage frame's second coordinate), the panel hangs between
+the posts, and `hangerLength R a yr dx = √(dx² + yr² + (f - sag R √(a²+yr²))²)` reads off that
+arrangement: from an eye ON the bolt line, `dx` outboard of the edge line, to a rim hole on the
+edge the post faces, `yr` along it.  So one eye per bolt, and the two rods that leave it splay to
+the middles of the two halves of that edge - `rodTan = yr / zh`, "each rod 27° off the vertical,
+the pair a V of 54°".  His own hanger is `hangerLength 2 0.8 0.4 0` = **0.884 m**, 55 % of the
+dish's side; `derive`'s `hanger` field is that formula at any size.
+
+Until 2026-09-20 these two points had the panel's half-side and the hole's station the wrong way
+round: the eyes sat at `±rimHole` along the bar and the holes at `±a` ACROSS it, so each hanger
+ran the full half-side in the swing plane and came out `√(a² + zh²)` - 1.12 m at his size against
+the spec's 0.884, and 2.81 m against 2.21 m at a = 2 m, 27 % too long at every size.  Worse, the
+whole of it lay in the swing plane, so the four "hangers" leaned with the dish as one plumb pair
+instead of standing as two V's across the bar.  The eye is now over the EDGE LINE (`dx = 0`, the
+case `hangerLength_halfEdge` and `derive` both state) and only the `rimHole` offset swings. -/
+
+/-- **the pot the exchanger feeds is `Tandoor.lean`'s own**.  `HashemiScale.lean` restates the
+sphere and the baking band (it is linked into an executable whose command line is at `ARG_MAX`,
+so it cannot import the oven's module); this file imports both, and here they are the same. -/
+theorem potBand_is_tandoor :
+    zCPotS = zCPot ∧ rSphS = rSph ∧ zBakeLoS = zBakeLo ∧ zCrownS = zCrown ∧ nBeltS = nBelt :=
+  ⟨rfl, rfl, rfl, rfl, rfl⟩
+
+/-- the same bight, for the scene that takes the pose as its own inputs -/
+noncomputable def towBightPt (ym hp a ze slack t : ℝ) : ℝ × ℝ :=
+  bightPt (pulleyAt ym hp) (edgeClipAt a ze t) slack
+
+/-- a hanger's eye on the bolt line, over the edge of the panel the post faces (`dx = 0`) -/
 noncomputable def hangerEyeM (a sgy : ℝ) : Fin 3 → ℝ :=
-  ![apexHOf a, sgy * rimHoleOf a, postHOf a]
+  ![apexHOf a, sgy * a, postHOf a]
 
-/-- and its lower end, the rim hole on the panel at that station, `zh` below F and swung by `t`
-(`swungPt`, `zh`, `hangerLength`'s own `yr`) -/
+/-- and its lower end, the rim hole at the middle of one half of that edge - `rimHole` along the
+edge, `zh` below F - swung by `t` with the dish (`swungPt`, `zh`, `hangerLength`'s own `yr`).
+`sgy` picks the bolt, `sgx` the half of its edge: the two rods of one V. -/
 noncomputable def hangerHoleM (a t sgx sgy : ℝ) : Fin 3 → ℝ :=
-  ![apexHOf a + (swungPt (sgx * a) (-(zhOf a)) t).1, sgy * rimHoleOf a,
-    postHOf a + (swungPt (sgx * a) (-(zhOf a)) t).2]
+  ![apexHOf a + (swungPt (sgx * rimHoleOf a) (-(zhOf a)) t).1, sgy * a,
+    postHOf a + (swungPt (sgx * rimHoleOf a) (-(zhOf a)) t).2]
+
+/-- **and the drawn hanger is the spec's own length, at every size and every swing**: the segment
+`hangerEyeM → hangerHoleM` is `(rimHole, 0, zh)` turned about the bolt line, so its length is
+`hangerLength (ROf a) a (rimHoleOf a) 0`, which is `derive`'s `hanger`. -/
+theorem hanger_drawn_length (a t sgx sgy : ℝ) :
+    (hangerHoleM a t sgx sgy 0 - hangerEyeM a sgy 0) ^ 2
+      + (hangerHoleM a t sgx sgy 1 - hangerEyeM a sgy 1) ^ 2
+      + (hangerHoleM a t sgx sgy 2 - hangerEyeM a sgy 2) ^ 2
+      = (sgx * rimHoleOf a) ^ 2 + zhOf a ^ 2 := by
+  have h0 : hangerHoleM a t sgx sgy 0 - hangerEyeM a sgy 0
+      = (swungPt (sgx * rimHoleOf a) (-(zhOf a)) t).1 := by
+    show apexHOf a + (swungPt (sgx * rimHoleOf a) (-(zhOf a)) t).1 - apexHOf a = _; ring
+  have h1 : hangerHoleM a t sgx sgy 1 - hangerEyeM a sgy 1 = 0 := by
+    show sgy * a - sgy * a = 0; ring
+  have h2 : hangerHoleM a t sgx sgy 2 - hangerEyeM a sgy 2
+      = (swungPt (sgx * rimHoleOf a) (-(zhOf a)) t).2 := by
+    show postHOf a + (swungPt (sgx * rimHoleOf a) (-(zhOf a)) t).2 - postHOf a = _; ring
+  rw [h0, h1, h2]
+  unfold swungPt
+  have hc := Real.sin_sq_add_cos_sq t
+  simp only []
+  nlinarith [hc]
 
 /-! **Dish frame** — `q = (along the bolt line, along the tilt, along the face's normal)` from the
 vertex, which is the frame `traceConic` and `dishReflect` work in.  A point of the panel is its
@@ -437,57 +459,64 @@ compiles the list below as one Metal kernel whose columns are the env's and whos
 the scene's — the same function, printed twice. -/
 
 /-- the pose the env's own step produces: `megaStep`'s azimuth and swing -/
-noncomputable def envAzT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen : ℝ) : Fin 2 → ℝ :=
-  let s := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
+noncomputable def envAzT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc : ℝ) : Fin 2 → ℝ :=
+  let s := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
   ![s 0, s 1]
 
 /-- the carriage's frame, at the pose the env stepped to -/
-noncomputable def envRoofOfCarriage (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen zBar : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
-  roofOfCarriage (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) zBar q
+noncomputable def envRoofOfCarriage (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen zBar a w rc : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  roofOfCarriage (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0) zBar q
 
 /-- the bolt plane's frame, at that pose -/
-noncomputable def envRoofOfBolt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt : ℝ) (p : ℝ × ℝ) : Fin 3 → ℝ :=
-  roofOfBolt (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) apexH zBolt p
+noncomputable def envRoofOfBolt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt a w rc : ℝ) (p : ℝ × ℝ) : Fin 3 → ℝ :=
+  roofOfBolt (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0) apexH zBolt p
 
 /-- the dish's frame, at that pose -/
-noncomputable def envRoofOfDish (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt f : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
-  roofOfDish (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) apexH zBolt f q
+noncomputable def envRoofOfDish (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen apexH zBolt f a w rc : ℝ) (q : Fin 3 → ℝ) : Fin 3 → ℝ :=
+  roofOfDish (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) apexH zBolt f q
 
 /-- the dish's vertex in the bolt plane, at that swing -/
-noncomputable def envDishVertexPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen f : ℝ) : ℝ × ℝ :=
-  dishVertexPt f (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1)
+noncomputable def envDishVertexPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen f a w rc : ℝ) : ℝ × ℝ :=
+  dishVertexPt f (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1)
 
 /-- the rim's ends, at that swing -/
-noncomputable def envRimPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze sg : ℝ) : ℝ × ℝ :=
-  rimPt a ze (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) sg
+noncomputable def envRimPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze sg w rc : ℝ) : ℝ × ℝ :=
+  rimPt a ze (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) sg
+
+/-- the tow wire's bight at this pose: the vertex of the V a wire of length `wireLen + slack`
+makes between the pulley and the clip (`HashemiWire.bightPt`).  At `slack = 0` it is the chord's
+own midpoint, so the two drawn legs ARE the taut straight wire -/
+noncomputable def envTowBightPt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen ym hp a ze w rc : ℝ) : ℝ × ℝ :=
+  let st := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc
+  bightPt (pulleyAt ym hp) (edgeClipAt a ze (st 1)) (st 2)
 
 /-- the clip, at that swing -/
-noncomputable def envEdgeClipAt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze : ℝ) : ℝ × ℝ :=
-  edgeClipAt a ze (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1)
+noncomputable def envEdgeClipAt (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a ze w rc : ℝ) : ℝ × ℝ :=
+  edgeClipAt a ze (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1)
 
 /-- a hanger's rim hole, at the swing the env stepped to -/
-noncomputable def envHangerHoleM (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a sgx sgy : ℝ) : Fin 3 → ℝ :=
-  hangerHoleM a (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) sgx sgy
+noncomputable def envHangerHoleM (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a sgx sgy w rc : ℝ) : Fin 3 → ℝ :=
+  hangerHoleM a (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) sgx sgy
 
 /-- row `i`'s ray start, at the pose the env stepped to and under the env's own sun -/
-noncomputable def envRayStartT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen f a w hsun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+noncomputable def envRayStartT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen f a w hsun rc : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
     (i : Fin 64) : Fin 3 → ℝ :=
-  rayStartT f a w hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun dr i
+  rayStartT f a w hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun dr i
 
 /-- row `i`'s hit on the figure, at that pose -/
-noncomputable def envRayHitT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen R k f a w hsun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+noncomputable def envRayHitT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen R k f a w hsun rc : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
     (i : Fin 64) : Fin 3 → ℝ :=
-  rayHitT R k f a w hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun dr i
+  rayHitT R k f a w hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun dr i
 
 /-- row `i`'s landing, at that pose -/
-noncomputable def envRayLandT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen R k f a w hsun : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
+noncomputable def envRayLandT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen R k f a w hsun rc : ℝ) (dr : Fin 64 → Fin 10 → ℝ)
     (i : Fin 64) : Fin 3 → ℝ :=
-  rayLandT R k f a w hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun dr i
+  rayLandT R k f a w hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun dr i
 
 /-- row `i`'s fate, at that pose — the same `traceRayKErr` the env sums for its capture -/
 noncomputable def envRayFateT (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen R f a w rc k σslope σspec hsun : ℝ)
     (dr : Fin 64 → Fin 10 → ℝ) (i : Fin 64) : Fin 8 → ℝ :=
-  rayFateT R f a w rc k σslope σspec hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 1) elSun azSun dr i
+  rayFateT R f a w rc k σslope σspec hsun (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 0) (envAzT az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 1) elSun azSun dr i
 
 /-! ## 4. The sun
 
@@ -533,21 +562,21 @@ plane at the swing `t`) -/
 theorem dishVertexPt_megaGeom (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive
     L10 rodLen : ℝ) :
     (dishVertexPt dishF t).1 = megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho
-      Fdrive L10 rodLen 20 ∧
+      Fdrive L10 rodLen a w rc 20 ∧
     (dishVertexPt dishF t).2 = megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho
-      Fdrive L10 rodLen 21 := ⟨rfl, rfl⟩
+      Fdrive L10 rodLen a w rc 21 := ⟨rfl, rfl⟩
 
 /-- **the bolt frame's origin is `megaGeom`'s `Froof`** (columns 47 and 48): F stands over the
 apex station, turned by the azimuth -/
 theorem boltOriginPt_megaGeom (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive
     L10 rodLen : ℝ) :
     roofOfBolt az hashemi.apexH zBoltHashemi boltOriginPt 0 = megaGeom az t slack ωm ωd dt elSun
-      azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 47 ∧
+      azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 47 ∧
     roofOfBolt az hashemi.apexH zBoltHashemi boltOriginPt 1 = megaGeom az t slack ωm ωd dt elSun
-      azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 48 := by
-  have h47 : megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 47
+      azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 48 := by
+  have h47 : megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 47
       = (rot az (hashemi.apexH, 0)).1 := rfl
-  have h48 : megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen 48
+  have h48 : megaGeom az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen a w rc 48
       = (rot az (hashemi.apexH, 0)).2 := rfl
   rw [h47, h48]
   constructor
@@ -1251,6 +1280,10 @@ def apexHB : Bound := .node "apexHOf"
 def ymB : Bound := .node "ymOf"
 def hpB : Bound := .node "hpOf"
 def zeB : Bound := .node "zeOf"
+/-- the outrigger's narrow end, where the winch is bolted, and the bolt line's height over the
+bar: the drum's two stations (`HashemiWire.drumAt`) -/
+def esB : Bound := .node "endStationOf"
+def postHB : Bound := .node "postHOf"
 /-- the drawing's own conventions: the two ends of the bar, and no end offset -/
 def sgLB : Bound := Bound.lit 1
 def sgRB : Bound := Bound.lit (-1)
@@ -1405,14 +1438,29 @@ def hashemiScene : Scene := [
     shape := .seg (.pt "mastFootM" (some "roofOfCarriage") [("zBar", zBarB)])
                   (.pt "mastTopM" (some "roofOfCarriage") [("zBar", zBarB)]),
     colour := 2 },
+  { label := "winch_bracket",
+    shape := .seg (.pt "drumFootM" (some "roofOfCarriage") [("zBar", zBarB)])
+                  (.pt "mastFootM" (some "roofOfCarriage") [("zBar", zBarB)]),
+    colour := 2 },
   { label := "pulley",
     shape := .one (.pt "pulleyAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)]),
     colour := 2 },
   { label := "clip",
     shape := .one (.pt "edgeClipAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB)]),
     colour := 2 },
+  { label := "winch_drum",
+    shape := .one (.pt "drumAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("es", esB), ("postH", postHB)]),
+    colour := 2 },
+  { label := "tow_wire_mast",
+    shape := .seg (.pt "drumAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("es", esB), ("postH", postHB)])
+                  (.pt "pulleyAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)]),
+    colour := 2 },
   { label := "tow_wire",
     shape := .seg (.pt "pulleyAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)])
+                  (.pt "towBightPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB), ("ze", zeB)]),
+    colour := 2 },
+  { label := "tow_wire_slack",
+    shape := .seg (.pt "towBightPt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB), ("ze", zeB)])
                   (.pt "edgeClipAt" (some "roofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB)]),
     colour := 2 },
   { label := "hanger_vertexside_left",
@@ -2446,14 +2494,29 @@ def envScene : Scene := [
     shape := .seg (.pt "mastFootM" (some "envRoofOfCarriage") [("zBar", zBarB)])
                   (.pt "mastTopM" (some "envRoofOfCarriage") [("zBar", zBarB)]),
     colour := 2 },
+  { label := "winch_bracket",
+    shape := .seg (.pt "drumFootM" (some "envRoofOfCarriage") [("zBar", zBarB)])
+                  (.pt "mastFootM" (some "envRoofOfCarriage") [("zBar", zBarB)]),
+    colour := 2 },
   { label := "pulley",
     shape := .one (.pt "pulleyAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)]),
     colour := 2 },
   { label := "clip",
     shape := .one (.pt "envEdgeClipAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB)]),
     colour := 2 },
+  { label := "winch_drum",
+    shape := .one (.pt "drumAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("es", esB), ("postH", postHB)]),
+    colour := 2 },
+  { label := "tow_wire_mast",
+    shape := .seg (.pt "drumAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("es", esB), ("postH", postHB)])
+                  (.pt "pulleyAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)]),
+    colour := 2 },
   { label := "tow_wire",
     shape := .seg (.pt "pulleyAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB)])
+                  (.pt "envTowBightPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB), ("ze", zeB)]),
+    colour := 2 },
+  { label := "tow_wire_slack",
+    shape := .seg (.pt "envTowBightPt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ym", ymB), ("hp", hpB), ("ze", zeB)])
                   (.pt "envEdgeClipAt" (some "envRoofOfBolt") [("apexH", apexHB), ("zBolt", zBoltB), ("ze", zeB)]),
     colour := 2 },
   { label := "hanger_vertexside_left",

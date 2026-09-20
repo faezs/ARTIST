@@ -174,7 +174,10 @@ mouth's plane) and the eight observations of the new state. -/
 noncomputable def hashemiEnvBeam (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
     R f a w rc k σslope σspec hsun soil L dm rm rt slotW β : ℝ)
     (dr : Fin 64 → Fin 10 → ℝ) : Fin 31 → ℝ :=
+  -- the mount flies the SAME machine the rays fly: `a w rc` are this env's own optics inputs,
+  -- and since 2026-09-20 they are `megaStep`'s mount dimensions too (Hashemi.lean §16)
   let s := megaStep az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10 rodLen
+    a w rc
   let sd := sunInDish (s 0) (s 1) elSun azSun
   let cap := (∑ i : Fin 64,
     let ray := sampleRay a w hsun sd (dr i 0) (dr i 1) (dr i 2) (dr i 3) (dr i 4) (dr i 5)

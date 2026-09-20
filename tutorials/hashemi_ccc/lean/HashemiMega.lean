@@ -68,6 +68,25 @@ noncomputable def zBoltHashemi : ℝ := hashemiBase.zRail + hashemiLeg.upright -
 /-- the eye's station along the bolt: at the bolt's end, the eye's reach in from the post's face -/
 noncomputable def xhHashemi : ℝ := hashemi.chord / 2 - 0.03
 
+/-- **the bolt line over the deck**: `zBoltHashemi` is the rail plus his ROUNDED leg, this is the
+rail plus the leg that scales, and at his size they differ by his 37 µm and no more -/
+theorem zBolt_his : |zBoltHashemi - zBoltOf dishHalf| < 3.9e-5 := by
+  have h : zBoltOf dishHalf = hashemiBase.zRail + postHOf dishHalf := rfl
+  have hz : zBoltHashemi = hashemiBase.zRail + hashemiLeg.upright - 0.05 := rfl
+  have hr : hashemiBase.zRail = 0.55 := rfl
+  have hu : hashemiLeg.upright = 1.30 := rfl
+  rw [h, hz, hr, hu, abs_lt]
+  constructor <;> linarith [HashemiDims.postH_his.1, HashemiDims.postH_his.2]
+
+
+/-- the eye's station along the bolt is `xhHashemi` -/
+theorem xh_his : xhOf dishHalf = xhHashemi := by
+  unfold xhOf boltReachOf kEye dishHalf xhHashemi
+  rw [show chordOf 0.8 = hashemi.chord by
+    rw [show (0.8:ℝ) = dishHalf by unfold dishHalf; norm_num]; exact HashemiDims.chord_his]
+  norm_num
+
+
 /-- the pointing error: the angle between the dish's face `n` and the sun `u`, as
 `arctan (|n × u| / (n · u))` - exact, and stable for the small angles the tracker lives at
 (`arccos (n · u)` loses them in single precision); a right angle or more when the sun is behind -/
@@ -174,13 +193,13 @@ wire's length, the dead point, stalled, taut, holds), `8` the wire's lever arm a
 (`SunReachable`), `14` the sun lost (`LostSun` at the 1.7° budget) - the two Ω-columns the env's
 day and cut are pulled back along; `15`, `16` the same gates smoothly (`sunReachableS`, `lostSunS`) -/
 noncomputable def megaStep (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10
-    rodLen : ℝ) : Fin 17 → ℝ :=
-  let ym := ymHashemi
-  let hp := hpHashemi
-  let a := dishHalf
-  let ze := zeHashemi
-  let rw := hashemi.rDrive
-  let R := rollerRadius hashemi
+    rodLen dHalf wFacet rCoil : ℝ) : Fin 17 → ℝ :=
+  let ym := ymOf dHalf
+  let hp := hpOf dHalf
+  let a := dHalf
+  let ze := zeOf dHalf
+  let rw := hashemi.rDrive                              -- held: the frame's 5 cm roller
+  let R := rRailOf dHalf
   let s := step az t slack ωm ωd dt rw R rDrum ym hp a ze W rcm Tmax
   let arm := leverAt ym hp a ze t
   ![s 0, s 1, s 2, s 3, s 4, s 5, s 6, s 7, arm, elRate ωd rDrum arm, azRate ωm rw R,
@@ -191,52 +210,53 @@ noncomputable def megaStep (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tm
 /-- **the geometry, the optics, the loads, the electrics** (60): the machine's numbers from the
 file's definitions, and the quantities of sections 5-15 at the state -/
 noncomputable def megaGeom (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10
-    rodLen : ℝ) : Fin 60 → ℝ :=
-  let ym := ymHashemi
-  let hp := hpHashemi
-  let a := dishHalf
-  let sag := TandoorSphere.sag dishR dishHalf
-  let ze := zeHashemi
+    rodLen dHalf wFacet rCoil : ℝ) : Fin 60 → ℝ :=
+  let ym := ymOf dHalf
+  let hp := hpOf dHalf
+  let a := dHalf
+  let sag := sagOf dHalf
+  let ze := zeOf dHalf
   let arm := leverAt ym hp a ze t
   let ω := elRate ωd rDrum arm
   let ε := pointingError az t elSun azSun
   let el := Real.pi / 2 - t
   let P := pulleyAt ym hp
   let C := edgeClipAt a ze t
-  let V := swungPt 0 (-dishF) t
+  let V := swungPt 0 (-(fOf dHalf)) t
   let N := swungPt 0 1 t
-  let V8 := swingVertex (0, 0) dishF (-t)
+  let V8 := swingVertex (0, 0) (fOf dHalf) (-t)
   let N8 := swingNormal (-t)
-  let Fok := swingFocus (0, 0) dishF dishF (-t)
-  let Fbad := swingFocus (0, 0) (dishF + 0.01) dishF (-t)
-  let spotShift := TandoorMount.spot dishF ε
-  let spotW := facetSpot 0.05 dishF
-  let capture := coilCapture (spotW / 2) 0.06 spotShift
-  let power := if 0 < elSun then dni * dishSide ^ 2 * rho * capture else 0
-  let Froof := rot az (hashemi.apexH, 0)
-  let Ftop := postTop hashemi hashemiLeg 0 1
-  let Q : Fin 3 → ℝ := ![hashemi.apexH + hashemiOutrigger.standStation, 0, 0]
+  let Fok := swingFocus (0, 0) (fOf dHalf) (fOf dHalf) (-t)
+  let Fbad := swingFocus (0, 0) (fOf dHalf + 0.01) (fOf dHalf) (-t)
+  let spotShift := TandoorMount.spot (fOf dHalf) ε
+  let spotW := facetSpot wFacet (fOf dHalf)
+  let capture := coilCapture (spotW / 2) rCoil spotShift
+  let power := if 0 < elSun then dni * sideOf dHalf ^ 2 * rho * capture else 0
+  let Froof := rot az (apexHOf dHalf, 0)
+  let Ftop := postTop (carriageOf dHalf) (legOf dHalf) 0 1
+  let Q : Fin 3 → ℝ := ![apexHOf dHalf + standStationOf dHalf, 0, 0]
   let lean : Fin 3 → ℝ := ![-0.0005, 0, 0]
   ![-- 0..9 the dish and the sphere (sections 5, 6, 8)
-    dishR, dishF, dishHalf, dishSide, sag, ze, screwLength dishR dishHalf,
-    hangerLength dishR dishHalf 0.4 0, rodTan, cosTubeCut,
+    ROf dHalf, fOf dHalf, dHalf, sideOf dHalf, sag, ze, zeOf dHalf,
+    hangerOf dHalf, rodTanOf dHalf, cosTubeCut,
     -- 10..19 the carriage, the base, the legs, the stand, the outrigger (2-4, 7)
-    rollerRadius hashemi, hashemi.chord, hashemi.apexH, hashemiBase.zRail, hashemiBase.zBearing,
-    Leg.footLong hashemiLeg, braceHeight hashemiLeg, hashemiStand.post, hashemiStand.foot,
-    hashemiOutrigger.endStation,
+    rRailOf dHalf, chordOf dHalf, apexHOf dHalf, zRailOf dHalf, zBearingOf dHalf,
+    footLongOf dHalf, braceHeightOf dHalf, standPostOf dHalf, standFootOf dHalf,
+    endStationOf dHalf,
     -- 20..29 the pose (8, 11, 14)
     V.1, V.2, N.1, N.2, V8.1, V8.2, N8.1, N8.2, Real.sqrt (Fok.1 ^ 2 + Fok.2 ^ 2),
     Real.sqrt (Fbad.1 ^ 2 + Fbad.2 ^ 2),
     -- 30..39 the wire (9, 11, 13, 15)
     P.1, P.2, C.1, C.2, wireLever P C, deadPoint ym hp a ze, wireLen ym hp a ze t,
-    wireTension W rcm arm t, elPower W rcm t ω, slackSpot dishF slack arm,
+    wireTension W rcm arm t, elPower W rcm t ω, slackSpot (fOf dHalf) slack arm,
     -- 40..49 the receiver, the post, the rim (5, 14)
-    slotExit a ze, dishF * Real.tan t, edgeDepth dishF a sag el, clearance hashemiLeg 0.05 (edgeDepth dishF a sag el),
-    a * Real.sin t + ze * Real.cos t, sideGap, hashemiLeg.upright - 0.05, Froof.1, Froof.2,
+    slotExit a ze, fOf dHalf * Real.tan t, edgeDepth (fOf dHalf) a sag el,
+    clearance (legOf dHalf) (holeDownOf dHalf) (edgeDepth (fOf dHalf) a sag el),
+    a * Real.sin t + ze * Real.cos t, sideGapOf dHalf, postHOf dHalf, Froof.1, Froof.2,
     Real.sqrt (Froof.1 ^ 2 + Froof.2 ^ 2),
     -- 50..59 the optics, the alignment, the electrics, the struts (8, 10, 12, 13, 14)
-    spotShift, spotW, capture, power, focusShift 1.25 0.0005, tiltOfMismatch 0.0015,
-    setLength rodLen (rodLen - hashemiHanger.length), helixAdvance 0.00175 t,
+    spotShift, spotW, capture, power, focusShift rodLen 0.0005, tiltPerTurnOf 0.0015 dHalf,
+    setLength rodLen (rodLen - hangerOf dHalf), helixAdvance 0.00175 t,
     cableDrop 4 (hashemiPanel.watts / systemVolts), strutStrain Ftop Q lean]
 
 /-- **the screw theory at the state** (40): the reciprocal products of the base's constraints
@@ -244,27 +264,27 @@ with the yaw (section 4), the drive's work on the yaw, the hinge's and the screw
 constraints against the swing (12), the wire's wrench against the swing (9, 12), the velocities
 of F under the yaw and the swing (10), the bolt and the panel (12, 13) -/
 noncomputable def megaScrew (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10
-    rodLen : ℝ) : Fin 40 → ℝ :=
-  let ym := ymHashemi
-  let hp := hpHashemi
-  let a := dishHalf
-  let ze := zeHashemi
+    rodLen dHalf wFacet rCoil : ℝ) : Fin 40 → ℝ :=
+  let ym := ymOf dHalf
+  let hp := hpOf dHalf
+  let a := dHalf
+  let ze := zeOf dHalf
   let arm := leverAt ym hp a ze t
-  let zB := zBoltHashemi
-  let xh := xhHashemi
-  let cs := constraints hashemi hashemiBase
-  let cg := constraintsGrooved hashemi hashemiBase
-  let sw := swingTwist hashemi.apexH zB
+  let zB := zBoltOf dHalf
+  let xh := xhOf dHalf
+  let cs := constraints (carriageOf dHalf) (baseOf dHalf)
+  let cg := constraintsGrooved (carriageOf dHalf) (baseOf dHalf)
+  let sw := swingTwist (apexHOf dHalf) zB
   let st := screwTwist hM12 zB
   let hw := hingeWrench xh zB
   let sc := screwWrench xh zB hM12
-  let Fp : Fin 3 → ℝ := ![hashemi.apexH, 0, zB]
+  let Fp : Fin 3 → ℝ := ![apexHOf dHalf, 0, zB]
   let vy := pointVel yaw Fp
   let vs := pointVel sw Fp
-  let vr := pointVel (rollY Fp) ![hashemi.apexH, 0.3, zB]
+  let vr := pointVel (rollY Fp) ![apexHOf dHalf, 0.3, zB]
   let C := edgeClipAt a ze t
   let P := pulleyAt ym hp
-  let q : Fin 3 → ℝ := ![hashemi.apexH - C.1, 0, zB + C.2]
+  let q : Fin 3 → ℝ := ![apexHOf dHalf - C.1, 0, zB + C.2]
   let L := wireLen ym hp a ze t
   let T := wireTension W rcm arm t
   let fw : Fin 3 → ℝ := ![T * (-(P.1 - C.1)) / L, 0, T * (P.2 - C.2) / L]
@@ -274,7 +294,7 @@ noncomputable def megaScrew (az t slack ωm ωd dt elSun azSun dni rDrum W rcm T
     recip (cg 0) yaw, recip (cg 1) yaw, recip (cg 2) yaw, recip (cg 3) yaw, recip (cg 4) yaw,
     recip (cg 5) yaw, recip (cg 6) yaw,
     -- 12 the drive's work on the yaw, F R (drive_recip_yaw)
-    recip yaw (wDrive hashemi hashemiBase Fdrive),
+    recip yaw (wDrive (carriageOf dHalf) (baseOf dHalf) Fdrive),
     -- 13..17 the hinge's five against the swing (zero: hinge_reciprocal_swing)
     recip sw (hw 0), recip sw (hw 1), recip sw (hw 2), recip sw (hw 3), recip sw (hw 4),
     -- 18..22 the screw joint's five against the helical twist (zero: screw_reciprocal)
@@ -290,29 +310,30 @@ noncomputable def megaScrew (az t slack ωm ωd dt elSun azSun dni rDrum W rcm T
     -- 33 the wire's wrench against the swing: its moment about the bolt line (wire_recip_swing)
     recip sw (wrenchAt q fw),
     -- 34..36 the bolt, the helix, the panel
-    boltStress W 0.03 0.0101, hM12, hashemiPanel.watts / systemVolts,
+    boltStress W (boltReachOf dHalf) 0.0101, hM12, hashemiPanel.watts / systemVolts,
     -- 37..39 the tracking power, the azimuth rate in rpm at the sun's rate, the roller rpm
-    elPower W rcm t ω, azRate ωm hashemi.rDrive (rollerRadius hashemi) * 60 / (2 * Real.pi),
+    elPower W rcm t ω, azRate ωm hashemi.rDrive (rRailOf dHalf) * 60 / (2 * Real.pi),
     ωm * 60 / (2 * Real.pi)]
-  where ω := elRate ωd rDrum (leverAt ymHashemi hpHashemi dishHalf zeHashemi t)
+  where ω := elRate ωd rDrum (leverAt (ymOf dHalf) (hpOf dHalf) dHalf (zeOf dHalf) t)
 
 /-- **the requirements** (7 Props of the file, as 1/0 at the state) -/
 noncomputable def megaReqs (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive L10
-    rodLen : ℝ) : Fin 7 → ℝ :=
-  let ym := ymHashemi
-  let hp := hpHashemi
-  let a := dishHalf
-  let ze := zeHashemi
+    rodLen dHalf wFacet rCoil : ℝ) : Fin 7 → ℝ :=
+  let ym := ymOf dHalf
+  let hp := hpOf dHalf
+  let a := dHalf
+  let ze := zeOf dHalf
   let arm := leverAt ym hp a ze t
   let ε := pointingError az t elSun azSun
-  ![b2r (Fits hashemiBase hashemi), b2r (HangerClearsPost 0.010 hashemiHanger.dRod),
+  ![b2r (Fits (baseOf dHalf) (carriageOf dHalf)), b2r (HangerClearsPost 0.010 hashemiHanger.dRod),
     b2r (HoldsDish Tmax W rcm arm), b2r (MastClears ym a ze), b2r (ReachesVertical ym hp a ze),
-    b2r (SlackHarmless dishF ε (slackSpot dishF slack arm) 0.03), b2r (TrackerBudget dishF ε 0.03)]
+    b2r (SlackHarmless (fOf dHalf) ε (slackSpot (fOf dHalf) slack arm) 0.03),
+    b2r (TrackerBudget (fOf dHalf) ε 0.03)]
 
 /-- **the theorems, closed** (56): the statements with no binders, 1 when true in the kernel's
 arithmetic (true in ℝ by their proofs) -/
 noncomputable def megaThmsClosed (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive
-    L10 rodLen : ℝ) : Fin 56 → ℝ :=
+    L10 rodLen dHalf wFacet rCoil : ℝ) : Fin 56 → ℝ :=
   ![b2r prop_AH_bounds, b2r prop_FC_bounds, b2r prop_FC_eq, b2r prop_FH_bounds, b2r prop_FH_eq,
     b2r prop_HD_bounds, b2r prop_HD_eq, b2r prop_braceHeight_hashemi, b2r prop_brace_cuts_moment,
     b2r prop_brace_stiffens, b2r prop_cosTubeCut_bounds, b2r prop_deadTan_at_ym,
@@ -337,20 +358,20 @@ noncomputable def megaThmsClosed (az t slack ωm ωd dt elSun azSun dni rDrum W 
 
 /-- **the theorems with binders, at the state** (50): each `prop_X` at the machine's own values -/
 noncomputable def megaThmsState (az t slack ωm ωd dt elSun azSun dni rDrum W rcm Tmax rho Fdrive
-    L10 rodLen : ℝ) : Fin 50 → ℝ :=
-  let ym := ymHashemi
-  let hp := hpHashemi
-  let a := dishHalf
-  let sag := TandoorSphere.sag dishR dishHalf
-  let ze := zeHashemi
+    L10 rodLen dHalf wFacet rCoil : ℝ) : Fin 50 → ℝ :=
+  let ym := ymOf dHalf
+  let hp := hpOf dHalf
+  let a := dHalf
+  let sag := sagOf dHalf
+  let ze := zeOf dHalf
   let arm := leverAt ym hp a ze t
   let ω := elRate ωd rDrum arm
   let ε := pointingError az t elSun azSun
   let el := Real.pi / 2 - t
-  let rw := hashemi.rDrive
-  let R := rollerRadius hashemi
-  let zB := zBoltHashemi
-  let xh := xhHashemi
+  let rw := hashemi.rDrive                              -- held: the frame's 5 cm roller
+  let R := rRailOf dHalf
+  let zB := zBoltOf dHalf
+  let xh := xhOf dHalf
   let sw := swingTwist hashemi.apexH zB
   let st := screwTwist hM12 zB
   let Fp : Fin 3 → ℝ := ![hashemi.apexH, 0, zB]
@@ -360,37 +381,41 @@ noncomputable def megaThmsState (az t slack ωm ωd dt elSun azSun dni rDrum W r
   let T := wireTension W rcm arm t
   let q : Fin 3 → ℝ := ![hashemi.apexH - C.1, 0, zB + C.2]
   let fw : Fin 3 → ℝ := ![T * (-(P.1 - C.1)) / L, 0, T * (P.2 - C.2) / L]
-  let Ftop := postTop hashemi hashemiLeg 0 1
-  let Q : Fin 3 → ℝ := ![hashemi.apexH + hashemiOutrigger.standStation, 0, 0]
+  let Ftop := postTop (carriageOf dHalf) (legOf dHalf) 0 1
+  let Q : Fin 3 → ℝ := ![apexHOf dHalf + standStationOf dHalf, 0, 0]
   let lean : Fin 3 → ℝ := ![-0.0005, 0, 0]
-  ![b2r (prop_azRate_pos ωm rw R), b2r (prop_drive_recip_yaw hashemi hashemiBase Fdrive),
-    b2r (prop_drive_works_on_yaw hashemi hashemiBase Fdrive), b2r (prop_edgeClip_cross ym hp a ze t),
+  let car := carriageOf dHalf
+  let bas := baseOf dHalf
+  let lg := legOf dHalf
+  let fD := fOf dHalf
+  ![b2r (prop_azRate_pos ωm rw R), b2r (prop_drive_recip_yaw car bas Fdrive),
+    b2r (prop_drive_works_on_yaw car bas Fdrive), b2r (prop_edgeClip_cross ym hp a ze t),
     b2r (prop_edgeClip_radius a ze t), b2r (prop_edgeClip_reach a ze t),
-    b2r (prop_edgeDepth_horizon dishF a sag), b2r (prop_edgeDepth_le dishF a sag el),
-    b2r (prop_edgeDepth_noon dishF a sag), b2r (prop_edgeLever_dead ym hp a ze t),
+    b2r (prop_edgeDepth_horizon fD a sag), b2r (prop_edgeDepth_le fD a sag el),
+    b2r (prop_edgeDepth_noon fD a sag), b2r (prop_edgeLever_dead ym hp a ze t),
     b2r (prop_edgeLever_pos_iff ym hp a ze t), b2r (prop_elPower_eq_wire arm W rcm t ω),
-    b2r (prop_elPower_le W rcm ω t), b2r (prop_focus_on_axis az (hashemi.apexH, 0)),
-    b2r (prop_grooved_relation_x hashemi hashemiBase), b2r (prop_grooved_relation_y hashemi hashemiBase),
-    b2r (prop_hinge_freedom xh zB sw), b2r (prop_hinge_freedom_smul xh zB hashemi.apexH sw),
+    b2r (prop_elPower_le W rcm ω t), b2r (prop_focus_on_axis az (apexHOf dHalf, 0)),
+    b2r (prop_grooved_relation_x car bas), b2r (prop_grooved_relation_y car bas),
+    b2r (prop_hinge_freedom xh zB sw), b2r (prop_hinge_freedom_smul xh zB (apexHOf dHalf) sw),
     b2r (prop_mul_bounds_neg_pos (-ym) hp (-ym - 0.01) (-ym + 0.01) (hp - 0.01) (hp + 0.01)),
     b2r (prop_mul_bounds_pos_pos a ze (a - 0.01) (a + 0.01) (ze - 0.01) (ze + 0.01)),
-    b2r (prop_play_budget dishF ε 0.03 (slackSpot dishF slack arm)),
-    b2r (prop_postTop_on_rail hashemi hashemiLeg 1), b2r (prop_postTops_apart hashemi hashemiLeg 0),
-    b2r (prop_postTops_level hashemi hashemiLeg 0), b2r (prop_postTops_offAxis hashemi hashemiLeg 0 1),
+    b2r (prop_play_budget fD ε 0.03 (slackSpot fD slack arm)),
+    b2r (prop_postTop_on_rail car lg 1), b2r (prop_postTops_apart car lg 0),
+    b2r (prop_postTops_level car lg 0), b2r (prop_postTops_offAxis car lg 0 1),
     b2r (prop_reachesVertical_iff ym hp a ze), b2r (prop_rim_under_F_iff a ze t),
-    b2r (prop_rollerRadius_pos hashemi), b2r (prop_rollerRadius_sq hashemi),
-    b2r (prop_screwLength_eq_focal dishR dishHalf), b2r (prop_screwTwist_zero hashemi.apexH zB),
+    b2r (prop_rollerRadius_pos car), b2r (prop_rollerRadius_sq car),
+    b2r (prop_screwLength_eq_focal (ROf dHalf) dHalf), b2r (prop_screwTwist_zero (apexHOf dHalf) zB),
     b2r (prop_screw_freedom xh zB hM12 st),
-    b2r (prop_slackHarmless_of_budget dishF ε (slackSpot dishF slack arm) 0.03),
-    b2r (prop_slackHarmless_of_lever dishF ε slack arm 0.03),
+    b2r (prop_slackHarmless_of_budget fD ε (slackSpot fD slack arm) 0.03),
+    b2r (prop_slackHarmless_of_lever fD ε slack arm 0.03),
     b2r (prop_sq_bounds_neg (-ym) (-ym - 0.01) (-ym + 0.01)),
     b2r (prop_strut_resists_lean Ftop Q lean 0.0005),
-    b2r (prop_swingFocus_circle (0, 0) dishF dishF (-t)), b2r (prop_swingNormal_unit (-t)),
-    b2r (prop_swing_focusCircle (0, 0) dishF (-t)), b2r (prop_swing_lift hashemi.apexH zB Fp),
-    b2r (prop_tension_le_of_holds Tmax W rcm arm t), b2r (prop_trackerBudget_iff dishF ε 0.03),
+    b2r (prop_swingFocus_circle (0, 0) fD fD (-t)), b2r (prop_swingNormal_unit (-t)),
+    b2r (prop_swing_focusCircle (0, 0) fD (-t)), b2r (prop_swing_lift (apexHOf dHalf) zB Fp),
+    b2r (prop_tension_le_of_holds Tmax W rcm arm t), b2r (prop_trackerBudget_iff fD ε 0.03),
     b2r (prop_tracking_power_tiny W rcm ω t), b2r (prop_wireLever_edge_formula ym hp a ze t),
     b2r (prop_wireLever_pos_iff P C), b2r (prop_wireLever_rest ym hp a ze),
-    b2r (prop_wire_recip_swing hashemi.apexH zB q fw), b2r (prop_wire_taut_iff W rcm arm t),
+    b2r (prop_wire_recip_swing (apexHOf dHalf) zB q fw), b2r (prop_wire_taut_iff W rcm arm t),
     b2r (prop_yaw_lifts_nothing Fp),
     b2r (prop_bearing_life L10)]
 

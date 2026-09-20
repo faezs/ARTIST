@@ -2341,4 +2341,864 @@ theorem mast_for_vertical_hashemi : 1.17 < ymHashemi * dishHalf / (Real.sqrt 3.3
   rw [lt_div_iff₀ (by linarith [h.1])]
   linarith [h.2]
 
+/-! ## 16. Every dimension as a function of the reflector
+
+Every section above states his machine at ONE size: a 2 m sphere, a 1.6 m panel, a 1.84 m bar, a
+1.30 m leg.  Nothing above says what any of those becomes when the reflector changes, and until
+2026-09-20 nothing anywhere did *in the specification*: the dimensions as functions of `a` were
+written in `HashemiSceneInst.lean`, a RENDERING file, twenty-six of them, so every consumer had to
+REMEMBER to reach for the scaled form.  Four times one did not, and each time the machine came
+apart at a size other than his - the bolt line bound to a constant while its own frame moved, the
+outrigger's tip left at 1.35 m under a mast that had walked out to 3.05 m, the hangers drawn from
+the wrong station, the dish's weight frozen at 300 N while the aperture grew 6.25 times.  Every
+one was found BY EYE in the render window.
+
+This section is the fix, and it is deliberately here, in `TandoorHashemi`, rather than in a design
+file: `HashemiCcc` compiles every constant of this namespace into the megakernel, so a mount
+dimension written here is COMPUTED PER AGENT beside the pose that uses it.  `megaStep`,
+`megaGeom` and `megaScrew` read `ymOf dHalf` where they used to read `ymHashemi`, and the machine
+varies with the agent as the optics already did.
+
+`HashemiDims` below bundles these same functions into one record for the design tools
+(`HashemiScale.derive`, `#machine`, `lake exe machine_scale`) and proves that HIS machine is this
+function at `a = 0.8`.  Nothing is defined twice: the record's fields ARE these functions.
+-/
+
+/-! ### 16.1 The proportions the video measures against the dish -/
+
+/-- `R/a`: "a circle with a radius of two meters" over the 1.6 m chord (`dishR`/`dishHalf`) -/
+def pR : ℝ := 2.5
+/-- `sideGap/a`: the 12 cm each side of `sideGap_eq` -/
+def kGap : ℝ := 0.15
+/-- `apexH/a`: the carriage figure's 80 cm -/
+def kApex : ℝ := 1.0
+/-- `aBase/a`: the same figure's 98 cm -/
+def kBase : ℝ := 1.225
+/-- `cross/a`: its 39 cm -/
+def kCross : ℝ := 0.4875
+/-- `barW/a`: its 13.5 cm -/
+def kBarW : ℝ := 0.16875
+/-- `(upright - FC)/a`: `hashemi_clearance`, the 130 cm being F-C and 14.5 cm over it -/
+def kHead : ℝ := 0.18125
+/-- `holeDown/a`: the pivot bolt 5 cm below the leg's top (12:10, `receiverPost_height`) -/
+def kHole : ℝ := 0.0625
+/-- `(ym - FC)/a`: `ymHashemi`'s 1.22 against `MastClears`'s floor F-C -/
+def kMast : ℝ := 0.08125
+/-- `hp/a`: `pulley_above_pivot`'s 0.34 -/
+def kPulley : ℝ := 0.425
+/-- `yr/a`: the rim holes at the middle of each half edge (the user) -/
+def kRim : ℝ := 0.5
+/-- the eye's reach beyond the post face over `a`: `m12_carries_dish`'s 3 cm -/
+def kEye : ℝ := 0.0375
+/-- the leg's foot over its upright.  The triangle is carried as a SIMILAR one because the only
+laws the file states about it - `brace_cuts_moment` and `brace_stiffens` - are ratios of
+`braceHeight` to `upright`, and similarity is what preserves them exactly -/
+def kFoot : ℝ := 0.4769230769
+/-- the knee brace over the upright -/
+def kBrace : ℝ := 0.7384615385
+/-- the foot's short side over the upright -/
+def kShort : ℝ := 0.1346153846
+/-- the hanger rod's stock over `a`: `megaParams`' 1 m -/
+def kRod : ℝ := 1.25
+/-- the centre of mass below the bolt line over `a`: `megaParams`' 0.9, which the file explains by
+`f` and `ze` - "the panel hangs between its vertex 1 m down and its rim 0.83 m down" - both of
+which scale, so this does -/
+def kCm : ℝ := 1.125
+/-- the stand's bent leg over `a`: `hashemiStand`'s 0.41 -/
+def kBent : ℝ := 0.5125
+/-- the outrigger's tip over THE STAND IT CARRIES, his 1.35 m against his 1.22 m stand station.
+`OutriggerGeom.stand_le_end` is the law - the rails must reach at least as far as the mast they
+hold - and the mast's station scales, so the tip follows it and not `a` directly -/
+noncomputable def kEnd : ℝ := 1.35 / 1.22
+/-- the outrigger's end width over `a`: his 0.25 m -/
+def kWidth : ℝ := 0.3125
+/-- gravity, m/s² -/
+def gAcc : ℝ := 9.81
+/-- **the dish's areal density, kg/m²**: his 300 N (`megaParams`, "a one-man lift") over his own
+1.6 m × 1.6 m aperture, which is 11.95 kg/m².  The parent trainer's `EL_HEAD_KG_M2 = 10.0`
+(`tutorials/tandoor_hashemi_env.py`) is the same quantity for a mosaic-on-ply heliostat head, and
+his is 19 % heavier, so this law is the conservative one.  Held at 300 N the 4 m dish would have
+weighed 1.9 kg/m² -/
+noncomputable def kAreal : ℝ := 300 / (gAcc * (2 * dishHalf) ^ 2)
+
+/-! ### 16.2 The dish, the carriage, the legs
+
+Each is one line, and each is the file's own definition with `dishHalf` made free. -/
+
+/-- the sphere (`dishR`) -/
+noncomputable def ROf (a : ℝ) : ℝ := pR * a
+/-- the focal length, `R/2` (`TandoorSphere.focal_zero`, `dishF`) -/
+noncomputable def fOf (a : ℝ) : ℝ := ROf a / 2
+/-- the sag at the rim (`HD_eq`) -/
+noncomputable def sagOf (a : ℝ) : ℝ := TandoorSphere.sag (ROf a) a
+/-- the rim's depth below F, `f - sag` (`FH_eq`, `screwLength`) -/
+noncomputable def zeOf (a : ℝ) : ℝ := screwLength (ROf a) a
+/-- the panel's side (`dishSide`) -/
+noncomputable def sideOf (a : ℝ) : ℝ := 2 * a
+/-- the gap each side between the panel's edge and the bar's end (`sideGap_eq`) -/
+noncomputable def sideGapOf (a : ℝ) : ℝ := kGap * a
+/-- the bar, roller to roller (`dish_between_posts`, the other way round) -/
+noncomputable def chordOf (a : ℝ) : ℝ := sideOf a + 2 * sideGapOf a
+/-- the apex station, apex to the bar -/
+noncomputable def apexHOf (a : ℝ) : ℝ := kApex * a
+/-- the A's base on the bar -/
+noncomputable def aBaseOf (a : ℝ) : ℝ := kBase * a
+/-- the cross member's height above the bar -/
+noncomputable def crossOf (a : ℝ) : ℝ := kCross * a
+/-- the bar's width -/
+noncomputable def barWOf (a : ℝ) : ℝ := kBarW * a
+/-- the circle the rollers ride (`rollerRadius`) -/
+noncomputable def rRailOf (a : ℝ) : ℝ := Real.sqrt ((chordOf a / 2) ^ 2 + apexHOf a ^ 2)
+/-- the deepest reach of the rim below the bolts, F-C (`FC_eq`, the bound of `edgeDepth_le`) -/
+noncomputable def FCOf (a : ℝ) : ℝ := Real.sqrt (zeOf a ^ 2 + a ^ 2)
+/-- the leg's upright (`hashemi_clearance`) -/
+noncomputable def uprightOf (a : ℝ) : ℝ := FCOf a + kHead * a
+/-- the pivot bolt's drop below the leg's top -/
+noncomputable def holeDownOf (a : ℝ) : ℝ := kHole * a
+/-- the bolt line over the bar (`receiverPost_height`) -/
+noncomputable def postHOf (a : ℝ) : ℝ := uprightOf a - holeDownOf a
+/-- what is left over the bar at the worst elevation (`clearance_hashemi`) -/
+noncomputable def clearanceOf (a : ℝ) : ℝ := postHOf a - FCOf a
+/-- the leg's foot, its knee brace, its short side and its long side -/
+noncomputable def footOf (a : ℝ) : ℝ := kFoot * uprightOf a
+noncomputable def braceOf (a : ℝ) : ℝ := kBrace * uprightOf a
+noncomputable def footShortOf (a : ℝ) : ℝ := kShort * uprightOf a
+noncomputable def footLongOf (a : ℝ) : ℝ := footOf a - footShortOf a
+/-- where the brace lands on the upright (`braceHeight`) -/
+noncomputable def braceHeightOf (a : ℝ) : ℝ := Real.sqrt (braceOf a ^ 2 - footLongOf a ^ 2)
+
+/-! ### 16.3 The base's three heights, and the bolt line over the deck
+
+The rail is at KNEE HEIGHT and the tube a hand above it: those are a person, not a dish, so they
+are held (`hashemiBase`).  The bolt line is not: it is the rail plus the leg, and the leg scales.
+Binding it to the constant `zBoltHashemi` while binding every other station to its function of `a`
+is what hung the dish 1.9 m below its own frame at a = 2 m. -/
+
+/-- the rail over the deck, held: `hashemiBase.zRail` -/
+noncomputable def zRailOf (_a : ℝ) : ℝ := hashemiBase.zRail
+/-- the central tube's top, held -/
+noncomputable def zTubeOf (_a : ℝ) : ℝ := hashemiBase.zTube
+/-- the bearings' level, held -/
+noncomputable def zBearingOf (_a : ℝ) : ℝ := hashemiBase.zBearing
+/-- **the bolt line over the deck**: the rail, held, plus the leg, scaled (`zBoltHashemi`) -/
+noncomputable def zBoltOf (a : ℝ) : ℝ := zRailOf a + postHOf a
+
+/-! ### 16.4 The hangers, the mast, the wire, the outrigger, the receiver -/
+
+/-- the rim hole's station along the edge -/
+noncomputable def rimHoleOf (a : ℝ) : ℝ := kRim * a
+/-- its depth below F -/
+noncomputable def zhOf (a : ℝ) : ℝ :=
+  fOf a - TandoorSphere.sag (ROf a) (Real.sqrt (a ^ 2 + rimHoleOf a ^ 2))
+/-- the hanger, eye over the EDGE LINE to that hole (`hangerLength_halfEdge`) -/
+noncomputable def hangerOf (a : ℝ) : ℝ := hangerLength (ROf a) a (rimHoleOf a) 0
+/-- the rod's lean off the vertical (`rodTan`) -/
+noncomputable def rodTanOf (a : ℝ) : ℝ := rimHoleOf a / zhOf a
+/-- the eye's reach beyond the post's face -/
+noncomputable def boltReachOf (a : ℝ) : ℝ := kEye * a
+/-- the hanger rod's stock, eye to hole and the nuts (`setLength`) -/
+noncomputable def rodLenOf (a : ℝ) : ℝ := kRod * a
+/-- the eye's station along the bolt, in from the bar's end (`xhHashemi`) -/
+noncomputable def xhOf (a : ℝ) : ℝ := chordOf a / 2 - boltReachOf a
+/-- the mast's station from the bolt line (`ymHashemi`, `MastClears`'s floor plus his margin) -/
+noncomputable def ymOf (a : ℝ) : ℝ := FCOf a + kMast * a
+/-- the pulley over the bolt line (`pulley_above_pivot`) -/
+noncomputable def hpOf (a : ℝ) : ℝ := kPulley * a
+/-- the stand's post carries the pulley, and its foot bar lies across the rails -/
+noncomputable def standPostOf (a : ℝ) : ℝ := postHOf a + hpOf a
+noncomputable def standFootOf (a : ℝ) : ℝ := chordOf a
+noncomputable def standBentOf (a : ℝ) : ℝ := kBent * a
+/-- the outrigger's rails leave the bar at the A's feet, carry the stand at the mast's station,
+and taper to their tip beyond it (`hashemiOutrigger`) -/
+noncomputable def outRootOf (a : ℝ) : ℝ := aBaseOf a
+noncomputable def standStationOf (a : ℝ) : ℝ := ymOf a
+noncomputable def endStationOf (a : ℝ) : ℝ := kEnd * ymOf a
+noncomputable def endWidthOf (a : ℝ) : ℝ := kWidth * a
+/-- the dead point's tangent (`deadTan_at_ym`) -/
+noncomputable def deadTanOf (a : ℝ) : ℝ :=
+  (ymOf a * zeOf a + hpOf a * a) / (ymOf a * a - hpOf a * zeOf a)
+/-- the wire's lever arm at rest (`wireLever_rest`) -/
+noncomputable def armRestOf (a : ℝ) : ℝ :=
+  (ymOf a * zeOf a + hpOf a * a) /
+    Real.sqrt ((ymOf a - a) ^ 2 + (hpOf a + zeOf a) ^ 2)
+/-- the wire left at the dead point, and what the winch takes in from rest (`wireLeft_at_ym`) -/
+noncomputable def wireLeftOf (a : ℝ) : ℝ := Real.sqrt (ymOf a ^ 2 + hpOf a ^ 2) - FCOf a
+noncomputable def wireTakeOf (a : ℝ) : ℝ :=
+  Real.sqrt ((ymOf a - a) ^ 2 + (hpOf a + zeOf a) ^ 2) - wireLeftOf a
+/-- the slot's exit tangent (`slot_exit_hashemi`) -/
+noncomputable def slotTanOf (a : ℝ) : ℝ := a / zeOf a
+/-- the centre of mass below the bolt line -/
+noncomputable def rcmOf (a : ℝ) : ℝ := kCm * a
+
+/-- **what one turn of a rim nut tilts the panel by, at any size** - `tiltOfMismatch` divides by
+`dishSide`, his 1.6 m, so it is frozen where the rest of the file is not.  The proportions that
+are ANGLES do not need this: `cosTubeCut`, `rodTanOf`, `slotTanOf` and `deadTanOf` are ratios of
+two lengths that scale together, so they are the same at every size, which is why the file could
+leave them as constants without being wrong.  `tiltOfMismatch` is not one of those - a held thread
+pitch against a panel that grows -/
+noncomputable def tiltPerTurnOf (pitch a : ℝ) : ℝ := pitch / sideOf a
+
+theorem tiltPerTurnOf_his (e : ℝ) : tiltPerTurnOf e dishHalf = tiltOfMismatch e := by
+  unfold tiltPerTurnOf tiltOfMismatch sideOf dishSide; rfl
+
+/-! ### 16.5 The weight, which was frozen
+
+`megaParams`' 300 N is a measurement of HIS aperture, so it is an areal density, and a density is
+what scales a weight.  `weightAt` is the law and `weightOf` is it at his own density; `weightOf
+dishHalf = 300` exactly (`HashemiDims.W_his`). -/
+
+/-- a square panel of half-side `a` at `areal` kg/m², in newtons -/
+noncomputable def weightAt (areal a : ℝ) : ℝ := areal * sideOf a ^ 2 * gAcc
+/-- his dish's weight at any size -/
+noncomputable def weightOf (a : ℝ) : ℝ := weightAt kAreal a
+/-- its mass, kg -/
+noncomputable def massOf (a : ℝ) : ℝ := kAreal * sideOf a ^ 2
+/-- what tracking costs, W (`tracking_power_tiny`'s left side): the weight's moment about the bolt
+line times the rate, so it grows as `a³` against a panel that does not -/
+noncomputable def trackWOf (a : ℝ) : ℝ := weightOf a * rcmOf a * 7.3e-5
+
+end TandoorHashemi
+
+/-!
+# The machine at a size, as one record - and his machine recovered at `a = 0.8`
+
+`TandoorHashemi`'s §16 is the scaling itself, one function per dimension, compiled into the
+megakernel so that each agent flies its own machine.  This namespace is the same functions
+bundled for the DESIGN tools - `HashemiScale.derive`, `#machine a`, `lake exe machine_scale` -
+together with the proof that his build is this function at `a = 0.8`, the held-versus-scaled
+sorting the task asked for in one place, and the load paths, which are §3's screws and not new
+statics.
+
+It is a separate namespace for one reason: `HashemiCcc` compiles every constant of
+`TandoorHashemi` into a per-agent column, and a record-valued design function that is constant
+within an episode does not belong there.  Nothing is defined twice - every field below IS one of
+§16's functions.
+
+## His machine
+
+EXACT, by `norm_num`: `dishR`, `dishF`, `dishHalf`, `dishSide`, `sideGap`, the whole carriage
+(`carriage_his : carriageAt 0.8 _ = hashemi`), the whole fixed base (`base_his`), the pulley at
+0.34, the stand's foot and bent leg, the outrigger's root and end width, the spot at F, the
+margin, the centre of mass, the hanger, and the WEIGHT at 300 N.
+
+A STATED BOUND where his figure is a rounded reading, because it is his rounding and not a
+disagreement: his 1.30 m upright against the formula's 1.299963 (`leg_upright_near`, 37 µm), and
+with it the leg's similar triangle, the bolt line over the deck (`zBolt_his`), the mast's station
+(`ymHashemi_near`, his 1.22 against 1.219963) and the outrigger's tip (`outEnd_near`, his 1.35
+against 1.349959).  `AH_tight`/`FC_tight` are what make those microns provable at all -
+`FC_bounds`' millimetre is too coarse to see them.
+-/
+
+namespace HashemiDims
+
+open TandoorHashemi Real
+
+noncomputable section
+
+/-! ## The held set: the numbers the file fixes with no law attached -/
+
+/-- **the held set**.  Each field is a number the video gives once with nothing tying it to the
+reflector; `#machine ... with` overrides exactly these. -/
+structure Held where
+  /-- the mirror tile, §14 - a bigger dish is more tiles, not bigger ones -/
+  w : ℝ := 0.05
+  /-- the coil's radius, §§14-15 ("a bigger spiral tube ... placed here is temporary") -/
+  rc : ℝ := 0.06
+  /-- the tracker's error as a tangent (`tracker_margin_hashemi`, his 1.7°) -/
+  tanEps : ℝ := 0.03
+  /-- the rubber drive roller, read off the frame -/
+  rDrive : ℝ := 0.05
+  /-- the winch drum (`megaParams`) -/
+  rDrum : ℝ := 0.03
+  /-- the wire's rated tension, N - a 3 mm steel wire -/
+  Tmax : ℝ := 2000
+  /-- the mosaic's reflectance -/
+  rho : ℝ := 0.85
+  /-- the roller's traction, N -/
+  Fdrive : ℝ := 10
+  /-- the bearings' rating, revolutions -/
+  L10 : ℝ := 1000000
+  /-- the hanger rod's diameter (M10) -/
+  dRod : ℝ := 0.010
+  /-- the eye's offset on the bolt (a nut) -/
+  eyeOffset : ℝ := 0.010
+  /-- the rim nut's pitch, M10 coarse -/
+  pitch : ℝ := 0.0015
+  /-- the pivot bolt's minor diameter (M12, the user) -/
+  dBolt : ℝ := 0.0101
+  /-- the panel, W ("you can also use a 10-watt panel") -/
+  panelW : ℝ := 5
+  /-- the system's volts -/
+  volts : ℝ := 12
+  /-- the roller's rate at full command, deg/s of the dish (`HashemiPolicy.azFull`): the video
+  gives neither drum nor ratios, so the rate does not follow from the dish -/
+  azDeg : ℝ := 0.035
+  /-- the winch's rate at full command, deg/s (`HashemiPolicy.elFull`) -/
+  elDeg : ℝ := 0.025
+  /-- the rail over the deck, m: KNEE HEIGHT - a person, not a dish (`hashemiBase`) -/
+  zRail : ℝ := hashemiBase.zRail
+  /-- the central tube's top, a hand above the rail -/
+  zTube : ℝ := hashemiBase.zTube
+  /-- the level the foam ring keeps the bearings at -/
+  zBearing : ℝ := hashemiBase.zBearing
+  /-- the dish's areal density, kg/m²: HIS, `kAreal`.  A density is not a dimension, so it is
+  held - while the weight it gives is not, which is the distinction the frozen 300 N lost -/
+  areal : ℝ := kAreal
+
+/-- his held values -/
+def hisHeld : Held := {}
+
+/-! ## The machine as one record -/
+
+/-- **every dimension of the build at one reflector half-side**, for the design tools.  Every
+field is §16's function of the same name. -/
+structure Dims where
+  a : ℝ
+  R : ℝ
+  f : ℝ
+  sag : ℝ
+  ze : ℝ
+  side : ℝ
+  sideGap : ℝ
+  chord : ℝ
+  apexH : ℝ
+  aBase : ℝ
+  cross : ℝ
+  barW : ℝ
+  rRail : ℝ
+  FC : ℝ
+  upright : ℝ
+  holeDown : ℝ
+  postH : ℝ
+  clearance : ℝ
+  foot : ℝ
+  brace : ℝ
+  footShort : ℝ
+  footLong : ℝ
+  braceHeight : ℝ
+  zRail : ℝ
+  zTube : ℝ
+  zBearing : ℝ
+  zBolt : ℝ
+  rimHole : ℝ
+  zh : ℝ
+  hanger : ℝ
+  rodTan : ℝ
+  boltReach : ℝ
+  rodLen : ℝ
+  xh : ℝ
+  ym : ℝ
+  hp : ℝ
+  standPost : ℝ
+  standFoot : ℝ
+  standBent : ℝ
+  deadTan : ℝ
+  armRest : ℝ
+  wireLeft : ℝ
+  wireTake : ℝ
+  outRoot : ℝ
+  outStand : ℝ
+  outEnd : ℝ
+  outWidth : ℝ
+  slotTan : ℝ
+  rcm : ℝ
+  w : ℝ
+  rc : ℝ
+  spotW : ℝ
+  margin : ℝ
+  budgetTan : ℝ
+  tanEps : ℝ
+  tiltPerTurn : ℝ
+  boltStress : ℝ
+  boltD : ℝ
+  mass : ℝ
+  W : ℝ
+  Tmax : ℝ
+  rDrum : ℝ
+  rDrive : ℝ
+  Fdrive : ℝ
+  L10 : ℝ
+  rho : ℝ
+  panelW : ℝ
+  volts : ℝ
+  azFullM : ℝ
+  elFullM : ℝ
+  trackW : ℝ
+
+/-- **the machine**: §16's functions at `a`, with the held set where the file holds one -/
+def machine (h : Held) (a : ℝ) : Dims where
+  a := a
+  R := ROf a
+  f := fOf a
+  sag := sagOf a
+  ze := zeOf a
+  side := sideOf a
+  sideGap := sideGapOf a
+  chord := chordOf a
+  apexH := apexHOf a
+  aBase := aBaseOf a
+  cross := crossOf a
+  barW := barWOf a
+  rRail := rRailOf a
+  FC := FCOf a
+  upright := uprightOf a
+  holeDown := holeDownOf a
+  postH := postHOf a
+  clearance := clearanceOf a
+  foot := footOf a
+  brace := braceOf a
+  footShort := footShortOf a
+  footLong := footLongOf a
+  braceHeight := braceHeightOf a
+  zRail := h.zRail
+  zTube := h.zTube
+  zBearing := h.zBearing
+  zBolt := h.zRail + postHOf a
+  rimHole := rimHoleOf a
+  zh := zhOf a
+  hanger := hangerOf a
+  rodTan := rodTanOf a
+  boltReach := boltReachOf a
+  rodLen := rodLenOf a
+  xh := xhOf a
+  ym := ymOf a
+  hp := hpOf a
+  standPost := standPostOf a
+  standFoot := standFootOf a
+  standBent := standBentOf a
+  deadTan := deadTanOf a
+  armRest := armRestOf a
+  wireLeft := wireLeftOf a
+  wireTake := wireTakeOf a
+  outRoot := outRootOf a
+  outStand := standStationOf a
+  outEnd := endStationOf a
+  outWidth := endWidthOf a
+  slotTan := slotTanOf a
+  rcm := rcmOf a
+  w := h.w
+  rc := h.rc
+  spotW := facetSpot h.w (fOf a)
+  margin := h.rc - facetSpot h.w (fOf a) / 2
+  budgetTan := (h.rc - facetSpot h.w (fOf a) / 2) / fOf a
+  tanEps := h.tanEps
+  tiltPerTurn := tiltPerTurnOf h.pitch a
+  boltStress := boltStress (weightAt h.areal a) (boltReachOf a) h.dBolt
+  boltD := h.dBolt
+  mass := h.areal * sideOf a ^ 2
+  W := weightAt h.areal a
+  Tmax := h.Tmax
+  rDrum := h.rDrum
+  rDrive := h.rDrive
+  Fdrive := h.Fdrive
+  L10 := h.L10
+  rho := h.rho
+  panelW := h.panelW
+  volts := h.volts
+  azFullM := h.azDeg * Real.pi / 180
+  elFullM := h.elDeg * Real.pi / 180
+  trackW := weightAt h.areal a * rcmOf a * 7.3e-5
+
+/-- **the machine at his held values**: the one function every consumer reads -/
+def machineAt (a : ℝ) : Dims := machine hisHeld a
+
+/-! ## The specification's own structures, at any size -/
+
+/-- a positive reflector gives a positive upright, which every leg ratio needs -/
+theorem upright_pos {a : ℝ} (ha : 0 < a) : 0 < uprightOf a := by
+  unfold uprightOf FCOf
+  have h1 : (0:ℝ) ≤ Real.sqrt (zeOf a ^ 2 + a ^ 2) := Real.sqrt_nonneg _
+  have h2 : (0:ℝ) < kHead * a := by unfold kHead; linarith
+  linarith
+
+/-- and a positive mast station -/
+theorem ym_pos {a : ℝ} (ha : 0 < a) : 0 < ymOf a := by
+  unfold ymOf FCOf
+  have h1 : (0:ℝ) ≤ Real.sqrt (zeOf a ^ 2 + a ^ 2) := Real.sqrt_nonneg _
+  have h2 : (0:ℝ) < kMast * a := by unfold kMast; linarith
+  linarith
+
+/-- the carriage of §2 at half-side `a` -/
+def carriageAt (a : ℝ) (ha : 0 < a) : Carriage where
+  chord := chordOf a
+  apexH := apexHOf a
+  aBase := aBaseOf a
+  cross := crossOf a
+  barW := barWOf a
+  rDrive := hisHeld.rDrive
+  chord_pos := by unfold chordOf sideOf sideGapOf kGap; linarith
+  apex_pos := by unfold apexHOf kApex; linarith
+  cross_lt := by unfold crossOf apexHOf kCross kApex; linarith
+  base_le := by unfold aBaseOf chordOf sideOf sideGapOf kBase kGap; linarith
+  drive_pos := by show (0:ℝ) < 0.05; norm_num
+
+/-- the fixed base of §1 at half-side `a`: the rail where the rollers are, the heights held -/
+def baseAt (a : ℝ) (ha : 0 < a) : FixedBase where
+  rRail := rRailOf a
+  zRail := zRailOf a
+  zTube := zTubeOf a
+  zBearing := zBearingOf a
+  rail_pos := by
+    unfold rRailOf
+    apply Real.sqrt_pos.mpr
+    have : (0:ℝ) < apexHOf a := by unfold apexHOf kApex; linarith
+    positivity
+  tube_above_rail := by
+    show hashemiBase.zRail < hashemiBase.zTube
+    exact hashemiBase.tube_above_rail
+  bearing_on_tube := hashemiBase.bearing_on_tube
+
+/-- the leg of §5 at half-side `a`: a SIMILAR triangle on the upright the clearance sets -/
+def legAt (a : ℝ) (ha : 0 < a) : Leg where
+  upright := uprightOf a
+  foot := footOf a
+  brace := braceOf a
+  footShort := footShortOf a
+  upright_pos := upright_pos ha
+  foot_pos := by unfold footOf kFoot; linarith [upright_pos ha]
+  short_nonneg := by unfold footShortOf kShort; linarith [upright_pos ha]
+  short_lt := by unfold footShortOf footOf kShort kFoot; nlinarith [upright_pos ha]
+  brace_reaches := by
+    unfold footOf footShortOf braceOf kFoot kShort kBrace
+    nlinarith [upright_pos ha]
+
+/-- the outrigger of §12 at half-side `a`.  `stand_le_end` is the law that broke: the rails must
+reach at least as far as the stand they carry, and the stand's station scales -/
+def outriggerAt (a : ℝ) (ha : 0 < a) : OutriggerGeom where
+  root := outRootOf a
+  standStation := standStationOf a
+  endStation := endStationOf a
+  endWidth := endWidthOf a
+  root_pos := by unfold outRootOf aBaseOf kBase; linarith
+  stand_pos := by unfold standStationOf; exact ym_pos ha
+  stand_le_end := by
+    unfold standStationOf endStationOf
+    have hk : (1:ℝ) ≤ kEnd := by unfold kEnd; norm_num
+    calc ymOf a = 1 * ymOf a := (one_mul _).symm
+      _ ≤ kEnd * ymOf a := mul_le_mul_of_nonneg_right hk (ym_pos ha).le
+  end_lt_root := by unfold endWidthOf outRootOf aBaseOf kWidth kBase; linarith
+
+/-! ### The same four, with no hypothesis
+
+The megakernel cannot carry a proof: a kernel function's binders are reals.  These are the
+builders above at `max a ε`, so a machine is a machine for any input a kernel can hand them, and
+they agree with the hypothesis-taking versions wherever the reflector is real (`carriageOf_his`).
+`ε = 1e-9 m` is a nanometre of reflector. -/
+
+/-- the smallest reflector the kernel will build a machine for -/
+def aMin : ℝ := 1e-9
+
+theorem aClamp_pos (a : ℝ) : 0 < max a aMin :=
+  lt_max_of_lt_right (by unfold aMin; norm_num)
+
+def carriageOf (a : ℝ) : Carriage := carriageAt (max a aMin) (aClamp_pos a)
+def baseOf (a : ℝ) : FixedBase := baseAt (max a aMin) (aClamp_pos a)
+def legOf (a : ℝ) : Leg := legAt (max a aMin) (aClamp_pos a)
+def outriggerOf (a : ℝ) : OutriggerGeom := outriggerAt (max a aMin) (aClamp_pos a)
+
+/-! ## His machine is this function at `a = 0.8` -/
+
+theorem a_his : (machineAt dishHalf).a = dishHalf := rfl
+
+theorem R_his : ROf dishHalf = dishR := by unfold ROf pR dishHalf dishR; norm_num
+theorem f_his : fOf dishHalf = dishF := by unfold fOf ROf pR dishHalf dishF; norm_num
+theorem side_his : sideOf dishHalf = dishSide := rfl
+theorem sideGap_his : sideGapOf dishHalf = sideGap := by
+  rw [sideGap_eq]; unfold sideGapOf kGap dishHalf; norm_num
+
+theorem chord_his : chordOf dishHalf = hashemi.chord := by
+  unfold chordOf sideOf sideGapOf kGap dishHalf hashemi; norm_num
+theorem apexH_his : apexHOf dishHalf = hashemi.apexH := by
+  unfold apexHOf kApex dishHalf hashemi; norm_num
+theorem aBase_his : aBaseOf dishHalf = hashemi.aBase := by
+  unfold aBaseOf kBase dishHalf hashemi; norm_num
+theorem cross_his : crossOf dishHalf = hashemi.cross := by
+  unfold crossOf kCross dishHalf hashemi; norm_num
+theorem barW_his : barWOf dishHalf = hashemi.barW := by
+  unfold barWOf kBarW dishHalf hashemi; norm_num
+
+/-- **the carriage is his** -/
+theorem carriage_his : carriageAt dishHalf (by unfold dishHalf; norm_num) = hashemi := by
+  have h : carriageAt dishHalf (by unfold dishHalf; norm_num) =
+      { chord := hashemi.chord, apexH := hashemi.apexH, aBase := hashemi.aBase,
+        cross := hashemi.cross, barW := hashemi.barW, rDrive := hashemi.rDrive,
+        chord_pos := hashemi.chord_pos, apex_pos := hashemi.apex_pos,
+        cross_lt := hashemi.cross_lt, base_le := hashemi.base_le,
+        drive_pos := hashemi.drive_pos : Carriage} := by
+    congr 1 <;>
+      simp only [carriageAt, chord_his, apexH_his, aBase_his, cross_his, barW_his] <;> rfl
+  rw [h]
+
+/-- the rail is `rollerRadius` of that carriage -/
+theorem rRail_his : rRailOf dishHalf = hashemiBase.rRail := by
+  unfold rRailOf chordOf sideOf sideGapOf apexHOf kGap kApex dishHalf
+  show Real.sqrt _ = rollerRadius hashemi
+  unfold rollerRadius hashemi; norm_num
+
+/-- **the fixed base is his** -/
+theorem base_his : baseAt dishHalf (by unfold dishHalf; norm_num) = hashemiBase := by
+  have h : baseAt dishHalf (by unfold dishHalf; norm_num) =
+      { rRail := hashemiBase.rRail, zRail := hashemiBase.zRail, zTube := hashemiBase.zTube,
+        zBearing := hashemiBase.zBearing, rail_pos := hashemiBase.rail_pos,
+        tube_above_rail := hashemiBase.tube_above_rail,
+        bearing_on_tube := hashemiBase.bearing_on_tube : FixedBase} := by
+    congr 1 <;> simp only [baseAt, rRail_his] <;> rfl
+  rw [h]; rfl
+
+theorem carriageOf_his : carriageOf dishHalf = hashemi := by
+  have h : max dishHalf aMin = dishHalf := by unfold aMin dishHalf; norm_num
+  unfold carriageOf; simp only [h]; exact carriage_his
+
+theorem baseOf_his : baseOf dishHalf = hashemiBase := by
+  have h : max dishHalf aMin = dishHalf := by unfold aMin dishHalf; norm_num
+  unfold baseOf; simp only [h]; exact base_his
+
+
+/-! ### The rounded readings, to the micron
+
+`FC_bounds`' millimetre cannot see the 37 µm between his 1.30 m upright and the formula, so the
+two brackets below are proved first. -/
+
+theorem AH_tight : 1.83303 < Real.sqrt 3.36 ∧ Real.sqrt 3.36 < 1.833031 := by
+  constructor
+  · rw [Real.lt_sqrt (by norm_num)]; norm_num
+  · rw [Real.sqrt_lt' (by norm_num)]; norm_num
+
+theorem FC_tight :
+    1.154962 < Real.sqrt (5 - 2 * Real.sqrt 3.36)
+      ∧ Real.sqrt (5 - 2 * Real.sqrt 3.36) < 1.154964 := by
+  have h := AH_tight
+  constructor
+  · rw [Real.lt_sqrt (by norm_num)]; nlinarith [h.2]
+  · rw [Real.sqrt_lt' (by norm_num)]; nlinarith [h.1]
+
+/-- F-C at his size is the file's own `√(5 - 2√3.36)` -/
+theorem FC_his : FCOf dishHalf = Real.sqrt (5 - 2 * Real.sqrt 3.36) := by
+  have he : zeOf dishHalf = Real.sqrt 3.36 - 1 := by
+    unfold zeOf ROf pR dishHalf
+    rw [show (2.5:ℝ) * 0.8 = dishR by unfold dishR; norm_num,
+        show (0.8:ℝ) = dishHalf by unfold dishHalf; norm_num]
+    exact FH_eq
+  unfold FCOf
+  rw [he]
+  congr 1
+  have hs : Real.sqrt 3.36 ^ 2 = 3.36 := Real.sq_sqrt (by norm_num)
+  unfold dishHalf; nlinarith [hs]
+
+theorem FC_his_tight : 1.154962 < FCOf dishHalf ∧ FCOf dishHalf < 1.154964 := by
+  rw [FC_his]; exact FC_tight
+
+/-- **1.299963 m**, against his rounded 1.30 -/
+theorem upright_his : 1.299962 < uprightOf dishHalf ∧ uprightOf dishHalf < 1.299964 := by
+  have h : uprightOf dishHalf = FCOf dishHalf + 0.145 := by
+    unfold uprightOf kHead dishHalf; norm_num
+  rw [h]; constructor <;> linarith [FC_his_tight.1, FC_his_tight.2]
+
+theorem leg_upright_near : |hashemiLeg.upright - uprightOf dishHalf| < 3.9e-5 := by
+  have hl : hashemiLeg.upright = 1.30 := rfl
+  rw [hl, abs_lt]; constructor <;> linarith [upright_his.1, upright_his.2]
+
+theorem leg_foot_near : |hashemiLeg.foot - footOf dishHalf| < 1.9e-5 := by
+  have hl : hashemiLeg.foot = 0.62 := rfl
+  have hf : footOf dishHalf = 0.4769230769 * uprightOf dishHalf := by unfold footOf kFoot; ring
+  rw [hl, hf, abs_lt]; constructor <;> nlinarith [upright_his.1, upright_his.2]
+
+theorem leg_brace_near : |hashemiLeg.brace - braceOf dishHalf| < 2.9e-5 := by
+  have hl : hashemiLeg.brace = 0.96 := rfl
+  have hf : braceOf dishHalf = 0.7384615385 * uprightOf dishHalf := by unfold braceOf kBrace; ring
+  rw [hl, hf, abs_lt]; constructor <;> nlinarith [upright_his.1, upright_his.2]
+
+theorem leg_short_near : |hashemiLeg.footShort - footShortOf dishHalf| < 5.3e-6 := by
+  have hl : hashemiLeg.footShort = 0.175 := rfl
+  have hf : footShortOf dishHalf = 0.1346153846 * uprightOf dishHalf := by
+    unfold footShortOf kShort; ring
+  rw [hl, hf, abs_lt]; constructor <;> nlinarith [upright_his.1, upright_his.2]
+
+/-- **1.25 m over the bar** (`receiverPost_height`) -/
+theorem postH_his : 1.249962 < postHOf dishHalf ∧ postHOf dishHalf < 1.249964 := by
+  have h : postHOf dishHalf = uprightOf dishHalf - 0.05 := by
+    unfold postHOf holeDownOf kHole dishHalf; norm_num
+  rw [h]; constructor <;> linarith [upright_his.1, upright_his.2]
+
+/-- **1.219963 m**, against his 1.22 read off two frames -/
+theorem ym_his : 1.219962 < ymOf dishHalf ∧ ymOf dishHalf < 1.219964 := by
+  have h : ymOf dishHalf = FCOf dishHalf + 0.065 := by unfold ymOf kMast dishHalf; norm_num
+  rw [h]; constructor <;> linarith [FC_his_tight.1, FC_his_tight.2]
+
+theorem ymHashemi_near : |ymHashemi - ymOf dishHalf| < 3.9e-5 := by
+  have hl : ymHashemi = 1.22 := rfl
+  rw [hl, abs_lt]; constructor <;> linarith [ym_his.1, ym_his.2]
+
+/-- **0.34 m over the bolts** (`pulley_above_pivot`), exactly -/
+theorem hp_his : hpOf dishHalf = 0.34 := by unfold hpOf kPulley dishHalf; norm_num
+
+theorem standFoot_his : standFootOf dishHalf = hashemiStand.foot := by
+  unfold standFootOf; rw [chord_his]; unfold hashemi hashemiStand; norm_num
+
+theorem standBent_his : standBentOf dishHalf = hashemiStand.bentLeg := by
+  unfold standBentOf kBent dishHalf hashemiStand; norm_num
+
+/-- **the outrigger is his**: the root at the A's feet and the end width exactly, the stand's
+station and the tip as his rounded readings -/
+theorem outRoot_his : outRootOf dishHalf = hashemiOutrigger.root := by
+  unfold outRootOf; rw [aBase_his]; rfl
+
+theorem endWidth_his : endWidthOf dishHalf = hashemiOutrigger.endWidth := by
+  unfold endWidthOf kWidth dishHalf hashemiOutrigger; norm_num
+
+theorem outStand_near : |hashemiOutrigger.standStation - standStationOf dishHalf| < 3.9e-5 :=
+  ymHashemi_near
+
+theorem endStation_near : |hashemiOutrigger.endStation - endStationOf dishHalf| < 4.4e-5 := by
+  have hl : hashemiOutrigger.endStation = 1.35 := rfl
+  have h : endStationOf dishHalf = 1.35 / 1.22 * ymOf dishHalf := by unfold endStationOf kEnd; ring
+  rw [hl, h, abs_lt]; constructor <;> nlinarith [ym_his.1, ym_his.2]
+
+/-- **the weight is his 300 N**, exactly: `kAreal` IS his one-man lift read as a density -/
+theorem W_his : weightOf dishHalf = 300 := by
+  unfold weightOf weightAt kAreal sideOf gAcc dishHalf; norm_num
+
+/-- and it is 11.95 kg/m², against the parent trainer's own `EL_HEAD_KG_M2 = 10.0` for a
+mosaic-on-ply head: the same number to 20 %, his the heavier, so the law is conservative -/
+theorem areal_his : 11.94 < kAreal ∧ kAreal < 11.95 := by
+  unfold kAreal gAcc dishHalf; constructor <;> norm_num
+
+theorem areal_above_env : (10:ℝ) ≤ kAreal := by linarith [areal_his.1]
+
+/-- the centre of mass is `megaParams`' own 0.9 m -/
+theorem rcm_his : rcmOf dishHalf = 0.9 := by unfold rcmOf kCm dishHalf; norm_num
+
+/-- the spot at F is `facetSpot_hashemi`'s 5.93 cm and the coil leaves his 3.035 cm of margin -/
+theorem spotW_his : (machineAt dishHalf).spotW = 0.0593 := by
+  have h : (machineAt dishHalf).spotW = facetSpot 0.05 (fOf dishHalf) := rfl
+  rw [h, f_his]; exact facetSpot_hashemi
+
+theorem margin_his : (machineAt dishHalf).margin = 0.03035 := by
+  have h : (machineAt dishHalf).margin = 0.06 - (machineAt dishHalf).spotW / 2 := rfl
+  rw [h, spotW_his]; norm_num
+
+/-- the hanger is `hangerLength_bounds`' 0.884 m -/
+theorem hanger_his : hangerOf dishHalf = hangerLength 2 0.8 0.4 0 := by
+  unfold hangerOf ROf rimHoleOf pR kRim dishHalf; norm_num
+
+/-! ## The relations a wrong scaling breaks
+
+Each is a named theorem of the file, generalised.  `HashemiScale.SoundGeom` carries the first
+three as conjuncts, so `#machine 2.0` reports them instead of the user finding them in the render
+window.  The fourth of the four - the hangers - is guarded in the scene itself by
+`HashemiSceneInst.hanger_drawn_length`, which proves the drawn segment IS
+`hangerLength (ROf a) a (rimHoleOf a) 0` at every size and every swing. -/
+
+/-- **the outrigger's tip reaches past the stand it carries**, at every size
+(`OutriggerGeom.stand_le_end`, which the frozen 1.35 m tip violated at 2 m by 1.7 m) -/
+theorem stand_before_end {a : ℝ} (ha : 0 < a) : standStationOf a < endStationOf a := by
+  unfold standStationOf endStationOf
+  have hk : (1:ℝ) < kEnd := by unfold kEnd; norm_num
+  calc ymOf a = 1 * ymOf a := (one_mul _).symm
+    _ < kEnd * ymOf a := mul_lt_mul_of_pos_right hk (ym_pos ha)
+
+/-- **the mast stands outside the ring**, at every size (`mast_beyond_ring` generalised): the
+rail's radius is `1.524 a`, the mast's foot `apexH + ym` is over `2.08 a` -/
+theorem mast_beyond_ring_at {a : ℝ} (ha : 0 < a) :
+    rRailOf a < apexHOf a + standStationOf a := by
+  have hle : rRailOf a ≤ 1.53 * a := by
+    unfold rRailOf chordOf sideOf sideGapOf apexHOf kGap kApex
+    rw [show (1.53:ℝ) * a = Real.sqrt ((1.53 * a) ^ 2) from (Real.sqrt_sq (by linarith)).symm]
+    exact Real.sqrt_le_sqrt (by nlinarith)
+  have hfc : a ≤ FCOf a := by
+    unfold FCOf
+    calc a = Real.sqrt (a ^ 2) := (Real.sqrt_sq ha.le).symm
+      _ ≤ Real.sqrt (zeOf a ^ 2 + a ^ 2) := Real.sqrt_le_sqrt (by nlinarith [sq_nonneg (zeOf a)])
+  have hym : 1.08 * a ≤ standStationOf a := by
+    unfold standStationOf ymOf kMast; linarith
+  have hap : apexHOf a = a := by unfold apexHOf kApex; norm_num
+  rw [hap]; linarith
+
+/-- **the panel goes in between the posts**, at every size (`dish_between_posts` generalised) -/
+theorem dish_between_posts_at {a : ℝ} (ha : 0 < a) : sideOf a < chordOf a := by
+  unfold chordOf sideOf sideGapOf kGap; linarith
+
+/-! ## The load paths, through §3's screws
+
+Nothing new is written here: `wrenchAt`, `recip` and `yaw` are §3's and `boltStress` is §12's. -/
+
+/-- the dish's weight as a wrench: `W` down at the centre of mass, `rcm` below the bolt line on
+the carriage's apex station -/
+def wWeight (apexH zBolt rcm W : ℝ) : Screw :=
+  wrenchAt ![apexH, 0, zBolt - rcm] ![0, 0, -W]
+
+/-- **the azimuth drive carries no part of the weight, at any size**: a vertical load has no
+moment about the tube, so the weight's wrench is reciprocal to the yaw exactly as §3's five
+constraint wrenches are (`constraints_reciprocal_yaw`).  That is why `Fdrive` may stay held while
+`W` follows the aperture - what the drive must find is bearing friction and wind, not weight. -/
+theorem weight_reciprocal_yaw (apexH zBolt rcm W : ℝ) :
+    recip yaw (wWeight apexH zBolt rcm W) = 0 := by
+  simp [recip, yaw, wWeight, wrenchAt]
+
+/-- and the drive's own actuation is still outside that space, at any size and any traction
+(`drive_works_on_yaw` is §3's; this names the consequence for the scaled machine) -/
+theorem drive_moves_what_weight_cannot (c : Carriage) (b : FixedBase) {F : ℝ} (hF : F ≠ 0) :
+    recip yaw (wDrive c b F) ≠ 0 := drive_works_on_yaw c b hF
+
+/-- **the weight's moment about the bolt line grows as the CUBE of the reflector**: `W` is an
+areal density times `side²` and `rcm` is proportional to `a`.  `Tmax` is held and `armRest` is
+proportional to `a`, so `HoldsDish` is a cubic against a linear - the winch is the next thing to
+fail as the dish grows, after the M12 -/
+theorem weight_moment_cubic (a : ℝ) :
+    weightOf a * rcmOf a = 4 * kAreal * gAcc * kCm * a ^ 3 := by
+  unfold weightOf weightAt rcmOf sideOf; ring
+
+/-- **and so does the pivot bolt's stress**: `boltStress` is `W · reach / 2` over a section
+modulus the held M12 fixes, and the reach is `kEye a`.  `m12_carries_dish` covers any dish under
+1000 N; the 2 m machine's is 1875 N on a 7.5 cm reach, and it does not -/
+theorem boltStress_cubic (a : ℝ) :
+    boltStress (weightOf a) (boltReachOf a) hisHeld.dBolt
+      = (2 * kAreal * gAcc * kEye * a ^ 3) / (Real.pi * 0.0101 ^ 3 / 32) := by
+  unfold boltStress weightOf weightAt boltReachOf sideOf
+  show (kAreal * (2 * a) ^ 2 * gAcc / 2 * (kEye * a)) / (Real.pi * (0.0101:ℝ) ^ 3 / 32) = _
+  ring
+
+/-- **and what tracking costs**, the same cube against a panel that is held -/
+theorem trackW_cubic (a : ℝ) : trackWOf a = 4 * kAreal * gAcc * kCm * 7.3e-5 * a ^ 3 := by
+  unfold trackWOf; rw [weight_moment_cubic]; ring
+
+/-! ## Held or scaled: every constant, in one place
+
+`scaledNames` is every dimension that follows the reflector - each one a `*Of` function of §16 -
+and `heldNames` is every field of `Held`, each a number the video gives with no law attached.
+`W` is in the FIRST list and `areal` in the second. -/
+
+/-- the dimensions that follow `a` (§16's functions, one name each) -/
+def scaledNames : List String :=
+  ["R", "f", "sag", "ze", "side", "sideGap", "chord", "apexH", "aBase", "cross", "barW",
+   "rRail", "FC", "upright", "holeDown", "postH", "clearance", "foot", "brace", "footShort",
+   "footLong", "braceHeight", "zBolt", "rimHole", "zh", "hanger", "rodTan",
+   "boltReach", "rodLen", "xh", "ym", "hp", "standPost", "standFoot", "standBent", "outRoot",
+   "standStation", "endStation", "endWidth", "deadTan", "armRest", "wireLeft", "wireTake",
+   "slotTan", "rcm", "mass", "W", "trackW", "spotW", "margin", "budgetTan", "boltStress",
+   "tiltPerTurn"]
+
+/-- the constants held, with the reason in each field's docstring above -/
+def heldNames : List String :=
+  ["w", "rc", "tanEps", "rDrive", "rDrum", "Tmax", "rho", "Fdrive", "L10", "dRod", "eyeOffset",
+   "pitch", "dBolt", "panelW", "volts", "azDeg", "elDeg", "zRail", "zTube", "zBearing", "areal"]
+
+/-- no constant is in both lists -/
+theorem names_disjoint : scaledNames.all (fun n => !heldNames.contains n) = true := by decide
+
+theorem scaled_count : scaledNames.length = 53 := by decide
+theorem held_count : heldNames.length = 21 := by decide
+
+end
+
+end HashemiDims
+
+namespace TandoorHashemi
+
+/-! the design side of §16: `machineAt a` is every dimension as one record,
+`carriageAt`/`baseAt`/`legAt`/`outriggerAt` are the file's own structures at that size, and
+`HashemiDims`' theorems recover HIS machine at `a = 0.8`. -/
+export HashemiDims (Held Dims machine machineAt carriageAt baseAt legAt outriggerAt hisHeld
+  wWeight scaledNames heldNames carriageOf baseOf legOf outriggerOf aMin)
+
 end TandoorHashemi
