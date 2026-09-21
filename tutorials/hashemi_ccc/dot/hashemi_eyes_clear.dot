@@ -1,0 +1,21 @@
+digraph "TandoorHashemi.hashemi_eyes_clear" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="4.36", shape=plaintext];
+  n1 [label="2", shape=plaintext];
+  n2 [label="3.2", shape=plaintext];
+  n3 [label="sqrt", shape=ellipse];
+  n2 -> n3;
+  n4 [label="*", shape=ellipse];
+  n1 -> n4; n3 -> n4;
+  n5 [label="-", shape=ellipse];
+  n0 -> n5; n4 -> n5;
+  n6 [label="sqrt", shape=ellipse];
+  n5 -> n6;
+  n7 [label="0.010", shape=plaintext];
+  n8 [label="/", shape=ellipse];
+  n7 -> n8; n1 -> n8;
+  n9 [label="<", shape=ellipse];
+  n8 -> n9; n7 -> n9;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out0;
+}

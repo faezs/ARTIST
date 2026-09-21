@@ -1,0 +1,38 @@
+digraph "TandoorHashemi.braceOf" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="a", shape=box];
+  n1 [label="0.7384615385", shape=plaintext];
+  n2 [label="2.5", shape=plaintext];
+  n3 [label="*", shape=ellipse];
+  n2 -> n3; n0 -> n3;
+  n4 [label="2", shape=plaintext];
+  n5 [label="/", shape=ellipse];
+  n3 -> n5; n4 -> n5;
+  n6 [label="^2", shape=ellipse];
+  n3 -> n6;
+  n7 [label="^2", shape=ellipse];
+  n0 -> n7;
+  n8 [label="-", shape=ellipse];
+  n6 -> n8; n7 -> n8;
+  n9 [label="sqrt", shape=ellipse];
+  n8 -> n9;
+  n10 [label="-", shape=ellipse];
+  n3 -> n10; n9 -> n10;
+  n11 [label="-", shape=ellipse];
+  n5 -> n11; n10 -> n11;
+  n12 [label="^2", shape=ellipse];
+  n11 -> n12;
+  n13 [label="+", shape=ellipse];
+  n12 -> n13; n7 -> n13;
+  n14 [label="sqrt", shape=ellipse];
+  n13 -> n14;
+  n15 [label="0.18125", shape=plaintext];
+  n16 [label="*", shape=ellipse];
+  n15 -> n16; n0 -> n16;
+  n17 [label="+", shape=ellipse];
+  n14 -> n17; n16 -> n17;
+  n18 [label="*", shape=ellipse];
+  n1 -> n18; n17 -> n18;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n18 -> out0;
+}

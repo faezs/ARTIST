@@ -1,0 +1,13 @@
+digraph "TandoorHashemi.tanh_abs_lt_one" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="x", shape=box];
+  n1 [label="tanh", shape=ellipse];
+  n0 -> n1;
+  n2 [label="abs", shape=ellipse];
+  n1 -> n2;
+  n3 [label="1", shape=plaintext];
+  n4 [label="<", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out0;
+}

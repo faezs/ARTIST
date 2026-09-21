@@ -1,0 +1,27 @@
+digraph "TandoorHashemi.postTop" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="c_chord", shape=box];
+  n1 [label="c_apexH", shape=box];
+  n2 [label="c_aBase", shape=box];
+  n3 [label="c_cross", shape=box];
+  n4 [label="c_barW", shape=box];
+  n5 [label="c_rDrive", shape=box];
+  n6 [label="l_upright", shape=box];
+  n7 [label="l_foot", shape=box];
+  n8 [label="l_brace", shape=box];
+  n9 [label="l_footShort", shape=box];
+  n10 [label="l_holes", shape=box];
+  n11 [label="endIn", shape=box];
+  n12 [label="sg", shape=box];
+  n13 [label="2", shape=plaintext];
+  n14 [label="/", shape=ellipse];
+  n0 -> n14; n13 -> n14;
+  n15 [label="-", shape=ellipse];
+  n14 -> n15; n11 -> n15;
+  n16 [label="*", shape=ellipse];
+  n12 -> n16; n15 -> n16;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n1 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n16 -> out1;
+  out2 [label="out 2", shape=box, style=filled, fillcolor=lightgrey]; n6 -> out2;
+}

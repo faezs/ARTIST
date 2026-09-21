@@ -1,0 +1,30 @@
+digraph "TandoorHashemi.lostSunSAt" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="tDead", shape=box];
+  n1 [label="elSun", shape=box];
+  n2 [label="eps", shape=box];
+  n3 [label="e", shape=box];
+  n4 [label="π", shape=plaintext];
+  n5 [label="2", shape=plaintext];
+  n6 [label="/", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  n7 [label="-", shape=ellipse];
+  n6 -> n7; n0 -> n7;
+  n8 [label="-", shape=ellipse];
+  n1 -> n8; n7 -> n8;
+  n9 [label="0.01", shape=plaintext];
+  n10 [label="/", shape=ellipse];
+  n8 -> n10; n9 -> n10;
+  n11 [label="sigmoid", shape=ellipse];
+  n10 -> n11;
+  n12 [label="-", shape=ellipse];
+  n3 -> n12; n2 -> n12;
+  n13 [label="/", shape=ellipse];
+  n12 -> n13; n9 -> n13;
+  n14 [label="sigmoid", shape=ellipse];
+  n13 -> n14;
+  n15 [label="*", shape=ellipse];
+  n11 -> n15; n14 -> n15;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n15 -> out0;
+}

@@ -1,0 +1,10 @@
+THE FLEXURE BALL, PLA (printed), demonstrator at 1 scale
+  envelope: 109 mm across, 139 mm tall, 268 cm3, 0.33 kg
+  the waist is 6.0 mm across and 29.3 mm long; C is its middle, marked by the groove
+  one turned waist, no assembly, no blades: a solid of revolution
+  rotation: +-4.00 deg about C at 25 MPa
+  print: flange down on the bed; nothing overhangs but the two 45 deg cones
+  layer 0.12 mm; the waist is 15 perimeters across at a 0.4 mm nozzle, so it prints solid; 40 % infill elsewhere
+  the waist is what bends, and on FDM the layer bond is the failure mode: printed flange down as above the layers run across the bending stress, which is the strong direction; resin (SLA) is isotropic and better still
+  the strut spigot is 80 mm across (an 85 x 5.3 tube at 1:1); six M5 clearance holes on the flange
+  what it demonstrates: push the strut sideways and it pivots about C with no bearing, no backlash and one unpowered state; let go and it returns

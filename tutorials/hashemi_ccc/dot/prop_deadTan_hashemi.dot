@@ -1,0 +1,36 @@
+digraph "TandoorHashemi.prop_deadTan_hashemi" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="3.36", shape=plaintext];
+  n1 [label="sqrt", shape=ellipse];
+  n0 -> n1;
+  n2 [label="1", shape=plaintext];
+  n3 [label="-", shape=ellipse];
+  n1 -> n3; n2 -> n3;
+  n4 [label="1.2", shape=plaintext];
+  n5 [label="*", shape=ellipse];
+  n4 -> n5; n3 -> n5;
+  n6 [label="0.34", shape=plaintext];
+  n7 [label="0.8", shape=plaintext];
+  n8 [label="*", shape=ellipse];
+  n6 -> n8; n7 -> n8;
+  n9 [label="+", shape=ellipse];
+  n5 -> n9; n8 -> n9;
+  n10 [label="*", shape=ellipse];
+  n4 -> n10; n7 -> n10;
+  n11 [label="*", shape=ellipse];
+  n6 -> n11; n3 -> n11;
+  n12 [label="-", shape=ellipse];
+  n10 -> n12; n11 -> n12;
+  n13 [label="/", shape=ellipse];
+  n9 -> n13; n12 -> n13;
+  n14 [label="1.878", shape=plaintext];
+  n15 [label="<", shape=ellipse];
+  n14 -> n15; n13 -> n15;
+  n16 [label="1.88", shape=plaintext];
+  n17 [label="<", shape=ellipse];
+  n13 -> n17; n16 -> n17;
+  n18 [label="&&", shape=ellipse];
+  n15 -> n18; n17 -> n18;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n18 -> out0;
+}

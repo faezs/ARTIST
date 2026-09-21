@@ -1,0 +1,21 @@
+digraph "TandoorHashemi.pumpCostRaw" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="dt", shape=box];
+  n1 [label="pPump", shape=box];
+  n2 [label="pumpPrice", shape=box];
+  n3 [label="rotiReward", shape=box];
+  n4 [label="rotiEnergy", shape=box];
+  n5 [label="*", shape=ellipse];
+  n2 -> n5; n3 -> n5;
+  n6 [label="*", shape=ellipse];
+  n5 -> n6; n0 -> n6;
+  n7 [label="/", shape=ellipse];
+  n6 -> n7; n4 -> n7;
+  n8 [label="0", shape=plaintext];
+  n9 [label="max", shape=ellipse];
+  n8 -> n9; n1 -> n9;
+  n10 [label="*", shape=ellipse];
+  n7 -> n10; n9 -> n10;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n10 -> out0;
+}

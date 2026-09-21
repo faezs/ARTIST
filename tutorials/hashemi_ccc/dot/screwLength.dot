@@ -1,0 +1,22 @@
+digraph "TandoorHashemi.screwLength" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="R", shape=box];
+  n1 [label="a", shape=box];
+  n2 [label="2", shape=plaintext];
+  n3 [label="/", shape=ellipse];
+  n0 -> n3; n2 -> n3;
+  n4 [label="^2", shape=ellipse];
+  n0 -> n4;
+  n5 [label="^2", shape=ellipse];
+  n1 -> n5;
+  n6 [label="-", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  n7 [label="sqrt", shape=ellipse];
+  n6 -> n7;
+  n8 [label="-", shape=ellipse];
+  n0 -> n8; n7 -> n8;
+  n9 [label="-", shape=ellipse];
+  n3 -> n9; n8 -> n9;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out0;
+}

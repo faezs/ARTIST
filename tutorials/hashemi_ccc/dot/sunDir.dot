@@ -1,0 +1,21 @@
+digraph "TandoorHashemi.sunDir" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="elSun", shape=box];
+  n1 [label="azSun", shape=box];
+  n2 [label="cos", shape=ellipse];
+  n0 -> n2;
+  n3 [label="cos", shape=ellipse];
+  n1 -> n3;
+  n4 [label="*", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  n5 [label="sin", shape=ellipse];
+  n1 -> n5;
+  n6 [label="*", shape=ellipse];
+  n2 -> n6; n5 -> n6;
+  n7 [label="sin", shape=ellipse];
+  n0 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n6 -> out1;
+  out2 [label="out 2", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out2;
+}

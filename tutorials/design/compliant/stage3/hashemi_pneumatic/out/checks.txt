@@ -1,0 +1,31 @@
+=== the orbit the mount must serve (Quetta, el >= 12 deg, three seasons, half-hourly) ===
+59 positions; vertex x 0.12..4.47 (north of the wall), y -3.86..3.86, z 5.90..8.99 (deck 5.0)
+rim sweep: north to x 5.72 m, east-west to |y| 4.52 m; lowest rim point z 5.35
+
+=== F support as modelled (arm 3 m from a tower at x 4.25): where the tower line pierces the dish ===
+tower line inside the dish disc at 14 of 59 positions; through the centre hole at 1; through the MEMBRANE at 13
+worst: equinox 10.5 h, el 53 deg, 1.90 m from the vertex -> the tower must stand outside the sweep (x > 6.2 m) or become a mast pair at |y| > 5.0 m
+
+=== the vine rod: root on the deck, tip on the dish's back ring (r 0.8, north side), clear of the beam column ===
+root at x 2.50 m (north of the wall line by 1.25): rod length 0.84..5.58 m, tilt from vertical 2..58 deg, min clearance to the beam column 1.15 m
+
+=== force balance at 9 m/s: rod thrust along the rod, three deck tendons at 120 deg around the root (r 5 m) ===
+winches at r 5 m: infeasible 0 of 236; worst rod thrust 4263 N at summer 17.5 h (rod 5.58 m), tendon up to 3117 N
+winches at r 7 m: infeasible 0 of 236; worst rod thrust 3334 N at summer 6.5 h (rod 5.58 m), tendon up to 2710 N
+winches at r 9 m: infeasible 0 of 236; worst rod thrust 2734 N at summer 6.5 h (rod 5.58 m), tendon up to 2451 N
+winches at r 12 m: infeasible 0 of 236; worst rod thrust 2194 N at summer 17.5 h (rod 5.58 m), tendon up to 2218 N
+
+=== rod hose sizing (vine: everts from a reel at the root) ===
+r 0.20 m at 0.30 bar: thrust 3770 N (need > 3334), EI 12.6 kN m2, Euler at 5.58 m 3978 N -> SF 1.2; hoop 6.0 kN/m
+r 0.25 m at 0.20 bar: thrust 3927 N (need > 3334), EI 24.5 kN m2, Euler at 5.58 m 7769 N -> SF 2.3; hoop 5.0 kN/m
+r 0.30 m at 0.15 bar: thrust 4241 N (need > 3334), EI 42.4 kN m2, Euler at 5.58 m 13425 N -> SF 4.0; hoop 4.5 kN/m
+
+=== stiffness under a 9 m/s gust ===
+attitude: three 4 mm tendons 1.3 m long from the rod tip to a 2.4 m back ring: K 415 kN m/rad; wind torque 316 N m -> 0.8 mrad (the strip tolerates several)
+position: deck tendons ~6 m, 42 kN/m each, lateral ~31 kN/m -> 24 mm under 750 N, i.e. the spot walks that much on the strip and 88 mm at F2 (M4 r 1.0)
+survival: 25 m/s gives 5797 N; vent the rod and the plenum -> the dish lies face-up on the deck around the root, tendons slack
+
+=== F support as a mast pair (pneumatic option) ===
+masts at y = +-5.2 m, 5.5 m tall, r 0.30 at 1.0 bar: Euler (guyed) 28.6 kN, wrinkle 4.2 kN m vs wind 0.45 kN m; hoop 30 kN/m
+masts at y = +-5.2 m, 5.5 m tall, r 0.35 at 0.8 bar: Euler (guyed) 45.4 kN, wrinkle 5.4 kN m vs wind 0.52 kN m; hoop 28 kN/m
+F hangs from a cable between the mast tops with fore-aft guys to the parapet; the strip's bearing ring and the arm end sit on it; the towers stand outside the sweep, so nothing of the mount is ever in the beam except the strip itself.

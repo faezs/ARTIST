@@ -1,0 +1,20 @@
+COVERAGE OF THE YEAR'S 479 SUN SAMPLES (Hashemi's carriage serves all 479 of them, at beta 0)
+   stem x, z         boom  d_rec  beta   served   what is missed
+                  as built [3. 0. 1.]   (0.9, 3.3)    1.8    36   394/479   85: el 13-83 (44 low, 11 high)
+               boom to 5 m [3. 0. 1.]   (0.9, 5.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)
+               boom to 7 m [3. 0. 1.]   (0.9, 7.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)
+               boom to 9 m [3. 0. 1.]   (0.9, 9.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)
+              boom to 11 m [3. 0. 1.]  (0.9, 11.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)
+     receptacle 1.0 m back [3. 0. 1.]   (0.9, 7.0)    1.0    36   468/479   11: el 80-83 (0 low, 11 high)
+     receptacle 0.6 m back [3. 0. 1.]   (0.9, 7.0)    0.6    36   468/479   11: el 80-83 (0 low, 11 high)
+            beta to 45 deg [3. 0. 1.]   (0.9, 7.0)    1.8    45   479/479   ALL
+            beta to 60 deg [3. 0. 1.]   (0.9, 7.0)    1.8    60   479/479   ALL
+             stem at x 0.0 [0. 0. 1.]   (0.9, 7.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)
+             stem at x 1.5 [1.5 0.  1. ]   (0.9, 7.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)
+             stem at x 4.5 [4.5 0.  1. ]   (0.9, 7.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)
+           stem 2.5 m tall [3.  0.  2.5]   (0.9, 7.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)
+           stem 4.0 m tall [3. 0. 4.]   (0.9, 7.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)
+       boom 11 m + beta 45 [3. 0. 1.]  (0.9, 11.0)    1.8    45   479/479   ALL
+pivot AT F (a yoke straddling the pipe), retro [0.  0.  4.9] (5.79, 5.81)    1.8     1   178/479   301: el 12-83 (48 low, 39 high)
+pivot at F, receptacle 0.6 m back [0.  0.  4.9] (4.59, 4.61)    0.6     1   178/479   301: el 12-83 (48 low, 39 high)
+pivot at F, boom free, beta 36 [0.  0.  4.9]   (0.5, 8.0)    1.8    36   468/479   11: el 80-83 (0 low, 11 high)

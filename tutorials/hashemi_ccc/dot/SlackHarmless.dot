@@ -1,0 +1,17 @@
+digraph "TandoorHashemi.SlackHarmless" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="f", shape=box];
+  n1 [label="eps", shape=box];
+  n2 [label="delta", shape=box];
+  n3 [label="h", shape=box];
+  n4 [label="tan", shape=ellipse];
+  n1 -> n4;
+  n5 [label="*", shape=ellipse];
+  n0 -> n5; n4 -> n5;
+  n6 [label="+", shape=ellipse];
+  n5 -> n6; n2 -> n6;
+  n7 [label="<=", shape=ellipse];
+  n6 -> n7; n3 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}

@@ -1,0 +1,25 @@
+digraph "TandoorHashemi.pipeGreen_le_one" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="Upipe", shape=box];
+  n1 [label="mcp", shape=box];
+  n2 [label="0", shape=plaintext];
+  n3 [label="<=", shape=ellipse];
+  n2 -> n3; n0 -> n3;
+  n4 [label="<", shape=ellipse];
+  n2 -> n4; n1 -> n4;
+  n5 [label="neg", shape=ellipse];
+  n0 -> n5;
+  n6 [label="/", shape=ellipse];
+  n5 -> n6; n1 -> n6;
+  n7 [label="exp", shape=ellipse];
+  n6 -> n7;
+  n8 [label="1", shape=plaintext];
+  n9 [label="<=", shape=ellipse];
+  n7 -> n9; n8 -> n9;
+  n10 [label="->", shape=ellipse];
+  n4 -> n10; n9 -> n10;
+  n11 [label="->", shape=ellipse];
+  n3 -> n11; n10 -> n11;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n11 -> out0;
+}

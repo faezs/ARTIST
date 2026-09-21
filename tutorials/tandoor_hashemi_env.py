@@ -76,6 +76,27 @@ from tandoor_polar_env import (TandoorPolarEnv, R_MOUTH, H_DEPTH, Z_CPOT, R_SPH,
                                Z_CROWN, Z_HEARTH, R_DUCT_WALL)
 from tandoor_rl_env import _sim, ROTI_ENERGY, T_COOK_LO
 
+# THE ELEVATION DRIVE (Hashemi fig 17). The bent rail behind the dish is a wind stiffener with bearings inside it
+# (paper p13, "To make the dish more resistant to wind"); what MOVES the dish is a tow-wire loop - a DC-motor pulley at
+# the bottom of the moving frame, an idler at each end of rail D, and the wire's two free ends tied to the dish's back,
+# so it drives both ways with no return spring and the working branch is always in tension. The command therefore acts
+# on the drum, and the dish hangs off it through the loop's elasticity. The threaded rods in fig 16 are NOT this drive:
+# they are the two 73 cm adjusting screws that set the dish tangential to the focal circle, once, at assembly.
+# WHICH DRIVE: the roof machine's own caption says "the winch related to the vertical movement", and fig 17 draws the same
+# thing - a cable on a motor drum. The desk model uses a thin rod instead. Both are representable; 'winch' is the default
+# because that is what the built machine has.
+EL_DRIVE = "winch"
+EL_WINCH_SIG, EL_WINCH_E = 48e6, 110e9                 # a 6x19 rope: working stress under the weight moment, effective modulus
+EL_LINK_N, EL_LINK_DMIN = 2, 0.0127                    # TWO drive rods, one each side, on ONE shared motor: the sides always move
+                                                       # together, so the machine has a single elevation command and no differential
+                                                       # freedom - any asymmetric load is taken by the trunnion, not by the drive.
+                                                       # Half-inch is the floor because that is what the production build uses.
+EL_LINK_SIG, EL_LINK_E = 40e6, 200e9                   # the drive ROD's working stress under the dish's weight moment, and solid steel.
+EL_LINK_LR, EL_LINK_ARM = 0.50, 0.375                  # its length and its crank lever, as fractions of the orbit, from the model's proportions.
+                                                       # Sized to the load, the sag is sigma L / (E lever) - independent of the dish, ~0.015 deg.
+                                                       # Fig 17 draws a wire loop on two pulleys instead; his model and the production build use a
+                                                       # rod, which is 3-4x stiffer and can push, at the price of buckling (see el_link_mm).
+EL_HEAD_KG_M2, EL_CT, EL_CM = 10.0, 0.10, 0.15         # dish + frame + straps per m2 of aperture, and the tangential force and pitching moment coefficients
 R_POT, H_POT, Z_DUCT = CO.R_POT, CO.H_POT, CO.Z_DUCT
 X_TOWER = CO.X_CHASE
 R_DUCT_H = CO.R_DUCT_C          # widened native inlet, 0.20 m
@@ -981,7 +1002,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  leg_tilt=50.0, post_offset=2.5,
                  deck_h=None, col_dist=0.75, col_radius=0.5, r_m1=0.15,
                  r_m3=1.0, r_bore=1.3, z_turn=None, x_turn=None, r_m4=1.3, shell="perlite",
-                 r_strut=0.08, **kwargs):
+                 r_strut=0.08, film_T=4922.0, film_slope=2.0e-3, film_t=None, el_drive=EL_DRIVE, **kwargs):
         # OPTICAL-EFFICIENCY levers (defaults = current machine):
         # beta_dev: off-axis deviation [deg] of the beam from retro.
         #   The primary is a SPHERE - it has no optical axis, so the
@@ -1169,6 +1190,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 print(f"  [hashemi] receiver='tri': duct_nozzle={kwargs['duct_nozzle']} ignored, the three-mirror machine has no elbow")
             kwargs["duct_nozzle"] = 0
         self.z_turn, self.r_m4, self.r_strut = z_turn, float(r_m4), float(r_strut)
+        # THE FILM (2026-09-13): its tension and its own slope error, the two numbers the whole optical budget hangs on.
+        # film_T 4922 N/m is the flat disc pumped to f 4 - at PET's yield by geometry (98 MPa, 196 at the hole); 2100 is
+        # the RIM-FED film (the rim a spool dispensing the meridional length the dome asks for), which carries only
+        # Gauss's hoop strain: 42 MPa, 83 at the hole, no wrinkle, the same sphere at a lower pressure (p = 2T/R). The
+        # FvK ladder's shapes stand and every pressure on it scales with T (p0 below); the wind's figure goes as 1/T,
+        # which the cook's fused step reads from sp[7] and the flower envs from film_k_scale. film_slope is the film's
+        # own rms slope error (2 mrad as assumed so far; 1 mrad is the lever: +12 points of the year through the strip's
+        # 27x, stage3/wind/README.md 'The rim-fed film'), doubled on reflection into sig_static with the print.
+        self.el_drive = str(el_drive)      # 'winch' (the built machine: a cable on a motor drum) or 'rod' (the desk model's link)
+        assert self.el_drive in ("winch", "rod"), self.el_drive
+        self.film_T = float(film_T if film_t is None else film_t); self.film_slope = float(film_slope)   # film_t: the ini loader lower-cases its keys
+        self.film_k_scale = 4922.0/self.film_T; self.film_sig_work = 98.4/self.film_k_scale
         # x_turn: M3's x. None = over the chase (X_TOWER, the bore's foot). Set it to
         # R_POT and the mirror's vertex sits IN the inlet plane - the port-mounted M3
         # (user, 2026-09-10): half the disc inside the wall, the strip's beam landing
@@ -1827,6 +1860,87 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                              self.strip_wk, np.radians(self.slot_el)])
         assert len(self._fc_table) == 39
 
+    def _el_loop(self):
+        """the tow-wire loop's sag coefficients for the TRUNNION at F. Hashemi's vertical movement is a rotation about a
+        horizontal pivot whose axis passes through the fixed focus - the two screws through the tops of the holder's
+        vertical plates (paper p13, figs 15-16), which his desk model shows plainly: the dish hangs on straight arms
+        from a pivot at the yellow focus marker and there is no curved rail in it at all. The ring rail below carries
+        AZIMUTH (fig 14), and the bent rail D behind the dish is a wind stiffener (p13), neither of them this.
+        Returns radians of dish-behind-drum per cos(el) - the dish's weight about the trunnion, m g R cos el - and per
+        (m/s)^2 - the wind's tangential moment, the only wind the loop sees, since a force normal to the dish points
+        straight at the trunnion and makes no moment about it."""
+        if str(getattr(self, "mount", "hashemi")) != "hashemi":
+            return 0.0, 0.0                                  # the flower's pedicel and fork are a different mount with their own compliance
+        R = float(self.g_orbit)                              # THE TRUNNION'S ARM: the dish's vertex rides the focal circle at g_orbit
+        A = np.pi * float(self.a_mem) ** 2
+        W = EL_HEAD_KG_M2 * A * 9.81                         # the dish's weight; its moment about the trunnion is W R cos(el)
+        lever, L = EL_LINK_ARM * R, EL_LINK_LR * R           # the crank the rod pulls on, and the rod's own length
+        if str(getattr(self, "el_drive", EL_DRIVE)) == "winch":
+            A_r, E_ = W * R / (lever * EL_WINCH_SIG), EL_WINCH_E   # one cable, sized to the load it pulls
+        else:
+            A_r, E_ = self._el_rod_area(), EL_LINK_E              # the rod pair, with the half-inch floor
+        k = E_ * A_r * lever * lever / L                     # N m/rad about the trunnion
+        sag_g = W * R / k
+        sag_w = (EL_CT * A * R + EL_CM * A * 2.0 * float(self.a_mem)) * 0.6 / k
+        return float(sag_g), float(sag_w)
+
+    def _el_rod_area(self):
+        """the drive rods' total section [m2]: the weight moment over the crank, shared by EL_LINK_N rods at the working
+        stress, but never thinner than the half-inch the production build uses - which on this dish is what binds."""
+        R = float(self.g_orbit); A = np.pi * float(self.a_mem) ** 2
+        W = EL_HEAD_KG_M2 * A * 9.81; lever = EL_LINK_ARM * R
+        per = max(W * R / (lever * EL_LINK_SIG) / EL_LINK_N, np.pi * EL_LINK_DMIN ** 2 / 4.0)
+        return float(EL_LINK_N * per)
+
+    def el_link_mm(self):
+        """PER ROD: diameter [mm], Euler load [kN] pinned, and the load it carries [kN]. The pair share the weight moment
+        over the crank; in COMPRESSION either rod buckles far below its share, so they want to be biased into tension by
+        the dish's own weight, or kept short and end-fixed. This is the build constraint the wire never had."""
+        R = float(self.g_orbit); A = np.pi * float(self.a_mem) ** 2
+        W = EL_HEAD_KG_M2 * A * 9.81
+        lever, L = EL_LINK_ARM * R, EL_LINK_LR * R
+        per = self._el_rod_area() / EL_LINK_N; d = np.sqrt(4.0 * per / np.pi)
+        I = np.pi * d ** 4 / 64.0
+        return float(1e3 * d), float(np.pi ** 2 * EL_LINK_E * I / L ** 2 / 1e3), float(W * R / lever / EL_LINK_N / 1e3)
+
+    def el_sag_deg(self, H=None):
+        """the loop's sag in degrees at this pose and wind - what the encoder on the drum cannot see"""
+        g_, w_ = self._el_loop()
+        el = float(np.mean(self.el_m)) if H is None else float(H.get("el", np.mean(self.el_m)))
+        wind = float(np.mean(getattr(self, "wind", 0.0)))
+        return float(np.degrees(g_ * np.cos(np.radians(el)) + w_ * wind * wind))
+
+    def el_dish_deg(self, el_m, wind):
+        """the DISH's elevation from the DRUM's: the numpy twin of the kernel's s[S0+38]. Reads the SAME per-agent
+        columns the kernel does (fct[82], fct[83]), because under design_rand every agent has its own orbit and dish
+        and so its own loop; falling back to this env's single machine only when there is no design table yet."""
+        fct = getattr(self, "_fct", None)
+        if fct is not None and fct.shape[-1] > 83:
+            key = int(fct.data_ptr())
+            cache = getattr(self, "_el_sag_cache", None)
+            if cache is None or cache[0] != key:
+                cols = fct[:, 82:84].detach().cpu().numpy().astype(np.float64)
+                cache = (key, cols[:, 0], cols[:, 1]); self._el_sag_cache = cache
+            g_, w_ = cache[1], cache[2]
+        else:
+            g_, w_ = self._el_loop()
+        return el_m - np.degrees(g_ * np.cos(np.radians(el_m)) + w_ * np.asarray(wind) ** 2)
+
+    def el_dish_t(self, el_m, wind):
+        """el_dish_deg for the on-device paths (tandoor_gpu_step, the flower's trace_setup): same columns, torch ops"""
+        import torch as _t
+        fct = getattr(self, "_fct", None)
+        if fct is not None and fct.shape[-1] > 83:
+            g_, w_ = fct[:, 82], fct[:, 83]
+        else:
+            gg, ww = self._el_loop()
+            g_ = _t.as_tensor(gg, dtype=el_m.dtype, device=el_m.device)
+            w_ = _t.as_tensor(ww, dtype=el_m.dtype, device=el_m.device)
+        g_ = g_.to(el_m.device, el_m.dtype) if _t.is_tensor(g_) else g_
+        w_ = w_.to(el_m.device, el_m.dtype) if _t.is_tensor(w_) else w_
+        wd = _t.as_tensor(wind, dtype=el_m.dtype, device=el_m.device) if not _t.is_tensor(wind) else wind.to(el_m.dtype)
+        return el_m - _t.rad2deg(g_ * _t.cos(_t.deg2rad(el_m)) + w_ * wd ** 2)
+
     def _build_optics(self):
         # coude's own _build_optics would build its lookup table; we want
         # only the polar scaffolding underneath it (cfg, thermal hooks).
@@ -1944,8 +2058,11 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self.p0 = float(0.5 * (lo + hi))
         self.R_sphere = _sphere_R(_solve(self.p0))
         cfg.dp = self.p0
+        self._p0_flat = self.p0                     # the flat disc's design pressure; the rim-fed film holds the same shape at p0 / (4922 / film_T)
         self.level_frac = np.array(self.LEVEL_FRAC)   # coude's wide dump
         mems = [_solve(self.p0 * fr) for fr in self.level_frac]
+        if getattr(self, "film_k_scale", 1.0) != 1.0:
+            self.p0 = self._p0_flat/self.film_k_scale   # the same shapes, pressures scaled with the tension (the ladder's fractions stand)
         self._mem0 = mems[4]
         self.f_nom = float(mems[4]["z0"] + mems[4]["f_fit"])
         self.X_TOWER_C = float(X_TOWER) + (
@@ -2029,7 +2146,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             csr_frac=self.csr_frac)
         # circular on-axis rim: no off-axis astigmatism term
         self.sigma_offaxis = 0.0
-        self.sig_static = float(np.sqrt((2 * 2.0e-3) ** 2
+        self.sig_static = float(np.sqrt((2 * self.film_slope) ** 2
                                         + (2 * self.sigma_print) ** 2))
         # film 0.88 w/ rim thinning, fold 0.95, M5 0.95, duct lip 0.96
         if self.silvered:
@@ -2234,7 +2351,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
     SAND_RC = 1.28e6          # sand volumetric heat capacity [J/m3K]
     SAND_TOP = 0.08           # the sub layer's depth [m]
     N_DESIGN = 9 + 24
-    FCT_W = 82
+    FCT_W = 84
     # RESOLVED, 2026-09-11 (was OPEN since 2026-09-09 as "the receiver refactor moved the
     # traced power of a design_rand + section machine -17%"): every input to the trace
     # core was bit-identical across the two trees except the membrane LEVEL. The refactor
@@ -2251,6 +2368,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
               site=60,                  # the primary's SURFACE BLOCK: 0 the built circle, k >= 1 the k-th installed section
               film=61, rim=62, rise=63, ocap=64,  # info for the bill and the readouts: film area [m2], rim length [m], post rise [m], overhang cap [m]
               zones=65, m4sig=66, roofl=67, grid=68, m4c=69,   # plenum zones (1 or 5), M4 facet slope error [rad rms] (the kernels read it), light roof, grid power, facet chord [m]
+              elsg=82, elsw=83,         # the tow-wire loop's sag: rad per cos(el) from the dish's weight, rad per (m/s)^2 from the wind
               sand_d=70, sand_k=71,     # the sand column: depth [m], conductivity [W/mK]; [56] the shop's demand scale
               # THE RECEIVER IS A COLUMN (2026-09-08). It used to be an env mode
               # (self.tri / self.duct_nozzle / M3_TURN), which made a batch one
@@ -2307,7 +2425,8 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                  zones=float(getattr(self, "n_zones", 5) or 5), m4sig=0.0, roofl=0.0, grid=0.0, m4c=0.0,
                  recv=float(self.tri), noz=float(getattr(self, "duct_nozzle", 0)),
                  phw=self.aim_halfspan(self.tri),
-                 azs=0.0, potr=1.0, poth=1.0, **self.pot_sphere(1.0, 1.0))
+                 azs=0.0, potr=1.0, poth=1.0,
+                 **dict(zip(("elsg", "elsw"), self._el_loop())), **self.pot_sphere(1.0, 1.0))
         if sys:
             d.update(sys)
         row = rec + [0.0] * (self.FCT_W - 40)
@@ -3156,17 +3275,43 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         self._apply_system_design()
         return self
 
-    def _mount(self, day_t, lat_t, hour, pnt=None):
+    def m4_args(self):
+        """the fold chain's relay ellipsoid (ellM/ellS/ellC/V0, 'M5 far root' in the kernel) as the Metal trace reads it:
+        per agent when a mount has moved it (set_relay_frame), else the shared, built one. The cass/tri chain's M2, M3
+        and M4 live in the per-agent design table instead (columns 0..38), where the aim head already turns M3."""
+        m4 = getattr(self, "_m4_b", None)
+        return m4 if m4 is not None else (self.ell_M, self.ell_S, self.ell_ctr_t, self._V0t)
+
+    def set_relay_frame(self, T):
+        """the fold chain's relay ellipsoid on a mount: T (B,4,4) the rigid motion of the mirror from where it was built
+        (tandoor_screws.poe or exp_screw). The ellipsoid's foci, centre, vertex and body axes move with it, its shape does
+        not - so a tilted relay throws the beam where a tilted relay throws it. None restores the shared, built one."""
+        if T is None: self._m4_b = None; return
+        B = T.shape[0]; R = T[:, :3, :3].float(); t = T[:, :3, 3].float()
+        M = self.ell_M.float()[None].expand(B, 3, 3)                                    # rows: the body axes in the world
+        ellM = torch.bmm(M, R.transpose(1, 2)).reshape(B, 9).contiguous()               # each row e -> (R e)^T
+        ellC = (torch.einsum("bij,j->bi", R, self.ell_ctr_t.float()) + t).contiguous()
+        V0 = (torch.einsum("bij,j->bi", R, self._V0t.float()) + t).contiguous()
+        self._m4_b = (ellM, self.ell_S.float()[None].expand(B, 3).contiguous(), ellC, V0)
+
+    def _mount(self, day_t, lat_t, hour, pnt=None, mech=None):
         """Mount solve dispatch: the Metal kernel when present (one
-        launch, B threads), the batched torch solve otherwise."""
+        launch, B threads), the batched torch solve otherwise.
+        mech (B, MECHW): the mount as screws + compliance per agent
+        (tandoor_screws); None takes the env's standing rows
+        (self._mech_rows, set by a mount-aware subclass), False forces
+        Hashemi's law from pnt."""
+        if mech is None: mech = getattr(self, "_mech_rows", None)
+        if mech is False: mech = None
         if self._metal is not None:
             self._mnt_prm[0] = float(hour)
             return self._metal.mount(day_t, lat_t, self._mnt_prm,
                                      day_t.shape[0], pnt=pnt,
-                                     fct=getattr(self, "_fct", None))
+                                     fct=getattr(self, "_fct", None),
+                                     mech=mech)
         from tandoor_mount_batch import mount_batch
         return mount_batch(self, day_t, lat_t, float(hour),
-                           day_t.device, pnt=pnt)
+                           day_t.device, pnt=pnt, mech=mech)
 
     def _finish_trace_build(self, a, g, f_design):
         dev = self.device
@@ -3566,9 +3711,7 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         lv = level_of(p_eff / self.p0, self.level_frac)       # against the ladder (the kernel's step_pre does the same)
         if self._metal is not None:
             args = (self._pts_l, self._nrm_l, lv, du, de, upick, us,
-                    sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc,
-                    self.ell_M, self.ell_S, self.ell_ctr_t,
-                    self._V0t)
+                    sigma_b, Acan_t, Mt, Cd, dvec, off, vp, sc) + self.m4_args()
             _, _, per = self._metal(*args, self._ray_pw, soil,
                                     self.n_nodes,
                                     self._aim_dirs(B, dev), scb,
@@ -3752,9 +3895,10 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                                 device=dev)
         lat_t = torch.as_tensor(self.lat_v, dtype=torch.float32,
                                 device=dev)
-        pnt_np = torch.as_tensor(np.stack([np.asarray(self.el_m, dtype=np.float32),
+        pnt_np = torch.as_tensor(np.stack([np.asarray(self.el_dish_deg(np.asarray(self.el_m, dtype=np.float64),
+                                                                        getattr(self, "wind", 0.0)), dtype=np.float32),
                                            np.asarray(self.az_m, dtype=np.float32)], 1),
-                                 device=dev)
+                                 device=dev)   # el_m is the DRUM; the trace gets the dish, sagging on the tow-wire loop
         mnt = mount_batch(self, day_t, lat_t,
                           float(self.t_solar[0]), dev, pnt=pnt_np)
         soil = self._shade(soil, mnt)                    # the neighbourhood's horizon, on the beam
@@ -4614,13 +4758,18 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
         if H is not None:
             u = H["u"]
             # ---- THE CARRIAGE, from Hashemi's construction photos
-            # (figs 9-18): a FIXED ring rail + the central post; the only
-            # moving part is one beam rotating about the post, carrying
-            # two A-frames and the focus-centred arc rail the dish slides
-            # on. Elevation = the dish's position along the arc; azimuth
-            # = the beam's rotation. Scaled from his 2 m yard unit.
+            # (figs 9-18) and the desk model in his video. AZIMUTH is the
+            # ring rail: a fixed ring, one beam rotating on a bearing at
+            # the focus base, a rubber roller on a gearbox motor and two
+            # slotted wheels riding the ring (fig 14). ELEVATION is a
+            # TRUNNION AT F: the two screws through the tops of the
+            # holder's vertical plates (p13, figs 15-16), with the dish
+            # hanging on straight arms one focal length out, so its vertex
+            # rides the focal circle and F never moves. The bent rail D
+            # behind the dish is the WIND STIFFENER of p13, not the path
+            # the dish is positioned along. Scaled from his 2 m yard unit.
             g, a = self.g_orbit, self.cfg.a
-            R_rail, R_ring = g + 0.35, self.r_rail
+            R_ring = self.r_rail
             zh_ = np.array([0., 0., 1.])
             hdir = -(u - u[2]*zh_)
             hdir = hdir / max(np.linalg.norm(hdir), 1e-9)
@@ -4628,8 +4777,6 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
             Pf_ = np.array([self.X_TOWER_C, 0., self.z_fold])
             z_beam = self.z_deck + 0.10
             colc = (150, 140, 120, 255)
-            arc = lambda e_: Pf_ + R_rail*(np.cos(e_)*hdir
-                                           - np.sin(e_)*zh_)
             # fixed ring rail on posts (roof stubs south, courtyard north)
             ring([self.X_TOWER_C, 0, z_beam - 0.05], R_ring, (120, 104, 88, 255),
                  48)
@@ -4645,36 +4792,83 @@ class TandoorHashemiEnv(TandoorCoudeEnv):
                 wp = Pf_*[1,1,0] + [0,0,z_beam] + sgn*R_ring*hdir
                 ring(wp - [0,0,0.06], 0.10, (200,180,140,255), 10)
             ring([self.X_TOWER_C, 0, z_beam], 0.22, colc, 12)   # the collar
-            # two A-frames on the beam holding the arc rail
-            for rA in (2.9, 4.4):
-                eA = np.arccos(np.clip(rA / R_rail, -1, 1))
-                apex = arc(eA)
-                for sgn in (1.0, -1.0):
-                    foot = (Pf_*[1,1,0] + [0,0,z_beam]
-                            + rA*hdir + sgn*0.55*e_s)
-                    pr.draw_line_3d(v3(foot), v3(apex), colc)
-            # the arc rail (circle D, centred on the FOLD), two tubes
-            e_lo = np.radians(self.el_min_h - 2)
-            e_hi = np.radians(self.el_max_h + 2)
-            ee = np.linspace(e_lo, e_hi, 22)
-            for off in (0.45, -0.45):
-                pts_ = [arc(x) + off*e_s for x in ee]
-                for k in range(21):
-                    pr.draw_line_3d(v3(pts_[k]), v3(pts_[k+1]),
-                                    (168, 150, 122, 255))
-            # strap bearings + threaded-rod ties: dish back to the rail
+            # ---- ELEVATION, AS HE BUILT IT.  Two braced posts stand on
+            # the TURNING frame, one to each side of the dish at the rim's
+            # half-width, feet on the hoop; the horizontal axis between
+            # their tops passes through F.  The dish is CRADLED BETWEEN
+            # them, hung from that axis on the FOUR THREADED RODS - two a
+            # side, normal to the dish, from the rim beam up to the
+            # bearing, nutted at the rim.  The rods are what he is talking
+            # about in "the length of the screw passed from the edge of
+            # the dish should be such that the focus distance from the
+            # centre of the dish is the same in all cases": their length
+            # is f minus the rim's sag, which is exactly what puts F on
+            # the axis, and once it is there the dish turns about the
+            # focus with nothing at the focus.  His 2 m sphere: 73 cm
+            # screws.  On the f 1.25 gore sphere F sits in the rim plane
+            # and they are 11 cm.  Here f is 4 m, so they are 3.7 m and
+            # the posts reach 4.9 m: that is g_orbit, not the drawing.
             el_r = np.radians(H.get("el_b", H["el"]))
-            dstrap = np.arcsin(np.clip(0.8*a / R_rail, -1, 1))
             Cd_ = np.asarray(H["C"])
-            p_up = (hdir*np.sin(el_r) + zh_*np.cos(el_r))
+            n_d = np.asarray(H["naim"] if "naim" in H else H["n"], float)
+            p_side = e_s - float(np.dot(e_s, n_d))*n_d
+            p_side = p_side/max(np.linalg.norm(p_side), 1e-9)
+            p_up = np.cross(n_d, p_side)
+            p_up = p_up/max(np.linalg.norm(p_up), 1e-9)
+            r32 = self._mem0["r"].numpy(); s32 = self._mem0["s"].numpy()
+            s_rim = float(np.interp(a, r32, s32))            # the rim's sag, toward F
+            rim = lambda ps: Cd_ + a*(np.cos(ps)*p_side + np.sin(ps)*p_up) + s_rim*n_d
+            L_rod = float(g) - s_rim                         # f minus sag: the screw length
+            a125 = 2.5 - np.sqrt(max(6.25 - a*a, 0.0))       # the same rim on the f 1.25 sphere
+            frmc = (172, 164, 148, 255)          # the frame sits in the scene's palette,
+            rodc = (198, 186, 156, 255)          # not above it: it is not the subject
+            b_hub = Pf_*[1, 1, 0] + [0, 0, z_beam]           # the bearing at the focus base
+            PS = np.radians(10.0)                            # the two screws through one holder plate
+            DFT = np.radians(13.0)                           # how far apart the feet sit on the hoop
             for sg_ in (1.0, -1.0):
-                strap = arc(el_r + sg_*dstrap)
-                rim = Cd_ + sg_*0.8*a*p_up
-                pr.draw_line_3d(v3(strap), v3(rim), (200, 180, 140, 255))
-                ring(strap, 0.08, (200, 180, 140, 255), 8)
-            # counterweight at the arc's upper end (fig 18)
-            pr.draw_sphere(v3(arc(e_lo) - 0.15*zh_), 0.14,
-                           (110, 110, 120, 255))
+                apex = Pf_ + sg_*a*e_s                       # the bearing, ON the axis through F
+                for s2 in (1.0, -1.0):                       # the A: two legs, both on the hoop
+                    ft = b_hub + R_ring*(np.cos(DFT)*sg_*e_s
+                                         + s2*np.sin(DFT)*hdir)
+                    pr.draw_cylinder_ex(v3(ft), v3(apex), 0.022, 0.022, 8, frmc)
+                    ring(ft - [0, 0, 0.06], 0.10, (200, 180, 140, 255), 10)
+                    pr.draw_line_3d(v3(ft), v3(b_hub), colc)  # the spoke back to the hub
+                ring(apex, 0.10, (200, 180, 140, 255), 10)   # the trunnion bearing
+                for s2 in (1.0, -1.0):                       # the threaded rods: rim beam to bearing
+                    q_ = rim(s2*PS) if sg_ > 0 else rim(np.pi + s2*PS)
+                    pr.draw_cylinder_ex(v3(apex), v3(q_ - 0.09*n_d),
+                                        0.014, 0.014, 8, rodc)
+                    ring(q_ + 0.04*n_d, 0.040, rodc, 8)      # nutted above the rim beam
+                    ring(q_ - 0.04*n_d, 0.040, rodc, 8)      # and below
+            self._pot_lbls.append(
+                (0.5*(Pf_ + rim(0.0)) + 0.3*p_up,
+                 f"threaded rods, rim beam to the axis through F: {L_rod:.2f} m = f - sag "
+                 f"(his 2 m sphere 0.73 m; the f 1.25 gore sphere {1.25 - a125:.2f} m)",
+                 rodc))
+            # THE DRIVE: the tow-wire loop of fig 17 - half-inch rods in
+            # his production build - off the dish's low edge down to ONE
+            # drum on the turning frame.  The network's elevation command
+            # is this loop, never a position on anything; the two sides
+            # share the drum, so there is one command and no differential
+            # freedom, and an asymmetric load goes into the trunnion
+            # rather than into the drive.
+            K_lo = rim(-np.pi/2)                             # the dish's low edge
+            foot_ = Pf_*[1, 1, 0] + [0, 0, z_beam] + 0.60*R_ring*hdir
+            rod = (186, 178, 150, 255)
+            d_mm, p_cr, p_rod = self.el_link_mm()
+            if str(getattr(self, "el_drive", "winch")) == "winch":
+                pr.draw_line_3d(v3(K_lo), v3(foot_), (176, 176, 186, 255))
+                ring(foot_, 0.14, (196, 170, 120, 255), 12)
+            else:
+                for sg_ in (1.0, -1.0):
+                    pr.draw_cylinder_ex(v3(K_lo + sg_*0.5*e_s),
+                                        v3(foot_ + sg_*0.5*e_s),
+                                        d_mm/1000.0, d_mm/1000.0, 8, rod)
+            pr.draw_cylinder_ex(v3(foot_ - 0.22*e_s), v3(foot_ + 0.22*e_s),
+                                0.09, 0.09, 10, (70, 70, 78, 255))
+            self._pot_lbls.append((foot_ + np.array([0, 0, 0.30]),
+                                   f"el drive: {self.el_drive}, "
+                                   f"sag {self.el_sag_deg(H):+.4f} deg", rod))
 
             if self.receiver == "focus":
                 # RECEIVER AT THE FOCUS: M1 (steerable flat) at F, M2 the

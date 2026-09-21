@@ -1,0 +1,23 @@
+=== freedom and constraint spaces (equinox noon) ===
+bridle (4 lines through F): rank 3, DOF 3: ['rotation about axis through [-0.1 -0.1  0. ] along [0.133 0.015 0.991]', 'rotation about axis through [ 5.4 -0.3  6.2] along [ 0.752 -0.061 -0.656]', 'rotation about axis through [0.7 4.5 2.9] along [-0.071  0.544 -0.836]']
+any three bridle wires: rank 3; bridle + 2 tendons: rank 6 (the sixth constraint, roll about the dish axis, is the stem's torsion); any single line lost: rank >= 6
+reciprocal products bridle x rotations-about-F: max 8.9e-16
+tendon moment arms about F (x,y,z) [m]: [[-2.08, -3.2, 1.93], [-0.87, 1.0, -2.56], [0.87, 1.0, 2.56], [2.08, -3.2, -1.93]]
+gravity torque about F at this position: [   0. 1244.    0.] N m; every tendon arm has the same sign about y: lines from below cannot hold the dish up its orbit
+stem (r 0.40, 0.5 bar, L 2.30 m) tip stiffness at F: rotational block eigenvalues [  43. 1817. 9723.] kN m/rad; it is a 6-D wrench source: couples and off-line shear, capacity M_w 5.0 kN m
+
+=== over the year: 59 positions x 9 wrenches (gravity + 8 wind directions) ===
+
+--- tendons: solver 4 (pretension 300 N) ---
+stem r 0.60 m at 1.0 bar (M_w 33.9 kN m, hoop 60 kN/m): infeasible 9/25 m/s 0/0 of 531; base moment needed 8.1 / 41.2 kN m incl. own drag -> SF 4.2 / 0.8; line max 1.0 / 5.0 kN; transverse pointing at 9 m/s 0.45 mrad, K_transverse min 5.35 MN m/rad, mode 11.5 Hz; vine curl for the 9 m/s shear 219 mm; clearances: bridle-strip 0.14, tendon-stem 0.57, tendon-tube 1.09 m
+stem r 0.70 m at 1.2 bar (M_w 64.7 kN m, hoop 84 kN/m): infeasible 9/25 m/s 0/0 of 531; base moment needed 8.2 / 44.5 kN m incl. own drag -> SF 7.9 / 1.5; line max 1.0 / 5.0 kN; transverse pointing at 9 m/s 0.42 mrad, K_transverse min 6.17 MN m/rad, mode 12.3 Hz; vine curl for the 9 m/s shear 138 mm; clearances: bridle-strip 0.14, tendon-stem 0.47, tendon-tube 1.09 m
+stem r 0.80 m at 1.0 bar (M_w 80.4 kN m, hoop 80 kN/m): infeasible 9/25 m/s 0/0 of 531; base moment needed 8.4 / 45.7 kN m incl. own drag -> SF 9.6 / 1.8; line max 1.0 / 5.0 kN; transverse pointing at 9 m/s 0.38 mrad, K_transverse min 7.12 MN m/rad, mode 13.3 Hz; vine curl for the 9 m/s shear 92 mm; clearances: bridle-strip 0.14, tendon-stem 0.37, tendon-tube 1.09 m
+
+--- tendons: solver 3 (pretension 300 N) ---
+stem r 0.60 m at 1.0 bar (M_w 33.9 kN m, hoop 60 kN/m): infeasible 9/25 m/s 0/0 of 531; base moment needed 7.2 / 41.2 kN m incl. own drag -> SF 4.7 / 0.8; line max 0.9 / 5.1 kN; transverse pointing at 9 m/s 1.00 mrad, K_transverse min 2.04 MN m/rad, mode 7.1 Hz; vine curl for the 9 m/s shear 193 mm; clearances: bridle-strip 0.14, tendon-stem 0.57, tendon-tube 1.09 m
+stem r 0.70 m at 1.2 bar (M_w 64.7 kN m, hoop 84 kN/m): infeasible 9/25 m/s 0/0 of 531; base moment needed 7.4 / 43.4 kN m incl. own drag -> SF 8.7 / 1.5; line max 0.9 / 5.1 kN; transverse pointing at 9 m/s 0.72 mrad, K_transverse min 2.78 MN m/rad, mode 8.3 Hz; vine curl for the 9 m/s shear 122 mm; clearances: bridle-strip 0.14, tendon-stem 0.47, tendon-tube 1.09 m
+stem r 0.80 m at 1.0 bar (M_w 80.4 kN m, hoop 80 kN/m): infeasible 9/25 m/s 0/0 of 531; base moment needed 7.6 / 44.6 kN m incl. own drag -> SF 10.6 / 1.8; line max 0.9 / 5.1 kN; transverse pointing at 9 m/s 0.54 mrad, K_transverse min 3.75 MN m/rad, mode 9.6 Hz; vine curl for the 9 m/s shear 81 mm; clearances: bridle-strip 0.14, tendon-stem 0.37, tendon-tube 1.09 m
+
+=== Hashemi's optics (paper figs 3-5) against the env ===
+sphere R 8.2 -> focal circle radius R/2 = 4.100 m; env orbits at g 4.0 with f_nom 4.05: vertex 0.10 m inside the focal circle, marginal-ray defocus blur 51 mm radius at F
+receiver at F on the focal tube through the slot (near method, fig 8B): the tube is the bore casing, r 0.45 above F2, 0.35 through the crossing band; it carries the strip and the bridle apex

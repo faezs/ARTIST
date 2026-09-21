@@ -1,0 +1,17 @@
+digraph "TandoorHashemi.kAreal" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="300", shape=plaintext];
+  n1 [label="9.81", shape=plaintext];
+  n2 [label="2", shape=plaintext];
+  n3 [label="0.8", shape=plaintext];
+  n4 [label="*", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  n5 [label="^2", shape=ellipse];
+  n4 -> n5;
+  n6 [label="*", shape=ellipse];
+  n1 -> n6; n5 -> n6;
+  n7 [label="/", shape=ellipse];
+  n0 -> n7; n6 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}

@@ -1,0 +1,16 @@
+digraph "TandoorHashemi.dish_swings_to_vertical" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="0.8", shape=plaintext];
+  n1 [label="1.30", shape=plaintext];
+  n2 [label="0.62", shape=plaintext];
+  n3 [label="0.96", shape=plaintext];
+  n4 [label="0.175", shape=plaintext];
+  n5 [label="4", shape=plaintext];
+  n6 [label="0.05", shape=plaintext];
+  n7 [label="-", shape=ellipse];
+  n1 -> n7; n6 -> n7;
+  n8 [label="<", shape=ellipse];
+  n0 -> n8; n7 -> n8;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n8 -> out0;
+}

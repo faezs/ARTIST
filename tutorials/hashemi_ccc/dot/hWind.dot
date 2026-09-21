@@ -1,0 +1,12 @@
+digraph "TandoorHashemi.hWind" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="V", shape=box];
+  n1 [label="5.7", shape=plaintext];
+  n2 [label="3.8", shape=plaintext];
+  n3 [label="*", shape=ellipse];
+  n2 -> n3; n0 -> n3;
+  n4 [label="+", shape=ellipse];
+  n1 -> n4; n3 -> n4;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out0;
+}

@@ -1,0 +1,10 @@
+THE FLEXURE BALL, Ti-6Al-4V, the machine part at 1 scale
+  envelope: 266 mm across, 293 mm tall, 649 cm3, 2.88 kg
+  the legs land on a ring of radius 101 mm in pads 51 mm wide; six M5 holes outside them; three stop posts with 1.65 mm of clearance
+  blades: 6 of them, 2.20 x 68 and 140 mm wide, 65 mm free length
+  rotation: +-0.86 deg about C at 438 MPa; stops touch at 1.28 deg
+  print: flange down on the bed (every blade stands at 30 deg to the vertical: no support anywhere)
+  layer 0.12 mm; the blade is 5 perimeters across at a 0.4 mm nozzle, so it prints solid; 40 % infill elsewhere
+  the blades are what bends, and on FDM the layer bond is the failure mode: printed flange down as above the layers run across the bending stress, which is the strong direction; resin (SLA) is isotropic and better still
+  the strut spigot is 80 mm across (an 85 x 5.3 tube at 1:1); six M5 clearance holes on the flange
+  what it demonstrates: push the strut sideways and it pivots about C with no bearing, no backlash and one unpowered state; let go and it returns

@@ -1,0 +1,66 @@
+  import pynvml  # type: ignore[import]
+  [hashemi] receiver='tri': duct_nozzle=2 ignored, the three-mirror machine has no elbow
+  [polar optics] one mirror 8.0 m2, f=4.59 m, T=600 N/m (12 MPa film), duct r=0.14 m
+  [hashemi] SLOTLESS: beta_dev 0 deg keeps beam el <= 88 < el_x 89 - dish never crosses the post; build the dish UNCUT
+  [hashemi] CPC lip: Winston profile, acceptance 90.0 deg, throat 2.39 -> mouth 2.387 m over 0.60 m (8 segments)
+  [hashemi] megakernel active (Metal, 1 thread/ray)
+  [hashemi] dish 13.9 m2 SPHERE R=8.2 m (f=R/2=4.09, design 4.05) orbit g=4.0 -> fold at z=8.47 m, waist z=8.4, M5 pit z=-0.10
+  [hashemi] fold r=0.60 m (obstruction 8%), slot 4.97 m (65%), waist z=8.42 in tube [4.3,4.7], M5 r=4.52 at core base, track el 12-88 (NO gate), chain 0.840
+  [hashemi] machine wholly on the roof: ring rail R 4.6, dish sweep r=6.1 m inside the parapet; beam sealed below the roof deck
+  [hashemi] receiver='tri': duct_nozzle=2 ignored, the three-mirror machine has no elbow
+  [polar optics] one mirror 8.0 m2, f=4.59 m, T=600 N/m (12 MPa film), duct r=0.14 m
+  [hashemi] SLOTLESS: beta_dev 0 deg keeps beam el <= 88 < el_x 89 - dish never crosses the post; build the dish UNCUT
+  [hashemi] CPC lip: Winston profile, acceptance 90.0 deg, throat 2.39 -> mouth 2.387 m over 0.60 m (8 segments)
+  [hashemi] megakernel active (Metal, 1 thread/ray)
+  [hashemi] dish 13.9 m2 SPHERE R=8.2 m (f=R/2=4.09, design 4.05) orbit g=4.0 -> fold at z=8.47 m, waist z=8.4, M5 pit z=-0.10
+  [hashemi] fold r=0.60 m (obstruction 8%), slot 4.97 m (65%), waist z=8.42 in tube [4.3,4.7], M5 r=4.52 at core base, track el 12-88 (NO gate), chain 0.840
+  [hashemi] machine wholly on the roof: ring rail R 4.6, dish sweep r=6.1 m inside the parapet; beam sealed below the roof deck
+  [hashemi] receiver='tri': duct_nozzle=2 ignored, the three-mirror machine has no elbow
+  [polar optics] one mirror 8.0 m2, f=4.59 m, T=600 N/m (12 MPa film), duct r=0.14 m
+  [hashemi] SLOTLESS: beta_dev 0 deg keeps beam el <= 88 < el_x 89 - dish never crosses the post; build the dish UNCUT
+  [hashemi] CPC lip: Winston profile, acceptance 90.0 deg, throat 2.39 -> mouth 2.387 m over 0.60 m (8 segments)
+  [hashemi] megakernel active (Metal, 1 thread/ray)
+  [hashemi] dish 13.9 m2 SPHERE R=8.2 m (f=R/2=4.09, design 4.05) orbit g=4.0 -> fold at z=8.47 m, waist z=8.4, M5 pit z=-0.10
+  [hashemi] fold r=0.19 m (obstruction 1%), slot 4.97 m (65%), waist z=8.42 in tube [4.3,4.7], M5 r=4.52 at core base, track el 12-88 (NO gate), chain 0.840
+  [hashemi] machine wholly on the roof: ring rail R 4.6, dish sweep r=6.1 m inside the parapet; beam sealed below the roof deck
+  [hashemi] receiver='tri': duct_nozzle=2 ignored, the three-mirror machine has no elbow
+  [polar optics] one mirror 8.0 m2, f=4.59 m, T=600 N/m (12 MPa film), duct r=0.14 m
+  [hashemi] SLOTLESS: beta_dev 0 deg keeps beam el <= 88 < el_x 89 - dish never crosses the post; build the dish UNCUT
+  [hashemi] CPC lip: Winston profile, acceptance 90.0 deg, throat 2.39 -> mouth 2.387 m over 0.60 m (8 segments)
+  [hashemi] megakernel active (Metal, 1 thread/ray)
+  [hashemi] dish 13.9 m2 SPHERE R=8.2 m (f=R/2=4.09, design 4.05) orbit g=4.0 -> fold at z=8.47 m, waist z=8.4, M5 pit z=-0.10
+  [hashemi] fold r=0.19 m (obstruction 1%), slot 4.97 m (65%), waist z=8.42 in tube [4.3,4.7], M5 r=4.52 at core base, track el 12-88 (NO gate), chain 0.840
+  [hashemi] machine wholly on the roof: ring rail R 4.6, dish sweep r=6.1 m inside the parapet; beam sealed below the roof deck
+rays through (%), the Gregorian cap 0.1 m beyond F with F2 3 m from F (shadow 1 %); 'axis' = the crossing rays counted as passed
+day        hour    el | built f4 | deep 1.05 axis 1.05 | deep 1.5 axis 1.5
+midwinter     8  11.3 |     0.0% |      0.0%      0.0% |     0.0%     0.0%
+midwinter     9  21.1 |    24.6% |      0.0%     63.5% |    27.0%    54.6%
+midwinter    10  29.1 |    21.1% |      0.0%     67.5% |     0.0%    70.3%
+midwinter    11  34.5 |    19.1% |      0.0%     70.1% |     0.0%    75.0%
+midwinter    12  36.4 |    19.0% |      0.0%     71.5% |     0.0%    76.8%
+midwinter    13  34.5 |    20.5% |      0.0%     72.0% |     0.0%    77.0%
+midwinter    14  29.1 |    23.8% |      0.0%     70.7% |     0.0%    76.4%
+midwinter    15  21.1 |    28.4% |      0.0%     68.6% |    15.3%    66.3%
+midwinter    16  11.3 |     0.0% |      0.0%      0.0% |     0.0%     0.0%
+equinox       8  25.4 |    21.6% |      0.0%     66.1% |     2.5%    64.1%
+equinox       9  37.4 |    16.3% |      0.0%     71.2% |     0.0%    79.2%
+equinox      10  48.2 |    13.3% |      0.0%     75.4% |     0.0%    81.2%
+equinox      11  56.2 |    10.3% |     53.8%     53.9% |    45.4%    47.0%
+equinox      12  59.4 |    10.5% |     53.0%     53.0% |    42.7%    44.3%
+equinox      13  56.2 |    12.5% |     50.8%     50.9% |    41.8%    43.2%
+equinox      14  48.2 |    15.6% |      0.0%     79.0% |     0.0%    86.3%
+equinox      15  37.4 |    20.1% |      0.0%     77.2% |     0.0%    87.1%
+equinox      16  25.4 |    26.0% |      0.0%     72.6% |     0.2%    84.2%
+midsummer     8  36.6 |    15.7% |      0.0%     75.8% |     0.0%    82.9%
+midsummer     9  49.5 |    12.2% |      0.0%     81.4% |     0.0%    83.4%
+midsummer    10  62.5 |     7.0% |     61.4%     61.4% |    46.7%    47.9%
+midsummer    11  75.0 |     6.5% |     59.9%     59.9% |    41.6%    42.3%
+midsummer    12  83.2 |     8.4% |     56.7%     56.7% |    38.3%    38.7%
+midsummer    13  75.0 |     9.0% |     55.0%     55.0% |    38.5%    39.0%
+midsummer    14  62.5 |    10.1% |     53.7%     53.7% |    40.7%    41.5%
+midsummer    15  49.5 |    15.0% |      0.0%     87.5% |     0.0%    90.0%
+midsummer    16  36.6 |    20.0% |      0.0%     84.9% |     0.0%    90.2%
+summed over the nine hours weighted by sin(el), relative to the built machine:
+  midwinter  built 1.00 | deep 1.05  0.00  axis 1.05  3.19 | deep 1.5  0.20  axis 1.5  3.30
+  equinox    built 1.00 | deep 1.05  1.44  axis 1.05  4.32 | deep 1.5  1.20  axis 1.5  4.37
+  midsummer  built 1.00 | deep 1.05  3.35  axis 1.05  6.14 | deep 1.5  2.40  axis 1.5  5.36

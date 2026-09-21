@@ -1,0 +1,12 @@
+digraph "TandoorHashemi.drumAt" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="es", shape=box];
+  n1 [label="postH", shape=box];
+  n2 [label="neg", shape=ellipse];
+  n0 -> n2;
+  n3 [label="neg", shape=ellipse];
+  n1 -> n3;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n2 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out1;
+}

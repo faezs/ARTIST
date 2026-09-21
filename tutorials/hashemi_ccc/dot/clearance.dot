@@ -1,0 +1,16 @@
+digraph "TandoorHashemi.clearance" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="l_upright", shape=box];
+  n1 [label="l_foot", shape=box];
+  n2 [label="l_brace", shape=box];
+  n3 [label="l_footShort", shape=box];
+  n4 [label="l_holes", shape=box];
+  n5 [label="holeDown", shape=box];
+  n6 [label="reach", shape=box];
+  n7 [label="-", shape=ellipse];
+  n0 -> n7; n5 -> n7;
+  n8 [label="-", shape=ellipse];
+  n7 -> n8; n6 -> n8;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n8 -> out0;
+}

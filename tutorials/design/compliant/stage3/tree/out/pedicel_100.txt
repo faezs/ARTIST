@@ -1,0 +1,30 @@
+100 % COVERAGE AT THE TRACED OPTIMUM: beta 36 by default, more only where 36 has no pose
+(beta_flux.py: the env's trace peaks at beta_dev 36 - 45 is 1.5-2.5 % down, 54 worse. Coverage bought with beta
+ past 36 is therefore taxed 2 %, and it is charged below only on the samples that actually spend it.)
+
+   stem x, z          boom    served   frac E  beta > 36 on  their share of E
+    3.0, 1.0       0.9-4.0  437/479    84.8%        32 suns             6.09%
+    3.0, 1.0       0.9-5.0  453/479    88.0%        22 suns             4.69%
+    3.0, 1.0       0.9-6.0  461/479    89.2%        16 suns             3.08%
+    3.0, 1.0       0.9-7.0  461/479    89.3%        16 suns             3.08%
+    4.0, 1.0       0.9-4.0  463/479    88.3%        36 suns             6.88%
+    4.0, 1.0       0.9-5.0  479/479    91.5%        14 suns             3.04%
+    4.0, 1.0       0.9-6.0  479/479    92.0%         8 suns             1.95%
+    4.0, 1.0       0.9-7.0  479/479    92.1%         8 suns             1.95%
+    4.0, 0.6       0.9-4.0  463/479    88.0%        37 suns             7.13%
+    4.0, 0.6       0.9-5.0  479/479    91.3%        17 suns             3.64%
+    4.0, 0.6       0.9-6.0  479/479    92.0%         9 suns             2.20%
+    4.0, 0.6       0.9-7.0  479/479    92.1%         9 suns             2.20%
+    5.0, 1.0       0.9-4.0  441/479    85.2%        42 suns             8.53%
+    5.0, 1.0       0.9-5.0  479/479    91.4%        34 suns             6.57%
+    5.0, 1.0       0.9-6.0  479/479    91.9%         8 suns             1.95%
+    5.0, 1.0       0.9-7.0  479/479    92.1%         8 suns             1.95%
+    4.5, 1.4       0.9-4.0  453/479    87.1%        42 suns             8.29%
+    4.5, 1.4       0.9-5.0  479/479    91.6%        22 suns             4.43%
+    4.5, 1.4       0.9-6.0  479/479    92.0%         8 suns             1.95%
+    4.5, 1.4       0.9-7.0  479/479    92.1%         8 suns             1.95%
+
+SMALLEST MACHINE THAT SERVES EVERY SUN (shortest boom first): stem 4.5 m north of the pipe, top 1.4 m, boom 0.9-5.0 m to the receptacle 1.8 m behind the vertex.
+  479/479 sun samples = 100 %. It intercepts 91.6 % of the year's clear-sky energy against an unshadowed retro aperture,
+  runs at beta 35.2 deg mean with 3.9 % mean shadow, and needs beta past 36 on 22 of 479 suns
+  carrying 4.43 % of the year's energy - so the whole 100 % costs 0.089 % of the year.

@@ -1,0 +1,21 @@
+digraph "TandoorHashemi.pulley_above_pivot" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="1.59", shape=plaintext];
+  n1 [label="1.84", shape=plaintext];
+  n2 [label="0.41", shape=plaintext];
+  n3 [label="1.30", shape=plaintext];
+  n4 [label="0.62", shape=plaintext];
+  n5 [label="0.96", shape=plaintext];
+  n6 [label="0.175", shape=plaintext];
+  n7 [label="4", shape=plaintext];
+  n8 [label="0.05", shape=plaintext];
+  n9 [label="-", shape=ellipse];
+  n3 -> n9; n8 -> n9;
+  n10 [label="-", shape=ellipse];
+  n0 -> n10; n9 -> n10;
+  n11 [label="0.34", shape=plaintext];
+  n12 [label="==", shape=ellipse];
+  n10 -> n12; n11 -> n12;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n12 -> out0;
+}

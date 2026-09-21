@@ -1,0 +1,14 @@
+digraph "TandoorHashemi.pipeArea" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="D", shape=box];
+  n1 [label="π", shape=plaintext];
+  n2 [label="^2", shape=ellipse];
+  n0 -> n2;
+  n3 [label="*", shape=ellipse];
+  n1 -> n3; n2 -> n3;
+  n4 [label="4", shape=plaintext];
+  n5 [label="/", shape=ellipse];
+  n3 -> n5; n4 -> n5;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n5 -> out0;
+}

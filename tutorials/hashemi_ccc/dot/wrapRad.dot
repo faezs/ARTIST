@@ -1,0 +1,20 @@
+digraph "TandoorHashemi.wrapRad" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="d", shape=box];
+  n1 [label="2", shape=plaintext];
+  n2 [label="π", shape=plaintext];
+  n3 [label="*", shape=ellipse];
+  n1 -> n3; n2 -> n3;
+  n4 [label="+", shape=ellipse];
+  n0 -> n4; n2 -> n4;
+  n5 [label="/", shape=ellipse];
+  n4 -> n5; n3 -> n5;
+  n6 [label="floor", shape=ellipse];
+  n5 -> n6;
+  n7 [label="*", shape=ellipse];
+  n3 -> n7; n6 -> n7;
+  n8 [label="-", shape=ellipse];
+  n0 -> n8; n7 -> n8;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n8 -> out0;
+}

@@ -1,0 +1,28 @@
+THE POWER PAST BETA 45, on the machine as flower.ini configures it (tri, r_duct 0.55, roof deck, post_offset 0.5)
+delivered kW at the bread, perfect tracking, n_rays 256, zero sun-cone noise, 16 identical agents. 'eff' is the
+beta the env actually applied at that hour after its own cap and slot clamps.
+
+midwinter (doy 355)
+ beta_dev    8.0h    9.5h   11.0h   12.5h   14.0h   15.5h    day mean     vs 36   eff beta by hour
+       36    0.00    3.29    2.80    3.00    3.18    1.87     2.36 kW    +0.0 %   -36 27 36 36 30 -36
+       45    0.00    3.29    2.80    2.66    3.18    2.80     2.46 kW    +4.2 %   -45 27 36 38 30 17
+       54    0.00    3.29    2.80    2.66    3.18    2.80     2.46 kW    +4.2 %   -54 27 36 38 30 17
+       63    0.00    3.29    2.80    2.66    3.18    2.80     2.46 kW    +4.2 %   12 27 36 38 30 17
+       72    0.00    3.26    2.80    2.66    3.18    2.80     2.45 kW    +4.0 %   12 27 36 38 30 17
+
+equinox (doy 80)
+ beta_dev    8.0h    9.5h   11.0h   12.5h   14.0h   15.5h    day mean     vs 36   eff beta by hour
+       36    3.76    3.89    2.92    2.50    3.05    2.92     3.17 kW    +0.0 %   27 36 36 36 36 33
+       45    3.76    2.52    1.96    1.65    2.31    2.92     2.52 kW   -20.6 %   27 45 45 45 45 33
+       54    3.76    2.48    1.07    1.08    1.92    2.92     2.20 kW   -30.6 %   27 45 54 54 51 33
+       63    3.76    2.48    0.30    0.23    1.92    2.92     1.94 kW   -39.0 %   27 45 60 62 51 33
+       72    3.76    2.48    0.30    0.23    1.92    2.92     1.94 kW   -39.0 %   27 45 60 62 51 33
+
+midsummer (doy 172)
+ beta_dev    8.0h    9.5h   11.0h   12.5h   14.0h   15.5h    day mean     vs 36   eff beta by hour
+       36    3.56    2.64    2.56    1.54    1.53    2.43     2.38 kW    +0.0 %   36 36 36 36 36 36
+       45    3.05    1.64    1.26    0.97    0.98    1.75     1.61 kW   -32.2 %   38 45 45 45 45 45
+       54    3.05    0.86    0.72    0.43    0.67    1.75     1.25 kW   -47.5 %   38 54 54 54 54 45
+       63    3.05    0.37    0.17    0.10    0.27    1.75     0.95 kW   -59.9 %   38 60 63 63 63 45
+       72    3.05    0.37    0.07    0.03    0.07    1.75     0.89 kW   -62.6 %   38 60 72 72 67 45
+

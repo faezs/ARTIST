@@ -1,0 +1,15 @@
+digraph "TandoorHashemi.wireStretch" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="T", shape=box];
+  n1 [label="L", shape=box];
+  n2 [label="E", shape=box];
+  n3 [label="A", shape=box];
+  n4 [label="*", shape=ellipse];
+  n0 -> n4; n1 -> n4;
+  n5 [label="*", shape=ellipse];
+  n2 -> n5; n3 -> n5;
+  n6 [label="/", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n6 -> out0;
+}

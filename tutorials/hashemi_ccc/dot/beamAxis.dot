@@ -1,0 +1,18 @@
+digraph "TandoorHashemi.beamAxis" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="t", shape=box];
+  n1 [label="beta", shape=box];
+  n2 [label="+", shape=ellipse];
+  n0 -> n2; n1 -> n2;
+  n3 [label="sin", shape=ellipse];
+  n2 -> n3;
+  n4 [label="0", shape=plaintext];
+  n5 [label="cos", shape=ellipse];
+  n2 -> n5;
+  n6 [label="neg", shape=ellipse];
+  n5 -> n6;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out1;
+  out2 [label="out 2", shape=box, style=filled, fillcolor=lightgrey]; n6 -> out2;
+}

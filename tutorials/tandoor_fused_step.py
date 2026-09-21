@@ -36,7 +36,7 @@ _SCAL = ("p_act", "p_set", "p_dist", "shutter", "jammed", "f_locked",
          "e_az_prev", "e_el_prev", "spot_phi", "spot_z", "dni",
          "wind", "stowed", "el0s", "az0d", "pot_prev", "gate",
          "decl_now", "e_el", "e_az", "day_rotis",
-         "hold_p", "hold_s", "hold_j")
+         "hold_p", "hold_s", "hold_j", "el_dish")
 
 
 def _step_params(env):
@@ -53,10 +53,11 @@ def _step_params(env):
     # travel is the mirror's, not the elbow's
     # ...and the travel is PER AGENT now (a batch can hold both machines), so
     # sp[6] carries only the CENTRE and the kernel reads each agent's half-span
-    # from the design table's phw column. sp[7] is left as the centre too: nothing
-    # reads it, and a stale lo/hi pair there would be a trap for the next reader.
+    # from the design table's phw column. sp[7] (2026-09-13) is the FILM'S WIND-FIGURE
+    # SCALE, 4922 / film_T: the wind blur sigw in step_pre goes as 1/T (1 as built,
+    # 2.34 for the rim-fed film at 2100 N/m).
     sp[0:11] = [dt, env.p0, env.RATE_AZ, env.RATE_EL, RATE_SPOT_PHI,
-                RATE_SPOT_Z, float(SPOT_PHI0), float(SPOT_PHI0),
+                RATE_SPOT_Z, float(SPOT_PHI0), float(getattr(env, "film_k_scale", 1.0)),
                 SPOT_Z_RANGE[0], SPOT_Z_RANGE[1],
                 3.5 if env.wide_shutter else 0.5]
     sp[11:17] = [env.jam_gain, env.wall_shelter, env.sig_static,
@@ -134,7 +135,7 @@ class FusedState:
                   decl_formed=e.decl_formed, load_timer=e.load_timer,
                   ep_rotis=e.ep_rotis, ep_scorch=e.ep_scorch,
                   ep_spall=e.ep_spall, ep_return=e.ep_return,
-                  ep_len=e.ep_len, el_m=e.el_m, az_m=e.az_m,
+                  ep_len=e.ep_len, el_m=e.el_m, az_m=e.az_m, el_dish=e.el_m,
                   lost_ct=e._lost_ct, belt_prev=e._belt_prev,
                   cloud=e.cloud, wind_g=e.wind_g, e_az_prev=e._e_az,
                   e_el_prev=e._e_el, spot_phi=e.spot_phi,
@@ -250,8 +251,9 @@ def fused_full_step(env, actions):
     env._mnt_prm[0] = float(env.t_solar[0])
     F.ip[6] = int(env.tick)          # the cook's hash clock
     mnt = env._metal.mount(F.day_v, F.lat_v, env._mnt_prm, B,
-                           pnt=torch.stack([F.el_m, F.az_m], 1),
-                           fct=env._fct)
+                           pnt=torch.stack([F.el_dish, F.az_m], 1),   # the DISH, not the drum: the tow-wire loop's sag is in el_dish
+                           fct=env._fct,
+                           mech=getattr(env, "_mech_rows", None))    # the mount as screws, when a subclass set them (tandoor_screws)
     aux = mnt["aux"]
     # SHADING on the training path: the mount kernel hands back each agent's sun (el deg,
     # az rad in aux); the neighbourhood's horizon masks soil exactly as on the torch
@@ -288,12 +290,19 @@ def fused_full_step(env, actions):
     # AFTER step_pre, which is what moves the aim: the mirror must be where this
     # step's action has just put it, exactly as on the torch path (_metal_trace)
     env._apply_m3_turn()
-    lib.tandoor_trace(F.thr, F.out6, env._pts_l, env._nrm_l, F.lv,
-                      du, de, upick, F.sigb, F.dvec, F.off,
-                      mnt["vp"], env._sc_base, mnt["Acan"], mnt["Mt"],
-                      mnt["Cd"], env.ell_M, env.ell_S, env.ell_ctr_t,
-                      env._V0t, F.tdims, env._ray_pw, soil_eff, F.per,
-                      us, F.aim, mnt["scb"], F.lfp, env._fct, F.fate, F.pex)
+    # A SUBCLASS'S OWN OPTICS (hashemi_ccc.HashemiTandoorEnv): `_fused_power(F, aux, soil_eff)`
+    # fills F.per (m^2 per unit DNI, per node) from its own trace; the tandoor's trace then runs
+    # only until the subclass has recorded its beam profile (it says so through _fused_profile)
+    own = getattr(env, "_fused_power", None)
+    if own is None or getattr(env, "_fused_profile", None) is None:
+        lib.tandoor_trace(F.thr, F.out6, env._pts_l, env._nrm_l, F.lv,
+                          du, de, upick, F.sigb, F.dvec, F.off,
+                          mnt["vp"], env._sc_base, mnt["Acan"], mnt["Mt"],
+                          mnt["Cd"], env.ell_M, env.ell_S, env.ell_ctr_t,
+                          env._V0t, F.tdims, env._ray_pw, soil_eff, F.per,
+                          us, F.aim, mnt["scb"], F.lfp, env._fct, F.fate, F.pex)
+    if own is not None:
+        own(F, aux, soil_eff)
     lib.step_post(F.rew, F.st, F.per, F.sp, F.ip, rn, ru, F.day_v,
                   F.lat_v, env._mnt_prm, F.off, F.obs, F.trunc,
                   F.diag, a32, dsn, env._fct)

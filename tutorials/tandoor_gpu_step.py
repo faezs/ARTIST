@@ -109,8 +109,11 @@ def gpu_step(env, actions):
     dt = env.dt
 
     # ---- Hashemi motors (BEFORE the optics see the sun this step)
+    # the DISH, not the drum: el_m is what the motor turns and the encoder reads, and the dish hangs off it
+    # through the tow-wire loop on the trunnion at F (tandoor_hashemi_env.el_dish_t)
+    _eld = env.el_dish_t(S.el_m, getattr(S, "wind", 0.0)) if hasattr(env, "el_dish_t") else S.el_m
     mnt = env._mount(S.day_v, S.lat_v, float(env.t_solar[0]),
-                     pnt=torch.stack([S.el_m, S.az_m], 1))
+                     pnt=torch.stack([_eld, S.az_m], 1))
     el0s = mnt["el"]                     # (B,) deg - per-env sun
     az0d = torch.rad2deg(mnt["az"])
     # potential BEFORE this step's motor action (see the numpy path)

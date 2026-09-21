@@ -1,0 +1,17 @@
+digraph "TandoorHashemi.elPower" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="W", shape=box];
+  n1 [label="rcm", shape=box];
+  n2 [label="t", shape=box];
+  n3 [label="omega", shape=box];
+  n4 [label="*", shape=ellipse];
+  n0 -> n4; n1 -> n4;
+  n5 [label="sin", shape=ellipse];
+  n2 -> n5;
+  n6 [label="*", shape=ellipse];
+  n4 -> n6; n5 -> n6;
+  n7 [label="*", shape=ellipse];
+  n6 -> n7; n3 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}

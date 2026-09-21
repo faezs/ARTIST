@@ -1,0 +1,23 @@
+digraph "TandoorHashemi.cosTubeCut" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="3.36", shape=plaintext];
+  n1 [label="3.2", shape=plaintext];
+  n2 [label="sqrt", shape=ellipse];
+  n1 -> n2;
+  n3 [label="-", shape=ellipse];
+  n0 -> n3; n2 -> n3;
+  n4 [label="2", shape=plaintext];
+  n5 [label="4.36", shape=plaintext];
+  n6 [label="*", shape=ellipse];
+  n4 -> n6; n2 -> n6;
+  n7 [label="-", shape=ellipse];
+  n5 -> n7; n6 -> n7;
+  n8 [label="sqrt", shape=ellipse];
+  n7 -> n8;
+  n9 [label="*", shape=ellipse];
+  n4 -> n9; n8 -> n9;
+  n10 [label="/", shape=ellipse];
+  n3 -> n10; n9 -> n10;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n10 -> out0;
+}

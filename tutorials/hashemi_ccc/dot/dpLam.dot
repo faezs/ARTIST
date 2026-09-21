@@ -1,0 +1,20 @@
+digraph "TandoorHashemi.dpLam" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="mu", shape=box];
+  n1 [label="L", shape=box];
+  n2 [label="v", shape=box];
+  n3 [label="D", shape=box];
+  n4 [label="32", shape=plaintext];
+  n5 [label="*", shape=ellipse];
+  n4 -> n5; n0 -> n5;
+  n6 [label="*", shape=ellipse];
+  n5 -> n6; n1 -> n6;
+  n7 [label="*", shape=ellipse];
+  n6 -> n7; n2 -> n7;
+  n8 [label="^2", shape=ellipse];
+  n3 -> n8;
+  n9 [label="/", shape=ellipse];
+  n7 -> n9; n8 -> n9;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out0;
+}

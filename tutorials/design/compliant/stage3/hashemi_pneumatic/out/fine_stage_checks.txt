@@ -1,0 +1,19 @@
+three tangential rods: rank 3, DOF 3: ['rotation about axis through [-0.  0.  0.] along [ 0.868 -0.497  0.   ]', 'rotation about axis through [-0.  0. -0.] along [0.497 0.868 0.   ]', 'translation along [0. 0. 1.]']
+rods + three locked water columns: rank 6, DOF 0: exact constraint, no sliding fit
+reciprocal products rods x (tip, tilt, piston): 0.0e+00
+water columns x (tip, tilt, piston) = their moment arms and 1: [[0.8, -1.39, 1.0], [0.8, 1.39, 1.0], [-1.6, 0.0, 1.0]] -> they actuate all three
+actuation wrench for unit tip about x: force 0.00 MN/rad along [ 0.  0. -1.] through [-2.5200000e+00 -2.0615843e+16 -0.0000000e+00] m, q 0.000: normal to the plane, in the box of Fig. 4.3
+actuation wrench for unit tilt about y: force 0.00 MN/rad along [0. 0. 1.] through [-1.30649915e+16 -1.60000000e+00  0.00000000e+00] m, q 0.000: normal to the plane, in the box of Fig. 4.3
+actuation wrench for unit focus along z: force 60.00 MN/rad along [0. 0. 1.] through [-0. -0.  0.] m, q 0.000: normal to the plane, in the box of Fig. 4.3
+rotational stiffness of the locked stage about the vertex: 77 MN m/rad (three columns k 20 MN/m at r 1.6 m); focus stiffness 60 MN/m
+
+range +-20 mrad: rod end offset 28 mm -> S-bend stress 249 MPa = 0.17 sigma_y (R3 <= 0.30); in-plane load per rod 445 N vs Euler 5062 N -> SF 11.4
+column stroke at full tilt +-32 mm; a rolling-diaphragm or edge-welded-bellows cylinder: no seal friction, no stiction
+1 mL of water moves a column 0.10 mm = 62 urad of tilt; a 10 mL/s pump slews 0.62 mrad/s; a closed valve holds with no power
+9 m/s: drag 751 N, torque about the vertex 315 N m -> 4 urad on the locked columns; each column carries up to 250 N normal load (0.3 bar)
+25 m/s: drag 5799 N, torque about the vertex 2436 N m -> 32 urad on the locked columns; each column carries up to 1933 N normal load (1.9 bar)
+thermal: dish (Al) vs back frame (steel) radial growth 0.62 mm at r 1.4 m, taken by rod bending at 5 MPa; water in a column expands 21 mL over +40 K = 1.31 mrad of drift for the loop to take out
+
+budget: coarse stage (bridle + stem r 0.8, no tendons) 3.9 mrad at 9 m/s, within the +-20 mrad fine range; the fine loop on the beam centroid corrects it at a few Hz;
+residual = coarse error / loop rejection + fine-stage compliance (3 urad) + sensor: ~0.2-0.4 mrad at 9 m/s, 3 urad quasi-static. Above ~18 m/s the coarse error exceeds the fine range: survival mode, no cooking.
+the piston DOF trims the vertex onto the true focal circle R/2 = 4.10 m (the env orbits at 4.0): +-32 mm of the 100 mm.

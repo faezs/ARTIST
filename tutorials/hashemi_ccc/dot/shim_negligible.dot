@@ -1,0 +1,12 @@
+digraph "TandoorHashemi.shim_negligible" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="0.0005", shape=plaintext];
+  n1 [label="0.01", shape=plaintext];
+  n2 [label="0.06", shape=plaintext];
+  n3 [label="*", shape=ellipse];
+  n1 -> n3; n2 -> n3;
+  n4 [label="<", shape=ellipse];
+  n0 -> n4; n3 -> n4;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out0;
+}

@@ -1,0 +1,12 @@
+digraph "TandoorHashemi.frictionLam" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="Re", shape=box];
+  n1 [label="64", shape=plaintext];
+  n2 [label="0.000000001", shape=plaintext];
+  n3 [label="max", shape=ellipse];
+  n0 -> n3; n2 -> n3;
+  n4 [label="/", shape=ellipse];
+  n1 -> n4; n3 -> n4;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out0;
+}

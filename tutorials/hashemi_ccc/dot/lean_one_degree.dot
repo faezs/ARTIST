@@ -1,0 +1,17 @@
+digraph "TandoorHashemi.lean_one_degree" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="0.02", shape=plaintext];
+  n1 [label="1.25", shape=plaintext];
+  n2 [label="π", shape=plaintext];
+  n3 [label="180", shape=plaintext];
+  n4 [label="/", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  n5 [label="sin", shape=ellipse];
+  n4 -> n5;
+  n6 [label="*", shape=ellipse];
+  n1 -> n6; n5 -> n6;
+  n7 [label="<", shape=ellipse];
+  n0 -> n7; n6 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}

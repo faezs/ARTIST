@@ -1,0 +1,23 @@
+digraph "TandoorHashemi.pumpCmd_mem" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="u", shape=box];
+  n1 [label="0", shape=plaintext];
+  n2 [label="1", shape=plaintext];
+  n3 [label="+", shape=ellipse];
+  n0 -> n3; n2 -> n3;
+  n4 [label="2", shape=plaintext];
+  n5 [label="/", shape=ellipse];
+  n3 -> n5; n4 -> n5;
+  n6 [label="max", shape=ellipse];
+  n5 -> n6; n1 -> n6;
+  n7 [label="min", shape=ellipse];
+  n6 -> n7; n2 -> n7;
+  n8 [label="<=", shape=ellipse];
+  n1 -> n8; n7 -> n8;
+  n9 [label="<=", shape=ellipse];
+  n7 -> n9; n2 -> n9;
+  n10 [label="&&", shape=ellipse];
+  n8 -> n10; n9 -> n10;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n10 -> out0;
+}

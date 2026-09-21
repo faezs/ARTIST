@@ -1,0 +1,6 @@
+digraph "TandoorHashemi.hpHashemi" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="0.34", shape=plaintext];
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n0 -> out0;
+}

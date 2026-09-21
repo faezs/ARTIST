@@ -12,6 +12,7 @@ resolves it through the symlink so the source stays git-tracked in ARTIST.
 
 import functools
 import importlib.util
+import os
 import pathlib
 import sys
 
@@ -113,21 +114,49 @@ sys.modules.setdefault("tandoor_hashemi_env", _mod5)
 _spec5.loader.exec_module(_mod5)
 TandoorHashemiEnv = _mod5.TandoorHashemiEnv
 
+# his concentrator on the tandoor: the pose and the power into the pot from Hashemi.lean compiled,
+# the pot, bread and reward the tandoor's own.  THE WRAPPER IS GENERATED
+# (tutorials/hashemi_ccc/hashemi_tandoor_ccc.py, printed by RequestProject/HashemiCcc.lean beside
+# the kernels from the same manifests); hashemi_harness.py beside it is its hand-written half, the
+# parent env's contract.  The hand-written hashemi_tandoor_env.py it replaces is kept: set
+# HASHEMI_WRAPPER=env to load that one instead (the two were measured bit-identical over a day,
+# see the commit "The env wrapper is printed too").
+_wrap = os.environ.get("HASHEMI_WRAPPER", "ccc")
+_wrap_file = "hashemi_tandoor_env.py" if _wrap == "env" else "hashemi_tandoor_ccc.py"
+try:
+    _spec6 = importlib.util.spec_from_file_location(
+        _wrap_file[:-3], _tutorials / "hashemi_ccc" / _wrap_file)
+    _mod6 = importlib.util.module_from_spec(_spec6)
+    sys.modules.setdefault(_wrap_file[:-3], _mod6)
+    _spec6.loader.exec_module(_mod6)
+    HashemiTandoorEnv = _mod6.HashemiTandoorEnv
+except Exception as _e:          # pragma: no cover
+    HashemiTandoorEnv = None
+    print(f"[puffer_tandoor] {_wrap_file} unavailable: {_e}")
+
 
 _spec7 = importlib.util.spec_from_file_location(
     "tandoor_flower_env", _tutorials / "tandoor_flower_env.py")
 _mod7 = importlib.util.module_from_spec(_spec7)
 sys.modules.setdefault("tandoor_flower_env", _mod7)
-_spec7.loader.exec_module(_mod7)
-TandoorFlowerEnv = _mod7.TandoorFlowerEnv
+try:
+    _spec7.loader.exec_module(_mod7)
+    TandoorFlowerEnv = _mod7.TandoorFlowerEnv
+except Exception as _e:          # pragma: no cover
+    TandoorFlowerEnv = None
+    print(f"[puffer_tandoor] tandoor_flower_env unavailable: {_e}")
 
 # the flower's own inner loop: 1 kHz, its own actuators, a flux camera for eyes
 _spec8 = importlib.util.spec_from_file_location(
     "tandoor_flower_fast", _tutorials / "tandoor_flower_fast.py")
 _mod8 = importlib.util.module_from_spec(_spec8)
 sys.modules.setdefault("tandoor_flower_fast", _mod8)
-_spec8.loader.exec_module(_mod8)
-TandoorFlowerFastEnv = _mod8.TandoorFlowerFastEnv
+try:
+    _spec8.loader.exec_module(_mod8)
+    TandoorFlowerFastEnv = _mod8.TandoorFlowerFastEnv
+except Exception as _e:          # pragma: no cover
+    TandoorFlowerFastEnv = None
+    print(f"[puffer_tandoor] tandoor_flower_fast unavailable: {_e}")
 
 
 _spec6 = importlib.util.spec_from_file_location(
@@ -145,6 +174,10 @@ def env_creator(name="puffer_tandoor"):
         return functools.partial(TandoorFlowerFastEnv)
     if "flower" in name:
         return functools.partial(TandoorFlowerEnv)
+    if "ccc" in name:
+        if HashemiTandoorEnv is None:
+            raise ImportError("puffer_hashemi_ccc requested but hashemi_tandoor_env failed to load")
+        return functools.partial(HashemiTandoorEnv)
     if "hashemi" in name:
         return functools.partial(TandoorHashemiEnv)
     if "coude" in name:

@@ -1,0 +1,20 @@
+digraph "TandoorHashemi.prop_mast_for_vertical_hashemi" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="1.17", shape=plaintext];
+  n1 [label="1.22", shape=plaintext];
+  n2 [label="0.8", shape=plaintext];
+  n3 [label="*", shape=ellipse];
+  n1 -> n3; n2 -> n3;
+  n4 [label="3.36", shape=plaintext];
+  n5 [label="sqrt", shape=ellipse];
+  n4 -> n5;
+  n6 [label="1", shape=plaintext];
+  n7 [label="-", shape=ellipse];
+  n5 -> n7; n6 -> n7;
+  n8 [label="/", shape=ellipse];
+  n3 -> n8; n7 -> n8;
+  n9 [label="<", shape=ellipse];
+  n0 -> n9; n8 -> n9;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out0;
+}

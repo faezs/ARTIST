@@ -1,0 +1,169 @@
+== asbuilt film_T 4922 slope 2e-3 06:50:28
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+MCTS over the design: site p25 (roof half-width 1.7 m), day 172 seasoned 4, 16 simulations x 3 children x 256 completions
+  objective: NET VALUE [PKR]: bread-weighted rotis x 8 PKR x 300 days x 5 yr, minus the kit; site: cap_scale u=0.375, demand_scale u=0.3333333333333333, site_az u=0.0, pot_r u=0.45454545454545453, pot_h u=0.5, site_hz u=0.5, over_cap u=0.5
+  sim 0 (uniform, 768 designs): mean -514, best-quartile mean -294, best 952 k PKR net  [98 s]
+  sim  1: expand [root] -> receiver cass -321, tri -135; batch mean -493, best so far 1212 k PKR net  [200 s]
+  sim  2: expand [receiver:tri] -> section circle -113, section -49; batch mean -447, best so far 1254 k PKR net  [300 s]
+  sim  3: expand [receiver:tri > section:section] -> post_rise lo -74, mid -35, hi 8; batch mean -430, best so far 1353 k PKR net  [398 s]
+  sim  4: expand [receiver:tri > section:section > post_rise:hi] -> deck_h lo -408, mid -13, hi 107; batch mean -454, best so far 1353 k PKR net  [497 s]
+  sim  5: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi] -> mount_post rail -488, post 455; batch mean -394, best so far 1353 k PKR net  [591 s]
+  sim  6: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post] -> d_strip lo 254, mid 742, hi 567; batch mean -194, best so far 1496 k PKR net  [678 s]
+  sim  7: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid] -> r_bore lo 611, mid 726, hi 677; batch mean -104, best so far 1500 k PKR net  [765 s]
+  sim  8: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid] -> r_m4 lo 517, mid 738, hi 773; batch mean -108, best so far 1713 k PKR net  [847 s]
+  sim  9: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:hi] -> u_f2 lo 752, mid 772, hi 603; batch mean -105, best so far 1753 k PKR net  [928 s]
+  sim 10: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid] -> u_f2 lo 725, mid 707, hi 758; batch mean -103, best so far 1753 k PKR net  [1012 s]
+  sim 11: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:hi > u_f2:mid] -> r_duct lo -179, mid 718, hi 990; batch mean -97, best so far 1854 k PKR net  [1096 s]
+  sim 12: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:hi > u_f2:mid > r_duct:hi] -> strip_wk lo 1106, mid 1139, hi 922; batch mean 249, best so far 2069 k PKR net  [1184 s]
+  sim 13: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:hi > u_f2:mid > r_duct:hi > strip_wk:mid] -> strip_th_hi lo 1035, mid 1152, hi 994; batch mean 261, best so far 2069 k PKR net  [1270 s]
+  sim 14: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:hi > u_f2:mid > r_duct:hi > strip_wk:mid > strip_th_hi:mid] -> w_slot lo 1044, mid 1114, hi 1011; batch mean 254, best so far 2069 k PKR net  [1355 s]
+  sim 15: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:hi > u_f2:mid > r_duct:hi > strip_wk:lo] -> strip_th_hi lo 1081, mid 1090, hi 1116; batch mean 261, best so far 2069 k PKR net  [1441 s]
+  sim 16: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:hi > u_f2:mid > r_duct:hi > strip_wk:mid > strip_th_hi:mid > w_slot:mid] -> r_hole lo 1055, mid 1177, hi 1140; batch mean 275, best so far 2223 k PKR net  [1531 s]
+
+greedy path (parameter: bin, estimated best-quartile value, visits):
+  receiver         tri          678 k PKR net  n=16
+  section          section      732 k PKR net  n=15
+  post_rise        hi           788 k PKR net  n=14
+  deck_h           hi           848 k PKR net  n=13
+  mount_post       post         909 k PKR net  n=12
+  d_strip          mid          951 k PKR net  n=11
+  r_bore           mid          972 k PKR net  n=10
+  r_m4             hi          1029 k PKR net  n=8
+  u_f2             mid         1066 k PKR net  n=7
+  r_duct           hi          1115 k PKR net  n=6
+  strip_wk         mid         1145 k PKR net  n=4
+  strip_th_hi      mid         1148 k PKR net  n=3
+  w_slot           mid         1145 k PKR net  n=2
+  r_hole           mid         1177 k PKR net  n=1
+
+  (as built: circle, film 9.6 m2, dish_scale 0.83, rise 0.0 m, 5 plenum zone(s), tri)
+
+best single design: 200 rotis (day 172, seasoned day 4), kit 705k PKR (OVER the 100k budget): d_strip=0.74, u_f2=4.62, r_m4=1.53, r_bore=0.85, w_slot=0.72, r_hole=0.48, strip_th_hi=89.50, strip_wk=1.15, r_duct=0.80, roof_r=1.69, deck_h=6.40, rate_scale=1.00, ins_scale=0.33, cap_scale=1.00, lid_leak=0.32, bread_area=0.15, loaves_per_load=5.22, mount_post=0.92, sand_depth=0.12, sand_k=1.91, demand_scale=1.00, section=0.71, post_rise=2.81, over_cap=0.50, zones=5.00, m4_facet=0.25, roof_light=0.84, grid=1.00, receiver=0.72, site_az=0.00, pot_r=1.00, pot_h=1.00, site_hz=0.50, dish_scale=0.83, site=0.00, film=9.64, rim=11.01, rise=0.00, ocap=0.00, film_m2=9.64, rim_m=11.01, r_out_max=1.75, m4sig=0.00, roofl=1.00, m4c=0.00, m4chord=0.00, m4flat=0.00, tri=1.00, shell=0.00, shell_name=perlite, shell_t=0.11, shell_m3=3.04, shell_MJK=0.30
+bill of materials:
+  dish           62.9k
+  tower          42.5k
+  mount          45.6k
+  motors         24.3k
+  strip          20.4k
+  m4            117.0k
+  bore          106.9k
+  insulation     55.1k
+  sand           29.5k
+  lid             5.1k
+  fixed         175.8k
+  TOTAL         704.6k PKR  (OVER the 100k budget)
+evaluated 13056 machines in 1531 s
+== asbuilt done 07:16:36
+== fed film_T 2100 slope 2e-3 07:16:36
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+MCTS over the design: site p25 (roof half-width 1.7 m), day 172 seasoned 4, 16 simulations x 3 children x 256 completions
+  objective: NET VALUE [PKR]: bread-weighted rotis x 8 PKR x 300 days x 5 yr, minus the kit; site: cap_scale u=0.375, demand_scale u=0.3333333333333333, site_az u=0.0, pot_r u=0.45454545454545453, pot_h u=0.5, site_hz u=0.5, over_cap u=0.5
+  sim 0 (uniform, 768 designs): mean -518, best-quartile mean -307, best 929 k PKR net  [121 s]
+  sim  1: expand [root] -> receiver cass -329, tri -174; batch mean -500, best so far 1014 k PKR net  [243 s]
+  sim  2: expand [receiver:tri] -> section circle -152, section -117; batch mean -462, best so far 1225 k PKR net  [365 s]
+  sim  3: expand [receiver:tri > section:section] -> post_rise lo -108, mid -82, hi -68; batch mean -445, best so far 1225 k PKR net  [485 s]
+  sim  4: expand [receiver:tri > section:section > post_rise:hi] -> deck_h lo -412, mid -42, hi 39; batch mean -464, best so far 1225 k PKR net  [607 s]
+  sim  5: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi] -> mount_post rail -490, post 408; batch mean -409, best so far 1249 k PKR net  [725 s]
+  sim  6: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post] -> d_strip lo 200, mid 663, hi 478; batch mean -229, best so far 1417 k PKR net  [832 s]
+  sim  7: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid] -> r_bore lo 537, mid 654, hi 605; batch mean -148, best so far 1575 k PKR net  [941 s]
+  sim  8: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid] -> r_m4 lo 403, mid 723, hi 669; batch mean -151, best so far 1788 k PKR net  [1047 s]
+  sim  9: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid] -> u_f2 lo 693, mid 674, hi 504; batch mean -135, best so far 1829 k PKR net  [1152 s]
+  sim 10: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:lo] -> r_duct lo -143, mid 671, hi 1017; batch mean -88, best so far 1829 k PKR net  [1256 s]
+  sim 11: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:lo > r_duct:hi] -> strip_wk lo 954, mid 937, hi 776; batch mean 160, best so far 1829 k PKR net  [1363 s]
+  sim 12: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:lo > r_duct:hi > strip_wk:lo] -> strip_th_hi lo 981, mid 1062, hi 908; batch mean 181, best so far 2041 k PKR net  [1470 s]
+  sim 13: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:lo > r_duct:hi > strip_wk:lo > strip_th_hi:mid] -> w_slot lo 949, mid 1015, hi 1050; batch mean 215, best so far 2041 k PKR net  [1579 s]
+  sim 14: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:lo > r_duct:hi > strip_wk:lo > strip_th_hi:mid > w_slot:hi] -> r_hole lo 1045, mid 1024, hi 934; batch mean 251, best so far 2041 k PKR net  [1686 s]
+  sim 15: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:lo > r_duct:hi > strip_wk:lo > strip_th_hi:mid > w_slot:mid] -> r_hole lo 1004, mid 1074, hi 1040; batch mean 230, best so far 2041 k PKR net  [1792 s]
+  sim 16: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:lo > r_duct:hi > strip_wk:lo > strip_th_hi:mid > w_slot:hi > r_hole:lo] -> ins_scale lo 1026, mid 987, hi 1036; batch mean 246, best so far 2041 k PKR net  [1901 s]
+
+greedy path (parameter: bin, estimated best-quartile value, visits):
+  receiver         tri          629 k PKR net  n=16
+  section          section      682 k PKR net  n=15
+  post_rise        hi           739 k PKR net  n=14
+  deck_h           hi           801 k PKR net  n=13
+  mount_post       post         865 k PKR net  n=12
+  d_strip          mid          906 k PKR net  n=11
+  r_bore           mid          931 k PKR net  n=10
+  r_m4             mid          962 k PKR net  n=9
+  u_f2             lo           991 k PKR net  n=8
+  r_duct           hi          1034 k PKR net  n=7
+  strip_wk         lo          1037 k PKR net  n=6
+  strip_th_hi      mid         1053 k PKR net  n=5
+  w_slot           mid         1045 k PKR net  n=2
+  r_hole           mid         1074 k PKR net  n=1
+
+  (as built: circle, film 10.0 m2, dish_scale 0.85, rise 0.0 m, 5 plenum zone(s), tri)
+
+best single design: 175 rotis (day 172, seasoned day 4), kit 649k PKR (OVER the 100k budget): d_strip=0.69, u_f2=3.28, r_m4=1.13, r_bore=0.82, w_slot=0.64, r_hole=0.35, strip_th_hi=89.23, strip_wk=0.88, r_duct=0.77, roof_r=1.69, deck_h=7.30, rate_scale=1.68, ins_scale=0.52, cap_scale=1.00, lid_leak=0.39, bread_area=0.15, loaves_per_load=7.36, mount_post=0.86, sand_depth=0.32, sand_k=2.57, demand_scale=1.00, section=0.91, post_rise=2.68, over_cap=0.50, zones=5.00, m4_facet=0.10, roof_light=0.67, grid=1.00, receiver=0.72, site_az=0.00, pot_r=1.00, pot_h=1.00, site_hz=0.50, dish_scale=0.85, site=0.00, film=10.03, rim=11.23, rise=0.00, ocap=0.00, film_m2=10.03, rim_m=11.23, r_out_max=1.79, m4sig=0.00, roofl=1.00, m4c=0.00, m4chord=0.00, m4flat=0.00, tri=1.00, shell=0.00, shell_name=perlite, shell_t=0.05, shell_m3=1.27, shell_MJK=0.13
+bill of materials:
+  dish           63.7k
+  tower          42.5k
+  mount          45.8k
+  motors         45.5k
+  strip          14.1k
+  m4             64.2k
+  bore          114.6k
+  insulation     27.5k
+  sand           38.3k
+  lid             4.1k
+  fixed         168.7k
+  TOTAL         648.7k PKR  (OVER the 100k budget)
+evaluated 13056 machines in 1901 s
+== fed done 07:48:55
+== fed_smooth film_T 2100 slope 1e-3 07:48:55
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+MCTS over the design: site p25 (roof half-width 1.7 m), day 172 seasoned 4, 16 simulations x 3 children x 256 completions
+  objective: NET VALUE [PKR]: bread-weighted rotis x 8 PKR x 300 days x 5 yr, minus the kit; site: cap_scale u=0.375, demand_scale u=0.3333333333333333, site_az u=0.0, pot_r u=0.45454545454545453, pot_h u=0.5, site_hz u=0.5, over_cap u=0.5
+  sim 0 (uniform, 768 designs): mean -516, best-quartile mean -297, best 918 k PKR net  [101 s]
+  sim  1: expand [root] -> receiver cass -315, tri -164; batch mean -496, best so far 1035 k PKR net  [200 s]
+  sim  2: expand [receiver:tri] -> section circle -138, section -75; batch mean -454, best so far 1340 k PKR net  [300 s]
+  sim  3: expand [receiver:tri > section:section] -> post_rise lo -102, mid -59, hi -21; batch mean -438, best so far 1340 k PKR net  [399 s]
+  sim  4: expand [receiver:tri > section:section > post_rise:hi] -> deck_h lo -407, mid -41, hi 91; batch mean -458, best so far 1340 k PKR net  [503 s]
+  sim  5: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi] -> mount_post rail -488, post 456; batch mean -401, best so far 1340 k PKR net  [603 s]
+  sim  6: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post] -> d_strip lo 206, mid 649, hi 542; batch mean -218, best so far 1611 k PKR net  [687 s]
+  sim  7: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid] -> r_bore lo 559, mid 638, hi 605; batch mean -143, best so far 1649 k PKR net  [770 s]
+  sim  8: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid] -> r_m4 lo 441, mid 728, hi 669; batch mean -143, best so far 1678 k PKR net  [855 s]
+  sim  9: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid] -> u_f2 lo 673, mid 711, hi 517; batch mean -121, best so far 2201 k PKR net  [939 s]
+  sim 10: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:mid] -> r_duct lo -148, mid 686, hi 1041; batch mean -79, best so far 2201 k PKR net  [1023 s]
+  sim 11: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:mid > r_duct:hi] -> strip_wk lo 965, mid 985, hi 790; batch mean 182, best so far 2201 k PKR net  [1110 s]
+  sim 12: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:mid > r_duct:hi > strip_wk:mid] -> strip_th_hi lo 984, mid 999, hi 876; batch mean 166, best so far 2201 k PKR net  [1200 s]
+  sim 13: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:mid > r_duct:hi > strip_wk:lo] -> strip_th_hi lo 1050, mid 989, hi 907; batch mean 222, best so far 2201 k PKR net  [1307 s]
+  sim 14: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:mid > r_duct:hi > strip_wk:lo > strip_th_hi:lo] -> w_slot lo 986, mid 1145, hi 1129; batch mean 294, best so far 2201 k PKR net  [1413 s]
+  sim 15: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:mid > r_duct:hi > strip_wk:lo > strip_th_hi:lo > w_slot:mid] -> r_hole lo 1002, mid 1129, hi 1045; batch mean 273, best so far 2201 k PKR net  [1519 s]
+  sim 16: expand [receiver:tri > section:section > post_rise:hi > deck_h:hi > mount_post:post > d_strip:mid > r_bore:mid > r_m4:mid > u_f2:mid > r_duct:hi > strip_wk:lo > strip_th_hi:lo > w_slot:hi] -> r_hole lo 1148, mid 1110, hi 1014; batch mean 274, best so far 2201 k PKR net  [1626 s]
+
+greedy path (parameter: bin, estimated best-quartile value, visits):
+  receiver         tri          657 k PKR net  n=16
+  section          section      712 k PKR net  n=15
+  post_rise        hi           768 k PKR net  n=14
+  deck_h           hi           828 k PKR net  n=13
+  mount_post       post         890 k PKR net  n=12
+  d_strip          mid          929 k PKR net  n=11
+  r_bore           mid          957 k PKR net  n=10
+  r_m4             mid          993 k PKR net  n=9
+  u_f2             mid         1026 k PKR net  n=8
+  r_duct           hi          1071 k PKR net  n=7
+  strip_wk         lo          1088 k PKR net  n=5
+  strip_th_hi      lo          1118 k PKR net  n=4
+  w_slot           hi          1139 k PKR net  n=2
+  r_hole           lo          1148 k PKR net  n=1
+
+  (as built: circle, film 10.0 m2, dish_scale 0.85, rise 0.0 m, 5 plenum zone(s), tri)
+
+best single design: 183 rotis (day 172, seasoned day 4), kit 680k PKR (OVER the 100k budget): d_strip=0.74, u_f2=3.81, r_m4=1.21, r_bore=0.77, w_slot=0.93, r_hole=0.34, strip_th_hi=92.95, strip_wk=1.19, r_duct=0.75, roof_r=1.69, deck_h=7.33, rate_scale=1.38, ins_scale=0.95, cap_scale=1.00, lid_leak=0.13, bread_area=0.16, loaves_per_load=7.10, mount_post=0.95, sand_depth=0.09, sand_k=2.77, demand_scale=1.00, section=0.53, post_rise=2.50, over_cap=0.50, zones=5.00, m4_facet=0.36, roof_light=0.21, grid=0.00, receiver=0.69, site_az=0.00, pot_r=1.00, pot_h=1.00, site_hz=0.50, dish_scale=0.85, site=0.00, film=10.03, rim=11.23, rise=0.00, ocap=0.00, film_m2=10.03, rim_m=11.23, r_out_max=1.79, m4sig=0.01, roofl=0.00, m4c=0.06, m4chord=0.06, m4flat=0.00, tri=1.00, shell=0.00, shell_name=perlite, shell_t=0.00, shell_m3=0.06, shell_MJK=0.01
+bill of materials:
+  dish           63.7k
+  tower          42.5k
+  mount          45.8k
+  motors         35.5k
+  strip          22.2k
+  m4             36.8k
+  bore          175.1k
+  insulation      5.7k
+  sand           40.1k
+  lid            12.2k
+  fixed         180.4k
+  TOTAL         679.6k PKR  (OVER the 100k budget)
+evaluated 13056 machines in 1626 s
+== fed_smooth done 08:16:38
+ALLDONE

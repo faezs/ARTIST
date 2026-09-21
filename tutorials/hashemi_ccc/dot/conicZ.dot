@@ -1,0 +1,32 @@
+digraph "TandoorHashemi.conicZ" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="c", shape=box];
+  n1 [label="k", shape=box];
+  n2 [label="r", shape=box];
+  n3 [label="^2", shape=ellipse];
+  n2 -> n3;
+  n4 [label="*", shape=ellipse];
+  n0 -> n4; n3 -> n4;
+  n5 [label="1", shape=plaintext];
+  n6 [label="+", shape=ellipse];
+  n5 -> n6; n1 -> n6;
+  n7 [label="^2", shape=ellipse];
+  n0 -> n7;
+  n8 [label="*", shape=ellipse];
+  n6 -> n8; n7 -> n8;
+  n9 [label="*", shape=ellipse];
+  n8 -> n9; n3 -> n9;
+  n10 [label="-", shape=ellipse];
+  n5 -> n10; n9 -> n10;
+  n11 [label="0", shape=plaintext];
+  n12 [label="max", shape=ellipse];
+  n10 -> n12; n11 -> n12;
+  n13 [label="sqrt", shape=ellipse];
+  n12 -> n13;
+  n14 [label="+", shape=ellipse];
+  n5 -> n14; n13 -> n14;
+  n15 [label="/", shape=ellipse];
+  n4 -> n15; n14 -> n15;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n15 -> out0;
+}

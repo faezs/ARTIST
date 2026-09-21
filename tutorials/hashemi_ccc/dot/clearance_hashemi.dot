@@ -1,0 +1,38 @@
+digraph "TandoorHashemi.clearance_hashemi" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="holeDown", shape=box];
+  n1 [label="0.1449", shape=plaintext];
+  n2 [label="-", shape=ellipse];
+  n1 -> n2; n0 -> n2;
+  n3 [label="1.30", shape=plaintext];
+  n4 [label="0.62", shape=plaintext];
+  n5 [label="0.96", shape=plaintext];
+  n6 [label="0.175", shape=plaintext];
+  n7 [label="4", shape=plaintext];
+  n8 [label="-", shape=ellipse];
+  n3 -> n8; n0 -> n8;
+  n9 [label="5", shape=plaintext];
+  n10 [label="2", shape=plaintext];
+  n11 [label="3.36", shape=plaintext];
+  n12 [label="sqrt", shape=ellipse];
+  n11 -> n12;
+  n13 [label="*", shape=ellipse];
+  n10 -> n13; n12 -> n13;
+  n14 [label="-", shape=ellipse];
+  n9 -> n14; n13 -> n14;
+  n15 [label="sqrt", shape=ellipse];
+  n14 -> n15;
+  n16 [label="-", shape=ellipse];
+  n8 -> n16; n15 -> n16;
+  n17 [label="<", shape=ellipse];
+  n2 -> n17; n16 -> n17;
+  n18 [label="0.146", shape=plaintext];
+  n19 [label="-", shape=ellipse];
+  n18 -> n19; n0 -> n19;
+  n20 [label="<", shape=ellipse];
+  n16 -> n20; n19 -> n20;
+  n21 [label="&&", shape=ellipse];
+  n17 -> n21; n20 -> n21;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n21 -> out0;
+}

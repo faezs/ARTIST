@@ -1,0 +1,25 @@
+digraph "TandoorHashemi.swingWind_ge" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="W", shape=box];
+  n1 [label="rcm", shape=box];
+  n2 [label="t", shape=box];
+  n3 [label="M", shape=box];
+  n4 [label="1", shape=plaintext];
+  n5 [label="0", shape=plaintext];
+  n6 [label="*", shape=ellipse];
+  n0 -> n6; n1 -> n6;
+  n7 [label="/", shape=ellipse];
+  n3 -> n7; n6 -> n7;
+  n8 [label="max", shape=ellipse];
+  n5 -> n8; n7 -> n8;
+  n9 [label="min", shape=ellipse];
+  n4 -> n9; n8 -> n9;
+  n10 [label="arcsin", shape=ellipse];
+  n9 -> n10;
+  n11 [label="max", shape=ellipse];
+  n2 -> n11; n10 -> n11;
+  n12 [label="<=", shape=ellipse];
+  n2 -> n12; n11 -> n12;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n12 -> out0;
+}

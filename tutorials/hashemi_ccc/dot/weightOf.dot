@@ -1,0 +1,26 @@
+digraph "TandoorHashemi.weightOf" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="a", shape=box];
+  n1 [label="300", shape=plaintext];
+  n2 [label="9.81", shape=plaintext];
+  n3 [label="2", shape=plaintext];
+  n4 [label="0.8", shape=plaintext];
+  n5 [label="*", shape=ellipse];
+  n3 -> n5; n4 -> n5;
+  n6 [label="^2", shape=ellipse];
+  n5 -> n6;
+  n7 [label="*", shape=ellipse];
+  n2 -> n7; n6 -> n7;
+  n8 [label="/", shape=ellipse];
+  n1 -> n8; n7 -> n8;
+  n9 [label="*", shape=ellipse];
+  n3 -> n9; n0 -> n9;
+  n10 [label="^2", shape=ellipse];
+  n9 -> n10;
+  n11 [label="*", shape=ellipse];
+  n8 -> n11; n10 -> n11;
+  n12 [label="*", shape=ellipse];
+  n11 -> n12; n2 -> n12;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n12 -> out0;
+}

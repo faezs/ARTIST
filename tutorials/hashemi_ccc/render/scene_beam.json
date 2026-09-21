@@ -1,0 +1,25 @@
+{
+"scene": "beam",
+"source": "RequestProject/HashemiSceneInst.lean, beamScene — HashemiBeamdown.lean",
+"c": "hk_sceneBeam",
+"kernel": "scene_beam",
+"inputs": ["az", "t", "apexH", "zBolt", "f", "beta", "R", "a", "w", "k", "sigmaslope", "sigmaspec", "hsun", "elSun", "azSun", "L", "dm", "rm", "rt", "slotW"],
+"arrays": [{"name": "dr", "P": 64, "m": 10}],
+"rays": 64,
+"n_static": 3,
+"n_ray": 19,
+"n_nodes": 1247,
+"entries": [
+  {"label": "beam_axis", "kind": "Scene.Kind.point", "colour": 1, "ray": false, "offset": 0, "width": 3, "leaves": [{"leaf": "pt", "defn": "beamAxis", "frame": "roofOfDish", "bind": []}]},
+  {"label": "secondary_hit", "kind": "Scene.Kind.point", "colour": 2, "ray": true, "offset": 0, "width": 3, "leaves": [{"leaf": "pt", "defn": "beamHitT", "frame": "roofOfDish", "bind": []}]},
+  {"label": "beam_leg", "kind": "Scene.Kind.segment", "colour": 2, "ray": true, "offset": 3, "width": 6, "leaves": [{"leaf": "pt", "defn": "dishHitT", "frame": "roofOfDish", "bind": []}, {"leaf": "pt", "defn": "beamHitT", "frame": "roofOfDish", "bind": []}]},
+  {"label": "secondary_normal", "kind": "Scene.Kind.point", "colour": 3, "ray": true, "offset": 9, "width": 3, "leaves": [{"leaf": "pt", "defn": "beamNormalT", "frame": "roofOfDish", "bind": []}]},
+  {"label": "captured", "kind": "Scene.Kind.scalar", "colour": 4, "ray": true, "offset": 12, "width": 1, "leaves": [{"leaf": "num", "defn": "beamTraceT", "col": 0, "bind": []}]},
+  {"label": "hit_secondary", "kind": "Scene.Kind.scalar", "colour": 4, "ray": true, "offset": 13, "width": 1, "leaves": [{"leaf": "num", "defn": "beamTraceT", "col": 1, "bind": []}]},
+  {"label": "spill", "kind": "Scene.Kind.scalar", "colour": 4, "ray": true, "offset": 14, "width": 1, "leaves": [{"leaf": "num", "defn": "beamTraceT", "col": 3, "bind": []}]},
+  {"label": "crossing_x", "kind": "Scene.Kind.scalar", "colour": 5, "ray": true, "offset": 15, "width": 1, "leaves": [{"leaf": "num", "defn": "beamTraceT", "col": 4, "bind": []}]},
+  {"label": "crossing_y", "kind": "Scene.Kind.scalar", "colour": 5, "ray": true, "offset": 16, "width": 1, "leaves": [{"leaf": "num", "defn": "beamTraceT", "col": 5, "bind": []}]},
+  {"label": "radius_on_secondary", "kind": "Scene.Kind.scalar", "colour": 5, "ray": true, "offset": 17, "width": 1, "leaves": [{"leaf": "num", "defn": "beamRadiusT", "col": 4, "bind": []}]},
+  {"label": "fate", "kind": "Scene.Kind.scalar", "colour": 6, "ray": true, "offset": 18, "width": 1, "leaves": [{"leaf": "num", "defn": "beamTraceT", "col": 7, "bind": []}]}
+]
+}

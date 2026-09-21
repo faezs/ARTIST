@@ -1,0 +1,18 @@
+digraph "TandoorHashemi.tracker_margin_hashemi" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="eps", shape=box];
+  n1 [label="1", shape=plaintext];
+  n2 [label="tan", shape=ellipse];
+  n0 -> n2;
+  n3 [label="*", shape=ellipse];
+  n1 -> n3; n2 -> n3;
+  n4 [label="0.03", shape=plaintext];
+  n5 [label="<=", shape=ellipse];
+  n3 -> n5; n4 -> n5;
+  n6 [label="<=", shape=ellipse];
+  n2 -> n6; n4 -> n6;
+  n7 [label="==", shape=ellipse];
+  n5 -> n7; n6 -> n7;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out0;
+}

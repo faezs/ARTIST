@@ -1,0 +1,20 @@
+digraph "TandoorHashemi.sunReachableS" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="tDead", shape=box];
+  n1 [label="elSun", shape=box];
+  n2 [label="π", shape=plaintext];
+  n3 [label="2", shape=plaintext];
+  n4 [label="/", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  n5 [label="-", shape=ellipse];
+  n4 -> n5; n0 -> n5;
+  n6 [label="-", shape=ellipse];
+  n1 -> n6; n5 -> n6;
+  n7 [label="0.01", shape=plaintext];
+  n8 [label="/", shape=ellipse];
+  n6 -> n8; n7 -> n8;
+  n9 [label="sigmoid", shape=ellipse];
+  n8 -> n9;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out0;
+}

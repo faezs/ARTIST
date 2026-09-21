@@ -1,0 +1,20 @@
+digraph "TandoorHashemi.sphereFocal" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="R", shape=box];
+  n1 [label="h", shape=box];
+  n2 [label="2", shape=plaintext];
+  n3 [label="/", shape=ellipse];
+  n1 -> n3; n0 -> n3;
+  n4 [label="arcsin", shape=ellipse];
+  n3 -> n4;
+  n5 [label="cos", shape=ellipse];
+  n4 -> n5;
+  n6 [label="*", shape=ellipse];
+  n2 -> n6; n5 -> n6;
+  n7 [label="/", shape=ellipse];
+  n0 -> n7; n6 -> n7;
+  n8 [label="-", shape=ellipse];
+  n0 -> n8; n7 -> n8;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n8 -> out0;
+}

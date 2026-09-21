@@ -1,0 +1,14 @@
+digraph "TandoorHashemi.captureS" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="rc", shape=box];
+  n1 [label="rad", shape=box];
+  n2 [label="-", shape=ellipse];
+  n0 -> n2; n1 -> n2;
+  n3 [label="0.005", shape=plaintext];
+  n4 [label="/", shape=ellipse];
+  n2 -> n4; n3 -> n4;
+  n5 [label="sigmoid", shape=ellipse];
+  n4 -> n5;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n5 -> out0;
+}

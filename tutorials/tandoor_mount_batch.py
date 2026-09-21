@@ -151,7 +151,7 @@ def _consts(env, dev, dtype):
     return c
 
 
-def mount_batch(env, day, lat, hour, dev, pnt=None):
+def mount_batch(env, day, lat, hour, dev, pnt=None, mech=None):
     """The full per-step mount solve for (B,) days/lats at shared
     hour. Returns per-env geometry the trace consumes:
     vp (B,7,3), Mt (B,3,3), Cd (B,3), Acan (B,3,3),
@@ -193,6 +193,13 @@ def mount_batch(env, day, lat, hour, dev, pnt=None):
     Cd = P_fold - g_b[:, None] * ub
     naim = um + ub
     naim = naim / naim.norm(dim=-1, keepdim=True)
+    if mech is not None and float(mech[:, 0].max()) > 0:
+        # THE MOUNT AS SCREWS (tandoor_screws): the head where the chain and its compliance put it; the beam
+        # direction is the line to F, the pointing the mirror's reflection of it, beta the angle between - the
+        # torch twin of the kernel's block, so CUDA/CPU and Metal see the same frames
+        from tandoor_screws import apply_rows, pointing_from_frame
+        Cd, naim = apply_rows(mech.to(u.dtype))
+        um, ub, beta_t = pointing_from_frame(Cd, naim, P_fold)
     M = _align_batch(C["zhat"], naim)
     el_b = torch.rad2deg(torch.arcsin(ub[:, 2].clamp(-1, 1)))
     el_r = torch.deg2rad(el_b)
@@ -234,6 +241,11 @@ def mount_batch(env, day, lat, hour, dev, pnt=None):
         # row 2 carries the DISH axis for the Cassegrain (its strip
         # follows the mount), -p_up for the stock chain
         row2 = um if getattr(env, "receiver", "fold") in ("cass", "tri") else -p_up
+        if mech is not None and float(mech[:, 0].max()) > 0 and getattr(env, "receiver", "fold") in ("cass", "tri"):
+            # the strip's frame follows the link it is mounted on (the kernel's smode): 0 um, 1 the line to F, 2 a given axis
+            sm = mech[:, 2].to(u.dtype)[:, None]; ax = mech[:, 3:6].to(u.dtype)
+            ax = ax / ax.norm(dim=-1, keepdim=True).clamp(min=1e-9)
+            row2 = torch.where(sm > 1.5, ax, torch.where(sm > 0.5, ub, um))
         vp = torch.stack([u, P_fold, row2, e_pp, nf, e_par, e_prp], 1)
     Mt = M.transpose(1, 2)
     mu = torch.einsum("bij,bj->bi", Mt, -u)            # incident = the sun

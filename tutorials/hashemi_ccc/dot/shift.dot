@@ -1,0 +1,37 @@
+digraph "TandoorHashemi.shift" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="x", shape=box];
+  n1 [label="h_0", shape=box];
+  n2 [label="h_1", shape=box];
+  n3 [label="h_2", shape=box];
+  n4 [label="h_3", shape=box];
+  n5 [label="h_4", shape=box];
+  n6 [label="h_5", shape=box];
+  n7 [label="h_6", shape=box];
+  n8 [label="h_7", shape=box];
+  n9 [label="h_8", shape=box];
+  n10 [label="h_9", shape=box];
+  n11 [label="h_10", shape=box];
+  n12 [label="h_11", shape=box];
+  n13 [label="h_12", shape=box];
+  n14 [label="h_13", shape=box];
+  n15 [label="h_14", shape=box];
+  n16 [label="h_15", shape=box];
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n0 -> out0;
+  out1 [label="out 1", shape=box, style=filled, fillcolor=lightgrey]; n1 -> out1;
+  out2 [label="out 2", shape=box, style=filled, fillcolor=lightgrey]; n2 -> out2;
+  out3 [label="out 3", shape=box, style=filled, fillcolor=lightgrey]; n3 -> out3;
+  out4 [label="out 4", shape=box, style=filled, fillcolor=lightgrey]; n4 -> out4;
+  out5 [label="out 5", shape=box, style=filled, fillcolor=lightgrey]; n5 -> out5;
+  out6 [label="out 6", shape=box, style=filled, fillcolor=lightgrey]; n6 -> out6;
+  out7 [label="out 7", shape=box, style=filled, fillcolor=lightgrey]; n7 -> out7;
+  out8 [label="out 8", shape=box, style=filled, fillcolor=lightgrey]; n8 -> out8;
+  out9 [label="out 9", shape=box, style=filled, fillcolor=lightgrey]; n9 -> out9;
+  out10 [label="out 10", shape=box, style=filled, fillcolor=lightgrey]; n10 -> out10;
+  out11 [label="out 11", shape=box, style=filled, fillcolor=lightgrey]; n11 -> out11;
+  out12 [label="out 12", shape=box, style=filled, fillcolor=lightgrey]; n12 -> out12;
+  out13 [label="out 13", shape=box, style=filled, fillcolor=lightgrey]; n13 -> out13;
+  out14 [label="out 14", shape=box, style=filled, fillcolor=lightgrey]; n14 -> out14;
+  out15 [label="out 15", shape=box, style=filled, fillcolor=lightgrey]; n15 -> out15;
+}

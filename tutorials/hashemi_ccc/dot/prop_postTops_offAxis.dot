@@ -1,0 +1,20 @@
+digraph "TandoorHashemi.prop_postTops_offAxis" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="c_chord", shape=box];
+  n1 [label="c_apexH", shape=box];
+  n2 [label="c_aBase", shape=box];
+  n3 [label="c_cross", shape=box];
+  n4 [label="c_barW", shape=box];
+  n5 [label="c_rDrive", shape=box];
+  n6 [label="l_upright", shape=box];
+  n7 [label="l_foot", shape=box];
+  n8 [label="l_brace", shape=box];
+  n9 [label="l_footShort", shape=box];
+  n10 [label="l_holes", shape=box];
+  n11 [label="endIn", shape=box];
+  n12 [label="sg", shape=box];
+  n13 [label="==", shape=ellipse];
+  n1 -> n13; n1 -> n13;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n13 -> out0;
+}

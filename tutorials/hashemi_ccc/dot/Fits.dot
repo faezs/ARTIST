@@ -1,0 +1,30 @@
+digraph "TandoorHashemi.Fits" {
+  rankdir=BT;
+  node [fontname=Helvetica];
+  n0 [label="b_rRail", shape=box];
+  n1 [label="b_zRail", shape=box];
+  n2 [label="b_zTube", shape=box];
+  n3 [label="b_zBearing", shape=box];
+  n4 [label="b_dPipe", shape=box];
+  n5 [label="b_nSpokes", shape=box];
+  n6 [label="c_chord", shape=box];
+  n7 [label="c_apexH", shape=box];
+  n8 [label="c_aBase", shape=box];
+  n9 [label="c_cross", shape=box];
+  n10 [label="c_barW", shape=box];
+  n11 [label="c_rDrive", shape=box];
+  n12 [label="2", shape=plaintext];
+  n13 [label="/", shape=ellipse];
+  n6 -> n13; n12 -> n13;
+  n14 [label="^2", shape=ellipse];
+  n13 -> n14;
+  n15 [label="^2", shape=ellipse];
+  n7 -> n15;
+  n16 [label="+", shape=ellipse];
+  n14 -> n16; n15 -> n16;
+  n17 [label="sqrt", shape=ellipse];
+  n16 -> n17;
+  n18 [label="==", shape=ellipse];
+  n0 -> n18; n17 -> n18;
+  out0 [label="out 0", shape=box, style=filled, fillcolor=lightgrey]; n18 -> out0;
+}
